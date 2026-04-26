@@ -15,11 +15,7 @@ export default function MarketingHeader() {
         <header className="siteHeader">
             <div className="siteHeaderInner">
                 <Link href="/" aria-label="Cobrai home">
-                    <img
-                        src="/Cobrai.Logo.png"
-                        alt="Cobrai logo"
-                        className="headerLogo"
-                    />
+
                 </Link>
 
                 <nav className="topNav" aria-label="Main navigation">
