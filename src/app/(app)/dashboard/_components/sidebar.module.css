@@ -1,0 +1,114 @@
+.sidebar {
+    width: 205px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 18px 14px 14px;
+    border-right: 1px solid #eceff3;
+    background: #ffffff;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.top {
+    display: flex;
+    flex-direction: column;
+}
+
+.brandRow {
+    display: flex;
+    align-items: center;
+    min-height: 59px;
+    padding: 4px 8px 18px 8px;
+    margin-bottom: 8px;
+}
+
+.brandLink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    text-decoration: none;
+    width: 100%;
+}
+
+.logo {
+    width: 150px;
+    height: auto;
+    object-fit: contain;
+    display: block;
+}
+
+.sectionLabel {
+    padding: 0 10px;
+    margin: 10px 0 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #a0a7b4;
+}
+
+.nav,
+.bottomSection {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.navLink,
+.bottomItem {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 50px;
+    padding: 9px 10px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    text-decoration: none;
+    text-align: left;
+    color: #949494;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition:
+        background 0.18s ease,
+        color 0.18s ease;
+}
+
+.navLink:hover,
+.bottomItem:hover {
+    background: #f5f7fa;
+    color: #111827;
+}
+
+.NavActive {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.navLink i,
+.bottomItem i {
+    width: 17px;
+    min-width: 17px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 15px;
+    line-height: 1;
+    opacity: 0.9;
+}
+
+.bottomWrap {
+    display: flex;
+    flex-direction: column;
+}
+
+.bottomSection {
+    padding-top: 2px;
+}

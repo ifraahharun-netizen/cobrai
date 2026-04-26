@@ -1,0 +1,90 @@
+:global(:root) {
+    --sidebar-w: 220px;
+}
+
+.shell {
+    display: flex;
+    min-height: 100vh;
+    background: #f8fafc;
+}
+
+/* Sidebar layout column */
+.sidebarWrap {
+    width: var(--sidebar-w);
+    flex: 0 0 var(--sidebar-w);
+    min-width: var(--sidebar-w);
+    max-width: var(--sidebar-w);
+    background: #ffffff;
+    border-right: 1px solid #eceff3;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Make inner sidebar fill wrapper cleanly */
+.sidebarWrap>* {
+    width: 100%;
+    min-width: 0;
+}
+
+/* Main content area */
+.main {
+    flex: 1;
+    min-width: 0;
+    min-height: 100vh;
+    padding: 24px;
+    background: #ffffff;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+/* Optional page wrapper */
+.page {
+    min-height: 100vh;
+    padding: 32px;
+    color: #111827;
+    background: #ffffff;
+}
+
+/* Universal card */
+.card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 18px;
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: #f1f5f9;
+    color: #ffffff;
+    border: 1px solid #e2e8f0;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 120ms ease;
+}
+
+.btn:hover {
+    background: #e8edf3;
+}
+
+.btn:active {
+    background: #dfe6ee;
+}
+
+.btnSecondary {
+    background: transparent;
+    border: 1px solid #e2e8f0;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.btnSecondary:hover {
+    background: #f8fafc;
+}

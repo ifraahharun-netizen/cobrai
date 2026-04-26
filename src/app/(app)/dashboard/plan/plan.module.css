@@ -1,0 +1,500 @@
+/* plan.module.css — clean + matches your dashboard aesthetic */
+
+.page {
+    padding: 22px;
+    color: rgba(15, 23, 42, 0.92);
+}
+
+/* Header */
+.headerRow {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.title {
+    font-size: 22px;
+    font-weight: 800;
+    margin: 0;
+    letter-spacing: -0.02em;
+      color: #000000;
+}
+
+.subtitle {
+    margin-top: 6px;
+    margin-bottom: 0;
+    font-size: 13px;
+    color: rgba(15, 23, 42, 0.62);
+    line-height: 1.35;
+}
+
+/* Top 2 cards row */
+.topGrid {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+@media (max-width: 980px) {
+    .topGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Base “dashboard card” style (same as your dashboard vibe) */
+.card,
+.aiCard {
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    padding: 14px;
+    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+}
+
+/* Small elements */
+.muted {
+    margin-top: 8px;
+    color: rgba(15, 23, 42, 0.62);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.badgeAI {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    color: rgba(15, 23, 42, 0.78);
+    background: rgba(15, 23, 42, 0.06);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+/* Buttons (match your dashboard buttons) */
+.btnPrimary {
+    padding: 10px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 23, 42, 0.14);
+    background: #0f172a;
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.btnPrimary:hover {
+    filter: brightness(1.05);
+}
+
+.btnGhost {
+    padding: 10px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 23, 42, 0.10);
+    background: rgba(15, 23, 42, 0.03);
+    color: rgba(15, 23, 42, 0.9);
+    font-weight: 800;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.btnGhost:hover {
+    background: rgba(15, 23, 42, 0.06);
+}
+
+/* Plan cards grid below */
+.grid {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+.cardTop {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.cardTitle {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 800;
+    color: rgba(15, 23, 42, 0.92);
+}
+
+/* Steps */
+.steps {
+    margin-top: 10px;
+}
+
+.stepRow {
+    display: flex;
+    gap: 10px;
+    margin-top: 6px;
+    align-items: flex-start;
+}
+
+.stepBadge {
+    min-width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 900;
+    color: rgba(15, 23, 42, 0.88);
+    background: rgba(15, 23, 42, 0.06);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.stepText {
+    font-size: 13px;
+    color: rgba(15, 23, 42, 0.86);
+    line-height: 1.35;
+}
+
+/* Buttons row on each plan card */
+.actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+/* --- AI Cards top section --- */
+.aiTop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.aiTitle {
+    font-weight: 900;
+    font-size: 14px;
+    color: rgba(15, 23, 42, 0.92);
+}
+
+.aiSub {
+    margin-top: 4px;
+    font-size: 12px;
+    color: rgba(15, 23, 42, 0.62);
+    line-height: 1.35;
+}
+
+/* AI list */
+.aiList {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Each AI suggestion row looks like a task */
+.aiItem {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+
+    padding: 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    background: rgba(15, 23, 42, 0.02);
+}
+
+.aiLeft {
+    min-width: 0;
+}
+
+.aiRight {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: flex-start;
+}
+
+.aiMetaRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.priority {
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 900;
+    border: 1px solid rgba(15, 23, 42, 0.10);
+    background: rgba(255, 255, 255, 0.85);
+    color: rgba(15, 23, 42, 0.78);
+    flex: 0 0 auto;
+}
+
+.pHigh {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.18);
+}
+
+.pMed {
+    background: rgba(245, 158, 11, 0.10);
+    border-color: rgba(245, 158, 11, 0.18);
+}
+
+.pLow {
+    background: rgba(34, 197, 94, 0.10);
+    border-color: rgba(34, 197, 94, 0.18);
+}
+
+.customerPill {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 900;
+    color: rgba(15, 23, 42, 0.78);
+    background: rgba(15, 23, 42, 0.04);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.aiItemTitle {
+    font-size: 13px;
+    font-weight: 900;
+    color: rgba(15, 23, 42, 0.9);
+    line-height: 1.25;
+}
+
+.aiItemReason {
+    margin-top: 4px;
+    font-size: 12px;
+    color: rgba(15, 23, 42, 0.62);
+    line-height: 1.35;
+}
+
+/* AI card bottom buttons */
+.aiActions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+/* Applied button state */
+.btnDone {
+    padding: 10px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 23, 42, 0.10);
+    background: rgba(15, 23, 42, 0.04);
+    color: rgba(15, 23, 42, 0.65);
+    font-weight: 900;
+    font-size: 13px;
+    cursor: default;
+}
+
+/* Performance card metrics */
+.perfGrid {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.perfItem {
+    padding: 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    background: rgba(15, 23, 42, 0.02);
+}
+
+.perfLabel {
+    font-size: 11px;
+    font-weight: 800;
+    color: rgba(15, 23, 42, 0.62);
+}
+
+.perfValue {
+    margin-top: 4px;
+    font-size: 16px;
+    font-weight: 900;
+    color: rgba(15, 23, 42, 0.92);
+    letter-spacing: -0.01em;
+}
+
+.perfNote {
+    margin-top: 10px;
+    font-size: 12px;
+    color: rgba(15, 23, 42, 0.62);
+    line-height: 1.35;
+}
+
+/* Toast */
+.toast {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(15, 23, 42, 0.10);
+    color: rgba(15, 23, 42, 0.9);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
+}
+
+.toastClose {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font-weight: 900;
+    opacity: 0.65;
+}
+
+.toastClose:hover {
+    opacity: 1;
+}
+
+
+/* --- Added for: Plan history + AI reasoning + live performance (append-only) --- */
+
+.historyCard {
+    margin-top: 18px;
+    border-radius: 16px;
+    padding: 16px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(10px);
+}
+
+.historyEmpty {
+    padding: 14px 6px;
+    opacity: 0.75;
+}
+
+.historyList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.historyRow {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 14px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.75);
+}
+
+.historyLeft {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.historyRight {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 10px;
+}
+
+.historyTitleRow {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.historyName {
+    font-weight: 650;
+}
+
+.historyMeta {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.historyMeta2 {
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.reasoningBlock {
+    margin-top: 12px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    padding-top: 12px;
+}
+
+.reasoningTitle {
+    font-weight: 650;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.reasoningText {
+    font-size: 13px;
+    line-height: 1.45;
+    opacity: 0.9;
+}
+
+.suggestedPlans {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.suggestedPlanRow {
+    border: 1px solid rgba(0, 0, 0, 0.07);
+    border-radius: 12px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.suggestedPlanName {
+    font-weight: 650;
+    font-size: 13px;
+}
+
+.suggestedPlanWhy {
+    font-size: 12px;
+    opacity: 0.8;
+    margin-top: 4px;
+}
+
+.livePerf {
+    margin-top: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.07);
+    border-radius: 14px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.livePerfTitle {
+    font-weight: 650;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
+.livePerfGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.livePerfItem {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 12px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.historyActions {
+    margin-top: 12px;
+    display: flex;
+    justify-content: flex-end;
+}

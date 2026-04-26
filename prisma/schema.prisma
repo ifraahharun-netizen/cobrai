@@ -1,0 +1,495 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+model Workspace {
+  id                       String                  @id @default(cuid())
+  name                     String
+  createdAt                DateTime                @default(now())
+  stripeLastSyncedAt       DateTime?
+  stripeSecretKeyEnc       String?
+  stripeAccessTokenEnc     String?
+  stripeAccountId          String?
+  stripeConnectedAt        DateTime?
+  stripeRefreshTokenEnc    String?
+  stripeScope              String?
+  ownerEmail               String
+  tier                     String                  @default("free")
+  emailActionsUsedThisWeek Int                     @default(0)
+  emailResetAt             DateTime?
+  demoClearedAt            DateTime?
+  demoMode                 Boolean                 @default(false)
+  demoSeededAt             DateTime?
+  trialEndsAt              DateTime?
+
+  resendDomainId          String?
+  sendingDomain           String?
+  sendingDomainStatus     String?
+  sendingDomainRecords    Json?
+  senderName              String?
+  senderEmail             String?
+  senderReplyTo           String?
+  senderVerifiedAt        DateTime?
+
+  accountRisks           AccountRisk[]
+  accountRisksSnapshots  AccountRiskSnapshot[]
+  actionExecutions       ActionExecution[]
+  actionOutcomeSnapshots ActionOutcomeSnapshot[]
+  actions                Action[]
+  events                 Event[]
+  insightRuns            InsightRun[]
+  invoices               Invoice[]
+  mrrSnapshots           MrrSnapshot[]
+  stripeCustomers        StripeCustomer[]
+  stripeSubscriptions    StripeSubscription[]
+  user                   User[]
+  customers              Customer[]
+  integrations           Integration[]
+
+  @@index([ownerEmail])
+  @@index([sendingDomain])
+  @@index([resendDomainId])
+  @@map("workspace")
+}
+model Customer {
+  id               String            @id @default(uuid())
+  createdAt        DateTime          @default(now())
+  name             String
+  email            String?
+  mrr              Int               @default(0)
+  churnRisk        Float             @default(0)
+  healthScore      Int               @default(50)
+  lastActiveAt     DateTime?
+  canceledAt       DateTime?
+  plan             String?
+  website          String?
+  seats            Int               @default(1)
+  workspaceId      String
+  hubspotCompanyId String?
+  stripeCustomerId String?
+  riskScore        Int               @default(0)
+  status           String            @default("active")
+  updatedAt        DateTime          @updatedAt
+  isDemo           Boolean           @default(false)
+
+  actions          Action[]
+  events           Event[]
+  invoices         Invoice[]
+  accountRisks     AccountRisk[]
+  actionExecutions ActionExecution[]
+
+  workspace        Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, hubspotCompanyId])
+  @@unique([workspaceId, stripeCustomerId])
+  @@index([workspaceId])
+  @@index([workspaceId, churnRisk])
+  @@index([workspaceId, canceledAt])
+  @@index([workspaceId, lastActiveAt])
+  @@map("customers")
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  workspaceId String
+  customerId  String
+  type        String
+  occurredAt  DateTime  @default(now())
+  value       Float?
+  isDemo      Boolean   @default(false)
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, occurredAt])
+  @@index([customerId, occurredAt])
+}
+
+model Invoice {
+  id          String    @id @default(cuid())
+  workspaceId String
+  customerId  String
+  status      String
+  amount      Int
+  dueAt       DateTime
+  paidAt      DateTime?
+  isDemo      Boolean   @default(false)
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, dueAt])
+  @@index([customerId, status])
+}
+
+model Action {
+  id          String     @id @default(uuid())
+  workspaceId String?
+  customerId  String?
+  title       String
+  priority    String?
+  done        Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  dueAt       DateTime?
+  isDemo      Boolean    @default(false)
+  customer    Customer?  @relation(fields: [customerId], references: [id])
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+}
+
+model InsightRun {
+  id          String    @id @default(cuid())
+  workspaceId String
+  type        String
+  result      Json
+  createdAt   DateTime  @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, type, createdAt])
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  workspaceId String
+  title       String
+  status      String   @default("open")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([workspaceId, createdAt])
+}
+
+model AccountRisk {
+  id                String    @id @default(cuid())
+  workspaceId       String
+  customerId        String?
+  companyName       String
+  riskScore         Int
+  reasonKey         String
+  reasonLabel       String
+  mrr               Float     @default(0)
+  updatedAt         DateTime  @updatedAt
+  createdAt         DateTime  @default(now())
+  isDemo            Boolean   @default(false)
+  previousRiskScore Int?
+  previousUpdatedAt DateTime?
+
+  workspace         Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customer          Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([customerId])
+  @@index([reasonKey])
+  @@index([riskScore])
+}
+
+model User {
+  id          String     @id @default(cuid())
+  firebaseUid String     @unique
+  email       String?
+  name        String?
+  workspaceId String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId])
+}
+
+model Integration {
+  id                   String    @id @default(cuid())
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  workspaceId          String
+  provider             String
+  status               String    @default("disconnected")
+  metadata             Json?
+  accessTokenEnc       String?
+  refreshTokenEnc      String?
+  externalAccountId    String?
+  externalAccountName  String?
+  externalAccountEmail String?
+  scopes               String?
+  connectedAt          DateTime?
+  disconnectedAt       DateTime?
+  lastSyncError        String?
+  lastSyncedAt         DateTime?
+  workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, provider])
+  @@index([workspaceId])
+  @@index([provider])
+  @@map("integrations")
+}
+
+model StripeCustomer {
+  id            String               @id @default(cuid())
+  workspaceId   String
+  stripeId      String               @unique
+  email         String?
+  name          String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  mrrSnapshots  MrrSnapshot[]
+  workspace     Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subscriptions StripeSubscription[]
+}
+
+model StripeSubscription {
+  id                 String         @id @default(cuid())
+  workspaceId        String
+  stripeId           String         @unique
+  stripeCustomerId   String
+  status             String
+  currency           String?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean        @default(false)
+  canceledAt         DateTime?
+  endedAt            DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  customer           StripeCustomer @relation(fields: [stripeCustomerId], references: [stripeId], onDelete: Cascade)
+  workspace          Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([stripeCustomerId])
+}
+
+model MrrSnapshot {
+  id               String         @id @default(cuid())
+  workspaceId      String
+  stripeCustomerId String
+  month            String
+  mrrMinor         Int
+  active           Boolean        @default(true)
+  firstSeenMonth   String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  customer         StripeCustomer @relation(fields: [stripeCustomerId], references: [stripeId], onDelete: Cascade)
+  workspace        Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, stripeCustomerId, month])
+  @@index([workspaceId, month])
+}
+
+model RetentionPlan {
+  id          String            @id @default(cuid())
+  createdAt   DateTime          @default(now())
+  workspaceId String
+  createdById String?
+  goal        String
+  lastRunId   String?
+  name        String
+  reasoning   String?
+  status      String            @default("ready")
+  steps       Json
+  suggested   Json?
+  isDemo      Boolean           @default(false)
+  runs        PlanRun[]
+  actions     RetentionAction[]
+
+  @@index([workspaceId, createdAt])
+}
+
+model ActionImpact {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  customerId    String?
+  customerName  String?
+  actionType    String?
+  aiReason      String?
+  status        String?
+  mrrSavedMinor Int?
+  riskScore     Int?
+  createdAt     DateTime @default(now())
+}
+
+model RetentionAction {
+  id           String            @id @default(cuid())
+  planId       String
+  createdAt    DateTime          @default(now())
+  customerId   String?
+  customerName String?
+  title        String
+  reason       String
+  priority     String
+  type         String
+  payload      Json?
+  status       String            @default("pending")
+  appliedAt    DateTime?
+  lastError    String?
+  isDemo       Boolean           @default(false)
+  executions   ActionExecution[]
+  plan         RetentionPlan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId, createdAt])
+}
+
+model PlanRun {
+  id                String        @id @default(cuid())
+  planId            String
+  createdAt         DateTime      @default(now())
+  startedAt         DateTime?
+  endedAt           DateTime?
+  status            String        @default("idle")
+  mrrProtectedMinor Int           @default(0)
+  accountsRecovered Int           @default(0)
+  riskReducedPct    Int           @default(0)
+  actionsCompleted  Int           @default(0)
+  actionsTotal      Int           @default(0)
+  primaryDriver     String?
+  protectedAccounts Json?
+  isDemo            Boolean       @default(false)
+  events            PlanEvent[]
+  plan              RetentionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId, createdAt])
+}
+
+model PlanEvent {
+  id        String   @id @default(cuid())
+  runId     String
+  createdAt DateTime @default(now())
+  type      String
+  message   String
+  data      Json?
+  isDemo    Boolean  @default(false)
+  run       PlanRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, createdAt])
+}
+
+model ActionExecution {
+  id                  String                  @id @default(cuid())
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @default(now()) @updatedAt
+
+  // legacy fields kept temporarily so existing rows are preserved
+  actionId            String?
+  isDemo              Boolean?
+  provider            String?
+  request             Json?
+  response            Json?
+
+  // new fields
+  workspaceId         String?
+  customerId          String?
+  retentionActionId   String?
+  accountRiskId       String?
+
+  actionType          String                  @default("checkin_email")
+  channel             String?                 // email, manual, task, call
+  title               String?
+  subject             String?
+  body                String?
+  reason              String?
+  aiHeadline          String?
+  aiConfidence        Int?
+
+  status              String                  @default("pending")
+  sentAt              DateTime?
+  outcomeAt           DateTime?
+
+  metadata            Json?
+
+  workspace           Workspace?              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customer            Customer?               @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  retentionAction     RetentionAction?        @relation(fields: [retentionActionId], references: [id], onDelete: Cascade)
+  outcomeSnapshots    ActionOutcomeSnapshot[]
+
+  @@index([workspaceId, createdAt])
+  @@index([customerId, createdAt])
+  @@index([retentionActionId, createdAt])
+  @@index([actionType, status])
+}
+
+model RiskSnapshot {
+  id          String   @id @default(cuid())
+  workspaceId String
+  customerId  String?
+  riskScore   Int
+  churnProb   Float?
+  mrrAtRisk   Int?
+  bucketDate  DateTime
+  createdAt   DateTime @default(now())
+
+  @@unique([workspaceId, customerId, bucketDate])
+  @@index([workspaceId, bucketDate])
+  @@index([workspaceId, customerId, bucketDate])
+}
+
+model StripeEvent {
+  id          String   @id
+  workspaceId String
+  type        String
+  payload     Json
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId])
+}
+
+model AccountRiskSnapshot {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  accountRiskId String?
+  companyName   String
+  riskScore     Int
+  reasonKey     String
+  reasonLabel   String
+  mrrMinor      Int
+  snapshotDate  DateTime
+  createdAt     DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, snapshotDate])
+  @@index([workspaceId, companyName, snapshotDate])
+  @@index([workspaceId, accountRiskId, snapshotDate])
+}
+
+
+model ActionOutcomeSnapshot {
+  id                    String            @id @default(cuid())
+  createdAt             DateTime          @default(now())
+
+  workspaceId           String
+  actionExecutionId     String
+
+  riskScoreBefore       Int?
+  riskScoreAfter        Int?
+  mrrBefore             Int?
+  mrrAfter              Int?
+  churnRiskBefore       Int?
+  churnRiskAfter        Int?
+
+  wasOpened             Boolean?
+  wasClicked            Boolean?
+  wasReplied            Boolean?
+  paymentRecovered      Boolean?
+  retainedRevenueMinor  Int?
+  outcomeLabel          String?
+
+  metadata              Json?
+
+  workspace             Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actionExecution       ActionExecution   @relation(fields: [actionExecutionId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([actionExecutionId])
+}
+
+model StripeOAuthState {
+  id          String   @id @default(cuid())
+  stateToken  String   @unique
+  uid         String
+  workspaceId String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([expiresAt])
+  @@index([uid])
+  @@map("stripe_oauth_states")
+}

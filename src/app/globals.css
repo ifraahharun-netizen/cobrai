@@ -1,0 +1,1843 @@
+/* ========= GLOBAL RESET ========= */
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg: #ffffff;
+    --bg-soft: #ffffff;
+    --text: #111827;
+    --text-soft: #4b5563;
+    --text-muted: #6b7280;
+    --line: rgba(17, 24, 39, 0.1);
+    --line-soft: rgba(17, 24, 39, 0.08);
+    --white: #ffffff;
+    --black: #02040a;
+    --radius-sm: 14px;
+    --radius-md: 18px;
+    --radius-lg: 22px;
+    --radius-xl: 26px;
+    --pill: 999px;
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+    --card-bg: #ffffff;
+    --card-border: 1px solid rgba(17, 24, 39, 0.1);
+    --dark-gradient: linear-gradient(180deg, #02040a 0%, #111827 100%);
+}
+
+body {
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+    background: #ffffff;
+    color: var(--text);
+}
+
+/* ========= PAGE LAYOUT ========= */
+.landing,
+.signupPage {
+    min-height: 100vh;
+    width: 100%;
+    overflow-x: hidden;
+}
+
+.container,
+.signupShell {
+    width: 100%;
+    margin: 0 auto;
+}
+
+.container {
+    max-width: 1220px;
+    padding: 0 28px;
+}
+
+/* ========= REUSABLE ========= */
+.sectionShell,
+.featureBlock,
+.featureCta,
+.storyCard,
+.loginCard,
+.grid3>*,
+.card,
+.heroContent,
+.siteHeaderInner,
+.footerCenter {
+    background: #ffffff;
+    border: 1px solid rgba(17, 24, 39, 0.1);
+    box-shadow: none;
+}
+
+.sectionShell,
+.featureBlock,
+.featureCta {
+    border-radius: var(--radius-xl);
+}
+
+.storyCard,
+.loginCard,
+.heroContent {
+    border-radius: var(--radius-lg);
+}
+
+.card,
+.grid3>* {
+    border-radius: var(--radius-md);
+}
+
+.primaryBtn,
+.loginBtn,
+.headerPrimaryBtn,
+.signupBtn {
+    appearance: none;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    border-radius: var(--pill);
+    background: #02040a;
+    color: var(--white);
+    text-decoration: none;
+    transition:
+        transform 0.18s ease,
+        opacity 0.18s ease,
+        background 0.18s ease;
+}
+
+.primaryBtn:hover,
+.loginBtn:hover:not(:disabled),
+.headerPrimaryBtn:hover,
+.signupBtn:hover {
+    transform: translateY(-1px);
+}
+
+.secondaryBtn,
+.headerGhostBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--pill);
+    text-decoration: none;
+    background: #ffffff;
+    border: 1px solid rgba(17, 24, 39, 0.12);
+    color: var(--text);
+    transition:
+        transform 0.18s ease,
+        background 0.18s ease,
+        border-color 0.18s ease;
+}
+
+.secondaryBtn:hover,
+.headerGhostBtn:hover {
+    background: #f9fafb;
+    border-color: rgba(17, 24, 39, 0.18);
+    transform: translateY(-1px);
+}
+
+.input,
+.signupInput {
+    width: 100%;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(17, 24, 39, 0.12);
+    background: #ffffff;
+    color: var(--text);
+    outline: none;
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+.input::placeholder,
+.signupInput::placeholder {
+    color: #9ca3af;
+}
+
+.input:focus,
+.signupInput:focus {
+    border-color: rgba(17, 24, 39, 0.28);
+    box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.04);
+}
+
+.eyebrow,
+.storyEyebrow,
+.loginEyebrow,
+.sectionEyebrow,
+.featureKicker {
+    margin: 0 0 12px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #6b7280;
+}
+
+/* ========= TOP HEADER ========= */
+.siteHeader {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    padding: 18px 0 28px;
+    background: #ffffff;
+}
+
+.siteHeaderInner {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 20px;
+    min-height: 76px;
+    padding: 14px 20px;
+    border-radius: 24px;
+}
+
+.brandWrap {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+.cobraiLogo {
+    width: 145px;
+    max-width: 100%;
+    height: auto;
+    display: block;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.topNav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.navLink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 9px 14px;
+    border-radius: var(--pill);
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #111827;
+    transition:
+        background 0.18s ease,
+        color 0.18s ease,
+        transform 0.18s ease;
+}
+
+.navLink:hover,
+.navLink.active {
+    background: #f3f4f6;
+    color: #02040a;
+}
+
+.navLink:hover {
+    transform: translateY(-1px);
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.headerGhostBtn,
+.headerPrimaryBtn {
+    min-height: 42px;
+    padding: 10px 17px;
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.headerPrimaryBtn {
+    background: #02040a;
+}
+
+/* ========= HERO SECTION ========= */
+.heroSection {
+    padding: 0 0 26px;
+}
+
+.heroGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 24px;
+}
+
+.heroShell {
+    width: 100%;
+}
+
+.heroTopRow,
+.heroRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 400px;
+    gap: 28px;
+    align-items: stretch;
+    padding: 0;
+}
+
+.heroLeft {
+    min-width: 0;
+    padding-top: 0;
+}
+
+.heroContent {
+    width: 100%;
+    max-width: none;
+    padding: 38px 34px;
+}
+
+.heroTitle {
+    margin: 0 0 20px;
+    max-width: 660px;
+    font-size: clamp(2.7rem, 4.6vw, 4.15rem);
+    line-height: 1.02;
+    font-weight: 700;
+    letter-spacing: -0.06em;
+    color: #111827;
+    text-wrap: balance;
+}
+
+.heroText {
+    margin: 0 0 24px;
+    max-width: 560px;
+    font-size: 0.96rem;
+    line-height: 1.75;
+    color: #4b5563;
+}
+
+.heroActions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 0;
+}
+
+.heroMeta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.heroNote,
+.heroStat {
+    font-size: 0.9rem;
+}
+
+.heroNote,
+.heroStat {
+    color: #6b7280;
+}
+
+.heroDivider {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(17, 24, 39, 0.14);
+}
+
+/* ========= HERO BUTTONS ========= */
+.primaryBtn,
+.secondaryBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 18px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.heroActions .primaryBtn {
+    min-width: 340px;
+    border-radius: 12px;
+}
+
+.heroActions .secondaryBtn {
+    min-width: 340px;
+    border-radius: 12px;
+}
+
+.primaryBtn:active {
+    transform: translateY(0);
+}
+
+.primaryBtn:focus-visible {
+    box-shadow:
+        0 0 0 3px rgba(255, 255, 255, 0.85),
+        0 0 0 6px rgba(17, 24, 39, 0.12);
+}
+
+/* ========= LOGIN ========= */
+.heroRight {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    position: static;
+}
+
+.loginWrap {
+    width: 100%;
+    max-width: 400px;
+}
+
+.loginIntro {
+    margin-bottom: 12px;
+    padding: 0 4px;
+}
+
+.loginHeading {
+    margin: 0 0 8px;
+    font-size: 1.25rem;
+    line-height: 1.15;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    color: #111827;
+}
+
+.loginSubtext {
+    margin: 0;
+    font-size: 0.92rem;
+    line-height: 1.65;
+    color: #6b7280;
+}
+
+.loginCard {
+    width: 100%;
+    margin-top: 0;
+    padding: 28px 28px 24px;
+    min-height: 100%;
+}
+
+.label,
+.signupLabel {
+    display: block;
+    margin: 0 0 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #374151;
+}
+
+.input {
+    height: 46px;
+    margin: 0 0 16px;
+    padding: 0 15px;
+    font-size: 0.9rem;
+}
+
+.loginBtn {
+    width: 100%;
+    height: 46px;
+    margin-top: 8px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.loginBtn:disabled {
+    opacity: 0.72;
+    cursor: not-allowed;
+}
+
+.forgot {
+    display: inline-block;
+    margin-top: 14px;
+    font-size: 0.82rem;
+    color: #6b7280;
+    text-decoration: none;
+    transition: color 0.18s ease;
+}
+
+.forgot:hover {
+    color: #111827;
+    text-decoration: underline;
+}
+
+.error {
+    margin: 4px 0 12px;
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #b42318;
+    background: #fef3f2;
+    border: 1px solid #fecdca;
+    border-radius: 12px;
+}
+
+/* ========= MERGED STORY CARD ========= */
+.homeStory,
+.homeStoryWide {
+    width: 100%;
+    margin-top: 28px;
+}
+
+.homeStoryWide {
+    grid-column: 1 / -1;
+}
+
+.storyCard {
+    padding: 32px;
+}
+
+.storyCardMerged,
+.storyCardWide {
+    width: 100%;
+    max-width: none;
+}
+
+.storyTitle {
+    margin: 0 0 12px;
+    font-size: 1.35rem;
+    line-height: 1.2;
+    letter-spacing: -0.035em;
+    color: #111827;
+    max-width: 760px;
+}
+
+.storyText {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: #4b5563;
+}
+
+.storyTextLead {
+    max-width: 780px;
+    margin-bottom: 26px;
+}
+
+.storyPoints {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    margin-top: 10px;
+}
+
+.storyPoint {
+    position: relative;
+    padding: 8px 26px;
+    border-radius: 0;
+    background: transparent;
+    border: none;
+    transition: none;
+    cursor: default;
+}
+
+.storyPoint:first-child {
+    padding-left: 0;
+}
+
+.storyPoint:not(:last-child) {
+    border-right: 1px solid rgba(17, 24, 39, 0.1);
+}
+
+.storyPoint:hover {
+    background: transparent;
+    transform: none;
+    box-shadow: none;
+}
+
+.storyPoint:not(:last-child)::after {
+    display: none;
+}
+
+.storyPointTitle {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1.35;
+    color: #111827;
+}
+
+.storyPointText {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.65;
+    color: #4b5563;
+}
+
+/* ========= LANDING SECTIONS ========= */
+.landingSection {
+    padding: 34px 0 0;
+}
+
+.sectionShell {
+    padding: 40px 32px;
+}
+
+.sectionTitle {
+    margin: 0 0 12px;
+    text-align: center;
+    font-size: clamp(2rem, 3vw, 2.8rem);
+    line-height: 1.08;
+    letter-spacing: -0.04em;
+    color: #111827;
+}
+
+.sectionText {
+    margin: 0 auto;
+    max-width: 760px;
+    text-align: center;
+    font-size: 0.96rem;
+    line-height: 1.7;
+    color: #4b5563;
+}
+
+/* ========= GENERIC CARDS ========= */
+.grid3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.grid3>* {
+    padding: 24px 20px;
+}
+
+.card {
+    padding: 22px 20px;
+    color: #111827;
+    transition: transform 0.2s ease;
+    position: relative;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.stepBadge {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    background: #f3f4f6;
+    color: #111827;
+    border: 1px solid rgba(17, 24, 39, 0.1);
+}
+
+.cardTitle {
+    margin: 0 0 8px;
+    font-size: 1rem;
+    color: #111827;
+}
+
+.cardText {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #4b5563;
+}
+
+/* ========= FEATURES / PRICING / CONTACT ========= */
+.featureStack {
+    margin-top: 28px;
+    display: grid;
+    gap: 18px;
+}
+
+.featureBlock {
+    padding: 30px 28px;
+}
+
+.featureHeading {
+    margin: 0 0 10px;
+    font-size: clamp(1.6rem, 2.5vw, 2.3rem);
+    line-height: 1.12;
+    letter-spacing: -0.04em;
+    color: #111827;
+    text-align: center;
+}
+
+.featureBody {
+    margin: 0 auto;
+    max-width: 760px;
+    font-size: 0.96rem;
+    line-height: 1.72;
+    color: #4b5563;
+    text-align: center;
+}
+
+.featureSteps {
+    display: grid;
+    gap: 14px;
+}
+
+.featureStep {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 16px;
+    align-items: start;
+    padding: 20px 22px;
+    border-radius: 22px;
+    background: #ffffff;
+    border: 1px solid rgba(17, 24, 39, 0.1);
+}
+
+.featureStep h3 {
+    margin: 0 0 6px;
+    font-size: 1.05rem;
+    color: #111827;
+}
+
+.featureStep p {
+    margin: 0;
+    font-size: 0.94rem;
+    line-height: 1.68;
+    color: #4b5563;
+}
+
+.featureNumber {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #02040a;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.featureCta {
+    margin-top: 28px;
+    padding: 32px 28px;
+}
+
+/* ========= FOOTER ========= */
+.footer {
+    margin-top: 28px;
+    padding: 0 0 32px;
+    background: #ffffff;
+}
+
+.footerCenter {
+    max-width: 1220px;
+    margin: 0 auto;
+    border-radius: 26px;
+    padding: 40px 38px 36px;
+}
+
+.footerCTA {
+    text-align: center;
+    margin-bottom: 42px;
+}
+
+.footerTitle {
+    font-size: 1.55rem;
+    line-height: 1.2;
+    font-weight: 700;
+    margin: 0 0 12px;
+    color: #111827;
+    letter-spacing: -0.035em;
+}
+
+.footerButtons {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.footerPrimaryBtn {
+    background: #02040a;
+    color: #ffffff;
+    padding: 12px 22px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.footerSecondaryBtn {
+    background: #ffffff;
+    color: #111827;
+    padding: 12px 22px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.9rem;
+    border: 1px solid rgba(17, 24, 39, 0.12);
+}
+
+.footerGrid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 52px;
+    margin-bottom: 34px;
+}
+
+.footerHeading {
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: #111827;
+}
+
+.footerGrid a {
+    display: block;
+    margin-bottom: 8px;
+    color: #4b5563;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.footerGrid a:hover {
+    color: #111827;
+}
+
+.footerBrand {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: #111827;
+}
+
+.footerCopy {
+    margin: 0;
+    color: #4b5563;
+    font-size: 0.9rem;
+    line-height: 1.7;
+}
+
+.footerBottom {
+    text-align: center;
+    font-size: 0.82rem;
+    color: #6b7280;
+}
+
+/* =========================
+   SIGNUP PAGE
+========================= */
+.signupPage {
+    min-height: 100vh;
+    padding: 40px 24px;
+    background: #ffffff;
+}
+
+.signupReferenceWrap {
+    min-height: calc(100vh - 80px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 1240px;
+    margin: 0 auto;
+}
+
+.signupReferenceCard {
+    width: 100%;
+    max-width: 1080px;
+    min-height: 700px;
+    background: #ffffff;
+    border-radius: 26px;
+    padding: 22px;
+    display: grid;
+    grid-template-columns: 1.08fr 0.92fr;
+    gap: 22px;
+    border: 1px solid rgba(17, 24, 39, 0.1);
+    box-shadow: none;
+}
+
+.signupReferenceLeft {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 10px 8px 18px;
+}
+
+.signupReferenceInner {
+    width: 100%;
+    max-width: 430px;
+}
+
+.signupRefTitle {
+    margin: 0 0 10px;
+    font-size: 3.1rem;
+    line-height: 0.96;
+    letter-spacing: -0.06em;
+    font-weight: 700;
+    color: #111827;
+}
+
+.signupRefSubtitle {
+    margin: 0 0 28px;
+    font-size: 0.98rem;
+    line-height: 1.7;
+    color: #6b7280;
+    max-width: 390px;
+}
+
+.signupRefForm {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.signupRefField {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.signupRefField label {
+    font-size: 0.87rem;
+    font-weight: 700;
+    color: #374151;
+}
+
+.signupRefField input {
+    width: 100%;
+    height: 52px;
+    border-radius: 14px;
+    border: 1px solid rgba(17, 24, 39, 0.12);
+    background: #ffffff;
+    padding: 0 16px;
+    font-size: 0.95rem;
+    color: #111827;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.signupRefField input::placeholder {
+    color: #9ca3af;
+}
+
+.signupRefField input:focus {
+    border-color: rgba(17, 24, 39, 0.28);
+    box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.04);
+}
+
+.signupRefField input:disabled {
+    background: #f9fafb;
+    cursor: not-allowed;
+}
+
+.signupRefError {
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.14);
+    color: #b91c1c;
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.signupRefButton {
+    width: 100%;
+    height: 54px;
+    border: none;
+    border-radius: 14px;
+    background: #02040a;
+    color: #ffffff;
+    font-size: 0.97rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: none;
+    transition: transform 0.18s ease, opacity 0.18s ease;
+    margin-top: 4px;
+}
+
+.signupRefButton:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.signupRefButton:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.signupRefLogin {
+    margin: 18px 0 0;
+    font-size: 0.92rem;
+    text-align: center;
+    color: #6b7280;
+}
+
+.signupRefLogin a {
+    color: #111827;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.signupRefLogin a:hover {
+    text-decoration: underline;
+}
+
+.signupReferenceRight {
+    display: flex;
+}
+
+.signupRefVisual {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 656px;
+    border-radius: 22px;
+    overflow: hidden;
+    background: #02040a;
+}
+
+.signupRefVisualTitle {
+    color: #ffffff;
+}
+
+.signupRefVisualContent {
+    position: relative;
+    z-index: 3;
+    height: 100%;
+    padding: 44px 34px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+
+.signupRefShapeTwo {
+    bottom: -110px;
+    right: -20px;
+    width: 390px;
+    height: 240px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 55% 45% 0 0 / 100% 100% 0 0;
+}
+
+.signupRefShape {
+    position: absolute;
+    border-radius: 999px;
+    pointer-events: none;
+}
+
+.signupRefShapeOne {
+    background: linear-gradient(180deg,
+            rgba(255, 255, 255, 0.25),
+            rgba(255, 255, 255, 0.08),
+            rgba(255, 255, 255, 0.01));
+}
+
+.signupLegalRow {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 2px;
+    margin-bottom: 4px;
+}
+
+.signupLegalCheckbox {
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    accent-color: #02040a;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.signupLegalText {
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #6b7280;
+}
+
+.signupLegalLink {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: #111827;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.signupLegalLink:hover {
+    color: #02040a;
+}
+
+/* ========= LEGAL MODAL ========= */
+.legalModalOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(2, 4, 10, 0.45);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.legalModalCard {
+    width: 100%;
+    max-width: 760px;
+    max-height: 85vh;
+    overflow: hidden;
+    border-radius: 24px;
+    background: #ffffff;
+    border: 1px solid rgba(17, 24, 39, 0.1);
+    box-shadow: none;
+}
+
+.legalModalHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 22px 24px 16px;
+    border-bottom: 1px solid rgba(17, 24, 39, 0.1);
+}
+
+.legalModalTitle {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.legalModalClose {
+    appearance: none;
+    border: none;
+    background: #f3f4f6;
+    color: #111827;
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.legalModalClose:hover {
+    background: #e5e7eb;
+}
+
+.legalModalBody {
+    padding: 10px 24px 24px;
+    overflow-y: auto;
+    max-height: calc(85vh - 78px);
+}
+
+.legalModalSection+.legalModalSection {
+    margin-top: 22px;
+}
+
+.legalModalSection h3 {
+    margin: 0 0 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.legalModalSection p {
+    margin: 0 0 10px;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: #4b5563;
+}
+
+/* ========= RESPONSIVE ========= */
+@media (max-width: 1100px) {
+
+    .heroTopRow,
+    .heroRow {
+        grid-template-columns: 1fr;
+        gap: 22px;
+    }
+
+    .heroRight {
+        position: static;
+    }
+
+    .loginWrap {
+        max-width: 100%;
+    }
+
+    .storyPoints {
+        grid-template-columns: 1fr;
+        gap: 18px;
+    }
+
+    .storyPoint,
+    .storyPoint:first-child {
+        padding: 0;
+        border-right: none;
+    }
+
+    .storyPoint:not(:last-child) {
+        border-right: none;
+        padding-bottom: 18px;
+        border-bottom: 1px solid rgba(17, 24, 39, 0.1);
+    }
+
+    .signupReferenceCard {
+        grid-template-columns: 1fr;
+        min-height: auto;
+    }
+
+    .signupReferenceRight {
+        order: -1;
+    }
+
+    .signupRefVisual {
+        min-height: 360px;
+    }
+
+    .signupReferenceLeft {
+        padding: 8px 8px 14px;
+    }
+
+    .signupReferenceInner {
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 800px) {
+    .siteHeaderInner {
+        grid-template-columns: 1fr;
+        gap: 14px;
+        justify-items: center;
+    }
+
+    .headerActions {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .heroActions .primaryBtn,
+    .heroActions .secondaryBtn {
+        width: 100%;
+        min-width: unset;
+    }
+
+    .footerGrid,
+    .grid3 {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 700px) {
+    .container {
+        padding: 0 16px;
+    }
+
+    .siteHeader {
+        padding: 12px 0 18px;
+    }
+
+    .heroContent,
+    .storyCard,
+    .loginCard {
+        padding: 22px;
+    }
+
+    .heroTitle {
+        font-size: 2.45rem;
+    }
+
+    .heroText {
+        font-size: 0.92rem;
+    }
+
+    .storyCard {
+        padding: 24px 22px;
+    }
+
+    .footerCenter {
+        padding: 34px 22px;
+    }
+
+    .footerGrid {
+        gap: 24px;
+    }
+
+    .signupPage {
+        padding: 16px;
+    }
+
+    .signupReferenceWrap {
+        min-height: auto;
+    }
+
+    .signupReferenceCard {
+        padding: 12px;
+        gap: 12px;
+        border-radius: 20px;
+    }
+
+    .signupReferenceLeft {
+        padding: 8px 6px 10px;
+    }
+
+    .signupRefTitle {
+        font-size: 2.35rem;
+    }
+
+    .signupRefSubtitle {
+        font-size: 0.95rem;
+        margin-bottom: 20px;
+    }
+
+    .signupRefField input,
+    .signupRefButton {
+        height: 50px;
+    }
+
+    .signupRefVisual {
+        min-height: 280px;
+        border-radius: 18px;
+    }
+
+    .signupRefVisualContent {
+        padding: 28px 22px;
+    }
+
+    .signupRefVisualTitle {
+        font-size: 2rem;
+        max-width: 220px;
+    }
+
+    .signupLegalText {
+        font-size: 0.84rem;
+    }
+
+    .legalModalCard {
+        max-height: 88vh;
+        border-radius: 18px;
+    }
+
+    .legalModalHeader {
+        padding: 18px 18px 14px;
+    }
+
+    .legalModalBody {
+        padding: 10px 18px 18px;
+    }
+}
+
+
+/* ===== FIX LOGIN CARD HEIGHT ===== */
+
+.heroTopRow,
+.heroRow {
+    align-items: start;
+}
+
+.heroRight {
+    align-items: flex-start;
+}
+
+.loginCard {
+    min-height: unset;
+    height: auto;
+    padding: 24px 26px 22px;
+}
+
+.loginWrap {
+    max-width: 380px;
+}
+
+.footerGrid {
+    display: grid;
+    grid-template-columns: repeat(4, max-content);
+    justify-content: center;
+    /* 👈 centers everything */
+    gap: 60px;
+    /* 👈 controls spacing between columns */
+    margin-top: 40px;
+}
+
+.footerBrandCol {
+    max-width: 180px;
+}
+
+.footerGrid>div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.footerGrid a {
+    margin-top: 8px;
+}
+
+.footerBottom {
+    margin-top: 36px;
+    text-align: center;
+}
+
+.footerTextButton,
+.footerLinkButton {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+
+.footerLinkButton {
+    margin-top: 8px;
+    color: var(--text-soft);
+}
+
+.footerTextButton:hover,
+.footerLinkButton:hover {
+    color: var(--text);
+}
+
+.footerModalOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(15, 23, 42, 0.35);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.footerModal {
+    position: relative;
+    width: min(720px, 100%);
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 28px;
+    padding: 34px;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, 0.18);
+}
+
+.footerModalClose {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    border: 0;
+    background: transparent;
+    font-size: 26px;
+    cursor: pointer;
+    color: var(--text-soft);
+}
+
+.footerModalLabel {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.footerModal h2 {
+    margin: 0 0 12px;
+    font-size: 28px;
+    color: var(--text);
+}
+
+.footerModal p {
+    color: var(--text-soft);
+    line-height: 1.65;
+}
+
+.footerModalGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.footerModalGrid div {
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 18px;
+    padding: 18px;
+}
+
+.footerModalGrid h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+}
+
+.footerModalGrid p {
+    margin: 0;
+    font-size: 14px;
+}
+
+@media (max-width: 720px) {
+    .footerModalGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .footerModal {
+        padding: 28px;
+    }
+}
+
+.footerLinkButton {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    margin-top: 8px;
+    font: inherit;
+    color: var(--text-soft);
+    cursor: pointer;
+    text-align: left;
+}
+
+.footerLinkButton:hover {
+    color: var(--text);
+}
+
+.footerModalOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(15, 23, 42, 0.35);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.footerLegalModal {
+    position: relative;
+    width: min(760px, 100%);
+    max-height: 82vh;
+    overflow-y: auto;
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 28px;
+    padding: 34px;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, 0.18);
+}
+
+.footerModalClose {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    border: 0;
+    background: transparent;
+    font-size: 26px;
+    cursor: pointer;
+    color: var(--text-soft);
+}
+
+.footerLegalModal h2 {
+    margin: 0 0 24px;
+    font-size: 28px;
+    color: var(--text);
+}
+
+.footerLegalSection {
+    padding: 18px 0;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.footerLegalSection h3 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    color: var(--text);
+}
+
+.footerLegalSection p {
+    margin: 0 0 10px;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--text-soft);
+}
+
+.footerTextButton,
+.footerLinkButton {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+
+.footerLinkButton {
+    margin-top: 8px;
+    color: var(--text-soft);
+}
+
+.footerTextButton:hover,
+.footerLinkButton:hover {
+    color: var(--text);
+}
+
+.footerModalOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(15, 23, 42, 0.35);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.footerLegalModal {
+    position: relative;
+    width: min(760px, 100%);
+    max-height: 82vh;
+    overflow-y: auto;
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 28px;
+    padding: 34px;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, 0.18);
+}
+
+.footerModalClose {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    border: 0;
+    background: transparent;
+    font-size: 26px;
+    cursor: pointer;
+    color: var(--text-soft);
+}
+
+.footerLegalModal h2 {
+    margin: 0 0 18px;
+    font-size: 28px;
+    color: var(--text);
+}
+
+.footerLegalModal p {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--text-soft);
+}
+
+.footerLegalSection {
+    padding: 18px 0;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.footerLegalSection h3 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    color: var(--text);
+}
+
+.footerLegalSection p {
+    margin: 0 0 10px;
+}
+
+.footerModalGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.footerModalGrid div {
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 18px;
+    padding: 18px;
+}
+
+.footerModalGrid h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+}
+
+.footerModalGrid p {
+    margin: 0;
+}
+
+@media (max-width: 720px) {
+    .footerModalGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .footerLegalModal {
+        padding: 28px;
+    }
+}
+
+.success {
+    margin: 0;
+    color: #166534;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.demoOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.demoModal {
+    position: relative;
+    width: 100%;
+    max-width: 760px;
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 28px;
+    padding: 34px;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, 0.22);
+}
+
+.demoClose {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: #ffffff;
+    color: #0f172a;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.demoEyebrow {
+    margin: 0 0 10px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    color: #64748b;
+}
+
+.demoModal h2 {
+    margin: 0;
+    font-size: clamp(30px, 5vw, 48px);
+    line-height: 0.98;
+    letter-spacing: -0.05em;
+    color: #0f172a;
+}
+
+.demoIntro {
+    margin: 18px 0 26px;
+    max-width: 620px;
+    font-size: 17px;
+    line-height: 1.65;
+    color: #475569;
+}
+
+.demoSteps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+}
+
+.demoStep {
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 20px;
+    padding: 18px;
+    background: #ffffff;
+}
+
+.demoStep span {
+    display: inline-flex;
+    margin-bottom: 18px;
+    font-size: 12px;
+    font-weight: 900;
+    color: #64748b;
+}
+
+.demoStep h3 {
+    margin: 0 0 8px;
+    font-size: 17px;
+    letter-spacing: -0.03em;
+    color: #0f172a;
+}
+
+.demoStep p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: #64748b;
+}
+
+.demoActions {
+    display: flex;
+    gap: 12px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+}
+
+.demoPrimary,
+.demoSecondary {
+    min-height: 48px;
+    border-radius: 999px;
+    padding: 0 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.demoPrimary {
+    background: #0f172a;
+    color: #ffffff;
+    border: 1px solid #0f172a;
+}
+
+.demoSecondary {
+    background: #ffffff;
+    color: #0f172a;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+@media (max-width: 760px) {
+    .demoModal {
+        padding: 26px;
+        border-radius: 24px;
+    }
+
+    .demoSteps {
+        grid-template-columns: 1fr;
+    }
+
+    .demoPrimary,
+    .demoSecondary {
+        width: 100%;
+    }
+}
