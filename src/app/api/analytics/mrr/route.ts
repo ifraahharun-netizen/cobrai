@@ -7,6 +7,14 @@ export const runtime = "nodejs";
 export async function GET() {
     const { workspaceId } = await requireWorkspace();
 
+    if (!workspaceId) {
+        return NextResponse.json(
+            { error: "No workspace linked to this user." },
+            { status: 401 }
+        );
+    }
+
+
     const customers = await prisma.customer.findMany({
         where: { workspaceId },
         select: { mrr: true, riskScore: true, status: true },

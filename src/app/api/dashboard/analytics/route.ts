@@ -141,10 +141,26 @@ function liveEmptyPayload() {
         churnSeries: [] as Point[],
         churnReasons: [] as Array<{ label: string; value: number }>,
         riskBuckets: [] as Array<{ label: string; value: number }>,
-        behaviour: { weeklyActivePct: 0, inactive7d: 0, topSignals: [] as Array<{ label: string; value: string }> },
-        cohorts: { rows: [] as string[], cols: [] as string[], values: [] as number[][] },
-        insights: [] as Array<{ title: string; detail: string; impact?: "high" | "medium" | "low" }>,
-        actions: [] as Array<{ title: string; detail: string; cta?: "View accounts" | "Create email" | "Open insights" }>,
+        behaviour: {
+            weeklyActivePct: 0,
+            inactive7d: 0,
+            topSignals: [] as Array<{ label: string; value: string }>,
+        },
+        cohorts: {
+            rows: [] as string[],
+            cols: [] as string[],
+            values: [] as number[][],
+        },
+        insights: [] as Array<{
+            title: string;
+            detail: string;
+            impact?: "high" | "medium" | "low";
+        }>,
+        actions: [] as Array<{
+            title: string;
+            detail: string;
+            cta?: "View accounts" | "Create email" | "Open insights";
+        }>,
         segments: { plans: ["All plans"], regions: ["All regions"] },
     };
 }
@@ -154,25 +170,32 @@ export async function GET(req: Request) {
         const authHeader = req.headers.get("authorization") || "";
         const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
-        // No token -> safe demo payload
         if (!token) return NextResponse.json(demoPayload(), { status: 200 });
 
         const decoded = await verifyFirebaseIdToken(token);
         const uid = decoded.uid;
 
-        const workspace = await prisma.workspace.findFirst({
-            where: { ownerUid: uid },
-            select: { id: true, demoMode: true },
+        const user = await prisma.user.findUnique({
+            where: { firebaseUid: uid },
+            select: {
+                workspace: {
+                    select: {
+                        id: true,
+                        demoMode: true,
+                    },
+                },
+            },
         });
+
+        const workspace = user?.workspace;
 
         if (!workspace || workspace.demoMode) {
             return NextResponse.json(demoPayload(), { status: 200 });
         }
 
-        // Live (empty scaffold until your connectors write real data)
         return NextResponse.json(liveEmptyPayload(), { status: 200 });
     } catch {
-        // Fail soft in demo
         return NextResponse.json(demoPayload(), { status: 200 });
     }
 }
+

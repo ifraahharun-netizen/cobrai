@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import styles from "./settings.module.css";
 import { SiHubspot, SiStripe } from "react-icons/si";
@@ -241,8 +241,7 @@ function formatDomainStatus(status: string | null | undefined) {
 function isVerifiedStatus(status: string | null | undefined) {
     return typeof status === "string" && status.toLowerCase() === "verified";
 }
-
-export default function SettingsPage() {
+function SettingsPageContent() {
     const searchParams = useSearchParams();
 
     const [activeTab, setActiveTab] = useState("Profile");
@@ -1876,5 +1875,15 @@ export default function SettingsPage() {
                 </div>
             )}
         </>
+
+
+    );
+}
+
+export default function SettingsPage() {
+    return (
+        <Suspense fallback={null}>
+            <SettingsPageContent />
+        </Suspense>
     );
 }

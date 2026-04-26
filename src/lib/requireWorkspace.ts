@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import prisma from "@/lib/prisma";
-import { getFirebaseAdmin } from "@/lib/firebaseAdmin";
+import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 
 /**
  * Reads Firebase ID token from:
@@ -14,8 +14,8 @@ export async function requireWorkspace() {
 
     if (!token) throw new Error("Missing Authorization Bearer token.");
 
-    const admin = getFirebaseAdmin();
-    const decoded = await admin.auth().verifyIdToken(token);
+    // ✅ FIX: use your helper instead of getFirebaseAdmin
+    const decoded = await verifyFirebaseIdToken(token);
 
     const firebaseUid = decoded.uid;
     const email = (decoded.email as string | undefined) || null;
@@ -25,9 +25,12 @@ export async function requireWorkspace() {
 
     // Auto-bootstrap on first login
     if (!user) {
-        const ws = await prisma.workspace.create({
-            data: { name: email ? email.split("@")[0] : "Workspace" },
-        });
+     const ws = await prisma.workspace.create({
+    data: {
+        name: email ? email.split("@")[0] : "Workspace",
+        ownerEmail: email || "unknown@cobrai.com",
+    },
+});
 
         user = await prisma.user.create({
             data: {

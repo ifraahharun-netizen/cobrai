@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
+import { getStripeClient } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -33,23 +33,33 @@ export async function POST(req: Request) {
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
 
     if (!sig || !secret) {
-        return NextResponse.json({ error: "Missing STRIPE_WEBHOOK_SECRET or stripe-signature" }, { status: 400 });
+        return NextResponse.json(
+            { error: "Missing STRIPE_WEBHOOK_SECRET or stripe-signature" },
+            { status: 400 }
+        );
     }
 
     const body = await req.text();
+    const stripe = getStripeClient();
 
     let event: Stripe.Event;
+
     try {
         event = stripe.webhooks.constructEvent(body, sig, secret);
     } catch (err: any) {
-        return NextResponse.json({ error: `Invalid signature: ${err.message}` }, { status: 400 });
+        return NextResponse.json(
+            { error: `Invalid signature: ${err.message}` },
+            { status: 400 }
+        );
     }
 
     try {
         const workspaceId = await getWorkspaceId();
 
-        // subscription created/updated → update customer MRR
-        if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
+        if (
+            event.type === "customer.subscription.created" ||
+            event.type === "customer.subscription.updated"
+        ) {
             const sub = event.data.object as Stripe.Subscription;
 
             const stripeCustomerId =
@@ -57,7 +67,6 @@ export async function POST(req: Request) {
 
             const mrr = calcMrrFromSubscription(sub);
 
-            // ✅ NO composite where (avoids red). We use findFirst + update/create.
             const existing = await prisma.customer.findFirst({
                 where: { workspaceId, stripeCustomerId },
                 select: { id: true },
@@ -80,9 +89,9 @@ export async function POST(req: Request) {
             }
         }
 
-        // payment failed → store invoice + mark higher churnRisk
         if (event.type === "invoice.payment_failed") {
             const inv = event.data.object as Stripe.Invoice;
+
             const stripeCustomerId =
                 typeof inv.customer === "string" ? inv.customer : inv.customer?.id;
 
@@ -93,19 +102,19 @@ export async function POST(req: Request) {
                 });
 
                 if (customer) {
-                    // Write invoice (optional but real)
                     await prisma.invoice.create({
                         data: {
                             workspaceId,
                             customerId: customer.id,
                             status: inv.status ?? "open",
                             amount: inv.amount_due ?? 0,
-                            dueAt: new Date((inv.due_date ?? Math.floor(Date.now() / 1000)) * 1000),
+                            dueAt: new Date(
+                                (inv.due_date ?? Math.floor(Date.now() / 1000)) * 1000
+                            ),
                             paidAt: null,
                         },
                     });
 
-                    // Increase churnRisk (simple MVP)
                     await prisma.customer.update({
                         where: { id: customer.id },
                         data: { churnRisk: 0.8 },
@@ -114,9 +123,9 @@ export async function POST(req: Request) {
             }
         }
 
-        // subscription deleted → churned customer
         if (event.type === "customer.subscription.deleted") {
             const sub = event.data.object as Stripe.Subscription;
+
             const stripeCustomerId =
                 typeof sub.customer === "string" ? sub.customer : sub.customer.id;
 
@@ -128,6 +137,9 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ received: true });
     } catch (err: any) {
-        return NextResponse.json({ error: err.message || "Webhook error" }, { status: 500 });
+        return NextResponse.json(
+            { error: err.message || "Webhook error" },
+            { status: 500 }
+        );
     }
 }

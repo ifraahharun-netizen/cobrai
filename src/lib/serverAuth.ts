@@ -1,4 +1,4 @@
-import { getFirebaseAdmin } from "@/lib/firebaseAdmin";
+import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 
 export async function requireUserFromAuthHeader(req: Request) {
     const authHeader = req.headers.get("authorization") || "";
@@ -8,8 +8,7 @@ export async function requireUserFromAuthHeader(req: Request) {
         throw new Error("Missing Authorization Bearer token.");
     }
 
-    const admin = getFirebaseAdmin();
-    const decoded = await admin.auth().verifyIdToken(token);
+    const decoded = await verifyFirebaseIdToken(token);
 
-    return decoded; // { uid, email, ... }
+    return decoded;
 }

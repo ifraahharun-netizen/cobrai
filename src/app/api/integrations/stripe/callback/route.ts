@@ -81,7 +81,6 @@ export async function GET(req: Request) {
         const tokenResponse = await stripe.oauth.token({
             grant_type: "authorization_code",
             code,
-            redirect_uri: redirectUri,
         });
 
         const stripeUserId = tokenResponse.stripe_user_id;

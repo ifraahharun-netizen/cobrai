@@ -6,7 +6,9 @@ export const runtime = "nodejs";
 export async function GET() {
     try {
         const stripe = getStripeClient();
-        const acct = await stripe.accounts.retrieve();
+
+        // ✅ FIX: pass "self"
+        const acct = await stripe.accounts.retrieve("self");
 
         return NextResponse.json({
             ok: true,
@@ -14,6 +16,9 @@ export async function GET() {
             email: acct.email ?? null,
         });
     } catch (e: any) {
-        return NextResponse.json({ ok: false, error: e?.message ?? "Unknown error" }, { status: 500 });
+        return NextResponse.json(
+            { ok: false, error: e?.message ?? "Unknown error" },
+            { status: 500 }
+        );
     }
 }

@@ -1,7 +1,7 @@
 
 import "server-only";
 import { cookies } from "next/headers";
-import { adminAuth } from "@/lib/firebaseAdmin";
+import { getAdminAuth } from "@/lib/firebaseAdmin";
 
 export async function getSessionUser() {
     const cookieStore = await cookies();
@@ -10,7 +10,7 @@ export async function getSessionUser() {
     if (!sessionCookie) return null;
 
     try {
-        const decoded = await adminAuth().verifySessionCookie(
+        const decoded = await getAdminAuth().verifySessionCookie(
             sessionCookie.value,
             true
         );

@@ -251,8 +251,8 @@ export default function AccountsAtRiskClient() {
                 const data: ApiResponse = await accountsRes.json();
                 const summaryData: DashboardSummaryResponse = await summaryRes.json();
 
-                if (summaryData?.tier === "pro" || summaryData?.tier === "scale") {
-                    setTier(summaryData.tier);
+                if (summaryData?.tier === "pro") {
+                    setTier("pro");
                 } else {
                     setTier("starter");
                 }
@@ -314,7 +314,7 @@ export default function AccountsAtRiskClient() {
         criticalTotal > 0 ? criticalTotal : !hasLiveData ? displayedRows.filter((r) => r.riskScore >= 85).length : 0;
 
     const handleCriticalClick = () => {
-        if (tier !== "pro" && tier !== "scale") {
+        if (tier !== "pro") {
             setShowUpgradeModal(true);
             return;
         }
