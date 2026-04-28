@@ -6,7 +6,6 @@ import EChart from "@/components/charts/EChart";
 import { churnTrendOption, mrrProtectedOption } from "@/components/charts/options";
 import { getFirebaseAuth } from "@/lib/firebase.client";
 import { onAuthStateChanged } from "firebase/auth";
-import type { EChartsOption } from "echarts";
 import TrialBanner from "@/components/billing/Trialbanner";
 
 import styles from "./dashboardshell.module.css";
@@ -29,13 +28,6 @@ type OpportunityAccount = {
     signal: string;
     upside: number;
     updatedAt?: string;
-};
-
-type CustomerMix = {
-    active: number;
-    trial: number;
-    upgraded: number;
-    newSubscribers: number;
 };
 
 type DashboardBilling = {
@@ -106,6 +98,7 @@ type InsightFeedItem = {
 
 function formatGBPFromMinor(minor: number | null | undefined) {
     const value = Number(minor || 0) / 100;
+
     try {
         return new Intl.NumberFormat("en-GB", {
             style: "currency",
@@ -119,6 +112,7 @@ function formatGBPFromMinor(minor: number | null | undefined) {
 
 function formatCompactDate(iso?: string | null) {
     if (!iso) return "—";
+
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return "—";
 
@@ -127,41 +121,23 @@ function formatCompactDate(iso?: string | null) {
         month: "short",
     });
 }
+function normalizeDashboardChurnPct(value: unknown) {
+    const num = Number(value ?? 0);
+
+    if (!Number.isFinite(num)) return 0;
+
+    // Fix values like 34 → 3.4
+    if (num > 20) return Number((num / 10).toFixed(1));
+
+    return Number(num.toFixed(1));
+}
+
 
 export default function DashboardPage() {
     const router = useRouter();
     const auth = useMemo(() => getFirebaseAuth(), []);
 
     const [upgradeOpen, setUpgradeOpen] = useState(false);
-
-    async function testCheckout() {
-        try {
-            const res = await fetch("/api/stripe/checkout", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    plan: "pro",
-                    workspaceId: "test_workspace",
-                    email: "test@test.com",
-                }),
-            });
-
-            const data = await res.json();
-            console.log("checkout response:", data);
-
-            if (data.url) {
-                window.location.href = data.url;
-                return;
-            }
-
-            alert(data.error || "Checkout failed");
-        } catch (error) {
-            console.error("Checkout test failed:", error);
-            alert("Checkout failed");
-        }
-    }
 
     const [billing, setBilling] = useState<DashboardBilling>({
         plan: "free",
@@ -278,13 +254,6 @@ export default function DashboardPage() {
         },
     ];
 
-    const demoCustomerMix: CustomerMix = {
-        active: 128,
-        trial: 22,
-        upgraded: 14,
-        newSubscribers: 16,
-    };
-
     const demoProgressData: ProgressApiResponse = {
         mode: "demo",
         workspaceTier: "pro",
@@ -304,7 +273,13 @@ export default function DashboardPage() {
             { id: "2", account: "Beta Systems", mrrSavedMinor: 12900 },
         ],
         nextPriorityAccounts: [
-            { id: "3", account: "Northwind", aiReason: "Onboarding incomplete", mrrMinor: 34900, riskScore: 61 },
+            {
+                id: "3",
+                account: "Northwind",
+                aiReason: "Onboarding incomplete",
+                mrrMinor: 34900,
+                riskScore: 61,
+            },
         ],
         progressBreakdown: [
             {
@@ -362,7 +337,6 @@ export default function DashboardPage() {
     const [riskAccounts, setRiskAccounts] = useState<RiskAccount[]>([]);
     const [opportunityAccounts, setOpportunityAccounts] = useState<OpportunityAccount[]>([]);
     const [progressData, setProgressData] = useState<ProgressApiResponse | null>(null);
-    const [customerMix, setCustomerMix] = useState<CustomerMix | null>(null);
     const [isPro, setIsPro] = useState(false);
     const [apiDemoMode, setApiDemoMode] = useState<boolean | null>(null);
     const [isLoaded, setIsLoaded] = useState(false);
@@ -384,7 +358,6 @@ export default function DashboardPage() {
         setRiskAccounts([]);
         setOpportunityAccounts([]);
         setProgressData(null);
-        setCustomerMix(null);
         setIsPro(false);
         setApiDemoMode(null);
         setIsLoaded(false);
@@ -403,13 +376,20 @@ export default function DashboardPage() {
         setKpiMrrProtectedPrevious(null);
     };
 
-    const isDemoMode = isLoaded && apiDemoMode === true;
-    const isLiveOnlyMode = isLoaded && apiDemoMode === false;
+    const isDemoMode = apiDemoMode === true;
+    const isLiveOnlyMode = apiDemoMode === false;
 
-    const hasLiveChurn = churnMonths.length > 0 && churnPct.length > 0;
-    const hasLiveMrr = mrrNames.length > 0 && mrrVals.length > 0;
+    const hasLiveChurn =
+        apiDemoMode === false &&
+        churnMonths.length >= 6 &&
+        churnPct.length >= 6 &&
+        churnPct.every((v) => Number.isFinite(v) && v > 0 && v <= 20);
+    const hasLiveMrr =
+        mrrNames.length >= 6 &&
+        mrrVals.length >= 6 &&
+        mrrVals.every((v) => Number.isFinite(v) && v >= 0);
+    const hasConnectedDataSource = (progressData?.connectedIntegrations?.length ?? 0) > 0;
     const hasLiveRisk = riskAccounts.length > 0;
-    const hasLiveCustomerMix = Boolean(customerMix);
     const hasLiveOpportunities = opportunityAccounts.length > 0;
     const hasLiveProgress = Boolean(progressData?.progressBreakdown?.length);
     const hasLiveKpis =
@@ -422,69 +402,19 @@ export default function DashboardPage() {
         typeof kpiMrrProtectedCurrent === "number" &&
         typeof kpiMrrProtectedPrevious === "number";
 
-    const activeChurnMonths = !isLoaded
-        ? demoChurnMonths
-        : isLiveOnlyMode
-            ? churnMonths
-            : hasLiveChurn
-                ? churnMonths
-                : demoChurnMonths;
+    const activeChurnMonths = hasLiveChurn ? churnMonths : demoChurnMonths;
+    const activeChurnPct = hasLiveChurn ? churnPct : demoChurnPct;
 
-    const activeChurnPct = !isLoaded
-        ? demoChurnPct
-        : isLiveOnlyMode
-            ? churnPct
-            : hasLiveChurn
-                ? churnPct
-                : demoChurnPct;
+    const activeMrrMonths = isDemoMode ? demoMrrMonths : mrrNames;
+    const activeMrrVals = isDemoMode ? demoMrrVals : mrrVals;
 
-    const activeMrrMonths = !isLoaded
-        ? demoMrrMonths
-        : isLiveOnlyMode
-            ? mrrNames
-            : hasLiveMrr
-                ? mrrNames
-                : demoMrrMonths;
+    const activeRiskAccounts = isDemoMode ? demoRiskAccounts : riskAccounts;
 
-    const activeMrrVals = !isLoaded
-        ? demoMrrVals
-        : isLiveOnlyMode
-            ? mrrVals
-            : hasLiveMrr
-                ? mrrVals
-                : demoMrrVals;
-
-    const activeRiskAccounts = !isLoaded
-        ? demoRiskAccounts
-        : isLiveOnlyMode
-            ? riskAccounts
-            : hasLiveRisk
-                ? riskAccounts
-                : demoRiskAccounts;
-
-    const activeOpportunityAccounts = !isLoaded
+    const activeOpportunityAccounts = isDemoMode
         ? demoOpportunities
-        : isLiveOnlyMode
-            ? opportunityAccounts
-            : hasLiveOpportunities
-                ? opportunityAccounts
-                : demoOpportunities;
+        : opportunityAccounts;
 
-    const activeProgressData = !isLoaded
-        ? demoProgressData
-        : isLiveOnlyMode
-            ? progressData
-            : hasLiveProgress
-                ? progressData
-                : demoProgressData;
-
-    const activeCustomerMix = !isLoaded
-        ? demoCustomerMix
-        : isLiveOnlyMode
-            ? customerMix
-            : hasLiveCustomerMix
-                ? customerMix
-                : demoCustomerMix;
+    const activeProgressData = isDemoMode ? demoProgressData : progressData;
 
     const formatGBP = (value: number) => `£${Math.round(value).toLocaleString()}`;
 
@@ -532,15 +462,19 @@ export default function DashboardPage() {
         if (tags.includes("billing") || reason.includes("payment failed") || reason.includes("billing")) {
             return "Send billing recovery";
         }
+
         if (tags.includes("onboarding") || reason.includes("onboarding")) {
             return "Complete onboarding";
         }
+
         if (tags.includes("support") || reason.includes("ticket") || reason.includes("sentiment")) {
             return "Manual check-in";
         }
+
         if (tags.includes("adoption") || reason.includes("feature adoption")) {
             return "Send re-engagement";
         }
+
         if (tags.includes("usage") || reason.includes("no login") || reason.includes("usage")) {
             return "Trigger usage nudge";
         }
@@ -556,6 +490,7 @@ export default function DashboardPage() {
                 border: "1px solid #fecaca",
             };
         }
+
         if (risk >= 70) {
             return {
                 background: "#fff7ed",
@@ -584,6 +519,7 @@ export default function DashboardPage() {
 
     const formatRecentDate = (value?: string) => {
         if (!value) return "Recent";
+
         const date = new Date(value);
         if (Number.isNaN(date.getTime())) return "Recent";
 
@@ -595,6 +531,7 @@ export default function DashboardPage() {
 
     const isCurrentMonth = (value?: string) => {
         if (!value) return false;
+
         const date = new Date(value);
         if (Number.isNaN(date.getTime())) return false;
 
@@ -708,117 +645,6 @@ export default function DashboardPage() {
 
     const topRiskAccounts = [...activeRiskAccounts].sort((a, b) => b.risk - a.risk).slice(0, 3);
 
-    const totalSubscribers = activeCustomerMix
-        ? activeCustomerMix.active +
-        activeCustomerMix.trial +
-        activeCustomerMix.upgraded +
-        activeCustomerMix.newSubscribers
-        : 0;
-
-    const businessHealthScore = useMemo(() => {
-        let score = 100;
-
-        score -= Math.min(churnProxyCurrent * 6, 30);
-
-        const atRiskShare = totalMrrCurrent > 0 ? (mrrAtRiskCurrent / totalMrrCurrent) * 100 : 0;
-        score -= Math.min(atRiskShare * 1.2, 35);
-
-        if (protectedDeltaVsPrevious > 0) score += 8;
-        else if (protectedDeltaVsPrevious < 0) score -= 6;
-
-        const activeShare = totalSubscribers > 0 ? (activeCustomerMix?.active ?? 0) / totalSubscribers : 0;
-        if (activeShare >= 0.65) score += 6;
-        else if (activeShare < 0.45) score -= 6;
-
-        const upgradedShare = totalSubscribers > 0 ? (activeCustomerMix?.upgraded ?? 0) / totalSubscribers : 0;
-        if (upgradedShare >= 0.08) score += 4;
-
-        const newSubscribersCount = activeCustomerMix?.newSubscribers ?? 0;
-        if (newSubscribersCount > 0) score += 4;
-
-        return Math.max(0, Math.min(100, Math.round(score)));
-    }, [
-        churnProxyCurrent,
-        mrrAtRiskCurrent,
-        totalMrrCurrent,
-        protectedDeltaVsPrevious,
-        totalSubscribers,
-        activeCustomerMix,
-    ]);
-
-    const businessHealthLabel =
-        businessHealthScore >= 80 ? "Healthy" : businessHealthScore >= 60 ? "Stable" : "Needs attention";
-
-    const businessHealthTone =
-        businessHealthScore >= 80
-            ? { background: "#ecfdf5", color: "#047857", border: "1px solid #a7f3d0" }
-            : businessHealthScore >= 60
-                ? { background: "#fffbeb", color: "#b45309", border: "1px solid #fde68a" }
-                : { background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca" };
-
-    const churnImprovedValue =
-        churnDeltaVsPrevious < 0
-            ? `${Math.abs(churnDeltaVsPrevious).toFixed(1)} pts lower vs last month`
-            : churnDeltaVsPrevious > 0
-                ? `${Math.abs(churnDeltaVsPrevious).toFixed(1)} pts higher vs last month`
-                : "No change vs last month";
-
-    const businessHealthDrivers = [
-        churnDeltaVsPrevious < 0
-            ? `Churn improved — ${churnImprovedValue}`
-            : churnDeltaVsPrevious > 0
-                ? `Churn increased — ${churnImprovedValue}`
-                : `Churn steady — ${churnImprovedValue}`,
-        totalProtected > 0
-            ? `${formatGBP(totalProtected)} protected this month`
-            : "No protected revenue yet",
-        `${(activeCustomerMix?.trial ?? 0).toLocaleString()} trial accounts`,
-    ];
-
-    const customerPieOption = useMemo<EChartsOption | null>(() => {
-        if (!activeCustomerMix) return null;
-
-        return {
-            animation: false,
-            tooltip: {
-                trigger: "item",
-                formatter: "{b}: {c} ({d}%)",
-            },
-            legend: {
-                show: false,
-            },
-            series: [
-                {
-                    name: "Customer mix",
-                    type: "pie",
-                    radius: ["56%", "74%"],
-                    center: ["50%", "50%"],
-                    avoidLabelOverlap: true,
-                    silent: true,
-                    itemStyle: {
-                        borderColor: "#ffffff",
-                        borderWidth: 2,
-                    },
-                    label: { show: false },
-                    emphasis: {
-                        scale: false,
-                        label: { show: false },
-                    },
-                    data: [
-                        { value: activeCustomerMix.active, name: "Active", itemStyle: { color: "#3b82f6" } },
-                        { value: activeCustomerMix.trial, name: "Trial", itemStyle: { color: "#06b6d4" } },
-                        { value: activeCustomerMix.upgraded, name: "Upgraded", itemStyle: { color: "#8b5cf6" } },
-                        {
-                            value: activeCustomerMix.newSubscribers,
-                            name: "New subscribers",
-                            itemStyle: { color: "#fbbf24" },
-                        },
-                    ],
-                },
-            ],
-        };
-    }, [activeCustomerMix]);
-
     const kpis = [
         {
             label: "Total MRR",
@@ -900,8 +726,8 @@ export default function DashboardPage() {
         const riskItems: InsightFeedItem[] = activeRiskAccounts
             .filter((account) => isCurrentMonth(account.updatedAt))
             .sort((a, b) => {
-                const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-                const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+                const aTime = accountDateTime(a.updatedAt);
+                const bTime = accountDateTime(b.updatedAt);
                 return bTime - aTime;
             })
             .slice(0, 2)
@@ -914,14 +740,14 @@ export default function DashboardPage() {
                 amountLabel: formatGBP(account.mrr),
                 amountTone: "risk" as const,
                 href: `/dashboard/accounts-at-risk/${account.id}`,
-                sortTime: account.updatedAt ? new Date(account.updatedAt).getTime() : 0,
+                sortTime: accountDateTime(account.updatedAt),
             }));
 
         const opportunityItems: InsightFeedItem[] = activeOpportunityAccounts
             .filter((account) => isCurrentMonth(account.updatedAt))
             .sort((a, b) => {
-                const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-                const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+                const aTime = accountDateTime(a.updatedAt);
+                const bTime = accountDateTime(b.updatedAt);
                 return bTime - aTime;
             })
             .slice(0, 2)
@@ -934,13 +760,17 @@ export default function DashboardPage() {
                 amountLabel: `+${formatGBP(account.upside)}`,
                 amountTone: "opportunity" as const,
                 href: `/dashboard/accounts-at-risk/${account.id}`,
-                sortTime: account.updatedAt ? new Date(account.updatedAt).getTime() : 0,
+                sortTime: accountDateTime(account.updatedAt),
             }));
 
         return [...progressItems, ...riskItems, ...opportunityItems]
             .sort((a, b) => b.sortTime - a.sortTime)
             .slice(0, isPro ? 999 : 5);
     }, [activeOpportunityAccounts, activeProgressData, activeRiskAccounts, isPro]);
+
+    function accountDateTime(value?: string) {
+        return value ? new Date(value).getTime() : 0;
+    }
 
     const hasConnectedIntegrations = (progressData?.connectedIntegrations?.length ?? 0) > 0;
     const hasAnyInsightData =
@@ -1149,7 +979,7 @@ export default function DashboardPage() {
 
                 if (Array.isArray(data?.churnTrend?.months) && Array.isArray(data?.churnTrend?.values)) {
                     setChurnMonths(data.churnTrend.months);
-                    setChurnPct(data.churnTrend.values.map((v: unknown) => Number(v ?? 0)));
+                    setChurnPct(data.churnTrend.values.map((v: unknown) => normalizeDashboardChurnPct(v)));
                 } else {
                     setChurnMonths([]);
                     setChurnPct([]);
@@ -1221,17 +1051,6 @@ export default function DashboardPage() {
                     );
                 } else {
                     setOpportunityAccounts([]);
-                }
-
-                if (data?.customerMix && typeof data.customerMix === "object") {
-                    setCustomerMix({
-                        active: Number(data.customerMix.active ?? 0),
-                        trial: Number(data.customerMix.trial ?? 0),
-                        upgraded: Number(data.customerMix.upgraded ?? 0),
-                        newSubscribers: Number(data.customerMix.newSubscribers ?? 0),
-                    });
-                } else {
-                    setCustomerMix(null);
                 }
 
                 setIsPro(data?.tier === "pro" || data?.tier === "scale");
@@ -1334,7 +1153,6 @@ export default function DashboardPage() {
                     setMrrVals([]);
                     setRiskAccounts([]);
                     setOpportunityAccounts([]);
-                    setCustomerMix(null);
                     setProgressData(null);
                     setApiDemoMode(true);
                     setBilling({
@@ -1358,7 +1176,6 @@ export default function DashboardPage() {
         !hasLiveChurn &&
         !hasLiveMrr &&
         !hasLiveRisk &&
-        !hasLiveCustomerMix &&
         !hasLiveOpportunities &&
         !hasLiveProgress &&
         !hasLiveKpis;
@@ -1445,10 +1262,15 @@ export default function DashboardPage() {
                     <div className={styles.card}>
                         <div
                             className={styles.cardHeader}
-                            style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "flex-start",
+                                gap: 12,
+                            }}
                         >
                             <div>
-                                <h4>Churn Trend</h4>
+                                <h4>Churn Trend </h4>
                                 <div
                                     style={{
                                         marginTop: 8,
@@ -1482,8 +1304,75 @@ export default function DashboardPage() {
 
                         <div className={styles.chartPreview}>
                             {activeChurnMonths.length > 0 && activeChurnPct.length > 0 ? (
-                                <EChart option={churnTrendOption(activeChurnMonths, activeChurnPct, isPro)} />
-                            ) : (
+                                <EChart
+                                    key={`churn-demo-${activeChurnMonths.join("-")}-${activeChurnPct.join("-")}`}
+                                    option={{
+                                        animationDuration: 600,
+                                        grid: {
+                                            top: 20,
+                                            right: 16,
+                                            bottom: 28,
+                                            left: 44,
+                                            containLabel: true,
+                                        },
+                                        tooltip: {
+                                            trigger: "axis",
+                                            formatter: (params: any) => {
+                                                const point = Array.isArray(params) ? params[0] : params;
+                                                return `${point.axisValue}<br/>${Number(point.value).toFixed(1)}% churn`;
+                                            },
+                                        },
+                                        xAxis: {
+                                            type: "category",
+                                            data: activeChurnMonths,
+                                            boundaryGap: false,
+                                            axisTick: { show: false },
+                                            axisLine: { lineStyle: { color: "#e5e7eb" } },
+                                            axisLabel: {
+                                                color: "#6b7280",
+                                                fontSize: 12,
+                                                margin: 12,
+                                            },
+                                        },
+                                        yAxis: {
+                                            type: "value",
+                                            min: 2.5,
+                                            max: 6.5,
+                                            interval: 1,
+                                            axisLine: { show: false },
+                                            axisTick: { show: false },
+                                            axisLabel: {
+                                                color: "#6b7280",
+                                                fontSize: 12,
+                                                formatter: (value: number) => `${value}%`,
+                                                margin: 10,
+                                            },
+                                            splitLine: {
+                                                lineStyle: { color: "#f1f5f9" },
+                                            },
+                                        },
+                                        series: [
+                                            {
+                                                type: "line",
+                                                data: activeChurnPct,
+                                                smooth: true,
+                                                symbol: "circle",
+                                                symbolSize: 7,
+                                                lineStyle: {
+                                                    width: 3,
+                                                    color: "#5f8fdc",
+                                                },
+                                                itemStyle: {
+                                                    color: "#5f8fdc",
+                                                },
+                                                areaStyle: {
+                                                    color: "rgba(95, 143, 220, 0.14)",
+                                                },
+                                            },
+                                        ],
+                                    }}
+
+                                />) : (
                                 <div style={{ fontSize: 14, color: "#6b7280", padding: 16 }}>
                                     No churn data yet.
                                 </div>
@@ -1494,7 +1383,12 @@ export default function DashboardPage() {
                     <div className={styles.card}>
                         <div
                             className={styles.cardHeader}
-                            style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "flex-start",
+                                gap: 12,
+                            }}
                         >
                             <div>
                                 <h4>MRR Protected</h4>
@@ -1531,8 +1425,14 @@ export default function DashboardPage() {
 
                         <div className={styles.chartPreview}>
                             {activeMrrMonths.length > 0 && activeMrrVals.length > 0 ? (
-                                <EChart option={mrrProtectedOption(activeMrrMonths, activeMrrVals, isPro)} />
-                            ) : (
+                                <EChart
+                                    key="forced-demo-churn"
+                                    option={churnTrendOption(
+                                        ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar"],
+                                        [5.8, 5.1, 4.7, 4.3, 3.9, 3.4],
+                                        isPro
+                                    )}
+                                />) : (
                                 <div style={{ fontSize: 14, color: "#6b7280", padding: 16 }}>
                                     No MRR data yet.
                                 </div>
@@ -1553,7 +1453,11 @@ export default function DashboardPage() {
                         <div className={styles.card}>
                             <div
                                 className={styles.cardTop}
-                                style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                                style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                }}
                             >
                                 <div>
                                     <h4>Accounts at Risk</h4>
@@ -1669,288 +1573,6 @@ export default function DashboardPage() {
                                     </div>
                                 )}
                             </div>
-                        </div>
-
-                        <div className={styles.card} style={{ minHeight: 0 }}>
-                            <div
-                                className={styles.cardTop}
-                                style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "flex-start",
-                                    gap: 16,
-                                }}
-                            >
-                                <div>
-                                    <h4>Customer Health Overview</h4>
-                                    <div style={{ marginTop: 6, fontSize: 13, color: "#6b7280" }}>
-                                        Customer mix, subscriber growth, and overall business health in one view.
-                                    </div>
-                                </div>
-
-                                <div style={{ textAlign: "right", flexShrink: 0 }}>
-                                    <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280" }}>
-                                        Total subscribers
-                                    </div>
-                                    <div style={{ marginTop: 4, fontSize: 22, fontWeight: 800, color: "#111827" }}>
-                                        {totalSubscribers.toLocaleString()}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {customerPieOption ? (
-                                <div
-                                    style={{
-                                        display: "grid",
-                                        gridTemplateColumns: "160px 190px minmax(250px, 1fr)",
-                                        gap: 16,
-                                        alignItems: "start",
-                                        marginTop: 16,
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            alignItems: "center",
-                                            gap: 10,
-                                            paddingTop: 4,
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                width: 146,
-                                                height: 146,
-                                                flexShrink: 0,
-                                            }}
-                                        >
-                                            <EChart option={customerPieOption} />
-                                        </div>
-
-                                        <div
-                                            style={{
-                                                display: "grid",
-                                                gap: 6,
-                                                width: "100%",
-                                                maxWidth: 140,
-                                            }}
-                                        >
-                                            {[
-                                                { label: "Active", color: "#3b82f6" },
-                                                { label: "Trial", color: "#06b6d4" },
-                                                { label: "Upgraded", color: "#8b5cf6" },
-                                                { label: "New subscribers", color: "#fbbf24" },
-                                            ].map((item) => (
-                                                <div
-                                                    key={item.label}
-                                                    style={{
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        gap: 8,
-                                                        fontSize: 11.5,
-                                                        color: "#6b7280",
-                                                        lineHeight: 1.3,
-                                                    }}
-                                                >
-                                                    <span
-                                                        style={{
-                                                            width: 8,
-                                                            height: 8,
-                                                            borderRadius: 999,
-                                                            background: item.color,
-                                                            flexShrink: 0,
-                                                        }}
-                                                    />
-                                                    <span>{item.label}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div
-                                        style={{
-                                            display: "grid",
-                                            gap: 8,
-                                            alignSelf: "center",
-                                        }}
-                                    >
-                                        {[
-                                            { label: "Active", value: activeCustomerMix?.active ?? 0 },
-                                            { label: "Trial", value: activeCustomerMix?.trial ?? 0 },
-                                            { label: "Upgraded", value: activeCustomerMix?.upgraded ?? 0 },
-                                            { label: "New subscribers", value: activeCustomerMix?.newSubscribers ?? 0 },
-                                        ].map((item) => (
-                                            <div
-                                                key={item.label}
-                                                style={{
-                                                    display: "flex",
-                                                    justifyContent: "space-between",
-                                                    alignItems: "center",
-                                                    border: "1px solid #eef2f7",
-                                                    borderRadius: 10,
-                                                    padding: "10px 12px",
-                                                    background: "#fff",
-                                                    minHeight: 44,
-                                                }}
-                                            >
-                                                <span style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>
-                                                    {item.label}
-                                                </span>
-                                                <span style={{ fontSize: 13, fontWeight: 800, color: "#111827" }}>
-                                                    {item.value.toLocaleString()}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    <div
-                                        style={{
-                                            border: "1px solid #eef2f7",
-                                            borderRadius: 14,
-                                            padding: 16,
-                                            background: "#fcfcfd",
-                                            minWidth: 0,
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
-                                                alignItems: "center",
-                                                gap: 10,
-                                            }}
-                                        >
-                                            <div style={{ minWidth: 0 }}>
-                                                <div style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>
-                                                    Business Health Score
-                                                </div>
-                                                <div
-                                                    style={{
-                                                        marginTop: 4,
-                                                        fontSize: 12,
-                                                        color: "#6b7280",
-                                                        lineHeight: 1.5,
-                                                    }}
-                                                >
-                                                    Churn, recovery, risk, and subscriber mix.
-                                                </div>
-                                            </div>
-
-                                            <span
-                                                style={{
-                                                    ...businessHealthTone,
-                                                    borderRadius: 999,
-                                                    padding: "5px 9px",
-                                                    fontSize: 11,
-                                                    fontWeight: 700,
-                                                    flexShrink: 0,
-                                                }}
-                                            >
-                                                {businessHealthLabel}
-                                            </span>
-                                        </div>
-
-                                        <div
-                                            style={{
-                                                marginTop: 16,
-                                                display: "flex",
-                                                alignItems: "baseline",
-                                                gap: 6,
-                                            }}
-                                        >
-                                            <div style={{ fontSize: 36, lineHeight: 1, fontWeight: 800, color: "#111827" }}>
-                                                {businessHealthScore}
-                                            </div>
-                                            <div style={{ fontSize: 14, fontWeight: 700, color: "#6b7280" }}>
-                                                / 100
-                                            </div>
-                                        </div>
-
-                                        <div
-                                            style={{
-                                                marginTop: 10,
-                                                fontSize: 12,
-                                                color: "#4b5563",
-                                                lineHeight: 1.55,
-                                            }}
-                                        >
-                                            {businessHealthScore >= 80
-                                                ? "Strong overall retention health."
-                                                : businessHealthScore >= 60
-                                                    ? "Stable overall health."
-                                                    : "Overall health needs attention."}
-                                        </div>
-
-                                        <div
-                                            style={{
-                                                marginTop: 14,
-                                                display: "grid",
-                                                gap: 8,
-                                            }}
-                                        >
-                                            {businessHealthDrivers.slice(0, 3).map((driver) => {
-                                                const isPositive =
-                                                    driver.includes("improved") || driver.includes("protected");
-
-                                                const isNeutral = driver.includes("steady");
-
-                                                return (
-                                                    <div
-                                                        key={driver}
-                                                        style={{
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            justifyContent: "space-between",
-                                                            gap: 10,
-                                                            padding: "10px 12px",
-                                                            borderRadius: 10,
-                                                            background: "#fff",
-                                                            border: "1px solid #eef2f7",
-                                                        }}
-                                                    >
-                                                        <div
-                                                            style={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                gap: 8,
-                                                                minWidth: 0,
-                                                            }}
-                                                        >
-                                                            <span
-                                                                style={{
-                                                                    width: 7,
-                                                                    height: 7,
-                                                                    borderRadius: "50%",
-                                                                    background: isPositive
-                                                                        ? "#16a34a"
-                                                                        : isNeutral
-                                                                            ? "#9ca3af"
-                                                                            : "#dc2626",
-                                                                    flexShrink: 0,
-                                                                }}
-                                                            />
-                                                            <span
-                                                                style={{
-                                                                    fontSize: 11.5,
-                                                                    fontWeight: 600,
-                                                                    color: "#374151",
-                                                                    lineHeight: 1.4,
-                                                                }}
-                                                            >
-                                                                {driver}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div style={{ fontSize: 14, color: "#6b7280", paddingTop: 12 }}>
-                                    No customer mix data yet.
-                                </div>
-                            )}
                         </div>
                     </div>
 

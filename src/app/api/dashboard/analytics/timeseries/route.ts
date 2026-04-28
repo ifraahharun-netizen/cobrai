@@ -18,6 +18,14 @@ type ExpansionRow = {
     confidence?: "High" | "Medium" | "Low";
 };
 
+type ActivityByMonthRow = {
+    month: string;
+    totalSubscribers: number;
+    newSubscriptions: number;
+    newTrials: number;
+    unsubscribes: number;
+};
+
 type DriverAccountRow = {
     id: string;
     accountName: string;
@@ -163,6 +171,18 @@ function buildDemoSeries(keys: string[]) {
 
     const mauStart = count >= 12 ? 12 : 18;
     const mauEnd = count >= 12 ? 34 : 31;
+
+    const activityByMonth: ActivityByMonthRow[] = keys.map((key, idx) => {
+        const activeUsers = mau[idx]?.activeUsers ?? 0;
+
+        return {
+            month: key,
+            totalSubscribers: activeUsers,
+            newSubscriptions: idx === keys.length - 1 ? 0 : Math.max(0, Math.round(activeUsers * 0.08)),
+            newTrials: idx === keys.length - 1 ? 0 : Math.max(0, Math.round(activeUsers * 0.12)),
+            unsubscribes: idx === keys.length - 1 ? 1 : idx % 4 === 0 ? 1 : 0,
+        };
+    });
 
     const mrr = keys.map((key, idx) => {
         const t = count === 1 ? 1 : idx / (count - 1);
@@ -322,6 +342,7 @@ function buildDemoSeries(keys: string[]) {
         mrr,
         churn,
         mau,
+        activityByMonth,
         expansionRows,
         insights: {
             mrr: {
@@ -395,6 +416,7 @@ export async function GET(req: Request) {
                 mrr: demo.mrr,
                 churn: demo.churn,
                 mau: demo.mau,
+                activityByMonth: demo.activityByMonth,
                 expansionRows: demo.expansionRows,
                 insights: demo.insights,
             });
@@ -550,6 +572,44 @@ export async function GET(req: Request) {
             }).length;
 
             return { month: key, activeUsers };
+        });
+
+        const activityByMonth: ActivityByMonthRow[] = keys.map((key) => {
+            const [year, month] = key.split("-").map(Number);
+            const monthStart = startOfMonth(new Date(year, month - 1, 1));
+            const monthEnd = endOfMonth(monthStart);
+
+            const totalSubscribers = customers.filter((c) => {
+                const createdOk = c.createdAt <= monthEnd;
+                const notCancelledBeforeMonthEnd = !c.canceledAt || c.canceledAt > monthEnd;
+                return createdOk && notCancelledBeforeMonthEnd;
+            }).length;
+
+            const newCustomersThisMonth = customers.filter((c) => {
+                return c.createdAt >= monthStart && c.createdAt <= monthEnd;
+            });
+
+            const newTrials = newCustomersThisMonth.filter((c) => {
+                const status = String(c.status || "").toLowerCase();
+                return status.includes("trial");
+            }).length;
+
+            const newSubscriptions = newCustomersThisMonth.filter((c) => {
+                const status = String(c.status || "").toLowerCase();
+                return !status.includes("trial");
+            }).length;
+
+            const unsubscribes = customers.filter((c) => {
+                return !!c.canceledAt && c.canceledAt >= monthStart && c.canceledAt <= monthEnd;
+            }).length;
+
+            return {
+                month: key,
+                totalSubscribers,
+                newSubscriptions,
+                newTrials,
+                unsubscribes,
+            };
         });
 
         const currentMrr = mrr[mrr.length - 1]?.valueMinor ?? 0;
@@ -762,6 +822,7 @@ export async function GET(req: Request) {
             mrr,
             churn,
             mau,
+            activityByMonth,
             expansionRows: finalExpansionRows,
             insights: {
                 mrr: {

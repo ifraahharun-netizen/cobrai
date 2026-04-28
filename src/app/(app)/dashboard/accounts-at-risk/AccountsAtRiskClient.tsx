@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 import type { PlanTier } from "@/lib/permissions";
 
 type RiskLevel = "critical" | "high" | "medium" | "low";
-type HealthDirection = "improving" | "declining" | "stable";
 
 type RiskRow = {
     id: string;
@@ -51,10 +50,149 @@ type DashboardSummaryResponse = {
     tier?: PlanTier;
 };
 
-type CustomerHealthInsight = {
-    direction: HealthDirection;
-    drivers: string[];
-    summary: string;
+const DEMO_ROWS: RiskRow[] = [
+    {
+        id: "demo-cedarworks",
+        customerId: null,
+        companyName: "CedarWorks",
+        email: "support@cedarworks.io",
+        riskScore: 91,
+        riskLevel: "critical",
+        reasonLabel: "Billing issue",
+        mrr: 21900,
+        nextAction: "Confirm billing contact and resolve payment today.",
+    },
+    {
+        id: "demo-kite-labs",
+        customerId: null,
+        companyName: "Kite Labs",
+        email: "finance@kitelabs.io",
+        riskScore: 87,
+        riskLevel: "critical",
+        reasonLabel: "No activity in 25 days",
+        mrr: 12900,
+        nextAction: "Send a personal check-in and offer a quick walkthrough.",
+    },
+    {
+        id: "demo-nova-pay",
+        customerId: null,
+        companyName: "NovaPay",
+        email: "ops@novapay.io",
+        riskScore: 76,
+        riskLevel: "high",
+        reasonLabel: "Usage dropped",
+        mrr: 8400,
+        nextAction: "Send a value recap and suggest a success call.",
+    },
+    {
+        id: "demo-brightdesk",
+        customerId: null,
+        companyName: "BrightDesk",
+        email: "hello@brightdesk.co",
+        riskScore: 69,
+        riskLevel: "medium",
+        reasonLabel: "Reduced product activity",
+        mrr: 7200,
+        nextAction: "Highlight unused features and offer setup support.",
+    },
+    {
+        id: "demo-orbit-crm",
+        customerId: null,
+        companyName: "Orbit CRM",
+        email: "team@orbitcrm.com",
+        riskScore: 63,
+        riskLevel: "medium",
+        reasonLabel: "Support issue unresolved",
+        mrr: 6600,
+        nextAction: "Follow up on the open support request.",
+    },
+    {
+        id: "demo-flowbyte",
+        customerId: null,
+        companyName: "Flowbyte",
+        email: "billing@flowbyte.io",
+        riskScore: 58,
+        riskLevel: "medium",
+        reasonLabel: "Payment method needs attention",
+        mrr: 5100,
+        nextAction: "Ask customer to update payment details.",
+    },
+    {
+        id: "demo-cloudora",
+        customerId: null,
+        companyName: "Cloudora",
+        email: "success@cloudora.ai",
+        riskScore: 48,
+        riskLevel: "low",
+        reasonLabel: "Slight decline in weekly usage",
+        mrr: 4700,
+        nextAction: "Send product tips to increase engagement.",
+    },
+    {
+        id: "demo-signalstack",
+        customerId: null,
+        companyName: "SignalStack",
+        email: "admin@signalstack.io",
+        riskScore: 44,
+        riskLevel: "low",
+        reasonLabel: "Limited team adoption",
+        mrr: 3900,
+        nextAction: "Recommend inviting more users.",
+    },
+    {
+        id: "demo-paypilot",
+        customerId: null,
+        companyName: "PayPilot",
+        email: "accounts@paypilot.co",
+        riskScore: 39,
+        riskLevel: "low",
+        reasonLabel: "Light engagement",
+        mrr: 3200,
+        nextAction: "Send monthly value summary.",
+    },
+    {
+        id: "demo-retainly",
+        customerId: null,
+        companyName: "Retainly",
+        email: "team@retainly.io",
+        riskScore: 35,
+        riskLevel: "low",
+        reasonLabel: "Normal usage",
+        mrr: 2800,
+        nextAction: "Maintain normal check-in cadence.",
+    },
+    {
+        id: "demo-launchgrid",
+        customerId: null,
+        companyName: "LaunchGrid",
+        email: "hello@launchgrid.co",
+        riskScore: 28,
+        riskLevel: "low",
+        reasonLabel: "Active usage",
+        mrr: 2100,
+        nextAction: "Share advanced feature recommendations.",
+    },
+    {
+        id: "demo-metriclane",
+        customerId: null,
+        companyName: "MetricLane",
+        email: "ops@metriclane.io",
+        riskScore: 22,
+        riskLevel: "low",
+        reasonLabel: "Strong engagement",
+        mrr: 1900,
+        nextAction: "Offer expansion opportunity.",
+    },
+];
+
+const DEMO_SUMMARY: Summary = {
+    mrrAtRisk: 34800,
+    accountsAtRisk: 2,
+    totalCustomers: 12,
+    totalCustomersDelta: 0,
+    riskScore: 78,
+    mrrAtRiskDeltaPct: 0,
+    churnProbabilityDeltaPct: 0,
 };
 
 function formatGBP(v: number) {
@@ -73,20 +211,6 @@ function formatSignedNumber(value?: number) {
     return `${n}`;
 }
 
-function deltaClass(value?: number) {
-    const n = Number(value || 0);
-    if (n > 0) return styles.kpiDeltaUp;
-    if (n < 0) return styles.kpiDeltaDown;
-    return styles.kpiDeltaFlat;
-}
-
-function deltaArrow(value?: number) {
-    const n = Number(value || 0);
-    if (n > 0) return "↑";
-    if (n < 0) return "↓";
-    return "→";
-}
-
 function riskPillClass(level: RiskLevel) {
     if (level === "critical") return styles.riskScoreCritical;
     if (level === "high") return styles.riskScoreHigh;
@@ -94,114 +218,32 @@ function riskPillClass(level: RiskLevel) {
     return styles.riskScoreLow;
 }
 
-function normaliseDriver(reason?: string) {
-    const value = String(reason || "").toLowerCase();
-
-    if (
-        value.includes("billing") ||
-        value.includes("payment failed") ||
-        value.includes("payment") ||
-        value.includes("invoice")
-    ) {
-        return "billing issues";
-    }
-
-    if (
-        value.includes("low engagement") ||
-        value.includes("no activity") ||
-        value.includes("inactive") ||
-        value.includes("usage") ||
-        value.includes("declining weekly usage")
-    ) {
-        return "low engagement";
-    }
-
-    if (value.includes("support")) {
-        return "support issues";
-    }
-
-    if (value.includes("churn")) {
-        return "high churn risk";
-    }
-
-    return "";
-}
-
-function buildCustomerHealthInsight(
-    rows: RiskRow[],
-    churnProbabilityDeltaPct?: number
-): CustomerHealthInsight {
-    const driverCounts = new Map<string, number>();
-
-    for (const row of rows) {
-        const driver = normaliseDriver(row.reasonLabel);
-        if (!driver) continue;
-        driverCounts.set(driver, (driverCounts.get(driver) || 0) + 1);
-    }
-
-    const drivers = Array.from(driverCounts.entries())
-        .sort((a, b) => b[1] - a[1])
+function initials(name: string) {
+    return name
+        .split(" ")
+        .map((word) => word[0])
+        .join("")
         .slice(0, 2)
-        .map(([label]) => label);
-
-    const delta = Number(churnProbabilityDeltaPct || 0);
-    const hasCritical = rows.some((row) => row.riskScore >= 85);
-
-    let direction: HealthDirection = "stable";
-
-    if (delta > 0 || hasCritical) direction = "declining";
-    else if (delta < 0) direction = "improving";
-
-    const driverText = drivers.length ? drivers.join(", ") : "mixed account signals";
-
-    if (direction === "declining") {
-        return {
-            direction,
-            drivers,
-            summary: `Declining due to ${driverText}.`,
-        };
-    }
-
-    if (direction === "improving") {
-        return {
-            direction,
-            drivers,
-            summary: `Improving as pressure from ${driverText} is easing.`,
-        };
-    }
-
-    return {
-        direction,
-        drivers,
-        summary: `Stable, mainly shaped by ${driverText}.`,
-    };
+        .toUpperCase();
 }
-
-const DEMO_TOTAL_CUSTOMERS = 12;
 
 export default function AccountsAtRiskClient() {
-    const [rows, setRows] = useState<RiskRow[]>([]);
-    const [loading, setLoading] = useState(true);
     const router = useRouter();
+
+    const [rows, setRows] = useState<RiskRow[]>(DEMO_ROWS);
+    const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
-    const [total, setTotal] = useState(0);
-    const [criticalTotal, setCriticalTotal] = useState(0);
+    const [total, setTotal] = useState(DEMO_ROWS.length);
+    const [criticalTotal, setCriticalTotal] = useState(
+        DEMO_ROWS.filter((row) => row.riskScore >= 85).length
+    );
 
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState<"all" | "critical">("all");
     const [tier, setTier] = useState<PlanTier>("starter");
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-    const [summary, setSummary] = useState<Summary>({
-        mrrAtRisk: 0,
-        accountsAtRisk: 0,
-        totalCustomers: 0,
-        totalCustomersDelta: 0,
-        riskScore: 0,
-        mrrAtRiskDeltaPct: 0,
-        churnProbabilityDeltaPct: 0,
-    });
-
+    const [summary, setSummary] = useState<Summary>(DEMO_SUMMARY);
     const [hasLiveData, setHasLiveData] = useState(false);
 
     const PAGE_SIZE = 10;
@@ -211,9 +253,10 @@ export default function AccountsAtRiskClient() {
 
         const unsub = onAuthStateChanged(auth, async (user) => {
             if (!user) {
-                setRows([]);
-                setTotal(0);
-                setCriticalTotal(0);
+                setRows(DEMO_ROWS);
+                setTotal(DEMO_ROWS.length);
+                setCriticalTotal(DEMO_ROWS.filter((row) => row.riskScore >= 85).length);
+                setSummary(DEMO_SUMMARY);
                 setHasLiveData(false);
                 setTier("starter");
                 setLoading(false);
@@ -251,39 +294,30 @@ export default function AccountsAtRiskClient() {
                 const data: ApiResponse = await accountsRes.json();
                 const summaryData: DashboardSummaryResponse = await summaryRes.json();
 
-                if (summaryData?.tier === "pro") {
-                    setTier("pro");
-                } else {
-                    setTier("starter");
-                }
+                setTier(summaryData?.tier === "pro" ? "pro" : "starter");
 
-                if (data.ok) {
-                    setRows(data.rows || []);
-                    setTotal(Number(data.total || 0));
+                const liveRows = Array.isArray(data?.rows) ? data.rows : [];
+                const liveMode = Boolean(data?.ok && data?.hasLiveData && liveRows.length > 0);
+
+                if (liveMode) {
+                    setRows(liveRows);
+                    setTotal(Number(data.total || liveRows.length));
                     setCriticalTotal(Number(data.criticalTotal || 0));
-                    setSummary(
-                        data.summary || {
-                            mrrAtRisk: 0,
-                            accountsAtRisk: 0,
-                            totalCustomers: 0,
-                            totalCustomersDelta: 0,
-                            riskScore: 0,
-                            mrrAtRiskDeltaPct: 0,
-                            churnProbabilityDeltaPct: 0,
-                        }
-                    );
-                    setHasLiveData(Boolean(data.hasLiveData));
+                    setSummary(data.summary || DEMO_SUMMARY);
+                    setHasLiveData(true);
                 } else {
-                    setRows([]);
-                    setTotal(0);
-                    setCriticalTotal(0);
+                    setRows(DEMO_ROWS);
+                    setTotal(DEMO_ROWS.length);
+                    setCriticalTotal(DEMO_ROWS.filter((row) => row.riskScore >= 85).length);
+                    setSummary(DEMO_SUMMARY);
                     setHasLiveData(false);
                 }
             } catch (err) {
                 console.error("Failed to fetch accounts", err);
-                setRows([]);
-                setTotal(0);
-                setCriticalTotal(0);
+                setRows(DEMO_ROWS);
+                setTotal(DEMO_ROWS.length);
+                setCriticalTotal(DEMO_ROWS.filter((row) => row.riskScore >= 85).length);
+                setSummary(DEMO_SUMMARY);
                 setHasLiveData(false);
                 setTier("starter");
             } finally {
@@ -301,367 +335,267 @@ export default function AccountsAtRiskClient() {
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
     const displayedRows = useMemo(() => {
-        return filter === "critical"
-            ? rows.filter((row) => row.riskScore >= 85)
-            : rows;
-    }, [filter, rows]);
+        const sourceRows =
+            filter === "critical"
+                ? rows.filter((row) => row.riskScore >= 85)
+                : rows;
 
-    const totalCustomersDisplay =
-        summary.totalCustomers > 0 ? summary.totalCustomers : !hasLiveData ? DEMO_TOTAL_CUSTOMERS : 0;
+        if (!search.trim()) return sourceRows;
 
-    const allButtonCount = totalCustomersDisplay;
-    const criticalButtonCount =
-        criticalTotal > 0 ? criticalTotal : !hasLiveData ? displayedRows.filter((r) => r.riskScore >= 85).length : 0;
+        const query = search.trim().toLowerCase();
+
+        return sourceRows.filter((row) => {
+            return (
+                row.companyName.toLowerCase().includes(query) ||
+                String(row.email || "").toLowerCase().includes(query) ||
+                row.reasonLabel.toLowerCase().includes(query)
+            );
+        });
+    }, [filter, rows, search]);
+
+    const allButtonCount = hasLiveData ? total : DEMO_ROWS.length;
+
+    const criticalButtonCount = hasLiveData
+        ? criticalTotal
+        : DEMO_ROWS.filter((row) => row.riskScore >= 85).length;
 
     const handleCriticalClick = () => {
         if (tier !== "pro") {
             setShowUpgradeModal(true);
             return;
         }
+
         setFilter("critical");
     };
 
-    const healthIndex = Math.max(0, 100 - summary.riskScore);
-    const healthIndexDelta =
-        typeof summary.churnProbabilityDeltaPct === "number"
-            ? -summary.churnProbabilityDeltaPct
-            : 0;
-
-    const customerHealthInsight = useMemo(() => {
-        return buildCustomerHealthInsight(rows, summary.churnProbabilityDeltaPct);
-    }, [rows, summary.churnProbabilityDeltaPct]);
+    const healthIndex = Math.max(0, 100 - Number(summary.riskScore || 0));
 
     return (
         <>
             <div className={styles.page}>
-                <div className={styles.header}>
-                    <div>
-                        <h1 className={styles.title}>Customers</h1>
-                        <p className={styles.subtitle}>
-                            Accounts most likely to churn — prioritised by revenue and risk.
-                        </p>
+                <div className={styles.topBar}>
+                    <div className={styles.searchWrap}>
+                        <input
+                            className={styles.searchInput}
+                            placeholder="Search company..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                        <span className={styles.searchIcon}>⌕</span>
                     </div>
+
+                    <div className={styles.topActions}>
+                        <button className={styles.roundIconBtn} type="button">?</button>
+                        <button className={styles.roundIconBtn} type="button">⌁</button>
+                        <button className={styles.filterBtn} type="button">Filters</button>
+                    </div>
+                </div>
+
+                <div className={styles.header}>
+                    <h1 className={styles.title}>Customers</h1>
+                    <p className={styles.subtitle}>
+                        Accounts most likely to churn, prioritised by risk and revenue.
+                    </p>
                 </div>
 
                 <div className={styles.kpiRow}>
-                    <div className={`${styles.kpiCard} ${styles.kpiCardSquare}`}>
-                        <div className={styles.kpiLabel}>Revenue at risk</div>
-                        <div className={styles.kpiValue}>{formatGBP(summary.mrrAtRisk)}</div>
-                        <div className={styles.kpiSubline}>
-                            <span className={`${styles.kpiDeltaInline} ${deltaClass(summary.mrrAtRiskDeltaPct)}`}>
-                                <span className={styles.kpiDeltaArrow}>{deltaArrow(summary.mrrAtRiskDeltaPct)}</span>
-                                {formatSignedPct(summary.mrrAtRiskDeltaPct)}
-                            </span>
-                            <span className={styles.kpiSubtext}>vs previous month</span>
-                        </div>
-                    </div>
-
-                    <div className={`${styles.kpiCard} ${styles.kpiCardSquare}`}>
-                        <div className={styles.kpiLabel}>Churn exposure</div>
-                        <div className={styles.kpiValue}>{summary.riskScore}%</div>
-                        <div className={styles.kpiSubline}>
-                            <span className={`${styles.kpiDeltaInline} ${deltaClass(summary.churnProbabilityDeltaPct)}`}>
-                                <span className={styles.kpiDeltaArrow}>{deltaArrow(summary.churnProbabilityDeltaPct)}</span>
-                                {formatSignedPct(summary.churnProbabilityDeltaPct)}
-                            </span>
-                            <span className={styles.kpiSubtext}>vs previous month</span>
-                        </div>
-                    </div>
-
-                    <div className={`${styles.kpiCard} ${styles.kpiCardSquare}`}>
-                        <div className={styles.kpiLabel}>Total customers</div>
-                        <div className={styles.kpiValue}>{totalCustomersDisplay}</div>
-                        <div className={styles.kpiSubline}>
-                            <span className={`${styles.kpiDeltaInline} ${deltaClass(summary.totalCustomersDelta)}`}>
-                                <span className={styles.kpiDeltaArrow}>{deltaArrow(summary.totalCustomersDelta)}</span>
-                                {formatSignedNumber(summary.totalCustomersDelta)}
-                            </span>
-                            <span className={styles.kpiSubtext}>vs previous month</span>
-                        </div>
-                    </div>
-
-                    <div className={`${styles.kpiCard} ${styles.kpiCardSquare}`}>
-                        <div className={styles.kpiLabel}>Customer health</div>
-                        <div className={styles.kpiValue}>{healthIndex}%</div>
-                        <div className={styles.kpiSubline}>
-                            <span className={`${styles.kpiDeltaInline} ${deltaClass(healthIndexDelta)}`}>
-                                <span className={styles.kpiDeltaArrow}>{deltaArrow(healthIndexDelta)}</span>
-                                {formatSignedPct(healthIndexDelta)}
-                            </span>
-                            <span className={styles.kpiSubtext}>vs previous month</span>
-                        </div>
-
-                        <div className={styles.healthInsightBlock}>
-                            <div
-                                className={`${styles.healthInsightBadge} ${customerHealthInsight.direction === "declining"
-                                    ? styles.healthInsightBad
-                                    : customerHealthInsight.direction === "improving"
-                                        ? styles.healthInsightGood
-                                        : styles.healthInsightNeutral
-                                    }`}
-                            >
-                                {customerHealthInsight.direction === "declining"
-                                    ? "Declining"
-                                    : customerHealthInsight.direction === "improving"
-                                        ? "Improving"
-                                        : "Stable"}
+                    <div className={styles.kpiCard}>
+                        <div>
+                            <div className={styles.kpiLabel}>Revenue at risk</div>
+                            <div className={styles.kpiValue}>{formatGBP(summary.mrrAtRisk)}</div>
+                            <div className={styles.kpiSubline}>
+                                {formatSignedPct(summary.mrrAtRiskDeltaPct)} vs previous month
                             </div>
-
-                            <div className={styles.healthInsightText}>
-                                {customerHealthInsight.summary}
-                            </div>
-
-                            {customerHealthInsight.drivers.length ? (
-                                <div className={styles.healthDriversRow}>
-                                    {customerHealthInsight.drivers.map((driver) => (
-                                        <span key={driver} className={styles.healthDriverPill}>
-                                            {driver}
-                                        </span>
-                                    ))}
-                                </div>
-                            ) : null}
                         </div>
+                        <div className={styles.kpiIcon}>♙</div>
+                    </div>
+
+                    <div className={styles.kpiCard}>
+                        <div>
+                            <div className={styles.kpiLabel}>Churn exposure</div>
+                            <div className={styles.kpiValue}>{summary.riskScore}%</div>
+                            <div className={styles.kpiSubline}>
+                                {formatSignedPct(summary.churnProbabilityDeltaPct)} vs previous month
+                            </div>
+                        </div>
+                        <div className={styles.kpiIcon}>◔</div>
+                    </div>
+
+                    <div className={styles.kpiCard}>
+                        <div>
+                            <div className={styles.kpiLabel}>Total customers</div>
+                            <div className={styles.kpiValue}>
+                                {summary.totalCustomers > 0 ? summary.totalCustomers : DEMO_ROWS.length}
+                            </div>
+                            <div className={styles.kpiSubline}>
+                                {formatSignedNumber(summary.totalCustomersDelta)} vs previous month
+                            </div>
+                        </div>
+                        <div className={styles.kpiIcon}>♧</div>
+                    </div>
+
+                    <div className={styles.kpiCard}>
+                        <div>
+                            <div className={styles.kpiLabel}>Customer health index</div>
+                            <div className={styles.kpiValue}>{healthIndex}</div>
+                            <div className={styles.kpiSubline}>—0 vs previous month</div>
+                        </div>
+                        <div className={styles.kpiIcon}>♡</div>
                     </div>
                 </div>
 
-                <div className={styles.controlsRow}>
-                    <div className={styles.controlsLeft}>
-                        <div className={styles.searchWrap}>
-                            <input
-                                className={styles.searchInput}
-                                placeholder="Search company..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                            />
-                        </div>
+                <div className={styles.riskGroupButtons}>
+                    <button
+                        className={filter === "all" ? styles.riskFilterBtnActive : styles.riskFilterBtn}
+                        onClick={() => setFilter("all")}
+                        type="button"
+                    >
+                        All ({allButtonCount})
+                    </button>
 
-                        <div className={styles.riskGroupButtons}>
-                            <button
-                                className={filter === "all" ? styles.riskFilterBtnActive : styles.riskFilterBtn}
-                                onClick={() => setFilter("all")}
-                                type="button"
-                            >
-                                All ({allButtonCount})
-                            </button>
-
-                            <button
-                                className={filter === "critical" ? styles.riskFilterBtnActive : styles.riskFilterBtn}
-                                onClick={handleCriticalClick}
-                                type="button"
-                            >
-                                Critical ({criticalButtonCount})
-                            </button>
-                        </div>
-                    </div>
+                    <button
+                        className={filter === "critical" ? styles.riskFilterBtnActive : styles.riskFilterBtn}
+                        onClick={handleCriticalClick}
+                        type="button"
+                    >
+                        Critical ({criticalButtonCount})
+                    </button>
                 </div>
 
-                <div className={styles.tableSection}>
-                    <div className={styles.tableCard}>
-                        <table className={styles.table}>
-                            <thead>
-                                <tr>
-                                    <th>Account</th>
-                                    <th>Risk</th>
-                                    <th>Reason</th>
-                                    <th>MRR</th>
-                                    <th className={styles.thActions}>Action</th>
-                                </tr>
-                            </thead>
+                <div className={styles.tableCard}>
+                    <table className={styles.table}>
+                        <thead>
+                            <tr>
+                                <th>Account</th>
+                                <th>Risk</th>
+                                <th>Reason</th>
+                                <th>MRR</th>
+                                <th className={styles.thActions}>Action</th>
+                            </tr>
+                        </thead>
 
-                            <tbody>
-                                {displayedRows.map((row) => (
-                                    <tr key={row.id} className={styles.tr}>
-                                        <td>
-                                            <div className={styles.companyCell}>
+                        <tbody>
+                            {displayedRows.map((row) => (
+                                <tr key={row.id}>
+                                    <td>
+                                        <div className={styles.accountWrap}>
+                                            <div className={styles.avatar}>{initials(row.companyName)}</div>
+                                            <div>
                                                 <div className={styles.companyName}>{row.companyName}</div>
                                                 <div className={styles.companySub}>{row.email || "—"}</div>
                                             </div>
-                                        </td>
+                                        </div>
+                                    </td>
 
-                                        <td>
-                                            <div className={styles.riskCell}>
-                                                <span className={`${styles.riskScorePill} ${riskPillClass(row.riskLevel)}`}>
-                                                    {row.riskScore}
-                                                </span>
-                                            </div>
-                                        </td>
+                                    <td>
+                                        <span className={`${styles.riskScorePill} ${riskPillClass(row.riskLevel)}`}>
+                                            {row.riskScore}
+                                        </span>
+                                    </td>
 
-                                        <td>
-                                            <div className={styles.reasonCell}>
-                                                <div className={styles.reasonMain}>{row.reasonLabel}</div>
-                                                {row.nextAction ? (
-                                                    <div className={styles.reasonSubAction}>{row.nextAction}</div>
-                                                ) : null}
-                                            </div>
-                                        </td>
+                                    <td>
+                                        <div className={styles.reasonMain}>{row.reasonLabel}</div>
+                                        {row.nextAction ? (
+                                            <div className={styles.reasonSubAction}>{row.nextAction}</div>
+                                        ) : null}
+                                    </td>
 
-                                        <td>{formatGBP(row.mrr)}</td>
+                                    <td className={styles.mrrCell}>{formatGBP(row.mrr)}</td>
 
-                                        <td className={styles.tdActions}>
-                                            <button
-                                                className={styles.secondaryBtn}
-                                                type="button"
-                                                onClick={() => {
-                                                    if (row.customerId) {
-                                                        router.push(`/dashboard/accounts-at-risk/${row.customerId}`);
-                                                    } else {
-                                                        router.push(`/dashboard/accounts-at-risk/${row.id}`);
-                                                    }
-                                                }}
-                                            >
-                                                View
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                    <td className={styles.tdActions}>
+                                        <button
+                                            className={styles.viewBtn}
+                                            type="button"
+                                            onClick={() => {
+                                                router.push(
+                                                    row.customerId
+                                                        ? `/dashboard/accounts-at-risk/${row.customerId}`
+                                                        : `/dashboard/accounts-at-risk/${row.id}`
+                                                );
+                                            }}
+                                        >
+                                            View
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
 
-                                {!loading && displayedRows.length === 0 && (
-                                    <tr>
-                                        <td colSpan={5} className={styles.emptyState}>
-                                            No accounts found.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                            {!loading && displayedRows.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className={styles.emptyState}>
+                                        No accounts found.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div className={styles.paginationRow}>
+                    <div className={styles.paginationInfo}>
+                        Showing {total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–
+                        {Math.min(page * PAGE_SIZE, total)} of {total}
                     </div>
 
-                    <div className={styles.paginationRow}>
-                        <div className={styles.paginationInfo}>
-                            Showing {total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
-                        </div>
+                    <div className={styles.paginationBtns}>
+                        <button
+                            className={styles.viewBtn}
+                            disabled={page === 1}
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                            type="button"
+                        >
+                            Prev
+                        </button>
 
-                        <div className={styles.paginationBtns}>
-                            <button
-                                className={styles.secondaryBtn}
-                                disabled={page === 1}
-                                onClick={() => setPage((p) => p - 1)}
-                                type="button"
-                            >
-                                Prev
-                            </button>
+                        <div className={styles.pagePill}>{page} / {totalPages}</div>
 
-                            <div className={styles.pagePill}>
-                                {page} / {totalPages}
-                            </div>
-
-                            <button
-                                className={styles.secondaryBtn}
-                                disabled={page === totalPages}
-                                onClick={() => setPage((p) => p + 1)}
-                                type="button"
-                            >
-                                Next
-                            </button>
-                        </div>
+                        <button
+                            className={styles.viewBtn}
+                            disabled={page === totalPages}
+                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                            type="button"
+                        >
+                            Next
+                        </button>
                     </div>
                 </div>
             </div>
 
             {showUpgradeModal ? (
-                <div
-                    style={{
-                        position: "fixed",
-                        inset: 0,
-                        background: "rgba(15, 23, 42, 0.45)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: 20,
-                        zIndex: 1000,
-                    }}
-                >
-                    <div
-                        style={{
-                            width: "100%",
-                            maxWidth: 460,
-                            background: "#ffffff",
-                            borderRadius: 24,
-                            padding: 24,
-                            boxShadow: "0 24px 80px rgba(15, 23, 42, 0.18)",
-                            border: "1px solid rgba(15, 23, 42, 0.08)",
-                        }}
-                    >
-                        <div
-                            style={{
-                                display: "inline-flex",
-                                padding: "6px 12px",
-                                borderRadius: 999,
-                                background: "rgba(15, 23, 42, 0.06)",
-                                fontSize: 12,
-                                fontWeight: 700,
-                                color: "#0f172a",
-                                letterSpacing: "0.04em",
-                                textTransform: "uppercase",
-                                marginBottom: 14,
-                            }}
-                        >
-                            Pro feature
-                        </div>
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modal}>
+                        <div className={styles.modalTop}>
+                            <div>
+                                <div className={styles.modalTitle}>Unlock critical-risk filtering</div>
+                                <p className={styles.modalText}>
+                                    Upgrade to Pro to filter your highest-risk accounts and focus on the customers most likely to churn.
+                                </p>
+                            </div>
 
-                        <h3
-                            style={{
-                                margin: 0,
-                                fontSize: 24,
-                                lineHeight: 1.2,
-                                color: "#0f172a",
-                                fontWeight: 700,
-                            }}
-                        >
-                            Unlock critical-risk filtering
-                        </h3>
-
-                        <p
-                            style={{
-                                margin: "12px 0 0",
-                                fontSize: 15,
-                                lineHeight: 1.65,
-                                color: "#5f6b7a",
-                            }}
-                        >
-                            Upgrade to Pro to view only your highest-risk accounts and prioritise the customers most likely to churn.
-                        </p>
-
-                        <div
-                            style={{
-                                display: "flex",
-                                gap: 12,
-                                marginTop: 22,
-                                flexWrap: "wrap",
-                            }}
-                        >
                             <button
                                 type="button"
+                                className={styles.iconBtn}
                                 onClick={() => setShowUpgradeModal(false)}
-                                style={{
-                                    border: "1px solid rgba(15, 23, 42, 0.12)",
-                                    background: "#ffffff",
-                                    color: "#0f172a",
-                                    borderRadius: 999,
-                                    padding: "11px 16px",
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div className={styles.modalActions}>
+                            <button
+                                type="button"
+                                className={styles.viewBtn}
+                                onClick={() => setShowUpgradeModal(false)}
                             >
                                 Not now
                             </button>
 
                             <button
                                 type="button"
+                                className={styles.primaryBtn}
                                 onClick={() => {
                                     setShowUpgradeModal(false);
                                     router.push("/dashboard/settings?tab=manage-plan");
-                                }}
-                                style={{
-                                    border: "none",
-                                    background: "#0f172a",
-                                    color: "#ffffff",
-                                    borderRadius: 999,
-                                    padding: "11px 18px",
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
                                 }}
                             >
                                 Upgrade to Pro

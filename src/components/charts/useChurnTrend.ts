@@ -5,6 +5,17 @@ type Point = {
     churnPct: number;
 };
 
+function normalizeChurnPct(value: unknown) {
+    const num = Number(value ?? 0);
+
+    if (!Number.isFinite(num)) return 0;
+
+    // Fix values like 34 being shown as 34% instead of 3.4%
+    if (num > 20) return Number((num / 10).toFixed(1));
+
+    return Number(num.toFixed(1));
+}
+
 export function useChurnTrend() {
     const [points, setPoints] = useState<Point[]>([]);
 
@@ -21,12 +32,11 @@ export function useChurnTrend() {
 
                 const json = await res.json();
 
-                // Your API returns { points: [...] }
                 const pts = Array.isArray(json?.points) ? json.points : [];
 
                 const clean: Point[] = pts.map((p: any) => ({
                     month: String(p?.month ?? ""),
-                    churnPct: Number(p?.churnPct ?? 0),
+                    churnPct: normalizeChurnPct(p?.churnPct),
                 }));
 
                 if (!cancelled) {

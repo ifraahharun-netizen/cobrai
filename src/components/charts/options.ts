@@ -76,14 +76,13 @@ export function churnTrendOption(
     const minValue = safeValues.length ? Math.min(...safeValues) : 0;
     const maxValue = safeValues.length ? Math.max(...safeValues) : 0;
 
-    const yMinBase = Math.max(0, Math.floor(minValue - 1));
-    let yMaxBase = Math.ceil(maxValue + 1);
+    const padding = 0.5;
 
-    if (yMaxBase - yMinBase < 2) {
-        yMaxBase = yMinBase + 2;
-    }
+    const yMinBase = Math.max(0, Number((minValue - padding).toFixed(1)));
+    const yMaxBase = Number((maxValue + padding).toFixed(1));
 
-    const interval = Math.max(1, Math.round((yMaxBase - yMinBase) / 4));
+    const range = yMaxBase - yMinBase;
+    const interval = Number((range / 4).toFixed(1));
 
     return {
         animationDuration: 500,

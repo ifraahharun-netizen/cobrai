@@ -127,6 +127,13 @@ type TimeseriesRes = {
     mrr: Array<{ month: string; valueMinor: number }>;
     churn: Array<{ month: string; valuePct: number | null }>;
     mau: Array<{ month: string; activeUsers: number }>;
+    activityByMonth?: Array<{
+        month: string;
+        totalSubscribers: number;
+        newSubscriptions: number;
+        newTrials: number;
+        unsubscribes: number;
+    }>;
 
     insights: null | {
         mrr: {
@@ -738,34 +745,37 @@ function buildBarOption(
     title: string,
     points: Array<{ x: string; y: number | null }>
 ): EChartsOption {
-    const xs = points.map((p) => p.x);
+    const xs = points.map((p) => {
+        const d = new Date(`${p.x}-01T00:00:00`);
+        if (Number.isNaN(d.getTime())) return p.x;
+        return d.toLocaleString("en-GB", { month: "short" });
+    });
+
     const ys = points.map((p) => (Number.isFinite(Number(p.y)) ? Number(p.y) : null));
 
     const valid = ys.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-    const minVal = valid.length ? Math.min(...valid) : 0;
-    const maxVal = valid.length ? Math.max(...valid) : 0;
-    const range = Math.max(1, maxVal - minVal);
-
-    const axisMin = Math.max(0, Math.floor(minVal - range * 0.6));
-    const axisMax = Math.ceil(maxVal + range * 0.25);
+    const maxVal = valid.length ? Math.max(...valid) : 40;
 
     return {
         grid: {
-            left: 12,
-            right: 12,
-            top: 8,
-            bottom: 8,
+            left: 38,
+            right: 18,
+            top: 20,
+            bottom: 34,
             containLabel: false,
         },
         tooltip: {
             trigger: "axis",
-            axisPointer: {
-                type: "none",
-            },
+            axisPointer: { type: "none" },
+            backgroundColor: "#ffffff",
+            borderColor: "#e8edf5",
+            borderWidth: 1,
+            padding: 12,
+            extraCssText:
+                "border-radius:14px;box-shadow:0 14px 34px rgba(15,23,42,0.12);",
             formatter: (params: any) => {
                 const first = Array.isArray(params) ? params[0] : params;
-                const dataIndex =
-                    typeof first?.dataIndex === "number" ? first.dataIndex : -1;
+                const dataIndex = typeof first?.dataIndex === "number" ? first.dataIndex : -1;
 
                 if (dataIndex < 0 || dataIndex >= points.length) return "";
 
@@ -773,7 +783,7 @@ function buildBarOption(
                 const previous = dataIndex > 0 ? points[dataIndex - 1] : null;
 
                 return buildSeriesTooltipHtml({
-                    title,
+                    title: "MAU",
                     monthKey: current.x,
                     currentValue:
                         typeof current.y === "number" && Number.isFinite(current.y)
@@ -785,37 +795,69 @@ function buildBarOption(
                             : null,
                     previousMonthKey: previous?.x ?? null,
                     yMode: "count",
-                    inverse: false,
                 });
             },
         },
         xAxis: {
             type: "category",
             data: xs,
-            show: false,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: {
+                color: "#8b97aa",
+                fontSize: 12,
+                fontWeight: 600,
+                margin: 14,
+            },
         },
         yAxis: {
             type: "value",
-            show: false,
-            min: axisMin,
-            max: axisMax,
+            min: 0,
+            max: Math.ceil(maxVal + 8),
+            splitNumber: 4,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: {
+                color: "#8b97aa",
+                fontSize: 12,
+                fontWeight: 600,
+            },
+            splitLine: {
+                show: true,
+                lineStyle: {
+                    color: "#edf2f8",
+                    type: "dashed",
+                },
+            },
         },
         series: [
             {
                 name: title,
                 type: "bar",
-                data: ys.map((value) => ({
+                data: ys.map((value, index) => ({
                     value,
                     itemStyle: {
-                        color: "#6ba7dfff",
+                        color:
+                            index === ys.length - 1
+                                ? "#3468f6"
+                                : {
+                                    type: "linear",
+                                    x: 0,
+                                    y: 0,
+                                    x2: 0,
+                                    y2: 1,
+                                    colorStops: [
+                                        { offset: 0, color: "#9fb4ff" },
+                                        { offset: 1, color: "#dfe6ff" },
+                                    ],
+                                },
                         borderRadius: [10, 10, 0, 0],
                     },
                 })),
                 barWidth: 26,
-                barCategoryGap: "18%",
-                emphasis: {
-                    disabled: true,
-                },
+                barCategoryGap: "30%",
+                barMinHeight: 8,
+                emphasis: { disabled: true },
             },
         ],
     };
@@ -906,14 +948,29 @@ function buildMetricBarOption(
             {
                 name: title,
                 type: "bar",
-                data: ys,
+                data: ys.map((value, index) => ({
+                    value,
+                    itemStyle: {
+                        color:
+                            index === ys.length - 1
+                                ? "#3867e6ff"
+                                : {
+                                    type: "linear",
+                                    x: 0,
+                                    y: 0,
+                                    x2: 0,
+                                    y2: 1,
+                                    colorStops: [
+                                        { offset: 0, color: "#9fb4ff" },
+                                        { offset: 1, color: "#dfe6ff" },
+                                    ],
+                                },
+                        borderRadius: [10, 10, 0, 0],
+                    },
+                })),
                 barWidth: 26,
                 barCategoryGap: "18%",
                 barMinHeight: 8,
-                itemStyle: {
-                    color: "#699fe2ff",
-                    borderRadius: [10, 10, 0, 0],
-                },
                 emphasis: {
                     disabled: true,
                 },
@@ -1046,6 +1103,16 @@ export default function AnalyticsPage() {
     const [summary, setSummary] = useState<DashboardSummary | null>(null);
     const [mrrProtected, setMrrProtected] = useState<number | null>(null);
     const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null);
+
+    const [selectedMauIndex, setSelectedMauIndex] = useState<number | null>(null);
+
+    const mauChartEvents = {
+        click: (params: any) => {
+            if (typeof params?.dataIndex === "number") {
+                setSelectedMauIndex(params.dataIndex);
+            }
+        },
+    };
 
     const [automation, setAutomation] = useState<AutomationStatusRes | null>(null);
     const [insights, setInsights] = useState<InsightsFeedRes | null>(null);
@@ -1312,7 +1379,34 @@ export default function AnalyticsPage() {
     const mauSeries: Array<{ x: string; y: number | null }> =
         hasMeaningfulMauData ? rawMauSeries : mauFallbackSeries;
 
+    const mauPrevPoint = mauSeries.length >= 2 ? mauSeries[mauSeries.length - 2] : null;
+    const mauCurrentPoint = mauSeries.length >= 1 ? mauSeries[mauSeries.length - 1] : null;
+    const selectedMauPoint =
+        selectedMauIndex !== null && mauSeries[selectedMauIndex]
+            ? mauSeries[selectedMauIndex]
+            : mauCurrentPoint;
+
+    const selectedMauMonthLabel = selectedMauPoint?.x
+        ? formatMonthLong(selectedMauPoint.x)
+        : "Current month";
+
+    const selectedMauActivity = useMemo(() => {
+        if (!selectedMauPoint?.x) {
+            return null;
+        }
+
+        return mauSource?.activityByMonth?.find(
+            (row) => row.month === selectedMauPoint.x
+        ) ?? null;
+    }, [mauSource?.activityByMonth, selectedMauPoint?.x]);
+
     const mauSummary = useMemo(() => computeMauSummary(mauSeries), [mauSeries]);
+
+    const activeMonthLabel = useMemo(() => {
+        return mauCurrentPoint?.x
+            ? formatMonthLong(mauCurrentPoint.x)
+            : "Current month";
+    }, [mauCurrentPoint]);
 
     const mrrRangeLabel = useMemo(() => {
         const used = mrrSource?.rangeUsed || mrrRange;
@@ -1494,8 +1588,7 @@ export default function AnalyticsPage() {
 
     const isDemoPreview = !mrrTimeseries?.insights;
 
-    const mauPrevPoint = mauSeries.length >= 2 ? mauSeries[mauSeries.length - 2] : null;
-    const mauCurrentPoint = mauSeries.length >= 1 ? mauSeries[mauSeries.length - 1] : null;
+
 
     const mauLatestDeltaPct = useMemo(() => {
         const current =
@@ -2036,7 +2129,9 @@ export default function AnalyticsPage() {
                                 ) : (
                                     <div className={styles.emptyPanel}>
                                         <div className={styles.emptyTitle}>No MRR timeseries yet</div>
-                                        <div className={styles.emptyText}>Connect Stripe to generate MRR trend automatically.</div>
+                                        <div className={styles.emptyText}>
+                                            Connect Stripe to generate MRR trend automatically.
+                                        </div>
                                         <button
                                             type="button"
                                             className={styles.primaryBtn}
@@ -2057,6 +2152,7 @@ export default function AnalyticsPage() {
                                         {churnRangeLabel} • Proxy % of previous-month customers not returning
                                     </div>
                                 </div>
+
                                 <div className={styles.chartActions}>
                                     <button
                                         type="button"
@@ -2091,8 +2187,7 @@ export default function AnalyticsPage() {
                                     <div className={styles.emptyPanel}>
                                         <div className={styles.emptyTitle}>No churn timeseries yet</div>
                                         <div className={styles.emptyText}>
-                                            Once Stripe is connected and invoices exist, churn trend will appear here. Use “Accounts at Risk” to act
-                                            on early signals.
+                                            Once Stripe is connected and invoices exist, churn trend will appear here.
                                         </div>
                                     </div>
                                 )}
@@ -2103,13 +2198,13 @@ export default function AnalyticsPage() {
                     <div
                         style={{
                             display: "grid",
-                            gridTemplateColumns: "minmax(0, 520px) minmax(0, 1fr)",
+                            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                             gap: 14,
                             alignItems: "start",
                             marginTop: 14,
                         }}
                     >
-                        <div className={styles.chartCardXL} style={{ maxWidth: 520 }}>
+                        <div className={styles.chartCardXL}>
                             <div className={styles.chartHeader}>
                                 <div>
                                     <div className={styles.chartTitle}>Active Monthly Users</div>
@@ -2137,342 +2232,234 @@ export default function AnalyticsPage() {
                                 </div>
                             </div>
 
-                            <div className={styles.cardBodyXL}>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "baseline",
-                                        gap: 10,
-                                        marginBottom: 16,
-                                        flexWrap: "wrap",
-                                    }}
-                                >
+                            <div className={styles.chartBodyXL} style={{ height: 230 }}>
+                                <EChart
+                                    option={buildBarOption("MAU", mauSeries)}
+                                    onEvents={mauChartEvents}
+                                />
+                            </div>
+
+                            <div
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                                    gap: 16,
+                                }}
+                            >
+                                {[
+                                    {
+                                        label: "Total subscribers",
+                                        value:
+                                            selectedMauActivity?.totalSubscribers ??
+                                            selectedMauPoint?.y ??
+                                            "—",
+                                    },
+                                    {
+                                        label: "New",
+                                        value: selectedMauActivity?.newSubscriptions ?? 0,
+                                    },
+                                    {
+                                        label: "Trials",
+                                        value: selectedMauActivity?.newTrials ?? 0,
+                                    },
+                                    {
+                                        label: "Unsubscribes",
+                                        value: selectedMauActivity?.unsubscribes ?? 0,
+                                    },
+                                ].map((item) => (
                                     <div
+                                        key={item.label}
                                         style={{
-                                            fontSize: 24,
-                                            lineHeight: 1,
-                                            fontWeight: 800,
-                                            color: "#0f172a",
+                                            padding: "14px 16px",
+                                            borderRadius: 14,
+                                            background: "#ffffff",
+                                            border: "1px solid #edf2f8",
                                         }}
                                     >
-                                        {mauSummary.currentValue ?? "—"}
-                                    </div>
+                                        <div style={{ fontSize: 11, color: "#7b8798", fontWeight: 700 }}>
+                                            {item.label}
+                                        </div>
 
+                                        <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600, marginTop: 2 }}>
+                                            {selectedMauMonthLabel}
+                                        </div>
+
+                                        <div style={{ fontSize: 22, fontWeight: 900, color: "#0f172a", marginTop: 8 }}>
+                                            {item.value}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className={styles.cardBodyXL}>
+                            <div className={styles.aiInsightHero}>
+                                <div className={styles.aiBadge}>AI Insight</div>
+
+                                <div className={styles.aiInsightHeadline}>{aiInsightCard.headline}</div>
+                                <div className={styles.aiInsightSub}>{aiInsightCard.summaryLine}</div>
+
+                                {!derived.isPro ? (
                                     <div
                                         style={{
+                                            marginTop: 8,
                                             fontSize: 13,
-                                            fontWeight: 700,
-                                            color:
-                                                typeof mauSummary.deltaPct === "number"
-                                                    ? mauSummary.deltaPct > 0
-                                                        ? "#16a34a"
-                                                        : mauSummary.deltaPct < 0
-                                                            ? "#dc2626"
-                                                            : "#64748b"
-                                                    : "#64748b",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: 4,
-                                        }}
-                                    >
-                                        {typeof mauSummary.deltaPct === "number" ? (
-                                            <>
-                                                <span>{mauSummary.deltaPct > 0 ? "↑" : mauSummary.deltaPct < 0 ? "↓" : "→"}</span>
-                                                <span>{Math.abs(mauSummary.deltaPct).toFixed(1)}%</span>
-                                            </>
-                                        ) : (
-                                            "—"
-                                        )}
-                                    </div>
-
-                                    <div
-                                        style={{
-                                            fontSize: 14,
-                                            color: "#64748b",
+                                            color: "#6b7280",
+                                            lineHeight: 1.5,
                                             fontWeight: 500,
                                         }}
                                     >
-                                        vs last month
+                                        Upgrade to Pro for unlimited AI insights.
                                     </div>
-                                </div>
+                                ) : null}
+
+                                <div className={styles.aiInsightDivider} />
 
                                 <div
                                     style={{
-                                        padding: 12,
-                                        borderRadius: 12,
-                                        border: "1px solid #eef2f7",
-                                        background: "#ffffff",
+                                        display: "grid",
+                                        gridTemplateColumns: "minmax(0, 220px) minmax(0, 1fr)",
+                                        gap: 14,
+                                        alignItems: "start",
                                         marginBottom: 14,
                                     }}
                                 >
                                     <div
                                         style={{
-                                            fontSize: 12,
-                                            fontWeight: 700,
-                                            color: "#64748b",
-                                            marginBottom: 6,
-                                            textTransform: "uppercase",
-                                            letterSpacing: 0.3,
+                                            padding: 14,
+                                            borderRadius: 14,
+                                            border: "1px solid #eef2f7",
+                                            background: "#ffffff",
                                         }}
                                     >
-                                        Quick insight
-                                    </div>
-
-                                    <div
-                                        style={{
-                                            fontSize: 14,
-                                            lineHeight: 1.45,
-                                            color: "#0f172a",
-                                            fontWeight: 600,
-                                            marginBottom: 8,
-                                        }}
-                                    >
-                                        {mauInsightText}
-                                    </div>
-
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: 8,
-                                            fontSize: 13,
-                                            fontWeight: 700,
-                                            color: mauTrendColor,
-                                            flexWrap: "wrap",
-                                        }}
-                                    >
-                                        <span>
-                                            {typeof mauLatestDeltaPct === "number"
-                                                ? `${mauTrendArrow} ${Math.abs(mauLatestDeltaPct).toFixed(1)}%`
-                                                : "—"}
-                                        </span>
-                                        {mauTrendLabel ? (
-                                            <span style={{ color: "#2c60aeff", fontWeight: 600 }}>{mauTrendLabel}</span>
-                                        ) : null}
-                                    </div>
-                                </div>
-
-                                <div
-                                    style={{
-                                        display: "grid",
-                                        gridTemplateColumns: "repeat(4, minmax(90px, 1fr))",
-                                        gap: 10,
-                                        marginBottom: 16,
-                                        alignItems: "stretch",
-                                    }}
-                                >
-                                    {[
-                                        { label: "New subscriptions", value: summary.activitySummary?.newSubscriptions ?? 0 },
-                                        { label: "Trials", value: summary.activitySummary?.newTrials ?? 0 },
-                                        { label: "Reactivated users", value: summary.activitySummary?.reactivations ?? 0 },
-                                        { label: "Unsubscriptions", value: summary.activitySummary?.failedSubscriptions ?? 0 },
-                                    ].map((item) => (
                                         <div
-                                            key={item.label}
                                             style={{
-                                                padding: "10px 10px",
-                                                borderRadius: 10,
-                                                background: "#ffffff",
-                                                border: "1px solid #eef2f7",
-                                                minWidth: 0,
-                                                display: "flex",
-                                                flexDirection: "column",
-                                                justifyContent: "space-between",
+                                                fontSize: 12,
+                                                fontWeight: 700,
+                                                color: "#64748b",
+                                                marginBottom: 6,
+                                                textTransform: "uppercase",
+                                                letterSpacing: 0.3,
                                             }}
                                         >
-                                            <div
-                                                style={{
-                                                    fontSize: 12,
-                                                    lineHeight: 1.2,
-                                                    color: "#64748b",
-                                                    fontWeight: 600,
-                                                    marginBottom: 6,
-                                                    wordBreak: "break-word",
-                                                }}
-                                            >
-                                                {item.label}
-                                            </div>
-
-                                            <div
-                                                style={{
-                                                    fontSize: 16,
-                                                    lineHeight: 1,
-                                                    fontWeight: 800,
-                                                    color: "#111111ff",
-                                                }}
-                                            >
-                                                {item.value}
-                                            </div>
+                                            {aiInsightCard.primaryMetric.label}
                                         </div>
-                                    ))}
-                                </div>
 
-                                <div className={styles.chartBodyXL}>
-                                    <EChart option={buildBarOption("MAU", mauSeries)} />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className={styles.cardBodyXL}>
-                           
-                                <div className={styles.aiInsightHero}>
-                                    <div className={styles.aiBadge}>AI Insight</div>
-
-                                    <div className={styles.aiInsightHeadline}>{aiInsightCard.headline}</div>
-                                    <div className={styles.aiInsightSub}>{aiInsightCard.summaryLine}</div>
-
-                                    {!derived.isPro ? (
                                         <div
                                             style={{
-                                                marginTop: 8,
+                                                fontSize: 28,
+                                                lineHeight: 1,
+                                                fontWeight: 800,
+                                                color: "#0f172a",
+                                                marginBottom: 8,
+                                            }}
+                                        >
+                                            {aiInsightCard.primaryMetric.value}
+                                        </div>
+
+                                        <div
+                                            style={{
                                                 fontSize: 13,
-                                                color: "#6b7280",
-                                                lineHeight: 1.5,
-                                                fontWeight: 500,
+                                                color: "#64748b",
+                                                fontWeight: 600,
+                                                lineHeight: 1.4,
                                             }}
                                         >
-                                            Upgrade to Pro for unlimited AI insights.
+                                            {aiInsightCard.primaryMetric.sub}
                                         </div>
-                                    ) : null}
+                                    </div>
 
-                                    <div className={styles.aiInsightDivider} />
-
-                                    <div
-                                        style={{
-                                            display: "grid",
-                                            gridTemplateColumns: "minmax(0, 220px) minmax(0, 1fr)",
-                                            gap: 14,
-                                            alignItems: "start",
-                                            marginBottom: 14,
-                                        }}
-                                    >
+                                    <div>
                                         <div
                                             style={{
-                                                padding: 14,
-                                                borderRadius: 14,
-                                                border: "1px solid #eef2f7",
-                                                background: "#ffffff",
+                                                fontSize: 12,
+                                                fontWeight: 700,
+                                                color: "#64748b",
+                                                textTransform: "uppercase",
+                                                letterSpacing: 0.3,
+                                                marginBottom: 10,
                                             }}
                                         >
-                                            <div
-                                                style={{
-                                                    fontSize: 12,
-                                                    fontWeight: 700,
-                                                    color: "#64748b",
-                                                    marginBottom: 6,
-                                                    textTransform: "uppercase",
-                                                    letterSpacing: 0.3,
-                                                }}
-                                            >
-                                                {aiInsightCard.primaryMetric.label}
-                                            </div>
-
-                                            <div
-                                                style={{
-                                                    fontSize: 28,
-                                                    lineHeight: 1,
-                                                    fontWeight: 800,
-                                                    color: "#0f172a",
-                                                    marginBottom: 8,
-                                                }}
-                                            >
-                                                {aiInsightCard.primaryMetric.value}
-                                            </div>
-
-                                            <div
-                                                style={{
-                                                    fontSize: 13,
-                                                    color: "#64748b",
-                                                    fontWeight: 600,
-                                                    lineHeight: 1.4,
-                                                }}
-                                            >
-                                                {aiInsightCard.primaryMetric.sub}
-                                            </div>
+                                            Prioritised actions
                                         </div>
 
-                                        <div>
-                                            <div
-                                                style={{
-                                                    fontSize: 12,
-                                                    fontWeight: 700,
-                                                    color: "#64748b",
-                                                    textTransform: "uppercase",
-                                                    letterSpacing: 0.3,
-                                                    marginBottom: 10,
-                                                }}
-                                            >
-                                                Prioritised actions
-                                            </div>
+                                        <div className={styles.aiInsightPriorityList}>
+                                            {aiInsightCard.actions.map((action, idx) => (
+                                                <button
+                                                    key={`${action.title}-${idx}`}
+                                                    type="button"
+                                                    className={styles.aiInsightPriorityItem}
+                                                    onClick={() => {
+                                                        if (!action.href) return;
+                                                        router.push(action.href);
+                                                    }}
+                                                    style={{
+                                                        width: "100%",
+                                                        textAlign: "left",
+                                                        background: "#fff",
+                                                        cursor: action.href ? "pointer" : "default",
+                                                    }}
+                                                >
+                                                    <div className={styles.aiInsightPriorityIndex}>{idx + 1}</div>
 
-                                            <div className={styles.aiInsightPriorityList}>
-                                                {aiInsightCard.actions.map((action, idx) => (
-                                                    <button
-                                                        key={`${action.title}-${idx}`}
-                                                        type="button"
-                                                        className={styles.aiInsightPriorityItem}
-                                                        onClick={() => {
-                                                            if (!action.href) return;
-                                                            router.push(action.href);
-                                                        }}
+                                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                                        <div className={styles.aiInsightPriorityText}>
+                                                            {action.title}
+                                                        </div>
+                                                        <div className={styles.aiInsightPriorityMeta}>
+                                                            {action.meta}
+                                                        </div>
+                                                    </div>
+
+                                                    <div
+                                                        className={styles.aiImpact}
                                                         style={{
-                                                            width: "100%",
-                                                            textAlign: "left",
-                                                            background: "#fff",
-                                                            cursor: action.href ? "pointer" : "default",
+                                                            color:
+                                                                action.tone === "danger"
+                                                                    ? "#dc2626"
+                                                                    : action.tone === "warn"
+                                                                        ? "#d97706"
+                                                                        : "#16a34a",
                                                         }}
                                                     >
-                                                        <div className={styles.aiInsightPriorityIndex}>{idx + 1}</div>
-
-                                                        <div style={{ minWidth: 0, flex: 1 }}>
-                                                            <div className={styles.aiInsightPriorityText}>{action.title}</div>
-                                                            <div className={styles.aiInsightPriorityMeta}>{action.meta}</div>
-                                                        </div>
-
-                                                        <div
-                                                            className={styles.aiImpact}
-                                                            style={{
-                                                                color:
-                                                                    action.tone === "danger"
-                                                                        ? "#dc2626"
-                                                                        : action.tone === "warn"
-                                                                            ? "#d97706"
-                                                                            : "#16a34a",
-                                                            }}
-                                                        >
-                                                            {action.impact}
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                            </div>
+                                                        {action.impact}
+                                                    </div>
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <InsightDrawer
-                        open={drawerOpen}
-                        drawerView={drawerView}
-                        onClose={closeDrawer}
-                        onSwitchView={setDrawerView}
-                        isDemoPreview={isDemoPreview}
-                        drawerInsights={drawerInsights}
-                        riskAccountRows={riskAccountRows}
-                        expansionRows={expansionRows}
-                        mrrDriverRows={mrrDriverRows}
-                        mrrForecast={mrrForecast}
-                        churnForecast={churnForecast}
-                        aiMrr={aiMrr}
-                        aiChurn={aiChurn}
-                        aiInsightMetrics={aiInsightMetrics}
-                        insights={insights}
-                        tier={summary?.tier === "pro" ? "pro" : "starter"}
-                    />
-                </>
-                );
+
+
+                <InsightDrawer
+                    open={drawerOpen}
+                    drawerView={drawerView}
+                    onClose={closeDrawer}
+                    onSwitchView={setDrawerView}
+                    isDemoPreview={isDemoPreview}
+                    drawerInsights={drawerInsights}
+                    riskAccountRows={riskAccountRows}
+                    expansionRows={expansionRows}
+                    mrrDriverRows={mrrDriverRows}
+                    mrrForecast={mrrForecast}
+                    churnForecast={churnForecast}
+                    aiMrr={aiMrr}
+                    aiChurn={aiChurn}
+                    aiInsightMetrics={aiInsightMetrics}
+                    insights={insights}
+                    tier={summary?.tier === "pro" ? "pro" : "starter"}
+                />
+            </>
+
+
+        );
+
     }
 
-                return <div className={styles.page}>{content}</div>;
+    return <div className={styles.page}>{content}</div>;
 }
