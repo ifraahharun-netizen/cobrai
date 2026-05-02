@@ -1,5 +1,7 @@
 // src/lib/ai/actionCopy.ts
 
+import type { RecommendedActionType } from "./types";
+
 export type ActionCopyItem = {
     title: string;
     description: string;
@@ -31,15 +33,15 @@ export const actionCopy = {
     },
 
     retry_failed_payment: {
-        title: "Retry payment",
+        title: "Retry failed payment",
         description:
-            "Retry the failed payment or review the billing issue before the account churns.",
+            "Attempt to recover revenue by retrying a failed payment for this account.",
     },
 
     view_failed_accounts: {
-        title: "View failed accounts",
+        title: "Review failed accounts",
         description:
-            "Review accounts affected by failed payments or unsuccessful retention actions.",
+            "Open the failed accounts list to prioritise customers that need immediate follow-up.",
     },
 
     monitor_account: {
@@ -52,4 +54,4 @@ export const actionCopy = {
         title: "No action needed",
         description: "This account is stable and requires no action.",
     },
-} satisfies Record<string, ActionCopyItem>;
+} satisfies Record<RecommendedActionType, ActionCopyItem>;
