@@ -18,13 +18,12 @@ const PUBLIC_API_PREFIXES = [
 ];
 
 function startsWithAny(pathname: string, prefixes: string[]) {
-    return prefixes.some((p) => pathname.startsWith(p));
+    return prefixes.some((prefix) => pathname.startsWith(prefix));
 }
 
 export function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
-    // ✅ allow public APIs always
     if (startsWithAny(pathname, PUBLIC_API_PREFIXES)) {
         return NextResponse.next();
     }
@@ -40,13 +39,7 @@ export function middleware(req: NextRequest) {
     const hasBearerToken = authHeader.startsWith("Bearer ");
     const hasSessionCookie = Boolean(req.cookies.get("session")?.value);
 
-    // ✅ FIX: allow unauthenticated GET requests (so UI can load)
-    if (pathname.startsWith("/api") && req.method === "GET") {
-        return NextResponse.next();
-    }
-
-    // 🔒 protect mutations / sensitive calls
-    if (pathname.startsWith("/api")) {
+    if (isProtectedApi) {
         if (!hasBearerToken && !hasSessionCookie) {
             return NextResponse.json(
                 { ok: false, error: "Unauthorized" },
@@ -57,12 +50,26 @@ export function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
-    // 🔒 protect dashboard pages
-    if (!hasSessionCookie) {
-        const loginUrl = new URL("/login", req.url);
+    if (isProtectedApp && !hasSessionCookie) {
+        const loginUrl = req.nextUrl.clone();
+        loginUrl.pathname = "/login";
         loginUrl.searchParams.set("next", pathname);
         return NextResponse.redirect(loginUrl);
     }
 
     return NextResponse.next();
 }
+
+export const config = {
+    matcher: [
+        "/dashboard/:path*",
+        "/api/dashboard/:path*",
+        "/api/automation/:path*",
+        "/api/progress/:path*",
+        "/api/email/:path*",
+        "/api/auth/:path*",
+        "/api/stripe/webhook",
+        "/api/integrations/hubspot/connect",
+        "/api/integrations/hubspot/callback",
+    ],
+};
