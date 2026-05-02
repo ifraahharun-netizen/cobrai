@@ -1,13 +1,11 @@
 // src/lib/ai/actionCopy.ts
 
-import type { RecommendedActionType } from "./types";
-
 export type ActionCopyItem = {
     title: string;
     description: string;
 };
 
-export const actionCopy: Record<RecommendedActionType, ActionCopyItem> = {
+export const actionCopy = {
     send_billing_recovery_email: {
         title: "Recover payment",
         description:
@@ -54,4 +52,4 @@ export const actionCopy: Record<RecommendedActionType, ActionCopyItem> = {
         title: "No action needed",
         description: "This account is stable and requires no action.",
     },
-};
+} satisfies Record<string, ActionCopyItem>;
