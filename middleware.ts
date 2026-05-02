@@ -8,26 +8,35 @@ const PROTECTED_API_PREFIXES = [
     "/api/automation",
     "/api/progress",
     "/api/email",
-    "/api/stripe",
-    "/api/integrations",
 ];
 
-function isProtectedPath(pathname: string) {
-    return [...PROTECTED_APP_PREFIXES, ...PROTECTED_API_PREFIXES].some((prefix) =>
-        pathname.startsWith(prefix)
-    );
+const PUBLIC_API_PREFIXES = [
+    "/api/auth",
+    "/api/stripe/webhook",
+    "/api/integrations/hubspot/connect",
+    "/api/integrations/hubspot/callback",
+];
+
+function startsWithAny(pathname: string, prefixes: string[]) {
+    return prefixes.some((prefix) => pathname.startsWith(prefix));
 }
 
 export function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
-    if (!isProtectedPath(pathname)) {
+    if (startsWithAny(pathname, PUBLIC_API_PREFIXES)) {
         return NextResponse.next();
     }
 
-    const authHeader = req.headers.get("authorization");
-    const hasBearerToken = authHeader?.startsWith("Bearer ");
+    const isProtectedApp = startsWithAny(pathname, PROTECTED_APP_PREFIXES);
+    const isProtectedApi = startsWithAny(pathname, PROTECTED_API_PREFIXES);
 
+    if (!isProtectedApp && !isProtectedApi) {
+        return NextResponse.next();
+    }
+
+    const authHeader = req.headers.get("authorization") ?? "";
+    const hasBearerToken = authHeader.startsWith("Bearer ");
     const hasSessionCookie = Boolean(req.cookies.get("session")?.value);
 
     if (pathname.startsWith("/api")) {
@@ -57,7 +66,9 @@ export const config = {
         "/api/automation/:path*",
         "/api/progress/:path*",
         "/api/email/:path*",
-        "/api/stripe/:path*",
-        "/api/integrations/:path*",
+        "/api/auth/:path*",
+        "/api/stripe/webhook",
+        "/api/integrations/hubspot/connect",
+        "/api/integrations/hubspot/callback",
     ],
 };
