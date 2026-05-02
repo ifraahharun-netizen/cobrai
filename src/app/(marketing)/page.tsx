@@ -59,21 +59,21 @@ export default function HomePage() {
                 <div className="heroTopRow">
                     <div className="heroLeft">
                         <div className="heroContent">
-                            <p className="eyebrow">Retention intelligence</p>
+                            <p className="eyebrow">Retention Intelligence</p>
 
                             <h1 className="heroTitle">
-                                Know who will churn — before it hits your revenue.
+                                Stop churn before it costs you revenue.
                             </h1>
 
                             <p className="heroText">
-                                Cobrai shows which customers are at risk, why it&apos;s
-                                happening, and what actions will protect your revenue —
-                                before it&apos;s too late.
+                                Cobrai shows you which customers are at risk, why they are
+                                slipping, and what action to take next — so you can protect
+                                MRR before customers leave.
                             </p>
 
                             <div className="heroActions">
                                 <Link href="/signup" className="primaryBtn">
-                                    Start Free — See At-Risk Revenue in Minutes
+                                    Start Free — See At-Risk Revenue
                                 </Link>
 
                                 <button
@@ -81,7 +81,7 @@ export default function HomePage() {
                                     className="secondaryBtn"
                                     onClick={() => setShowDemo(true)}
                                 >
-                                    See Cobrai in Action
+                                    View Demo
                                 </button>
                             </div>
                         </div>
@@ -90,9 +90,7 @@ export default function HomePage() {
                     <div className="heroRight">
                         <div className="loginWrap">
                             <div className="loginIntro">
-                                <h3 className="loginHeading">
-                                    Login
-                                </h3>
+                                <h3 className="loginHeading">Login</h3>
                             </div>
 
                             <form className="loginCard" onSubmit={onSubmit}>
@@ -130,9 +128,17 @@ export default function HomePage() {
                                     {loading ? "Logging in..." : "Login"}
                                 </button>
 
-                                <Link className="forgot" href="/forgot-password">
-                                    Forgot password?
-                                </Link>
+                                <p className="forgotRow">
+                                    Forgot{" "}
+                                    <Link href="/forgot-password" className="forgotLink">
+                                        password
+                                    </Link>{" "}
+                                    or{" "}
+                                    <Link href="/recover-email" className="forgotLink">
+                                        email
+                                    </Link>
+                                    ?
+                                </p>
                             </form>
                         </div>
                     </div>
@@ -141,42 +147,43 @@ export default function HomePage() {
                 <div className="homeStory homeStoryWide">
                     <div className="storyCard storyCardMerged storyCardWide">
                         <h3 className="storyTitle">
-                            Retention teams need clarity, not more scattered data.
+                            Stop guessing why customers leave.
                         </h3>
 
                         <p className="storyText storyTextLead">
-                            Cobrai helps modern SaaS teams spot churn risk earlier,
-                            understand what is driving it, and focus on the actions most
-                            likely to protect revenue.
+                            Most teams only notice churn after the revenue is already gone.
+                            Cobrai gives you earlier visibility into risk, revenue exposure,
+                            and the next best action for each account.
                         </p>
 
                         <div className="storyPoints">
                             <div className="storyPoint">
                                 <span className="storyPointTitle">
-                                    Early warning on churn risk
+                                    Find at-risk customers early
                                 </span>
                                 <p className="storyPointText">
-                                    See which customers need attention before revenue is
-                                    lost.
+                                    See which accounts need attention before they cancel or
+                                    become harder to recover.
                                 </p>
                             </div>
 
                             <div className="storyPoint">
                                 <span className="storyPointTitle">
-                                    Revenue-based prioritisation
+                                    Prioritise by revenue impact
                                 </span>
                                 <p className="storyPointText">
-                                    Focus on the accounts and risks that matter most to MRR.
+                                    Focus on the customers where action can protect the most
+                                    MRR.
                                 </p>
                             </div>
 
                             <div className="storyPoint">
                                 <span className="storyPointTitle">
-                                    Clear next actions
+                                    Know what to do next
                                 </span>
                                 <p className="storyPointText">
-                                    Move from signals to action with better retention
-                                    decisions.
+                                    Turn churn signals into clear retention actions your team
+                                    can act on quickly.
                                 </p>
                             </div>
                         </div>
@@ -196,39 +203,39 @@ export default function HomePage() {
 
                             <p className="demoEyebrow">PRODUCT WALKTHROUGH</p>
 
-                            <h2>See how Cobrai works</h2>
+                            <h2>See how Cobrai protects revenue</h2>
 
                             <p className="demoIntro">
-                                Cobrai helps subscription businesses spot churn risk early,
-                                understand why customers may leave, and take action before
-                                revenue is lost.
+                                Cobrai connects your customer and billing signals, detects
+                                churn risk early, and helps your team take action before MRR
+                                is lost.
                             </p>
 
                             <div className="demoSteps">
                                 <div className="demoStep">
                                     <span>01</span>
-                                    <h3>Connect your data</h3>
+                                    <h3>Connect your tools</h3>
                                     <p>
-                                        Sync billing and customer activity from tools like
-                                        Stripe and HubSpot.
+                                        Bring together billing, customer, and activity data
+                                        from the tools your team already uses.
                                     </p>
                                 </div>
 
                                 <div className="demoStep">
                                     <span>02</span>
-                                    <h3>Find at-risk customers</h3>
+                                    <h3>Spot revenue at risk</h3>
                                     <p>
                                         Cobrai highlights customers showing churn signals and
-                                        revenue risk.
+                                        ranks them by urgency and MRR impact.
                                     </p>
                                 </div>
 
                                 <div className="demoStep">
                                     <span>03</span>
-                                    <h3>Take retention action</h3>
+                                    <h3>Take action earlier</h3>
                                     <p>
-                                        Use recommended actions to recover customers before
-                                        they cancel.
+                                        Use clear recommendations and suggested outreach to
+                                        recover customers before they leave.
                                     </p>
                                 </div>
                             </div>

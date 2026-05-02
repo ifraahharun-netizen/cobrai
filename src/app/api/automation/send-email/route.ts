@@ -61,13 +61,18 @@ export async function POST(req: Request) {
         const { workspaceId } = await getWorkspaceFromRequest(req);
 
         const raw = await req.json().catch(() => null);
+
         if (!raw || typeof raw !== "object") {
             return jsonError("Invalid request body", 400);
         }
 
         const to = normalizeText((raw as any).to);
         const subject = normalizeText((raw as any).subject);
-        const body = typeof (raw as any).body === "string" ? (raw as any).body.trim() : "";
+        const body =
+            typeof (raw as any).body === "string"
+                ? (raw as any).body.trim()
+                : "";
+
         const accountId =
             typeof (raw as any).accountId === "string" && (raw as any).accountId.trim()
                 ? (raw as any).accountId.trim()
@@ -77,16 +82,26 @@ export async function POST(req: Request) {
             return jsonError("Missing to/subject/body", 400);
         }
 
+        if (!accountId) {
+            return jsonError("Missing accountId", 400);
+        }
+
         if (!isValidEmail(to)) {
             return jsonError("Invalid recipient email address", 400);
         }
 
         if (subject.length > MAX_SUBJECT_LENGTH) {
-            return jsonError(`Subject is too long. Max ${MAX_SUBJECT_LENGTH} characters.`, 400);
+            return jsonError(
+                `Subject is too long. Max ${MAX_SUBJECT_LENGTH} characters.`,
+                400
+            );
         }
 
         if (body.length > MAX_BODY_LENGTH) {
-            return jsonError(`Body is too long. Max ${MAX_BODY_LENGTH} characters.`, 400);
+            return jsonError(
+                `Body is too long. Max ${MAX_BODY_LENGTH} characters.`,
+                400
+            );
         }
 
         let customerId: string | null = null;
@@ -97,40 +112,50 @@ export async function POST(req: Request) {
         let outstandingInvoicesBefore = 0;
         let companyName: string | null = null;
 
-        if (accountId) {
-            const risk = await prisma.accountRisk.findFirst({
-                where: { id: accountId, workspaceId },
-                include: {
-                    customer: {
-                        select: {
-                            id: true,
-                            name: true,
-                            mrr: true,
-                            churnRisk: true,
-                            lastActiveAt: true,
-                        },
+        const risk = await prisma.accountRisk.findFirst({
+            where: {
+                workspaceId,
+                OR: [{ id: accountId }, { customerId: accountId }],
+            },
+            include: {
+                customer: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        mrr: true,
+                        churnRisk: true,
+                        lastActiveAt: true,
                     },
                 },
-            });
+            },
+        });
 
-            if (!risk) {
-                return jsonError("Account not found", 404);
-            }
+        if (!risk) {
+            return jsonError("Account not found", 404);
+        }
 
-            customerId = risk.customerId || risk.customer?.id || null;
-            riskScoreBefore = risk.riskScore ?? null;
-            companyName = risk.customer?.name || risk.companyName || null;
+        customerId = risk.customerId || risk.customer?.id || null;
+        riskScoreBefore = risk.riskScore ?? null;
+        companyName = risk.customer?.name || risk.companyName || null;
 
-            if (risk.customer) {
-                mrrBefore = typeof risk.customer.mrr === "number" ? risk.customer.mrr : null;
-                churnRiskBefore =
-                    typeof risk.customer.churnRisk === "number"
-                        ? Math.round(risk.customer.churnRisk)
-                        : null;
-                lastActiveAtBefore = risk.customer.lastActiveAt
-                    ? risk.customer.lastActiveAt.toISOString()
+        if (!risk.customer?.email || risk.customer.email.toLowerCase() !== to.toLowerCase()) {
+            return jsonError(
+                "Recipient email must match the selected customer.",
+                403,
+                "RECIPIENT_MISMATCH"
+            );
+        }
+
+        if (risk.customer) {
+            mrrBefore = typeof risk.customer.mrr === "number" ? risk.customer.mrr : null;
+            churnRiskBefore =
+                typeof risk.customer.churnRisk === "number"
+                    ? Math.round(risk.customer.churnRisk)
                     : null;
-            }
+            lastActiveAtBefore = risk.customer.lastActiveAt
+                ? risk.customer.lastActiveAt.toISOString()
+                : null;
         }
 
         if (customerId) {
@@ -223,18 +248,11 @@ export async function POST(req: Request) {
             }
 
             if (replyTo && (!replyToDomain || !isValidEmail(replyTo))) {
-                return jsonError(
-                    "Reply-to email is invalid",
-                    400,
-                    "INVALID_REPLY_TO"
-                );
+                return jsonError("Reply-to email is invalid", 400, "INVALID_REPLY_TO");
             }
         }
 
-        let result: any = {
-            id: null,
-            dryRun: !deliveryEnabled,
-        };
+        let providerId: string | null = null;
 
         if (deliveryEnabled) {
             const sendPayload: {
@@ -254,18 +272,17 @@ export async function POST(req: Request) {
                 sendPayload.replyTo = replyTo;
             }
 
-            result = await resend.emails.send(sendPayload);
+            const result = await resend.emails.send(sendPayload);
 
             if ((result as any)?.error) {
-                const message =
-                    typeof (result as any).error?.message === "string"
-                        ? (result as any).error.message
-                        : "Failed to send email";
-
-                return jsonError(message, 400, "RESEND_SEND_FAILED");
+                console.error("Resend send failed:", (result as any).error);
+                return jsonError("Failed to send email", 400, "RESEND_SEND_FAILED");
             }
 
-            console.log("EMAIL SENT:", result);
+            providerId =
+                typeof (result as any)?.data?.id === "string"
+                    ? (result as any).data.id
+                    : null;
         } else {
             console.log("EMAIL DRY RUN:", {
                 workspaceId,
@@ -291,6 +308,7 @@ export async function POST(req: Request) {
                 sentAt: now,
                 metadata: {
                     provider: deliveryEnabled ? "resend" : "dry_run",
+                    providerId,
                     to,
                     from: senderEmail ? `${senderName} <${senderEmail}>` : null,
                     replyTo: replyTo || null,
@@ -321,22 +339,21 @@ export async function POST(req: Request) {
                 tier === "pro"
                     ? {}
                     : {
-                        emailActionsUsedThisWeek: shouldResetWindow ? 1 : { increment: 1 },
-                        emailResetAt: shouldResetWindow ? startOfNextWeek(now) : undefined,
+                        emailActionsUsedThisWeek: shouldResetWindow
+                            ? 1
+                            : { increment: 1 },
+                        emailResetAt: shouldResetWindow
+                            ? startOfNextWeek(now)
+                            : undefined,
                     },
         });
 
         const nextUsed =
-            tier === "pro"
-                ? null
-                : shouldResetWindow
-                    ? 1
-                    : currentUsed + 1;
+            tier === "pro" ? null : shouldResetWindow ? 1 : currentUsed + 1;
 
         return NextResponse.json({
             ok: true,
             dryRun: !deliveryEnabled,
-            result,
             actionExecutionId: actionExecution.id,
             tier,
             sender: {
@@ -357,8 +374,13 @@ export async function POST(req: Request) {
                     : {
                         used: nextUsed,
                         limit: weeklyCap,
-                        remaining: Math.max(0, STARTER_WEEKLY_EMAIL_CAP - (nextUsed || 0)),
-                        resetAt: shouldResetWindow ? startOfNextWeek(now) : workspace.emailResetAt,
+                        remaining: Math.max(
+                            0,
+                            STARTER_WEEKLY_EMAIL_CAP - (nextUsed || 0)
+                        ),
+                        resetAt: shouldResetWindow
+                            ? startOfNextWeek(now)
+                            : workspace.emailResetAt,
                     },
         });
     } catch (e: any) {
@@ -370,6 +392,51 @@ export async function POST(req: Request) {
 
         return NextResponse.json(
             { ok: false, error: "Failed to process email action" },
+            { status: 500 }
+        );
+    }
+}
+
+export async function GET(req: Request) {
+    try {
+        const { workspaceId } = await getWorkspaceFromRequest(req);
+
+        const workspace = await prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            select: {
+                name: true,
+                senderName: true,
+                senderEmail: true,
+                senderReplyTo: true,
+                sendingDomain: true,
+                sendingDomainStatus: true,
+            },
+        });
+
+        if (!workspace) {
+            return jsonError("Workspace not found", 404);
+        }
+
+        return NextResponse.json({
+            ok: true,
+            sender: {
+                companyName: workspace.name || "Your company",
+                senderName: workspace.senderName || "Team",
+                senderEmail: workspace.senderEmail || null,
+                replyTo: workspace.senderReplyTo || null,
+                sendingDomain: workspace.sendingDomain || null,
+                verified: isVerifiedStatus(workspace.sendingDomainStatus),
+            },
+        });
+    } catch (e: any) {
+        if (e instanceof AuthError) {
+            return jsonError(e.message, e.status);
+        }
+
+        console.error("EMAIL SETTINGS ERROR:", e);
+
+        return NextResponse.json(
+            { ok: false, error: "Failed to load email sender settings" },
             { status: 500 }
         );
     }

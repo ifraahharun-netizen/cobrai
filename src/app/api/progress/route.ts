@@ -16,6 +16,9 @@ type ConfidenceLevel = "High" | "Medium" | "Low";
 
 type ProgressRow = {
     id: string;
+    accountId?: string;
+    email?: string;
+    customerId?: string;
     account: string;
     action: string;
     aiReason: string;
@@ -26,6 +29,15 @@ type ProgressRow = {
     kind?: ProgressKind;
 };
 
+type NextPriorityAccount = {
+    id: string;
+    account: string;
+    aiReason: string;
+    aiAction?: string;
+    mrrMinor: number;
+    riskScore: number;
+};
+
 type ActionPerformanceRow = {
     id: string;
     action: string;
@@ -34,9 +46,19 @@ type ActionPerformanceRow = {
     avgRiskDecreasePct: number;
 };
 
+type ProgressAiInsight = {
+    headline: string;
+    summary: string;
+    confidence: ConfidenceLevel;
+    nextBestAction: string;
+    topDriver?: string;
+};
+
 type ProgressResponseShape = {
+    ok?: boolean;
     mode?: "demo" | "live";
     workspaceTier?: string;
+    trialEndsAt?: string | Date | null;
     connectedIntegrations?: string[];
     kpis: {
         mrrProtectedMinor: number;
@@ -48,62 +70,45 @@ type ProgressResponseShape = {
         actionsExecutedPct: number;
         successRatePct: number;
     };
-    recentMrrSaved?: Array<{
+    aiInsight?: ProgressAiInsight;
+    recentMrrSaved?: {
         id: string;
         account: string;
         mrrSavedMinor: number;
-    }>;
-    nextPriorityAccounts?: Array<{
-        id: string;
-        account: string;
-        aiReason: string;
-        mrrMinor: number;
-        riskScore: number;
-    }>;
+        date?: string;
+    }[];
+    nextPriorityAccounts?: NextPriorityAccount[];
     progressBreakdown?: ProgressRow[];
     actionPerformance?: ActionPerformanceRow[];
 };
 
-type ProgressAiInsight = {
-    headline: string;
-    summary: string;
-    confidence: ConfidenceLevel;
-    nextBestAction: string;
-    topDriver?: string;
-};
-
-async function getWorkspaceIdFromRequest(req: Request) {
+async function getWorkspaceAuthFromRequest(req: Request) {
     const authHeader = req.headers.get("authorization");
-
-    if (!authHeader?.startsWith("Bearer ")) {
-        return null;
-    }
+    if (!authHeader?.startsWith("Bearer ")) return null;
 
     const idToken = authHeader.slice("Bearer ".length).trim();
-
-    if (!idToken) {
-        return null;
-    }
+    if (!idToken) return null;
 
     const decoded = await verifyFirebaseIdToken(idToken);
 
     const user = await prisma.user.findFirst({
-        where: {
-            OR: [
-                { firebaseUid: decoded.uid },
-                ...(decoded.email ? [{ email: decoded.email }] : []),
-            ],
-        },
+        where: { firebaseUid: decoded.uid },
         select: {
             workspaceId: true,
+            workspace: {
+                select: {
+                    trialEndsAt: true,
+                },
+            },
         },
     });
 
-    if (!user?.workspaceId) {
-        throw new Error("Workspace not found");
-    }
+    if (!user?.workspaceId) return null;
 
-    return user.workspaceId;
+    return {
+        workspaceId: user.workspaceId,
+        trialEndsAt: user.workspace?.trialEndsAt ?? null,
+    };
 }
 
 function inferProgressKind(action: string): ProgressKind {
@@ -111,11 +116,8 @@ function inferProgressKind(action: string): ProgressKind {
 
     if (
         value.includes("retry") ||
-        value.includes("payment retry") ||
-        value.includes("retry payment") ||
-        value.includes("payment recovered") ||
-        value.includes("recovered payment") ||
-        value.includes("billing retry")
+        value.includes("payment") ||
+        value.includes("billing")
     ) {
         return "retry_payment";
     }
@@ -132,16 +134,53 @@ function inferProgressKind(action: string): ProgressKind {
     return "email";
 }
 
+function buildAiAction(aiReason: string, riskScore: number) {
+    const reason = String(aiReason || "").toLowerCase();
+
+    if (reason.includes("payment") || reason.includes("billing") || reason.includes("card")) {
+        return "Send a billing recovery email and confirm the correct payment contact.";
+    }
+
+    if (reason.includes("engagement") || reason.includes("activity") || reason.includes("usage")) {
+        return "Send a personalised check-in with a usage recap and offer a quick success call.";
+    }
+
+    if (reason.includes("renewal")) {
+        return "Send a renewal reminder with clear value delivered and next-step support.";
+    }
+
+    if (reason.includes("support")) {
+        return "Follow up on the open support issue and confirm the customer is unblocked.";
+    }
+
+    if (riskScore >= 85) {
+        return "Contact this account today with a high-priority retention message.";
+    }
+
+    if (riskScore >= 70) {
+        return "Send a personalised retention check-in this week.";
+    }
+
+    return "Monitor engagement and send a value recap if activity keeps dropping.";
+}
+
 function normalizeProgressBreakdown(rows: unknown): ProgressRow[] {
     if (!Array.isArray(rows)) return [];
 
-    return rows.map((row) => {
+    return rows.map((row, index) => {
         const item = row as Partial<ProgressRow>;
+        const action = String(item.action || "Unknown action");
+        const id = String(
+            item.id || item.accountId || item.customerId || `progress-${index + 1}`
+        );
 
         return {
-            id: String(item.id || ""),
+            id,
+            accountId: item.accountId ? String(item.accountId) : id,
+            email: item.email ? String(item.email) : undefined,
+            customerId: item.customerId ? String(item.customerId) : id,
             account: String(item.account || "Unknown account"),
-            action: String(item.action || "Unknown action"),
+            action,
             aiReason: String(item.aiReason || ""),
             outcome:
                 item.outcome === "success" ||
@@ -157,16 +196,59 @@ function normalizeProgressBreakdown(rows: unknown): ProgressRow[] {
                     item.kind === "notification" ||
                     item.kind === "retry_payment"
                     ? item.kind
-                    : inferProgressKind(String(item.action || "")),
+                    : inferProgressKind(action),
         };
     });
 }
 
-function applyProgressPlanLimits<
-    T extends {
-        progressBreakdown?: Array<unknown>;
-    },
->(data: T, workspaceTier: string): T {
+function normalizeNextPriorityAccounts(rows: unknown): NextPriorityAccount[] {
+    if (!Array.isArray(rows)) return [];
+
+    return rows.map((row, index) => {
+        const item = row as Partial<NextPriorityAccount>;
+        const id = String(item.id || `priority-${index + 1}`);
+        const aiReason = String(
+            item.aiReason || "AI detected increased churn risk from recent account signals."
+        );
+        const riskScore = Number(item.riskScore || 0);
+
+        return {
+            id,
+            account: String(item.account || "Unknown account"),
+            aiReason,
+            aiAction: item.aiAction ? String(item.aiAction) : buildAiAction(aiReason, riskScore),
+            mrrMinor: Number(item.mrrMinor || 0),
+            riskScore,
+        };
+    });
+}
+
+function normalizeArray<T>(value: T[] | undefined): T[] {
+    return Array.isArray(value) ? value : [];
+}
+
+function normalizeProgressResponse(data: ProgressResponseShape): ProgressResponseShape {
+    return {
+        ...data,
+        ok: true,
+        kpis: {
+            mrrProtectedMinor: Number(data.kpis?.mrrProtectedMinor || 0),
+            accountsSaved: Number(data.kpis?.accountsSaved || 0),
+            actionsExecuted: Number(data.kpis?.actionsExecuted || 0),
+            successRate: Number(data.kpis?.successRate || 0),
+            mrrProtectedPct: Number(data.kpis?.mrrProtectedPct || 0),
+            accountsSavedPct: Number(data.kpis?.accountsSavedPct || 0),
+            actionsExecutedPct: Number(data.kpis?.actionsExecutedPct || 0),
+            successRatePct: Number(data.kpis?.successRatePct || 0),
+        },
+        recentMrrSaved: normalizeArray(data.recentMrrSaved),
+        nextPriorityAccounts: normalizeNextPriorityAccounts(data.nextPriorityAccounts),
+        progressBreakdown: normalizeProgressBreakdown(data.progressBreakdown),
+        actionPerformance: normalizeArray(data.actionPerformance),
+    };
+}
+
+function applyProgressPlanLimits(data: ProgressResponseShape, workspaceTier: string) {
     const isStarter = String(workspaceTier || "").toLowerCase() === "starter";
 
     if (!isStarter) return data;
@@ -179,15 +261,13 @@ function applyProgressPlanLimits<
     };
 }
 
-function normalizeProgressResponse<
-    T extends {
-        progressBreakdown?: Array<unknown>;
-    },
->(data: T): T & { progressBreakdown: ProgressRow[] } {
-    return {
-        ...data,
-        progressBreakdown: normalizeProgressBreakdown(data.progressBreakdown),
-    };
+function hasNoProgressContent(data: ProgressResponseShape) {
+    return (
+        !data.progressBreakdown?.length &&
+        !data.recentMrrSaved?.length &&
+        !data.nextPriorityAccounts?.length &&
+        !data.actionPerformance?.length
+    );
 }
 
 function formatGBPFromMinor(minor: number) {
@@ -258,9 +338,11 @@ function buildProgressAiInsight(data: ProgressResponseShape): ProgressAiInsight 
 
     const topAction = actionPerformance[0];
     const topDriver = humanizeActionLabel(topAction?.action);
+
     const failedCount = progressBreakdown.filter((row) => row.outcome === "failed").length;
     const pendingCount = progressBreakdown.filter((row) => row.outcome === "pending").length;
     const successCount = progressBreakdown.filter((row) => row.outcome === "success").length;
+
     const topPriorityReason = nextPriorityAccounts[0]?.aiReason?.trim();
 
     const headline =
@@ -274,11 +356,17 @@ function buildProgressAiInsight(data: ProgressResponseShape): ProgressAiInsight 
         summary =
             "No workflow activity has been recorded yet. Connect activity and billing signals to generate retention insights.";
     } else if (mrrProtectedPct >= 0) {
-        summary = `Performance improved vs last month, driven by ${topDriver}. ${successCount} workflow${successCount === 1 ? "" : "s"} completed successfully${topPriorityReason ? `, while the main remaining risk is ${topPriorityReason.toLowerCase()}.` : "."
+        summary = `Performance improved vs last month, driven by ${topDriver}. ${successCount} workflow${successCount === 1 ? "" : "s"
+            } completed successfully${topPriorityReason
+                ? `, while the main remaining risk is ${topPriorityReason.toLowerCase()}.`
+                : "."
             }`;
     } else {
         summary = `Performance softened vs last month. ${topDriver} is still the strongest driver, but ${failedCount} failed workflow${failedCount === 1 ? "" : "s"
-            } and ${pendingCount} pending workflow${pendingCount === 1 ? "" : "s"} are limiting protected revenue${topPriorityReason ? `, especially in accounts showing ${topPriorityReason.toLowerCase()}.` : "."
+            } and ${pendingCount} pending workflow${pendingCount === 1 ? "" : "s"
+            } are limiting protected revenue${topPriorityReason
+                ? `, especially in accounts showing ${topPriorityReason.toLowerCase()}.`
+                : "."
             }`;
     }
 
@@ -296,86 +384,139 @@ function buildProgressAiInsight(data: ProgressResponseShape): ProgressAiInsight 
     };
 }
 
+function buildFinalResponse({
+    data,
+    mode,
+    workspaceTier,
+    trialEndsAt,
+    connectedIntegrations,
+    applyStarterLimit,
+}: {
+    data: ProgressResponseShape;
+    mode: "demo" | "live";
+    workspaceTier: string;
+    trialEndsAt: string | Date | null;
+    connectedIntegrations: string[];
+    applyStarterLimit: boolean;
+}) {
+    const normalizedData = normalizeProgressResponse(data);
+
+    const finalData = applyStarterLimit
+        ? applyProgressPlanLimits(normalizedData, workspaceTier)
+        : normalizedData;
+
+    return {
+        ...finalData,
+        ok: true,
+        aiInsight: buildProgressAiInsight(finalData),
+        mode,
+        workspaceTier,
+        trialEndsAt,
+        connectedIntegrations,
+    };
+}
+
+function buildDemoResponse({
+    workspaceTier = "starter",
+    trialEndsAt = null,
+    connectedIntegrations = [],
+}: {
+    workspaceTier?: string;
+    trialEndsAt?: string | Date | null;
+    connectedIntegrations?: string[];
+} = {}) {
+    const demoData = getDemoProgress() as ProgressResponseShape;
+
+    return buildFinalResponse({
+        data: demoData,
+        mode: "demo",
+        workspaceTier,
+        trialEndsAt,
+        connectedIntegrations,
+        applyStarterLimit: false,
+    });
+}
+
 export async function GET(req: Request) {
     try {
-        const workspaceId = await getWorkspaceIdFromRequest(req);
+        const workspaceAuth = await getWorkspaceAuthFromRequest(req);
 
-        if (!workspaceId) {
-            const demoData = getDemoProgress();
-            const normalizedDemoData = normalizeProgressResponse(demoData);
-            const limitedDemoData = applyProgressPlanLimits(
-                normalizedDemoData,
-                demoData.workspaceTier || "starter"
-            );
-            const aiInsight = buildProgressAiInsight(limitedDemoData as ProgressResponseShape);
-
-            return NextResponse.json({
-                ...limitedDemoData,
-                aiInsight,
-                mode: "demo",
-                workspaceTier: demoData.workspaceTier || "starter",
-                connectedIntegrations: demoData.connectedIntegrations || [],
-            });
+        if (!workspaceAuth?.workspaceId) {
+            return NextResponse.json(buildDemoResponse(), { status: 200 });
         }
 
+        const { workspaceId, trialEndsAt } = workspaceAuth;
+
         const modeInfo = await getWorkspaceDataMode(workspaceId);
+        const workspaceTier = String(modeInfo.workspaceTier || "starter");
+
+        const connectedIntegrations = Array.isArray(modeInfo.connectedIntegrations)
+            ? modeInfo.connectedIntegrations
+            : [];
+
+        const trialEndsAtMs = trialEndsAt ? new Date(trialEndsAt).getTime() : 0;
+
+        const isTrialActive =
+            Boolean(trialEndsAtMs) &&
+            Number.isFinite(trialEndsAtMs) &&
+            trialEndsAtMs > Date.now();
+
+        if (isTrialActive) {
+            return NextResponse.json(
+                buildDemoResponse({
+                    workspaceTier,
+                    trialEndsAt,
+                    connectedIntegrations,
+                }),
+                { status: 200 }
+            );
+        }
 
         if (modeInfo.mode === "live") {
             await refreshRecentActionOutcomes(workspaceId);
 
-            const liveData = await getLiveProgress(
+            const liveData = (await getLiveProgress(
                 workspaceId,
-                modeInfo.workspaceTier,
-                modeInfo.connectedIntegrations
-            );
+                workspaceTier,
+                connectedIntegrations
+            )) as ProgressResponseShape;
 
             const normalizedLiveData = normalizeProgressResponse(liveData);
-            const limitedLiveData = applyProgressPlanLimits(
-                normalizedLiveData,
-                modeInfo.workspaceTier
-            );
-            const aiInsight = buildProgressAiInsight(limitedLiveData as ProgressResponseShape);
 
-            return NextResponse.json({
-                ...limitedLiveData,
-                aiInsight,
-                mode: "live",
-                workspaceTier: modeInfo.workspaceTier,
-                connectedIntegrations: modeInfo.connectedIntegrations,
-            });
-        }
+            if (hasNoProgressContent(normalizedLiveData)) {
+                return NextResponse.json(
+                    buildDemoResponse({
+                        workspaceTier,
+                        trialEndsAt,
+                        connectedIntegrations,
+                    }),
+                    { status: 200 }
+                );
+            }
 
-        const demoData = getDemoProgress();
-        const normalizedDemoData = normalizeProgressResponse(demoData);
-        const limitedDemoData = applyProgressPlanLimits(
-            normalizedDemoData,
-            modeInfo.workspaceTier
-        );
-        const aiInsight = buildProgressAiInsight(limitedDemoData as ProgressResponseShape);
-
-        return NextResponse.json({
-            ...limitedDemoData,
-            aiInsight,
-            mode: "demo",
-            workspaceTier: modeInfo.workspaceTier,
-            connectedIntegrations: modeInfo.connectedIntegrations,
-        });
-    } catch (error: unknown) {
-        console.error("GET /api/progress failed", error);
-
-        const message =
-            error instanceof Error ? error.message : "Failed to load progress";
-
-        if (message === "Workspace not found") {
             return NextResponse.json(
-                { error: "Workspace not found" },
-                { status: 404 }
+                buildFinalResponse({
+                    data: normalizedLiveData,
+                    mode: "live",
+                    workspaceTier,
+                    trialEndsAt,
+                    connectedIntegrations,
+                    applyStarterLimit: workspaceTier.toLowerCase() === "starter",
+                }),
+                { status: 200 }
             );
         }
 
         return NextResponse.json(
-            { error: "Failed to load progress" },
-            { status: 500 }
+            buildDemoResponse({
+                workspaceTier,
+                trialEndsAt,
+                connectedIntegrations,
+            }),
+            { status: 200 }
         );
+    } catch (error) {
+        console.error("GET /api/progress failed", error);
+        return NextResponse.json(buildDemoResponse(), { status: 200 });
     }
 }

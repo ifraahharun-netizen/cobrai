@@ -3,8 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 function getAppBaseUrl(req: NextRequest) {
-    const envUrl =
-        process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "";
+    const envUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "";
 
     if (envUrl) {
         return envUrl.replace(/\/$/, "");
@@ -13,27 +12,24 @@ function getAppBaseUrl(req: NextRequest) {
     return req.nextUrl.origin.replace(/\/$/, "");
 }
 
+function safeRedirect(appBaseUrl: string, path: string) {
+    return NextResponse.redirect(new URL(path, appBaseUrl));
+}
+
 export async function GET(req: NextRequest) {
     const uid = req.nextUrl.searchParams.get("uid");
+    const appBaseUrl = getAppBaseUrl(req);
 
-    console.log("=== HUBSPOT CONNECT ROUTE RUNNING ===");
-    console.log("[HubSpot Connect] uid:", uid);
-
-    if (!uid) {
-        return NextResponse.redirect(
-            new URL("/dashboard/settings?error=missing_uid", req.url)
-        );
+    if (!uid || uid.length > 128) {
+        return safeRedirect(appBaseUrl, "/dashboard/settings?error=missing_uid");
     }
 
     const clientId = process.env.HUBSPOT_CLIENT_ID;
 
     if (!clientId) {
-        return NextResponse.redirect(
-            new URL("/dashboard/settings?error=missing_client_id", req.url)
-        );
+        console.error("Missing HUBSPOT_CLIENT_ID");
+        return safeRedirect(appBaseUrl, "/dashboard/settings?error=hubspot_not_configured");
     }
-
-    const appBaseUrl = getAppBaseUrl(req);
 
     const redirectUri =
         process.env.HUBSPOT_REDIRECT_URI ||
@@ -45,20 +41,26 @@ export async function GET(req: NextRequest) {
         "crm.objects.contacts.write",
     ].join(" ");
 
+    const state = crypto.randomUUID();
+
     const authUrl =
         `https://app.hubspot.com/oauth/authorize` +
         `?client_id=${encodeURIComponent(clientId)}` +
         `&scope=${encodeURIComponent(scopes)}` +
         `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        `&state=${encodeURIComponent(uid)}`;
-
-    console.log("[HubSpot Connect] redirectUri:", redirectUri);
-    console.log("[HubSpot Connect] scopes:", scopes);
-    console.log("[HubSpot Connect] authUrl:", authUrl);
+        `&state=${encodeURIComponent(state)}`;
 
     const response = NextResponse.redirect(authUrl);
 
     response.cookies.set("hubspot_uid", uid, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 10,
+    });
+
+    response.cookies.set("hubspot_oauth_state", state, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",

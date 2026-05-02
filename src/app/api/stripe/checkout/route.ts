@@ -18,11 +18,12 @@ export async function POST(req: Request) {
 
         const requestedWorkspaceId =
             typeof body?.workspaceId === "string" ? body.workspaceId : null;
+
         const tier = parseTier(body?.tier);
 
         if (!tier) {
             return NextResponse.json(
-                { error: "Missing or invalid tier" },
+                { error: "Missing or invalid tier." },
                 { status: 400 }
             );
         }
@@ -55,19 +56,16 @@ export async function POST(req: Request) {
 
         if (!workspace) {
             return NextResponse.json(
-                { error: "Workspace not found" },
+                { error: "Workspace not found." },
                 { status: 404 }
             );
         }
 
-        const email =
-            user.email?.trim() ||
-            workspace.ownerEmail?.trim() ||
-            null;
+        const email = user.email?.trim() || workspace.ownerEmail?.trim() || null;
 
         if (!email) {
             return NextResponse.json(
-                { error: "Missing user email for checkout" },
+                { error: "Missing user email for checkout." },
                 { status: 400 }
             );
         }
@@ -77,26 +75,40 @@ export async function POST(req: Request) {
                 ? process.env.STRIPE_PRICE_PRO
                 : process.env.STRIPE_PRICE_STARTER;
 
-        if (!priceId) {
+        if (!priceId || !priceId.startsWith("price_")) {
             return NextResponse.json(
-                { error: "Missing Stripe price ID in environment" },
+                {
+                    error: "Stripe checkout is not configured correctly.",
+                },
                 { status: 500 }
             );
         }
 
         const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-        if (!appUrl) {
+
+        if (!appUrl || !appUrl.startsWith("https://")) {
             return NextResponse.json(
-                { error: "Missing NEXT_PUBLIC_APP_URL" },
+                { error: "Missing NEXT_PUBLIC_APP_URL." },
                 { status: 500 }
             );
         }
 
         const stripe = getStripeClient();
 
-        const existingStripeCustomer = workspace.stripeCustomers.find((c) =>
-            c.stripeId.startsWith("cus_")
-        ) ?? null;
+        try {
+            await stripe.prices.retrieve(priceId);
+        } catch {
+            return NextResponse.json(
+                {
+                    error: "Stripe checkout price is not available.",
+                },
+                { status: 500 }
+            );
+        }
+
+        const existingStripeCustomer =
+            workspace.stripeCustomers.find((c) => c.stripeId.startsWith("cus_")) ??
+            null;
 
         const session = await stripe.checkout.sessions.create({
             mode: "subscription",
@@ -133,12 +145,11 @@ export async function POST(req: Request) {
             code: error?.code,
             param: error?.param,
             statusCode: error?.statusCode,
-            raw: error?.raw,
         });
 
         return NextResponse.json(
             {
-                error: error?.message || "Unable to create checkout session",
+                error: "Unable to create checkout session.",
             },
             { status: 500 }
         );

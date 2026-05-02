@@ -1,704 +1,647 @@
 .page {
-  padding: 18px 20px 24px;
-  background: #ffffff;
-  min-height: 100vh;
-  color: #0b1220;
+  min-height: 100vh !important;
+  padding: 20px !important;
+  background: #ffffff !important;
+  color: #111 !important;
+  font-family: inherit !important;
 }
 
 .topBar {
-  margin-bottom: 10px;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 16px !important;
 }
 
-.backBtn {
-  height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid #d8dee8;
-  background: #ffffff;
-  color: #111827;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.18s ease, border-color 0.18s ease;
+.topRightActions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
 }
 
-.backBtn:hover {
-  background: #f8fafc;
-  border-color: #cfd6e2;
+.backBtn,
+.downloadBtn {
+  border: 1px solid #eaeaea !important;
+  background: #fff !important;
+  color: #000000 !important;
+  border-radius: 10px !important;
+  padding: 9px 13px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
 }
 
-.header {
-  margin-bottom: 14px;
-}
-
-.title {
-  font-size: 24px;
-  font-weight: 760;
-  letter-spacing: -0.03em;
-  margin: 0;
-  color: #101828;
-}
-
-.email {
-  margin-top: 6px;
-  font-size: 13px;
-  color: #667085;
-  font-weight: 400;
-}
-
-.kpiRow {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.kpiCard {
-  background: #ffffff;
-  border: 1px solid #eaecf0;
-  border-radius: 18px;
-  padding: 14px 15px;
-  min-height: 98px;
-}
-
-.kpiNeutral,
-.kpiGood,
-.kpiMedium,
-.kpiWarning,
-.kpiDanger {
-  background: #ffffff;
-}
-
-.kpiGood {
-  border-color: #d1fadf;
-  background: #f6fef9;
-}
-
-.kpiMedium {
-  border-color: #d9d6fe;
-  background: #f9f8ff;
-}
-
-.kpiWarning {
-  border-color: #fedf89;
-  background: #fffcf5;
-}
-
-.kpiDanger {
-  border-color: #fecdca;
-  background: #fffbfa;
-}
-
-.kpiLabel {
-  font-size: 10px;
-  line-height: 1;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #667085;
-  font-weight: 700;
-  margin-bottom: 10px;
-}
-
-.kpiValue {
-  font-size: 24px;
-  line-height: 1.03;
-  font-weight: 760;
-  letter-spacing: -0.03em;
-  color: #101828;
-}
-
-.kpiValueSmall {
-  font-size: 19px;
-  line-height: 1.1;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  color: #101828;
-}
-
-.kpiSubStrong {
-  margin-top: 4px;
-  font-size: 13px;
-  font-weight: 650;
-  color: #101828;
-}
-
-.kpiSub {
-  margin-top: 4px;
-  font-size: 12px;
-  color: #667085;
-  font-weight: 400;
-  line-height: 1.45;
+.downloadBtn {
+  background: #ffffff !important;
+  color: #080808 !important;
+  border: 1px solid #eaeaea !important;
 }
 
 .mainGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr);
-  gap: 14px;
-  align-items: stretch;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  grid-template-areas:
+    "overview overview"
+    "activity ai"
+    "activity notes" !important;
+  gap: 14px !important;
+  align-items: start !important;
 }
 
 .card {
-  background: #ffffff;
-  border: 1px solid #eaecf0;
-  border-radius: 18px;
-  padding: 16px;
-}
-
-.whatsHappeningCard {
-  min-height: 420px;
-}
-
-.accountLogCard {
-  min-height: 420px;
-  display: flex;
-  flex-direction: column;
+  background: #fff !important;
+  border: 1px solid #eaeaea !important;
+  border-radius: 18px !important;
+  box-shadow: none !important;
+  padding: 18px !important;
 }
 
 .sectionLabel {
-  font-size: 11px;
-  line-height: 1.2;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #667085;
-  margin-bottom: 12px;
+  margin-bottom: 8px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: #777 !important;
 }
 
-.aiHeadlineRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 14px;
-  margin-bottom: 12px;
+.cleanOverviewCard {
+  grid-area: overview !important;
+  min-height: unset !important;
 }
 
-.aiHeadlineWrap {
-  min-width: 0;
+.cleanProfileHeader {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  gap: 20px !important;
+  padding-bottom: 16px !important;
+  margin-bottom: 16px !important;
+  border-bottom: 1px solid #e5e5e5 !important;
 }
 
-.aiHeadline {
-  font-size: 24px;
-  line-height: 1.08;
-  font-weight: 760;
-  letter-spacing: -0.03em;
-  color: #101828;
+.cleanProfileName {
+  margin: 0 0 5px !important;
+  font-size: 26px !important;
+  line-height: 1.05 !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.04em !important;
+  color: #111 !important;
 }
 
-.aiRevenue {
-  margin-top: 10px;
-  font-size: 15px;
-  font-weight: 650;
-  color: #111827;
+.cleanProfileEmail {
+  margin: 0 !important;
+  font-size: 13px !important;
+  color: #666 !important;
 }
 
-.aiConfidenceBadge {
-  flex-shrink: 0;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  display: inline-flex;
-  align-items: center;
-  font-size: 12px;
-  font-weight: 700;
+.cleanRiskBadge {
+  white-space: nowrap !important;
+  border-radius: 10px !important;
+  padding: 8px 10px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border: 1px solid #eaeaea !important;
+  background: #ffffff !important;
 }
 
-.aiConfidenceHigh {
-  color: #067647;
-  background: #ecfdf3;
-  border-color: #d1fadf;
+.cleanRiskDanger,
+.cleanRiskWarning,
+.cleanRiskMedium,
+.cleanRiskGood {
+  color: #111 !important;
+  background: #ffffff !important;
+  border: 1px solid #eaeaea !important;
 }
 
-.aiConfidenceMedium {
-  color: #7a4f01;
-  background: #f5f3ff;
-  border-color: #ddd6fe;
+.cleanProfileGrid {
+  display: grid !important;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  gap: 10px !important;
 }
 
-.aiConfidenceLow {
-  color: #b42318;
-  background: #fef3f2;
-  border-color: #fecdca;
+.cleanProfileItem {
+  border: 1px solid #ececec !important;
+  border-radius: 14px !important;
+  padding: 13px !important;
+  background: #ffffff !important;
 }
 
-.bodyText {
-  font-size: 14px;
-  line-height: 1.65;
-  color: #475467;
-  margin-bottom: 14px;
-  font-weight: 400;
+.cleanProfileItem span {
+  display: block !important;
+  margin-bottom: 6px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.07em !important;
+  text-transform: uppercase !important;
+  color: #777 !important;
 }
 
-.bodyText strong {
-  font-weight: 650;
-  color: #101828;
+.cleanProfileItem strong {
+  display: block !important;
+  font-size: 14px !important;
+  line-height: 1.25 !important;
+  font-weight: 500 !important;
+  color: #111 !important;
 }
 
-.insightBlock {
-  margin-bottom: 14px;
+.sideStack {
+  display: contents !important;
 }
 
-.list {
-  margin: 0 0 8px 18px;
-  padding: 0;
-  color: #475467;
-  font-size: 14px;
-  line-height: 1.6;
-  font-weight: 400;
+.cleanAiCard {
+  grid-area: ai !important;
+  min-height: unset !important;
 }
 
-.list li {
-  margin-bottom: 5px;
+.notesCard {
+  grid-area: notes !important;
+  min-height: unset !important;
 }
 
-.inlineActionsBlock {
-  margin-top: 12px;
-}
-
-.inlineActionsTitle {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #667085;
-  margin-bottom: 10px;
-  letter-spacing: 0.05em;
-}
-
-.nextActionCard {
-  margin-top: 10px;
-  margin-bottom: 16px;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid #e5e7eb;
-  background: #fafafa;
-}
-
-.nextActionLabel {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #667085;
-  margin-bottom: 6px;
-  letter-spacing: 0.05em;
-}
-
-.nextActionValue {
-  font-size: 16px;
-  font-weight: 700;
-  color: #101828;
-  line-height: 1.35;
-}
-
-.actions {
-  display: grid;
-  gap: 10px;
-}
-
-.actionBtn,
-.actionBtnPrimary {
-  width: 100%;
-  min-height: 56px;
-  border-radius: 14px;
-  text-align: left;
-  padding: 11px 13px;
-  cursor: pointer;
-  display: grid;
-  gap: 4px;
-  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
-}
-
-.actionBtn {
-  border: 1px solid #d8dee8;
-  background: #ffffff;
-  color: #344054;
-}
-
-.actionBtn:hover {
-  background: #f8fafc;
-  border-color: #cfd6e2;
-}
-
-.actionBtnPrimary {
-  border: 1px solid #111827;
-  background: #111827;
-  color: #ffffff;
-}
-
-.actionBtnPrimary:hover {
-  background: #0b1220;
-  border-color: #0b1220;
-}
-
-.actionBtnTitle {
-  font-size: 13px;
-  font-weight: 700;
-  color: inherit;
-}
-
-.actionBtnSub {
-  font-size: 12px;
-  font-weight: 400;
-  color: inherit;
-  opacity: 0.88;
-  line-height: 1.4;
+.accountLogCard {
+  grid-area: activity !important;
+  min-height: 420px !important;
 }
 
 .accountLogTitle {
-  font-size: 18px;
-  line-height: 1.2;
-  font-weight: 680;
-  color: #101828;
-  margin-bottom: 4px;
+  margin-top: 4px !important;
+  font-size: 19px !important;
+  line-height: 1.15 !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.03em !important;
+  color: #111 !important;
 }
 
 .accountLogSub {
-  font-size: 12px;
-  color: #667085;
-  font-weight: 400;
-  margin-bottom: 12px;
+  margin-top: 5px !important;
+  font-size: 13px !important;
+  color: #666 !important;
 }
 
-.accountLogTable {
-  width: 100%;
-  border: 1px solid #eaecf0;
-  border-radius: 16px;
-  overflow: hidden;
-  background: #ffffff;
-  flex: 1;
+.cleanAiContent {
+  margin-top: 13px !important;
 }
 
-.accountLogHead {
-  display: grid;
-  grid-template-columns: minmax(0, 1.8fr) 170px;
-  gap: 14px;
-  padding: 11px 14px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #667085;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  background: #fcfcfd;
-  border-bottom: 1px solid #eaecf0;
+.cleanAiContent strong {
+  display: block !important;
+  margin-bottom: 6px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #111 !important;
 }
 
-.accountLogRow {
-  display: grid;
-  grid-template-columns: minmax(0, 1.8fr) 170px;
-  gap: 14px;
-  align-items: center;
-  padding: 12px 14px;
-  border-bottom: 1px solid #f2f4f7;
+.cleanAiContent p {
+  margin: 0 !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+  color: #555 !important;
 }
 
-.accountLogRow:last-child {
-  border-bottom: none;
+.cleanActionButtons {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 10px !important;
 }
 
-.accountLogActionText {
-  font-size: 13px;
-  font-weight: 500;
-  color: #344054;
-  line-height: 1.45;
+.cleanActionBtn {
+  border: 1px solid #111 !important;
+  background: #111 !important;
+  color: #fff !important;
+  border-radius: 10px !important;
+  padding: 9px 11px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
 }
 
-.accountLogDate {
-  font-size: 12px;
-  color: #667085;
-  white-space: nowrap;
-  font-weight: 400;
+.cleanEmailLimitText {
+  margin: 12px 0 0 !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  color: #777 !important;
+}
+
+.cleanActivityList {
+  margin-top: 14px !important;
+  border: 1px solid #ececec !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  background: #fff !important;
+}
+
+.cleanActivityRow {
+  padding: 14px !important;
+  border-bottom: 1px solid #ececec !important;
+}
+
+.cleanActivityRow:last-child {
+  border-bottom: none !important;
+}
+
+.activityRowTop {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+}
+
+.cleanActivityRow strong {
+  display: block !important;
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+  font-weight: 500 !important;
+  color: #111 !important;
+}
+
+.cleanActivityRow span {
+  display: block !important;
+  margin-top: 5px !important;
+  font-size: 12px !important;
+  color: #666 !important;
+}
+
+.activityRowTop em {
+  flex-shrink: 0 !important;
+  border: 1px solid #ddd !important;
+  border-radius: 999px !important;
+  padding: 4px 8px !important;
+  background: #fafafa !important;
+  color: #555 !important;
+  font-size: 11px !important;
+  font-style: normal !important;
+  font-weight: 500 !important;
 }
 
 .accountLogEmpty {
-  padding: 16px 14px;
-  font-size: 13px;
-  color: #667085;
+  padding: 14px !important;
+  font-size: 13px !important;
+  color: #666 !important;
 }
 
-.debugBox {
-  margin-top: 14px;
-  border: 1px solid #eaecf0;
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: #fcfcfd;
+.notesTextarea {
+  width: 100% !important;
+  min-height: 74px !important;
+  resize: vertical !important;
+  margin-top: 12px !important;
+  border: 1px solid #ddd !important;
+  border-radius: 14px !important;
+  padding: 12px !important;
+  background: #fff !important;
+  color: #111 !important;
+  font: inherit !important;
+  font-size: 13px !important;
+  outline: none !important;
 }
 
-.debugPre {
-  margin: 8px 0 0;
-  white-space: pre-wrap;
-  font-size: 12px;
-  line-height: 1.5;
-  color: #344054;
+.notesTextarea:focus {
+  border-color: #111 !important;
+}
+
+.notesActions {
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  margin-top: 9px !important;
+}
+
+.notePrimaryBtn,
+.noteSecondaryBtn {
+  border: 1px solid #111 !important;
+  border-radius: 10px !important;
+  padding: 8px 12px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+}
+
+.notePrimaryBtn {
+  background: #111 !important;
+  color: #fff !important;
+}
+
+.noteSecondaryBtn {
+  background: #fff !important;
+  color: #111 !important;
+}
+
+.notesList {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  margin-top: 12px !important;
+}
+
+.noteItem {
+  border: 1px solid #ececec !important;
+  border-radius: 14px !important;
+  padding: 12px !important;
+  background: #fbfbfb !important;
+}
+
+.noteItem p {
+  margin: 0 0 7px !important;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+  color: #111 !important;
+}
+
+.noteItem span {
+  display: block !important;
+  font-size: 12px !important;
+  color: #666 !important;
+}
+
+.noteItemActions {
+  display: flex !important;
+  gap: 7px !important;
+  margin-top: 9px !important;
+}
+
+.noteItemActions button {
+  border: 1px solid #ddd !important;
+  background: #fff !important;
+  color: #111 !important;
+  border-radius: 999px !important;
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+}
+
+.pagination {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin-top: 14px !important;
+}
+
+.pagination button {
+  border: 1px solid #ddd !important;
+  background: #fff !important;
+  color: #111 !important;
+  border-radius: 999px !important;
+  padding: 7px 12px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+}
+
+.pagination button:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+}
+
+.pagination span {
+  font-size: 12px !important;
+  color: #666 !important;
 }
 
 .empty {
-  display: grid;
-  place-items: center;
-  min-height: 50vh;
-  font-size: 14px;
-  color: #667085;
+  padding: 32px !important;
+  color: #666 !important;
+  font-size: 14px !important;
 }
 
-.modalOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(16, 24, 40, 0.65);
-  backdrop-filter: blur(4px);
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  z-index: 9999;
-}
+/* Modal */
 
 .modalOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(15, 23, 42, 0.72);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 22px !important;
+  background: rgba(0, 0, 0, 0.28) !important;
+  backdrop-filter: blur(8px) !important;
 }
 
 .emailModal {
-  width: min(760px, calc(100vw - 32px));
-  max-height: calc(100vh - 40px);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 24px;
-  box-shadow:
-    0 32px 80px rgba(15, 23, 42, 0.28),
-    0 12px 32px rgba(15, 23, 42, 0.16);
+  width: min(620px, 100%) !important;
+  max-height: 86vh !important;
+  overflow: hidden !important;
+  border-radius: 20px !important;
+  background: #fff !important;
+  border: 1px solid #ddd !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22) !important;
 }
 
 .emailModalHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 22px 22px 16px;
-  border-bottom: 1px solid #eaecf0;
-  background: #ffffff;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  gap: 16px !important;
+  padding: 22px 24px 12px !important;
 }
 
 .emailEyebrow {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #667085;
-  margin-bottom: 6px;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: #777 !important;
 }
 
 .emailModalTitle {
-  font-size: 28px;
-  line-height: 1.08;
-  font-weight: 760;
-  color: #101828;
+  margin-top: 5px !important;
+  font-size: 22px !important;
+  line-height: 1.1 !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.03em !important;
+  color: #111 !important;
 }
 
 .emailModalSub {
-  margin-top: 6px;
-  font-size: 14px;
-  color: #667085;
-  font-weight: 500;
+  margin-top: 6px !important;
+  font-size: 13px !important;
+  color: #666 !important;
 }
 
 .emailCloseBtn {
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  border: 1px solid #e4e7ec;
-  background: #ffffff;
-  color: #344054;
-  font-size: 22px;
-  line-height: 1;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.emailCloseBtn:hover {
-  background: #f8fafc;
+  width: 33px !important;
+  height: 33px !important;
+  border-radius: 999px !important;
+  border: 1px solid #ddd !important;
+  background: #fff !important;
+  color: #111 !important;
+  font-size: 19px !important;
+  cursor: pointer !important;
 }
 
 .emailShell {
-  padding: 18px 22px 22px;
-  overflow: auto;
+  padding: 0 24px 24px !important;
 }
 
 .emailField {
-  display: grid;
-  gap: 7px;
-  margin-bottom: 14px;
+  margin-top: 13px !important;
 }
 
 .emailLabel {
-  font-size: 12px;
-  font-weight: 700;
-  color: #344054;
+  display: block !important;
+  margin-bottom: 6px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #666 !important;
 }
 
 .emailInput,
 .emailTextarea {
-  width: 100%;
-  border: 1px solid #d0d5dd;
-  background: #ffffff;
-  color: #101828;
-  border-radius: 14px;
-  padding: 13px 14px;
-  font-size: 14px;
-  outline: none;
-  font-weight: 400;
+  width: 100% !important;
+  border: 1px solid #ddd !important;
+  background: #fff !important;
+  color: #111 !important;
+  border-radius: 14px !important;
+  padding: 12px !important;
+  font: inherit !important;
+  font-size: 14px !important;
+  outline: none !important;
 }
 
 .emailInput:focus,
 .emailTextarea:focus {
-  border-color: #111827;
-  box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.08);
+  border-color: #111 !important;
 }
 
 .emailTextarea {
-  min-height: 260px;
-  resize: vertical;
-  line-height: 1.7;
+  min-height: 210px !important;
+  resize: vertical !important;
+  line-height: 1.55 !important;
+}
+
+.emailError {
+  margin-top: 12px !important;
+  border: 1px solid #fecaca !important;
+  border-radius: 14px !important;
+  background: #fef2f2 !important;
+  color: #991b1b !important;
+  padding: 10px 12px !important;
+  font-size: 13px !important;
 }
 
 .emailModalActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 12px;
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 9px !important;
+  margin-top: 16px !important;
 }
 
 .emailCancelBtn,
 .emailSendBtn {
-  height: 42px;
-  padding: 0 16px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
+  border-radius: 999px !important;
+  padding: 10px 16px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
 }
 
 .emailCancelBtn {
-  border: 1px solid #d0d5dd;
-  background: #ffffff;
-  color: #344054;
-}
-
-.emailCancelBtn:hover {
-  background: #f8fafc;
+  border: 1px solid #ddd !important;
+  background: #fff !important;
+  color: #111 !important;
 }
 
 .emailSendBtn {
-  border: 1px solid #111827;
-  background: #111827;
-  color: #ffffff;
-  box-shadow: 0 6px 18px rgba(17, 24, 39, 0.18);
-}
-
-.emailSendBtn:hover {
-  background: #0b1220;
-  border-color: #0b1220;
+  border: 1px solid #111 !important;
+  background: #111 !important;
+  color: #fff !important;
 }
 
 .emailSendBtn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
 }
+
+/* Hide old unused styles */
+
+.profileHero,
+.profileInfoGrid,
+.actionBox,
+.accountLogTable,
+.accountLogHead,
+.accountLogRow {
+  display: none !important;
+}
+
+.kpiSub {
+  color: #666 !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+}
+
+/* Responsive */
 
 @media (max-width: 1100px) {
   .mainGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "overview"
+      "ai"
+      "activity"
+      "notes" !important;
   }
 
-  .whatsHappeningCard,
-  .accountLogCard {
-    min-height: auto;
+  .sideStack {
+    display: contents !important;
+  }
+
+  .cleanProfileGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }
 
-@media (max-width: 900px) {
-  .kpiRow {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .page {
-    padding: 14px;
+    padding: 15px !important;
   }
 
-  .kpiRow {
-    grid-template-columns: 1fr;
+  .topBar {
+    flex-direction: column !important;
+    align-items: flex-start !important;
   }
 
-  .accountLogHead,
-  .accountLogRow {
-    grid-template-columns: 1fr;
+  .cleanProfileHeader {
+    flex-direction: column !important;
   }
 
-  .accountLogDate {
-    white-space: normal;
+  .cleanRiskBadge {
+    width: fit-content !important;
   }
 
-  .title {
-    font-size: 20px;
+  .cleanProfileGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
-  .kpiValue {
-    font-size: 21px;
+  .activityRowTop {
+    flex-direction: column !important;
+    gap: 7px !important;
   }
 
-  .kpiValueSmall {
-    font-size: 17px;
-  }
-
-  .aiHeadlineRow {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .aiHeadline {
-    font-size: 20px;
+  .activityRowTop em {
+    width: fit-content !important;
   }
 }
 
-
-@media (max-width: 640px) {
-  .modalOverlay {
-    padding: 12px;
+@media (max-width: 520px) {
+  .cleanProfileGrid {
+    grid-template-columns: 1fr !important;
   }
 
-  .emailModal {
-    width: 100%;
-    max-height: calc(100vh - 24px);
-    border-radius: 18px;
+  .cleanProfileName {
+    font-size: 21px !important;
   }
 
-  .emailModalTitle {
-    font-size: 22px;
-  }
-
+  .emailModalHeader,
   .emailShell {
-    padding: 16px;
+    padding-left: 18px !important;
+    padding-right: 18px !important;
   }
 
-  .emailTextarea {
-    min-height: 220px;
+  .emailModalActions,
+  .pagination {
+    flex-direction: column !important;
+    align-items: stretch !important;
   }
-}
-
-.modalOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 999999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }

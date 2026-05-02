@@ -1841,3 +1841,20 @@ body {
         width: 100%;
     }
 }
+
+.forgotRow {
+    margin-top: 10px;
+    font-size: 13px;
+    color: #6b7280;
+    text-align: center;
+}
+
+.forgotLink {
+    color: #111;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.forgotLink:hover {
+    text-decoration: underline;
+}

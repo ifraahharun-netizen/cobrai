@@ -12,10 +12,10 @@ export async function requireAuthenticatedUser(
     req: Request
 ): Promise<{ ok: true; user: AuthenticatedUser } | { ok: false; response: Response }> {
     try {
-        const auth = req.headers.get("authorization") || "";
-        const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+        const auth = req.headers.get("authorization") ?? "";
+        const [scheme, token] = auth.split(" ");
 
-        if (!token) {
+        if (scheme !== "Bearer" || !token) {
             return {
                 ok: false,
                 response: Response.json({ error: "Unauthorized" }, { status: 401 }),
@@ -39,7 +39,7 @@ export async function requireAuthenticatedUser(
         if (!user) {
             return {
                 ok: false,
-                response: Response.json({ error: "User not found" }, { status: 404 }),
+                response: Response.json({ error: "Unauthorized" }, { status: 401 }),
             };
         }
 

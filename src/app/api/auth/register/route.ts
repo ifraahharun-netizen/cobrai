@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 
+const MAX_NAME_LENGTH = 80;
+
 function getBearerToken(req: NextRequest) {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) return null;
-    return authHeader.slice(7);
+    const authHeader = req.headers.get("authorization") ?? "";
+    const [scheme, token] = authHeader.split(" ");
+
+    if (scheme !== "Bearer" || !token) return null;
+
+    return token;
 }
 
 function getFirstName(fullName: string) {
@@ -35,15 +40,21 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json().catch(() => ({}));
-        const fullName =
+
+        const rawFullName =
             typeof body?.fullName === "string" ? body.fullName.trim() : "";
+
+        const fullName = rawFullName.slice(0, MAX_NAME_LENGTH);
 
         const email = decoded.email.toLowerCase();
         const firebaseUid = decoded.uid;
 
         const existingUser = await prisma.user.findUnique({
             where: { firebaseUid },
-            include: { workspace: true },
+            select: {
+                id: true,
+                workspaceId: true,
+            },
         });
 
         if (existingUser) {
@@ -83,13 +94,13 @@ export async function POST(req: NextRequest) {
             workspaceId: result.workspace.id,
             userId: result.user.id,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("POST /api/auth/register error:", error);
 
         return NextResponse.json(
             {
                 ok: false,
-                error: error?.message || "Failed to register user.",
+                error: "Failed to register user.",
             },
             { status: 500 }
         );

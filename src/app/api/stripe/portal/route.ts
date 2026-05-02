@@ -38,10 +38,12 @@ export async function POST(req: Request) {
         }
 
         const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-        if (!appUrl) {
+        if (
+            !appUrl ||
+            (!appUrl.startsWith("https://") && !appUrl.startsWith("http://localhost"))
+        ) {
             return NextResponse.json(
-                { error: "Missing NEXT_PUBLIC_APP_URL" },
-                { status: 500 }
+                { error: "Billing portal is not configured correctly." }, { status: 500 }
             );
         }
 
@@ -60,12 +62,12 @@ export async function POST(req: Request) {
             code: error?.code,
             param: error?.param,
             statusCode: error?.statusCode,
-            raw: error?.raw,
+           
         });
 
         return NextResponse.json(
             {
-                error: error?.message || "Unable to create billing portal session",
+                error: "Unable to create billing portal session.",
             },
             { status: 500 }
         );

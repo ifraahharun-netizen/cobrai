@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import styles from "./risk.module.css";
 import { getFirebaseAuth } from "@/lib/firebase.client";
 import { onAuthStateChanged } from "firebase/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { PlanTier } from "@/lib/permissions";
+import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
 
 type RiskLevel = "critical" | "high" | "medium" | "low";
 
@@ -21,6 +22,16 @@ type RiskRow = {
     riskDelta?: number;
     mrr: number;
     nextAction?: string;
+    lastActiveAt?: string;
+};
+
+type AiWorkspaceRes = {
+    insights: Insight[];
+    actions: ActionFirstRecommendation[];
+    cached: boolean;
+    source: "ai" | "fallback" | "cache" | "fallback_after_error";
+    timeframe: string;
+    promptVersion: string;
 };
 
 type Summary = {
@@ -48,7 +59,10 @@ type ApiResponse = {
 type DashboardSummaryResponse = {
     ok?: boolean;
     tier?: PlanTier;
+    trialEndsAt?: string | null;
 };
+
+const PAGE_SIZE = 10;
 
 const DEMO_ROWS: RiskRow[] = [
     {
@@ -61,6 +75,7 @@ const DEMO_ROWS: RiskRow[] = [
         reasonLabel: "Billing issue",
         mrr: 21900,
         nextAction: "Confirm billing contact and resolve payment today.",
+        lastActiveAt: "2026-04-12T10:00:00.000Z",
     },
     {
         id: "demo-kite-labs",
@@ -72,6 +87,7 @@ const DEMO_ROWS: RiskRow[] = [
         reasonLabel: "No activity in 25 days",
         mrr: 12900,
         nextAction: "Send a personal check-in and offer a quick walkthrough.",
+        lastActiveAt: "2026-04-04T09:00:00.000Z",
     },
     {
         id: "demo-nova-pay",
@@ -83,6 +99,7 @@ const DEMO_ROWS: RiskRow[] = [
         reasonLabel: "Usage dropped",
         mrr: 8400,
         nextAction: "Send a value recap and suggest a success call.",
+        lastActiveAt: "2026-04-18T13:00:00.000Z",
     },
     {
         id: "demo-brightdesk",
@@ -94,6 +111,7 @@ const DEMO_ROWS: RiskRow[] = [
         reasonLabel: "Reduced product activity",
         mrr: 7200,
         nextAction: "Highlight unused features and offer setup support.",
+        lastActiveAt: "2026-04-20T16:00:00.000Z",
     },
     {
         id: "demo-orbit-crm",
@@ -105,6 +123,7 @@ const DEMO_ROWS: RiskRow[] = [
         reasonLabel: "Support issue unresolved",
         mrr: 6600,
         nextAction: "Follow up on the open support request.",
+        lastActiveAt: "2026-04-21T11:00:00.000Z",
     },
     {
         id: "demo-flowbyte",
@@ -116,6 +135,7 @@ const DEMO_ROWS: RiskRow[] = [
         reasonLabel: "Payment method needs attention",
         mrr: 5100,
         nextAction: "Ask customer to update payment details.",
+        lastActiveAt: "2026-04-22T15:00:00.000Z",
     },
     {
         id: "demo-cloudora",
@@ -127,6 +147,7 @@ const DEMO_ROWS: RiskRow[] = [
         reasonLabel: "Slight decline in weekly usage",
         mrr: 4700,
         nextAction: "Send product tips to increase engagement.",
+        lastActiveAt: "2026-04-25T10:00:00.000Z",
     },
     {
         id: "demo-signalstack",
@@ -138,6 +159,7 @@ const DEMO_ROWS: RiskRow[] = [
         reasonLabel: "Limited team adoption",
         mrr: 3900,
         nextAction: "Recommend inviting more users.",
+        lastActiveAt: "2026-04-26T12:00:00.000Z",
     },
     {
         id: "demo-paypilot",
@@ -149,6 +171,7 @@ const DEMO_ROWS: RiskRow[] = [
         reasonLabel: "Light engagement",
         mrr: 3200,
         nextAction: "Send monthly value summary.",
+        lastActiveAt: "2026-04-27T09:00:00.000Z",
     },
     {
         id: "demo-retainly",
@@ -160,6 +183,7 @@ const DEMO_ROWS: RiskRow[] = [
         reasonLabel: "Normal usage",
         mrr: 2800,
         nextAction: "Maintain normal check-in cadence.",
+        lastActiveAt: "2026-04-28T10:00:00.000Z",
     },
     {
         id: "demo-launchgrid",
@@ -171,6 +195,7 @@ const DEMO_ROWS: RiskRow[] = [
         reasonLabel: "Active usage",
         mrr: 2100,
         nextAction: "Share advanced feature recommendations.",
+        lastActiveAt: "2026-04-28T14:00:00.000Z",
     },
     {
         id: "demo-metriclane",
@@ -182,6 +207,7 @@ const DEMO_ROWS: RiskRow[] = [
         reasonLabel: "Strong engagement",
         mrr: 1900,
         nextAction: "Offer expansion opportunity.",
+        lastActiveAt: "2026-04-29T08:00:00.000Z",
     },
 ];
 
@@ -199,16 +225,80 @@ function formatGBP(v: number) {
     return `£${Math.round(Number(v || 0)).toLocaleString("en-GB")}`;
 }
 
-function formatSignedPct(value?: number) {
-    const n = Number(value || 0);
-    if (n > 0) return `+${n}%`;
-    return `${n}%`;
+function formatLastActive(value?: string) {
+    if (!value) return "Unknown";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Unknown";
+
+    return date.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+    });
 }
 
-function formatSignedNumber(value?: number) {
-    const n = Number(value || 0);
-    if (n > 0) return `+${n}`;
-    return `${n}`;
+function trendText(
+    current: number,
+    pct?: number,
+    type: "money" | "number" | "percent" = "number"
+) {
+    const changePct = Number(pct || 0);
+    const direction = changePct >= 0 ? "↑" : "↓";
+    const previous = changePct === 0 ? current : current / (1 + changePct / 100);
+
+    const formattedPrevious =
+        type === "money"
+            ? formatGBP(previous)
+            : type === "percent"
+                ? `${Math.round(previous)}%`
+                : String(Math.round(previous));
+
+    return `${Math.abs(changePct)}% ${direction} vs ${formattedPrevious} previous month`;
+}
+
+function csvEscape(value: string | number | undefined | null) {
+    const text = String(value ?? "");
+    return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadCustomerCsv(rows: RiskRow[]) {
+    const headers = [
+        "Company",
+        "Email",
+        "Risk Score",
+        "Risk Level",
+        "Reason",
+        "Next Action",
+        "MRR",
+        "Last Active",
+    ];
+
+    const csvRows = rows.map((row) => [
+        row.companyName,
+        row.email || "",
+        row.riskScore,
+        row.riskLevel,
+        row.reasonLabel,
+        row.nextAction || "",
+        formatGBP(row.mrr),
+        formatLastActive(row.lastActiveAt),
+    ]);
+
+    const csv = [
+        headers.map(csvEscape).join(","),
+        ...csvRows.map((row) => row.map(csvEscape).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "customer-list.csv";
+    link.click();
+
+    URL.revokeObjectURL(url);
 }
 
 function riskPillClass(level: RiskLevel) {
@@ -227,10 +317,38 @@ function initials(name: string) {
         .toUpperCase();
 }
 
+function isTrialActive(trialEndsAt?: string | null) {
+    if (!trialEndsAt) return false;
+    const trialMs = new Date(trialEndsAt).getTime();
+    return Number.isFinite(trialMs) && trialMs > Date.now();
+}
+
+function getProfileId(row: RiskRow) {
+    return row.customerId || row.id;
+}
+async function authedPost(url: string, token: string, body?: unknown) {
+    const res = await fetch(url, {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body ?? {}),
+    });
+
+    if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`${res.status} ${res.statusText} ${text}`);
+    }
+
+    return res.json();
+}
 export default function AccountsAtRiskClient() {
     const router = useRouter();
+    const searchParams = useSearchParams();
 
-    const [rows, setRows] = useState<RiskRow[]>(DEMO_ROWS);
+    const [rows, setRows] = useState<RiskRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
     const [total, setTotal] = useState(DEMO_ROWS.length);
@@ -241,24 +359,60 @@ export default function AccountsAtRiskClient() {
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState<"all" | "critical">("all");
     const [tier, setTier] = useState<PlanTier>("starter");
+    const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
     const [summary, setSummary] = useState<Summary>(DEMO_SUMMARY);
     const [hasLiveData, setHasLiveData] = useState(false);
+    const [workspaceAi, setWorkspaceAi] = useState<AiWorkspaceRes | null>(null);
+    const canUseCriticalFilter =
+        tier === "pro" || !hasLiveData || isTrialActive(trialEndsAt);
 
-    const PAGE_SIZE = 10;
+    useEffect(() => {
+        if (searchParams.get("filter") === "critical") {
+            setFilter("critical");
+        }
+    }, [searchParams]);
+
+    useEffect(() => {
+        setPage(1);
+    }, [search, filter]);
+
+    const demoFilteredRows = useMemo(() => {
+        let sourceRows =
+            filter === "critical"
+                ? DEMO_ROWS.filter(
+                    (row) => row.riskScore >= 85 || row.riskLevel === "critical"
+                )
+                : DEMO_ROWS;
+
+        const query = search.trim().toLowerCase();
+
+        if (query) {
+            sourceRows = sourceRows.filter((row) => {
+                return (
+                    row.companyName.toLowerCase().includes(query) ||
+                    String(row.email || "").toLowerCase().includes(query) ||
+                    row.reasonLabel.toLowerCase().includes(query)
+                );
+            });
+        }
+
+        return sourceRows;
+    }, [filter, search]);
 
     useEffect(() => {
         const auth = getFirebaseAuth();
 
         const unsub = onAuthStateChanged(auth, async (user) => {
             if (!user) {
-                setRows(DEMO_ROWS);
-                setTotal(DEMO_ROWS.length);
+                setRows([]);
+                setTotal(demoFilteredRows.length);
                 setCriticalTotal(DEMO_ROWS.filter((row) => row.riskScore >= 85).length);
                 setSummary(DEMO_SUMMARY);
                 setHasLiveData(false);
                 setTier("starter");
+                setTrialEndsAt(null);
                 setLoading(false);
                 return;
             }
@@ -268,7 +422,7 @@ export default function AccountsAtRiskClient() {
             try {
                 setLoading(true);
 
-                const [accountsRes, summaryRes] = await Promise.all([
+                const [accountsRes, summaryRes, aiRes] = await Promise.allSettled([
                     fetch(
                         `/api/dashboard/accounts-at-risk?${new URLSearchParams({
                             page: String(page),
@@ -289,69 +443,104 @@ export default function AccountsAtRiskClient() {
                         },
                         cache: "no-store",
                     }),
+                    authedPost("/api/dashboard/ai/insights", token, {
+                        timeframe: "week",
+                    }) as Promise<AiWorkspaceRes>,
                 ]);
 
-                const data: ApiResponse = await accountsRes.json();
-                const summaryData: DashboardSummaryResponse = await summaryRes.json();
+                if (accountsRes.status !== "fulfilled") {
+                    throw new Error("Accounts request failed");
+                }
+
+                if (summaryRes.status !== "fulfilled") {
+                    throw new Error("Summary request failed");
+                }
+
+                const data: ApiResponse = await accountsRes.value.json();
+                const summaryData: DashboardSummaryResponse = await summaryRes.value.json();
+
+                if (aiRes.status === "fulfilled") {
+                    setWorkspaceAi(aiRes.value);
+                } else {
+                    setWorkspaceAi(null);
+                }
 
                 setTier(summaryData?.tier === "pro" ? "pro" : "starter");
+                setTrialEndsAt(summaryData?.trialEndsAt ?? null);
 
                 const liveRows = Array.isArray(data?.rows) ? data.rows : [];
-                const liveMode = Boolean(data?.ok && data?.hasLiveData && liveRows.length > 0);
+                const liveMode = Boolean(data?.ok && data?.hasLiveData);
 
                 if (liveMode) {
                     setRows(liveRows);
-                    setTotal(Number(data.total || liveRows.length));
+                    setTotal(Number(data.total || 0));
                     setCriticalTotal(Number(data.criticalTotal || 0));
                     setSummary(data.summary || DEMO_SUMMARY);
                     setHasLiveData(true);
                 } else {
-                    setRows(DEMO_ROWS);
-                    setTotal(DEMO_ROWS.length);
+                    setRows([]);
+                    setTotal(demoFilteredRows.length);
                     setCriticalTotal(DEMO_ROWS.filter((row) => row.riskScore >= 85).length);
                     setSummary(DEMO_SUMMARY);
                     setHasLiveData(false);
                 }
             } catch (err) {
                 console.error("Failed to fetch accounts", err);
-                setRows(DEMO_ROWS);
-                setTotal(DEMO_ROWS.length);
+
+                setWorkspaceAi(null);
+
+                setRows([]);
+                setTotal(demoFilteredRows.length);
                 setCriticalTotal(DEMO_ROWS.filter((row) => row.riskScore >= 85).length);
                 setSummary(DEMO_SUMMARY);
                 setHasLiveData(false);
                 setTier("starter");
+                setTrialEndsAt(null);
             } finally {
                 setLoading(false);
             }
         });
 
         return () => unsub();
-    }, [page, search, filter]);
+    }, [page, search, filter, demoFilteredRows.length]);
 
-    useEffect(() => {
-        setPage(1);
-    }, [search, filter]);
+    const aiActionsByCustomerId = useMemo(() => {
+        const map = new Map<string, ActionFirstRecommendation>();
 
-    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        for (const action of workspaceAi?.actions ?? []) {
+            map.set(action.customerId, action);
+        }
+
+        return map;
+    }, [workspaceAi?.actions]);
 
     const displayedRows = useMemo(() => {
-        const sourceRows =
-            filter === "critical"
-                ? rows.filter((row) => row.riskScore >= 85)
-                : rows;
+        const sourceRows = hasLiveData
+            ? rows
+            : demoFilteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-        if (!search.trim()) return sourceRows;
+        return sourceRows.map((row) => {
+            const profileId = getProfileId(row);
+            const aiAction = aiActionsByCustomerId.get(profileId) || aiActionsByCustomerId.get(row.id);
 
-        const query = search.trim().toLowerCase();
+            if (!aiAction) return row;
 
-        return sourceRows.filter((row) => {
-            return (
-                row.companyName.toLowerCase().includes(query) ||
-                String(row.email || "").toLowerCase().includes(query) ||
-                row.reasonLabel.toLowerCase().includes(query)
-            );
+            return {
+                ...row,
+                nextAction: aiAction.actionTitle,
+                reasonLabel: aiAction.reason || row.reasonLabel,
+            };
         });
-    }, [filter, rows, search]);
+    }, [demoFilteredRows, hasLiveData, page, rows, aiActionsByCustomerId]);
+
+    const effectiveTotal = hasLiveData ? total : demoFilteredRows.length;
+    const totalPages = Math.max(1, Math.ceil(effectiveTotal / PAGE_SIZE));
+
+    useEffect(() => {
+        if (page > totalPages) {
+            setPage(totalPages);
+        }
+    }, [page, totalPages]);
 
     const allButtonCount = hasLiveData ? total : DEMO_ROWS.length;
 
@@ -360,12 +549,54 @@ export default function AccountsAtRiskClient() {
         : DEMO_ROWS.filter((row) => row.riskScore >= 85).length;
 
     const handleCriticalClick = () => {
-        if (tier !== "pro") {
+        if (!canUseCriticalFilter) {
             setShowUpgradeModal(true);
             return;
         }
 
         setFilter("critical");
+    };
+
+    const handleDownloadCsv = async () => {
+        if (!hasLiveData) {
+            downloadCustomerCsv(demoFilteredRows);
+            return;
+        }
+
+        try {
+            const auth = getFirebaseAuth();
+            const user = auth.currentUser;
+
+            if (!user) {
+                downloadCustomerCsv(rows);
+                return;
+            }
+
+            const token = await user.getIdToken();
+
+            const res = await fetch(
+                `/api/dashboard/accounts-at-risk?${new URLSearchParams({
+                    page: "1",
+                    pageSize: "10000",
+                    q: search,
+                    riskFilter: filter === "critical" ? "critical" : "all",
+                }).toString()}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                    cache: "no-store",
+                }
+            );
+
+            const data: ApiResponse = await res.json();
+            const exportRows = Array.isArray(data?.rows) ? data.rows : rows;
+
+            downloadCustomerCsv(exportRows);
+        } catch (err) {
+            console.error("Failed to download CSV", err);
+            downloadCustomerCsv(rows);
+        }
     };
 
     const healthIndex = Math.max(0, 100 - Number(summary.riskScore || 0));
@@ -384,17 +615,19 @@ export default function AccountsAtRiskClient() {
                         <span className={styles.searchIcon}>⌕</span>
                     </div>
 
-                    <div className={styles.topActions}>
-                        <button className={styles.roundIconBtn} type="button">?</button>
-                        <button className={styles.roundIconBtn} type="button">⌁</button>
-                        <button className={styles.filterBtn} type="button">Filters</button>
-                    </div>
+                    <button
+                        className={styles.downloadBtn}
+                        type="button"
+                        onClick={handleDownloadCsv}
+                    >
+                        Download CSV
+                    </button>
                 </div>
 
                 <div className={styles.header}>
                     <h1 className={styles.title}>Customers</h1>
                     <p className={styles.subtitle}>
-                        Accounts most likely to churn, prioritised by risk and revenue.
+                        All accounts, ranked by churn risk and revenue impact.
                     </p>
                 </div>
 
@@ -404,7 +637,7 @@ export default function AccountsAtRiskClient() {
                             <div className={styles.kpiLabel}>Revenue at risk</div>
                             <div className={styles.kpiValue}>{formatGBP(summary.mrrAtRisk)}</div>
                             <div className={styles.kpiSubline}>
-                                {formatSignedPct(summary.mrrAtRiskDeltaPct)} vs previous month
+                                {trendText(summary.mrrAtRisk, summary.mrrAtRiskDeltaPct, "money")}
                             </div>
                         </div>
                         <div className={styles.kpiIcon}>♙</div>
@@ -415,7 +648,11 @@ export default function AccountsAtRiskClient() {
                             <div className={styles.kpiLabel}>Churn exposure</div>
                             <div className={styles.kpiValue}>{summary.riskScore}%</div>
                             <div className={styles.kpiSubline}>
-                                {formatSignedPct(summary.churnProbabilityDeltaPct)} vs previous month
+                                {trendText(
+                                    summary.riskScore,
+                                    summary.churnProbabilityDeltaPct,
+                                    "percent"
+                                )}
                             </div>
                         </div>
                         <div className={styles.kpiIcon}>◔</div>
@@ -428,7 +665,13 @@ export default function AccountsAtRiskClient() {
                                 {summary.totalCustomers > 0 ? summary.totalCustomers : DEMO_ROWS.length}
                             </div>
                             <div className={styles.kpiSubline}>
-                                {formatSignedNumber(summary.totalCustomersDelta)} vs previous month
+                                {trendText(
+                                    summary.totalCustomers > 0
+                                        ? summary.totalCustomers
+                                        : DEMO_ROWS.length,
+                                    summary.totalCustomersDelta,
+                                    "number"
+                                )}
                             </div>
                         </div>
                         <div className={styles.kpiIcon}>♧</div>
@@ -438,7 +681,9 @@ export default function AccountsAtRiskClient() {
                         <div>
                             <div className={styles.kpiLabel}>Customer health index</div>
                             <div className={styles.kpiValue}>{healthIndex}</div>
-                            <div className={styles.kpiSubline}>—0 vs previous month</div>
+                            <div className={styles.kpiSubline}>
+                                0% ↑ vs {healthIndex} previous month
+                            </div>
                         </div>
                         <div className={styles.kpiIcon}>♡</div>
                     </div>
@@ -446,7 +691,11 @@ export default function AccountsAtRiskClient() {
 
                 <div className={styles.riskGroupButtons}>
                     <button
-                        className={filter === "all" ? styles.riskFilterBtnActive : styles.riskFilterBtn}
+                        className={
+                            filter === "all"
+                                ? styles.riskFilterBtnActive
+                                : styles.riskFilterBtn
+                        }
                         onClick={() => setFilter("all")}
                         type="button"
                     >
@@ -454,7 +703,11 @@ export default function AccountsAtRiskClient() {
                     </button>
 
                     <button
-                        className={filter === "critical" ? styles.riskFilterBtnActive : styles.riskFilterBtn}
+                        className={
+                            filter === "critical"
+                                ? styles.riskFilterBtnActive
+                                : styles.riskFilterBtn
+                        }
                         onClick={handleCriticalClick}
                         type="button"
                     >
@@ -470,6 +723,7 @@ export default function AccountsAtRiskClient() {
                                 <th>Risk</th>
                                 <th>Reason</th>
                                 <th>MRR</th>
+                                <th>Last active</th>
                                 <th className={styles.thActions}>Action</th>
                             </tr>
                         </thead>
@@ -479,40 +733,54 @@ export default function AccountsAtRiskClient() {
                                 <tr key={row.id}>
                                     <td>
                                         <div className={styles.accountWrap}>
-                                            <div className={styles.avatar}>{initials(row.companyName)}</div>
+                                            <div className={styles.avatar}>
+                                                {initials(row.companyName)}
+                                            </div>
                                             <div>
-                                                <div className={styles.companyName}>{row.companyName}</div>
-                                                <div className={styles.companySub}>{row.email || "—"}</div>
+                                                <div className={styles.companyName}>
+                                                    {row.companyName}
+                                                </div>
+                                                <div className={styles.companySub}>
+                                                    {row.email || "—"}
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
 
                                     <td>
-                                        <span className={`${styles.riskScorePill} ${riskPillClass(row.riskLevel)}`}>
+                                        <span
+                                            className={`${styles.riskScorePill} ${riskPillClass(
+                                                row.riskLevel
+                                            )}`}
+                                        >
                                             {row.riskScore}
                                         </span>
                                     </td>
 
                                     <td>
-                                        <div className={styles.reasonMain}>{row.reasonLabel}</div>
-                                        {row.nextAction ? (
-                                            <div className={styles.reasonSubAction}>{row.nextAction}</div>
-                                        ) : null}
+                                        <div className={styles.reasonMain}>
+                                            {row.nextAction || "Review account"}
+                                        </div>
+                                        <div className={styles.reasonSubAction}>
+                                            {row.reasonLabel}
+                                        </div>
                                     </td>
 
                                     <td className={styles.mrrCell}>{formatGBP(row.mrr)}</td>
+
+                                    <td className={styles.lastActiveCell}>
+                                        {formatLastActive(row.lastActiveAt)}
+                                    </td>
 
                                     <td className={styles.tdActions}>
                                         <button
                                             className={styles.viewBtn}
                                             type="button"
-                                            onClick={() => {
+                                            onClick={() =>
                                                 router.push(
-                                                    row.customerId
-                                                        ? `/dashboard/accounts-at-risk/${row.customerId}`
-                                                        : `/dashboard/accounts-at-risk/${row.id}`
-                                                );
-                                            }}
+                                                    `/dashboard/accounts-at-risk/${getProfileId(row)}`
+                                                )
+                                            }
                                         >
                                             View
                                         </button>
@@ -522,7 +790,7 @@ export default function AccountsAtRiskClient() {
 
                             {!loading && displayedRows.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className={styles.emptyState}>
+                                    <td colSpan={6} className={styles.emptyState}>
                                         No accounts found.
                                     </td>
                                 </tr>
@@ -533,25 +801,27 @@ export default function AccountsAtRiskClient() {
 
                 <div className={styles.paginationRow}>
                     <div className={styles.paginationInfo}>
-                        Showing {total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–
-                        {Math.min(page * PAGE_SIZE, total)} of {total}
+                        Showing {effectiveTotal === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–
+                        {Math.min(page * PAGE_SIZE, effectiveTotal)} of {effectiveTotal}
                     </div>
 
                     <div className={styles.paginationBtns}>
                         <button
                             className={styles.viewBtn}
-                            disabled={page === 1}
+                            disabled={page <= 1}
                             onClick={() => setPage((p) => Math.max(1, p - 1))}
                             type="button"
                         >
                             Prev
                         </button>
 
-                        <div className={styles.pagePill}>{page} / {totalPages}</div>
+                        <div className={styles.pagePill}>
+                            {page} / {totalPages}
+                        </div>
 
                         <button
                             className={styles.viewBtn}
-                            disabled={page === totalPages}
+                            disabled={page >= totalPages}
                             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                             type="button"
                         >
@@ -566,9 +836,12 @@ export default function AccountsAtRiskClient() {
                     <div className={styles.modal}>
                         <div className={styles.modalTop}>
                             <div>
-                                <div className={styles.modalTitle}>Unlock critical-risk filtering</div>
+                                <div className={styles.modalTitle}>
+                                    Unlock critical-risk filtering
+                                </div>
                                 <p className={styles.modalText}>
-                                    Upgrade to Pro to filter your highest-risk accounts and focus on the customers most likely to churn.
+                                    Upgrade to Pro to filter your highest-risk accounts and focus on
+                                    the customers most likely to churn.
                                 </p>
                             </div>
 

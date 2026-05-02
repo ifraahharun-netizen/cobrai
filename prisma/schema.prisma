@@ -25,6 +25,7 @@ model Workspace {
   demoMode                 Boolean                 @default(false)
   demoSeededAt             DateTime?
   trialEndsAt              DateTime?
+   
 
   resendDomainId          String?
   sendingDomain           String?
@@ -35,6 +36,9 @@ model Workspace {
   senderReplyTo           String?
   senderVerifiedAt        DateTime?
 
+  aiActionsUsedThisWeek   Int  @default(0)
+  aiResetAt                DateTime?
+  aiUsageRuns            AiUsageRun[]
   accountRisks           AccountRisk[]
   accountRisksSnapshots  AccountRiskSnapshot[]
   actionExecutions       ActionExecution[]
@@ -492,4 +496,36 @@ model StripeOAuthState {
   @@index([expiresAt])
   @@index([uid])
   @@map("stripe_oauth_states")
+}
+
+model SupportRequest {
+  id          String   @id @default(cuid())
+  workspaceId String?
+  name        String?
+  email       String
+  message     String
+  status      String   @default("open")
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId])
+  @@index([email])
+  @@index([createdAt])
+}
+
+model AiUsageRun {
+  id          String   @id @default(cuid())
+  workspaceId String
+  source      String   @default("openai") // openai, fallback, cache, blocked_limit
+  type        String   @default("workspace_insights")
+  timeframe   String   @default("week")
+  tokensIn    Int      @default(0)
+  tokensOut   Int      @default(0)
+  costMinor   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, source, createdAt])
+  @@map("ai_usage_runs")
 }

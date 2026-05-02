@@ -8,45 +8,62 @@ import styles from "./riskAccounts.module.css";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase.client";
 import type { PlanTier } from "@/lib/permissions";
+import { getEmailRecommendation } from "@/lib/emailRecommendations";
+import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
 
 type RiskLevel = "critical" | "high" | "medium" | "low";
 
 type Signal = { key: string; label: string };
 
+type TimelineEventType =
+    | "payment_failed"
+    | "payment_successful"
+    | "billing_issue_detected"
+    | "billing_recovery_email_sent"
+    | "billing_recovery_email_opened"
+    | "reengagement_email_sent"
+    | "reengagement_email_opened"
+    | "checkin_email_sent"
+    | "plan_upgraded"
+    | "risk_increased"
+    | "risk_decreased"
+    | "inactivity_detected"
+    | "usage_dropped"
+    | "account_reviewed"
+    | "generic";
+
+type AccountActivity = {
+    id: string;
+    type: TimelineEventType | string;
+    label: string;
+    date: string;
+};
+
+type AiWorkspaceRes = {
+    insights: Insight[];
+    actions: ActionFirstRecommendation[];
+    cached: boolean;
+    source: "ai" | "fallback" | "cache" | "fallback_after_error";
+    timeframe: string;
+    promptVersion: string;
+};
+
 type RiskRow = {
     id: string;
     companyName: string;
     email?: string;
-
     riskScore: number;
     riskLevel: RiskLevel;
-
     reasonKey: string;
     reasonLabel: string;
-
     riskTrend?: "up" | "down" | "flat";
     riskDelta?: number;
-
     status?: string;
     lastActiveAt?: string | null;
-
     signals?: Signal[];
     nextAction?: string;
-
     mrr: number;
     updatedAt: string;
-};
-
-type EmailUsageResponse = {
-    ok?: boolean;
-    tier?: PlanTier;
-    emailUsage?: {
-        used: number | null;
-        limit: number | null;
-        remaining: number | null;
-        resetAt?: string | null;
-    };
-    error?: string;
 };
 
 type RecommendedAction = {
@@ -56,33 +73,25 @@ type RecommendedAction = {
     automationLabel: string;
 };
 
-type AIInsight = {
-    headline: string;
-    summary: string;
-    drivers: string[];
-    confidence: number;
-    recommendedActions: RecommendedAction[];
-    nextBestAction: string;
-};
-
 type RiskDetails = {
     ok: boolean;
     error?: string;
     customerId?: string | null;
-
+    activity?: AccountActivity[];
     profile?: {
         companyName?: string;
+        email?: string;
         plan?: string;
         startDate?: string | null;
+        createdAt?: string | null;
+        nextBillingAt?: string | null;
         paymentHistory?: { label: string; at?: string; amount?: number; status?: string }[];
         supportHistory?: { label: string; at?: string; channel?: string; status?: string }[];
     };
-
     ai?: {
         whyAtRisk?: string[];
         recommendation?: string;
         automationSuggestion?: string;
-
         headline?: string;
         summary?: string;
         drivers?: string[];
@@ -103,31 +112,31 @@ type DashboardSummaryResponse = {
     tier?: PlanTier;
 };
 
-type TimelineEventType =
-    | "payment_failed"
-    | "payment_successful"
-    | "billing_issue_detected"
-    | "billing_recovery_email_sent"
-    | "billing_recovery_email_opened"
-    | "billing_recovery_email_not_opened"
-    | "reengagement_email_sent"
-    | "reengagement_email_opened"
-    | "checkin_email_sent"
-    | "followup_call_no_response"
-    | "followup_call_connected"
-    | "plan_upgraded"
-    | "risk_increased"
-    | "risk_decreased"
-    | "inactivity_detected"
-    | "usage_dropped"
-    | "account_reviewed"
-    | "generic";
+type EmailUsageResponse = {
+    ok?: boolean;
+    tier?: PlanTier;
+    emailUsage?: {
+        used: number | null;
+        limit: number | null;
+        remaining: number | null;
+        resetAt?: string | null;
+    };
+    error?: string;
+};
+
+type EmailSender = {
+    companyName: string;
+    senderName: string;
+    senderEmail: string | null;
+    replyTo: string | null;
+    sendingDomain?: string | null;
+    verified: boolean;
+};
 
 type AccountTimelineEvent = {
     id: string;
     type: TimelineEventType;
     date: string;
-    source: "demo" | "stripe" | "crm" | "email" | "app" | "system" | "manual";
     meta?: {
         riskScore?: number;
         inactiveDays?: number;
@@ -142,26 +151,27 @@ type EmailModalState = {
     kind: "billing" | "inactive" | "checkin" | null;
 };
 
-type OutcomeState = {
-    label: "Saved" | "Recovering" | "At risk" | "Lost";
-    tone: "good" | "medium" | "warning" | "danger";
-    sub: string;
+type AccountNote = {
+    id: string;
+    text: string;
+    createdAt: string;
+    updatedAt: string;
 };
 
 const STARTER_EMAIL_LIMIT = 5;
+const ACTIVITY_PAGE_SIZE = 3;
 
 function formatMoney(value: number) {
-    return `£${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-}
-
-function formatAnnualValue(value: number) {
-    return formatMoney(Number(value || 0) * 12);
+    return `£${Number(value || 0).toLocaleString(undefined, {
+        maximumFractionDigits: 0,
+    })}`;
 }
 
 function niceDateTime(iso?: string | null) {
     if (!iso) return "—";
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return "—";
+
     return d.toLocaleString("en-GB", {
         day: "2-digit",
         month: "short",
@@ -175,6 +185,7 @@ function niceDate(iso?: string | null) {
     if (!iso) return "—";
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return "—";
+
     return d.toLocaleDateString("en-GB", {
         day: "2-digit",
         month: "short",
@@ -186,24 +197,19 @@ function daysAgo(iso?: string | null) {
     if (!iso) return null;
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return null;
-    const diff = Date.now() - d.getTime();
-    const days = Math.floor(diff / 86400000);
+
+    const days = Math.floor((Date.now() - d.getTime()) / 86400000);
     return days < 0 ? 0 : days;
 }
 
-function isWithinLast30Days(iso?: string | null) {
+function isCurrentMonth(iso?: string | null) {
     if (!iso) return false;
+
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return false;
-    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
-    return Date.now() - d.getTime() <= THIRTY_DAYS;
-}
 
-function riskLabelFromScore(score: number) {
-    if (score >= 85) return "Critical";
-    if (score >= 70) return "High";
-    if (score >= 50) return "Medium";
-    return "Low";
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
 
 function riskLevelFromScore(score: number): RiskLevel {
@@ -213,116 +219,147 @@ function riskLevelFromScore(score: number): RiskLevel {
     return "low";
 }
 
-function lsKey(accountId: string) {
-    return `cobrai:riskpage:${accountId}`;
+function riskLabelFromScore(score: number) {
+    if (score >= 85) return "Critical risk";
+    if (score >= 70) return "High risk";
+    if (score >= 50) return "Medium risk";
+    return "Low risk";
+}
+
+function isDemoAccount(id: string) {
+    return id.startsWith("demo-");
 }
 
 function createId() {
-    return (globalThis as any).crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return (
+        globalThis.crypto?.randomUUID?.() ??
+        `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    );
 }
 
 function eventToLabel(event: AccountTimelineEvent) {
     switch (event.type) {
         case "payment_failed":
             return event.meta?.amount
-                ? `Subscription payment failed (${formatMoney(event.meta.amount)})`
-                : "Subscription payment failed";
+                ? `Payment failed for ${formatMoney(event.meta.amount)}`
+                : event.meta?.rawLabel || "Payment failed";
+
         case "payment_successful":
             return event.meta?.amount
-                ? `Subscription payment recovered (${formatMoney(event.meta.amount)})`
-                : "Subscription payment successful";
+                ? `Payment successful for ${formatMoney(event.meta.amount)}`
+                : event.meta?.rawLabel || "Payment successful";
+
         case "billing_issue_detected":
-            return event.meta?.amount
-                ? `Billing issue detected on ${formatMoney(event.meta.amount)} MRR`
-                : "Billing issue detected";
+            return event.meta?.rawLabel || "Billing issue detected";
+
         case "billing_recovery_email_sent":
-            return event.meta?.amount
-                ? `Billing recovery email sent for ${formatMoney(event.meta.amount)} at-risk MRR`
-                : "Billing recovery email sent";
+            return event.meta?.rawLabel || "Billing recovery email sent";
+
         case "billing_recovery_email_opened":
-            return event.meta?.amount
-                ? `Billing recovery email opened for ${formatMoney(event.meta.amount)} at-risk MRR`
-                : "Billing recovery email opened";
-        case "billing_recovery_email_not_opened":
-            return "Billing recovery email not opened";
+            return event.meta?.rawLabel || "Billing recovery email opened";
+
         case "reengagement_email_sent":
-            return event.meta?.amount
-                ? `Re-engagement email sent to protect ${formatMoney(event.meta.amount)} MRR`
-                : "Re-engagement email sent";
+            return event.meta?.rawLabel || "Re-engagement email sent";
+
         case "reengagement_email_opened":
-            return "Re-engagement email opened";
+            return event.meta?.rawLabel || "Re-engagement email opened";
+
         case "checkin_email_sent":
-            return event.meta?.amount
-                ? `Customer check-in email sent for ${formatMoney(event.meta.amount)} at-risk MRR`
-                : "Customer check-in email sent";
-        case "followup_call_no_response":
-            return "Follow-up call had no response";
-        case "followup_call_connected":
-            return "Follow-up call connected";
+            return event.meta?.rawLabel || "Customer check-in email sent";
+
         case "plan_upgraded":
             return event.meta?.planName
-                ? `Upgraded subscription to ${event.meta.planName}`
-                : "Upgraded subscription plan";
+                ? `Plan upgraded to ${event.meta.planName}`
+                : event.meta?.rawLabel || "Plan upgraded";
+
         case "risk_increased":
             return event.meta?.riskScore
                 ? `Risk score increased to ${event.meta.riskScore}`
-                : "Risk score increased";
+                : event.meta?.rawLabel || "Risk score increased";
+
         case "risk_decreased":
             return event.meta?.riskScore
                 ? `Risk score decreased to ${event.meta.riskScore}`
-                : "Risk score decreased";
+                : event.meta?.rawLabel || "Risk score decreased";
+
         case "inactivity_detected":
             return event.meta?.inactiveDays
-                ? `No activity detected for ${event.meta.inactiveDays} days`
-                : "Account inactivity detected";
+                ? `No activity for ${event.meta.inactiveDays} days`
+                : event.meta?.rawLabel || "Account inactivity detected";
+
         case "usage_dropped":
-            return "Usage dropped";
+            return event.meta?.rawLabel || "Usage dropped";
+
         case "account_reviewed":
-            return "Account reviewed";
+            return event.meta?.rawLabel || "Customer health reviewed by Cobrai";
+
         default:
             return event.meta?.rawLabel || "Account activity updated";
     }
 }
 
+function eventTone(event: AccountTimelineEvent) {
+    const type = String(event.type).toLowerCase();
+    const label = String(event.meta?.rawLabel || "").toLowerCase();
+
+    if (type.includes("failed") || label.includes("failed") || label.includes("past due")) {
+        return "Needs attention";
+    }
+
+    if (type.includes("payment_successful") || label.includes("successful") || label.includes("paid")) {
+        return "Positive";
+    }
+
+    if (type.includes("email") || label.includes("email")) {
+        return "Action sent";
+    }
+
+    if (type.includes("risk") || label.includes("risk")) {
+        return "Risk update";
+    }
+
+    return "Activity";
+}
+
+function buildAiSummaryFromTimeline(account: RiskRow, timeline: AccountTimelineEvent[]) {
+    const latest = timeline[0];
+
+    const hasFailedPayment = timeline.some((e) => {
+        const label = eventToLabel(e).toLowerCase();
+        return label.includes("failed") || label.includes("past due");
+    });
+
+    const hasEmailSent = timeline.some((e) => {
+        const label = eventToLabel(e).toLowerCase();
+        return label.includes("email sent") || label.includes("email");
+    });
+
+    if (hasFailedPayment && !hasEmailSent) {
+        return "Payment risk is the strongest signal for this account. A failed or unresolved billing event was recorded, but no recovery email appears to have been sent yet. Recommended action: send a billing recovery email today.";
+    }
+
+    if (hasFailedPayment && hasEmailSent) {
+        return "This account has billing risk, but a recovery action has already been sent. Recommended action: monitor for payment recovery and follow up manually if there is no response.";
+    }
+
+    if (latest) {
+        return `Latest signal: ${eventToLabel(latest)}. Cobrai recommends reviewing this account because it currently has a ${riskLabelFromScore(account.riskScore).toLowerCase()} score of ${account.riskScore}/100.`;
+    }
+
+    return `${riskLabelFromScore(account.riskScore)} detected from ${account.reasonLabel.toLowerCase()}. Recommended action: ${account.nextAction || "send a check-in email"}.`;
+}
+
 function dedupeEvents(events: AccountTimelineEvent[]) {
     return events.filter((item, index, arr) => {
-        const sig = `${item.type}|${item.date}|${item.meta?.planName || ""}|${item.meta?.riskScore || ""}|${item.meta?.inactiveDays || ""}|${item.meta?.amount || ""}|${item.meta?.rawLabel || ""}`;
+        const sig = `${item.type}|${item.date}|${item.meta?.rawLabel || ""}|${item.meta?.planName || ""}|${item.meta?.riskScore || ""}|${item.meta?.inactiveDays || ""}|${item.meta?.amount || ""}`;
+
         return (
             arr.findIndex((x) => {
-                const xSig = `${x.type}|${x.date}|${x.meta?.planName || ""}|${x.meta?.riskScore || ""}|${x.meta?.inactiveDays || ""}|${x.meta?.amount || ""}|${x.meta?.rawLabel || ""}`;
+                const xSig = `${x.type}|${x.date}|${x.meta?.rawLabel || ""}|${x.meta?.planName || ""}|${x.meta?.riskScore || ""}|${x.meta?.inactiveDays || ""}|${x.meta?.amount || ""}`;
                 return xSig === sig;
             }) === index
         );
     });
-}
-
-function loadPageState(accountId: string) {
-    if (typeof window === "undefined") {
-        return {
-            manualEvents: [] as AccountTimelineEvent[],
-        };
-    }
-
-    try {
-        const raw = window.localStorage.getItem(lsKey(accountId));
-        if (!raw) return { manualEvents: [] };
-
-        const parsed = JSON.parse(raw);
-        return {
-            manualEvents: Array.isArray(parsed?.manualEvents) ? parsed.manualEvents : [],
-        };
-    } catch {
-        return { manualEvents: [] };
-    }
-}
-
-function savePageState(accountId: string, data: { manualEvents: AccountTimelineEvent[] }) {
-    if (typeof window === "undefined") return;
-    try {
-        window.localStorage.setItem(lsKey(accountId), JSON.stringify(data));
-    } catch {
-        // ignore
-    }
 }
 
 function buildDemoTimeline(account: RiskRow | null): AccountTimelineEvent[] {
@@ -330,364 +367,56 @@ function buildDemoTimeline(account: RiskRow | null): AccountTimelineEvent[] {
 
     const now = Date.now();
     const reason = (account.reasonLabel || "").toLowerCase();
-    const items: AccountTimelineEvent[] = [];
+
+    const items: AccountTimelineEvent[] = [
+        {
+            id: createId(),
+            type: "account_reviewed",
+            date: new Date(now - 1000 * 60 * 60 * 3).toISOString(),
+        },
+    ];
 
     if (reason.includes("billing")) {
         items.push(
             {
                 id: createId(),
-                type: "billing_recovery_email_opened",
-                date: new Date(now - 1000 * 60 * 35).toISOString(),
-                source: "demo",
-                meta: { amount: account.mrr },
-            },
-            {
-                id: createId(),
-                type: "followup_call_no_response",
-                date: new Date(now - 1000 * 60 * 95).toISOString(),
-                source: "demo",
-            },
-            {
-                id: createId(),
                 type: "billing_issue_detected",
-                date: new Date(now - 1000 * 60 * 60 * 20).toISOString(),
-                source: "demo",
-                meta: { amount: account.mrr },
-            },
-            {
-                id: createId(),
-                type: "payment_failed",
                 date: new Date(now - 1000 * 60 * 60 * 22).toISOString(),
-                source: "demo",
                 meta: { amount: account.mrr },
             },
             {
                 id: createId(),
-                type: "risk_increased",
-                date: new Date(now - 1000 * 60 * 60 * 48).toISOString(),
-                source: "demo",
-                meta: { riskScore: account.riskScore },
-            },
-            {
-                id: createId(),
-                type: "inactivity_detected",
-                date: new Date(now - 1000 * 60 * 60 * 24 * 30).toISOString(),
-                source: "demo",
-                meta: { inactiveDays: 30 },
+                type: "billing_recovery_email_sent",
+                date: new Date(now - 1000 * 60 * 60 * 5).toISOString(),
+                meta: { amount: account.mrr },
             }
         );
-    } else if (reason.includes("inactive")) {
+    } else if (reason.includes("inactive") || reason.includes("usage")) {
         items.push(
-            {
-                id: createId(),
-                type: "reengagement_email_sent",
-                date: new Date(now - 1000 * 60 * 45).toISOString(),
-                source: "demo",
-                meta: { amount: account.mrr },
-            },
-            {
-                id: createId(),
-                type: "followup_call_no_response",
-                date: new Date(now - 1000 * 60 * 60 * 12).toISOString(),
-                source: "demo",
-            },
             {
                 id: createId(),
                 type: "usage_dropped",
                 date: new Date(now - 1000 * 60 * 60 * 24 * 5).toISOString(),
-                source: "demo",
             },
             {
                 id: createId(),
-                type: "inactivity_detected",
-                date: new Date(now - 1000 * 60 * 60 * 24 * 21).toISOString(),
-                source: "demo",
-                meta: { inactiveDays: 21 },
+                type: "reengagement_email_sent",
+                date: new Date(now - 1000 * 60 * 60 * 6).toISOString(),
+                meta: { amount: account.mrr },
             }
         );
     } else {
-        items.push(
-            {
-                id: createId(),
-                type: "checkin_email_sent",
-                date: new Date(now - 1000 * 60 * 60 * 8).toISOString(),
-                source: "demo",
-                meta: { amount: account.mrr },
-            },
-            {
-                id: createId(),
-                type: "account_reviewed",
-                date: new Date(now - 1000 * 60 * 60 * 24 * 2).toISOString(),
-                source: "demo",
-            }
-        );
-    }
-
-    return dedupeEvents(items)
-        .filter((item) => isWithinLast30Days(item.date))
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-}
-
-function buildEmailTemplate(kind: "billing" | "inactive" | "checkin", r: RiskRow) {
-    const company = r.companyName || "there";
-    const reason = r.reasonLabel || "risk signals";
-    const action = r.nextAction || "a quick check-in";
-
-    if (kind === "billing") {
-        return {
-            subject: `Quick billing check-in — ${company}`,
-            body:
-                `Hi ${company} team,\n\n` +
-                `We noticed a billing-related risk signal on your account (${reason}).\n\n` +
-                `This is currently putting ${formatMoney(r.mrr)} in monthly revenue at risk.\n\n` +
-                `Could you confirm the right billing contact and whether anything is blocking payment? Happy to help resolve this today.\n\n` +
-                `Best,\nCobrai`,
-        };
-    }
-
-    if (kind === "inactive") {
-        return {
-            subject: `Can we help you get value this week? — ${company}`,
-            body:
-                `Hi ${company} team,\n\n` +
-                `We noticed usage has dropped recently (${reason}).\n\n` +
-                `This account currently represents ${formatMoney(r.mrr)} in monthly revenue, so we’d love to help you get back on track quickly.\n\n` +
-                `Would you like a quick 10-minute walkthrough to get you back on track?\n\n` +
-                `Best,\nCobrai`,
-        };
-    }
-
-    return {
-        subject: `Quick check-in — ${company}`,
-        body:
-            `Hi ${company} team,\n\n` +
-            `Just checking in — we’re seeing ${reason}.\n\n` +
-            `This account currently has ${formatMoney(r.mrr)} in monthly revenue exposure.\n\n` +
-            `Recommended next step: ${action}\n\n` +
-            `Best,\nCobrai`,
-    };
-}
-
-function getRiskTone(score: number) {
-    if (score >= 85) return "danger";
-    if (score >= 70) return "warning";
-    if (score >= 50) return "medium";
-    return "good";
-}
-
-function getRiskDeltaDisplay(trend?: "up" | "down" | "flat", delta?: number) {
-    const value = Math.abs(Number(delta || 0)).toFixed(1);
-
-    if (trend === "up") return `↑ ${value}% vs previous month`;
-    if (trend === "down") return `↓ ${value}% vs previous month`;
-    return "→ 0% vs previous month";
-}
-
-function getPlanDisplay(details: RiskDetails | null) {
-    const rawPlan = details?.profile?.plan?.trim();
-
-    if (rawPlan && rawPlan !== "—") {
-        return {
-            label: rawPlan,
-            sub: details?.profile?.startDate ? `Since ${niceDate(details.profile.startDate)}` : "Active plan",
-        };
-    }
-
-    return {
-        label: "—",
-        sub: details?.profile?.startDate ? `Since ${niceDate(details.profile.startDate)}` : "Demo account",
-    };
-}
-
-function buildInsight(
-    account: RiskRow,
-    timeline: AccountTimelineEvent[],
-    details: RiskDetails | null
-): AIInsight {
-    const inactiveDays = daysAgo(account.lastActiveAt) ?? 0;
-
-    const hasPaymentFailed = timeline.some((e) => e.type === "payment_failed");
-    const hasBillingIssue = timeline.some((e) => e.type === "billing_issue_detected");
-    const hasBillingEmailOpened = timeline.some((e) => e.type === "billing_recovery_email_opened");
-    const hasBillingEmailSent = timeline.some((e) => e.type === "billing_recovery_email_sent");
-    const hasReengagementSent = timeline.some((e) => e.type === "reengagement_email_sent");
-    const hasFollowupNoResponse = timeline.some((e) => e.type === "followup_call_no_response");
-    const hasUsageDropped = timeline.some((e) => e.type === "usage_dropped");
-
-    const drivers: string[] = [];
-    const actions: RecommendedAction[] = [];
-
-    if (hasPaymentFailed || hasBillingIssue || (account.status || "").toLowerCase().includes("past due")) {
-        drivers.push("Recent billing failure or past-due status detected");
-
-        actions.push({
-            key: "billing",
-            label: "Recover failed payment",
-            reason: `Billing failure is the strongest churn driver on ${formatMoney(account.mrr)} MRR`,
-            automationLabel: "Send billing recovery email",
+        items.push({
+            id: createId(),
+            type: "checkin_email_sent",
+            date: new Date(now - 1000 * 60 * 60 * 8).toISOString(),
+            meta: { amount: account.mrr },
         });
     }
 
-    if (inactiveDays >= 14 || hasUsageDropped) {
-        drivers.push(`No recent product activity for ${inactiveDays} days`);
-
-        actions.push({
-            key: "inactive",
-            label: "Re-engage account",
-            reason: `Low usage is putting ${formatMoney(account.mrr)} MRR at risk`,
-            automationLabel: "Send re-engagement email",
-        });
-    }
-
-    if (
-        hasFollowupNoResponse ||
-        (!hasBillingEmailOpened && hasBillingEmailSent) ||
-        (!hasReengagementSent && inactiveDays >= 14)
-    ) {
-        actions.push({
-            key: "checkin",
-            label: "Schedule human check-in",
-            reason: `Direct outreach is needed to protect ${formatMoney(account.mrr)} MRR`,
-            automationLabel: "Send check-in email",
-        });
-    }
-
-    const uniqueActions = actions.filter(
-        (item, index, arr) => arr.findIndex((x) => x.key === item.key) === index
+    return dedupeEvents(items).sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
-
-    if (!drivers.length) {
-        drivers.push("Multiple churn signals detected across billing, activity, or risk score");
-    }
-
-    const headline =
-        account.riskScore >= 85
-            ? "This account will likely churn without intervention"
-            : account.riskScore >= 70
-                ? "This account is showing strong churn risk"
-                : "This account needs intervention";
-
-    const summaryParts: string[] = [];
-
-    if (hasPaymentFailed || hasBillingIssue) {
-        summaryParts.push("a recent billing failure");
-    }
-
-    if (inactiveDays >= 14) {
-        summaryParts.push(`no product activity for ${inactiveDays} days`);
-    }
-
-    if (hasFollowupNoResponse) {
-        summaryParts.push("no response to follow-up outreach");
-    }
-
-    const summary =
-        summaryParts.length > 0
-            ? `${formatMoney(account.mrr)} in monthly revenue is currently exposed. This account is at ${riskLabelFromScore(account.riskScore).toLowerCase()} risk of churn due to ${summaryParts.join(" and ")}.`
-            : details?.ai?.recommendation || `${formatMoney(account.mrr)} in monthly revenue is at elevated risk based on recent account signals.`;
-
-    const confidenceBase =
-        (hasPaymentFailed ? 30 : 0) +
-        (hasBillingIssue ? 20 : 0) +
-        (inactiveDays >= 14 ? 25 : 0) +
-        (hasUsageDropped ? 10 : 0) +
-        (hasFollowupNoResponse ? 10 : 0) +
-        (account.riskScore >= 85 ? 10 : account.riskScore >= 70 ? 5 : 0);
-
-    const confidence = Math.max(55, Math.min(97, confidenceBase));
-
-    const nextBestAction =
-        uniqueActions[0]?.label ||
-        account.nextAction ||
-        "Review this account and confirm the highest-risk signal";
-
-    return {
-        headline,
-        summary,
-        drivers,
-        confidence,
-        recommendedActions: uniqueActions,
-        nextBestAction,
-    };
-}
-
-function getLiveInsight(details: RiskDetails | null): AIInsight | null {
-    if (!details?.ai?.headline || !details?.ai?.summary) return null;
-
-    return {
-        headline: details.ai.headline,
-        summary: details.ai.summary,
-        drivers: Array.isArray(details.ai.drivers) ? details.ai.drivers : details.ai.whyAtRisk || [],
-        confidence: typeof details.ai.confidence === "number" ? details.ai.confidence : 72,
-        recommendedActions: Array.isArray(details.ai.recommendedActions) ? details.ai.recommendedActions : [],
-        nextBestAction:
-            details.ai.nextBestAction ||
-            details.ai.recommendation ||
-            "Review this account and confirm the highest-risk signal",
-    };
-}
-
-function getConfidenceTone(confidence: number) {
-    if (confidence >= 85) return "high";
-    if (confidence >= 70) return "medium";
-    return "low";
-}
-
-function getOutcomeState(account: RiskRow, timeline: AccountTimelineEvent[]): OutcomeState {
-    const rawStatus = (account.status || "").toLowerCase();
-
-    const hasRecovery = timeline.some((e) => e.type === "payment_successful");
-    const hasSavedSignal =
-        hasRecovery ||
-        timeline.some((e) => e.type === "risk_decreased" && (e.meta?.riskScore ?? account.riskScore) < 50);
-
-    const hasRecoveryWork =
-        timeline.some(
-            (e) =>
-                e.type === "billing_recovery_email_sent" ||
-                e.type === "billing_recovery_email_opened" ||
-                e.type === "reengagement_email_sent" ||
-                e.type === "reengagement_email_opened" ||
-                e.type === "checkin_email_sent" ||
-                e.type === "followup_call_connected"
-        );
-
-    if (rawStatus.includes("churn") || rawStatus.includes("lost") || rawStatus.includes("cancel")) {
-        return {
-            label: "Lost",
-            tone: "danger",
-            sub: "Revenue was not recovered",
-        };
-    }
-
-    if (hasSavedSignal) {
-        return {
-            label: "Saved",
-            tone: "good",
-            sub: "Revenue recovery signal detected",
-        };
-    }
-
-    if (hasRecoveryWork) {
-        return {
-            label: "Recovering",
-            tone: "medium",
-            sub: "Interventions are active",
-        };
-    }
-
-    return {
-        label: "At risk",
-        tone: "warning",
-        sub: "Revenue still exposed",
-    };
-}
-
-function getOutcomeToneClassName(tone: OutcomeState["tone"]) {
-    if (tone === "good") return styles.kpiGood;
-    if (tone === "danger") return styles.kpiDanger;
-    if (tone === "medium") return styles.kpiMedium;
-    return styles.kpiWarning;
 }
 
 function buildAccountFromDetails(id: string, details: RiskDetails): RiskRow {
@@ -705,11 +434,11 @@ function buildAccountFromDetails(id: string, details: RiskDetails): RiskRow {
         details.profile.paymentHistory.some((item) => {
             const status = (item.status || "").toLowerCase();
             const label = (item.label || "").toLowerCase();
+
             return (
                 status.includes("fail") ||
                 status.includes("past_due") ||
                 label.includes("fail") ||
-                label.includes("past due") ||
                 label.includes("billing")
             );
         });
@@ -736,33 +465,109 @@ function buildAccountFromDetails(id: string, details: RiskDetails): RiskRow {
         details.ai?.recommendation ||
         "Risk signals detected";
 
-    const reasonKey = inferredBilling
-        ? "billing_risk"
-        : inferredInactive
-            ? "inactive_user"
-            : "general_risk";
-
     return {
         id,
         companyName: details.profile?.companyName || "Unknown account",
-        email: undefined,
+        email: details.profile?.email || undefined,
         riskScore,
         riskLevel: riskLevelFromScore(riskScore),
-        reasonKey,
+        reasonKey: inferredBilling ? "billing_risk" : inferredInactive ? "inactive_user" : "general_risk",
         reasonLabel,
         riskTrend: "flat",
         riskDelta: 0,
-        status: inferredBilling ? "past_due" : inferredInactive ? "at_risk" : "active",
+        status: inferredBilling ? "invoice open" : inferredInactive ? "at risk" : "active",
         lastActiveAt: null,
-        signals: inferredBilling
-            ? [{ key: "billing_failed", label: "Payment failed" }]
-            : inferredInactive
-                ? [{ key: "inactive_14d", label: "Low recent activity" }]
-                : [],
+        signals: [],
         nextAction: details.ai?.nextBestAction || "Send check-in email",
         mrr: inferredMrr,
         updatedAt: new Date().toISOString(),
     };
+}
+
+function getPlanDisplay(details: RiskDetails | null) {
+    const rawPlan = details?.profile?.plan?.trim();
+    return rawPlan && rawPlan !== "—" ? rawPlan : "—";
+}
+
+function getCreatedAt(account: RiskRow, details: RiskDetails | null) {
+    return details?.profile?.createdAt || details?.profile?.startDate || account.updatedAt || null;
+}
+
+function getNextBilling(account: RiskRow, details: RiskDetails | null) {
+    if (details?.profile?.nextBillingAt) return details.profile.nextBillingAt;
+
+    const latestPayment = Array.isArray(details?.profile?.paymentHistory)
+        ? details?.profile?.paymentHistory?.[0]
+        : null;
+
+    if (latestPayment?.at) {
+        const d = new Date(latestPayment.at);
+        if (!Number.isNaN(d.getTime())) {
+            d.setMonth(d.getMonth() + 1);
+            return d.toISOString();
+        }
+    }
+
+    if (account.updatedAt) {
+        const d = new Date(account.updatedAt);
+        if (!Number.isNaN(d.getTime())) {
+            d.setMonth(d.getMonth() + 1);
+            return d.toISOString();
+        }
+    }
+
+    return null;
+}
+
+function getRecommendedActions(account: RiskRow, details: RiskDetails | null): RecommendedAction[] {
+    if (Array.isArray(details?.ai?.recommendedActions) && details.ai.recommendedActions.length) {
+        return details.ai.recommendedActions;
+    }
+
+    const reason = `${account.reasonLabel} ${account.status || ""}`.toLowerCase();
+
+    if (reason.includes("billing") || reason.includes("invoice") || reason.includes("payment")) {
+        return [
+            {
+                key: "billing",
+                label: "Recover payment",
+                reason: "Billing issue is increasing churn risk.",
+                automationLabel: "Send billing email",
+            },
+            {
+                key: "checkin",
+                label: "Human check-in",
+                reason: "A personal check-in can help prevent cancellation.",
+                automationLabel: "Send check-in email",
+            },
+        ];
+    }
+
+    if (reason.includes("inactive") || reason.includes("usage") || reason.includes("activity")) {
+        return [
+            {
+                key: "inactive",
+                label: "Re-engage account",
+                reason: "Low activity suggests the customer may not be getting enough value.",
+                automationLabel: "Send re-engagement email",
+            },
+            {
+                key: "checkin",
+                label: "Offer walkthrough",
+                reason: "A walkthrough can help the customer return to value faster.",
+                automationLabel: "Send check-in email",
+            },
+        ];
+    }
+
+    return [
+        {
+            key: "checkin",
+            label: "Check in",
+            reason: "This account has elevated churn risk and needs a personal touch.",
+            automationLabel: "Send check-in email",
+        },
+    ];
 }
 
 function EmailModalPortal({
@@ -780,7 +585,6 @@ function EmailModalPortal({
     }, []);
 
     if (!mounted || !open) return null;
-
     return createPortal(children, document.body);
 }
 
@@ -792,31 +596,28 @@ export default function CustomerDetailPage() {
     const [user, setUser] = useState<User | null>(null);
     const [account, setAccount] = useState<RiskRow | null>(null);
     const [details, setDetails] = useState<RiskDetails | null>(null);
+    const [workspaceAi, setWorkspaceAi] = useState<AiWorkspaceRes | null>(null);
 
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState<string | null>(null);
 
-    const [manualEvents, setManualEvents] = useState<AccountTimelineEvent[]>([]);
+    const [tier, setTier] = useState<PlanTier>("starter");
+    const [emailUsageLimit, setEmailUsageLimit] = useState<number | null>(null);
+    const [emailUsageRemaining, setEmailUsageRemaining] = useState<number | null>(null);
+    const [emailSender, setEmailSender] = useState<EmailSender | null>(null);
 
-    const [emailModal, setEmailModal] = useState<EmailModalState>({
-        open: false,
-        kind: null,
-    });
-
-    const [runningRetryPayment, setRunningRetryPayment] = useState(false);
-    const [runningNotification, setRunningNotification] = useState(false);
-
+    const [emailModal, setEmailModal] = useState<EmailModalState>({ open: false, kind: null });
     const [emailSubject, setEmailSubject] = useState("");
     const [emailBody, setEmailBody] = useState("");
     const [sendingEmail, setSendingEmail] = useState(false);
     const [sendErr, setSendErr] = useState<string | null>(null);
-
-    const [tier, setTier] = useState<PlanTier>("starter");
-    const [emailUsageCount, setEmailUsageCount] = useState<number | null>(null);
-    const [emailUsageLimit, setEmailUsageLimit] = useState<number | null>(null);
-    const [emailUsageRemaining, setEmailUsageRemaining] = useState<number | null>(null);
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-    const [upgradeContext, setUpgradeContext] = useState<"email" | "pro-feature">("email");
+
+    const [activityPage, setActivityPage] = useState(1);
+    const [notes, setNotes] = useState<AccountNote[]>([]);
+    const [noteText, setNoteText] = useState("");
+    const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+    const [instantActivity, setInstantActivity] = useState<AccountActivity[]>([]);
 
     useEffect(() => {
         const auth = getFirebaseAuth();
@@ -824,8 +625,27 @@ export default function CustomerDetailPage() {
         return () => unsub();
     }, []);
 
+    useEffect(() => {
+        setInstantActivity([]);
+        setWorkspaceAi(null);
+    }, [id]);
+
+    useEffect(() => {
+        if (!id) return;
+
+        try {
+            const stored = window.localStorage.getItem(`cobrai-account-notes-${id}`);
+            setNotes(stored ? JSON.parse(stored) : []);
+        } catch {
+            setNotes([]);
+        }
+    }, [id]);
+
+  
+
     async function authedFetch(url: string, init?: RequestInit) {
         const token = user ? await user.getIdToken() : null;
+
         return fetch(url, {
             cache: "no-store",
             ...(init || {}),
@@ -836,54 +656,63 @@ export default function CustomerDetailPage() {
         });
     }
 
+    async function authedPost(url: string, body?: unknown) {
+        const token = user ? await user.getIdToken() : null;
+
+        return fetch(url, {
+            method: "POST",
+            cache: "no-store",
+            headers: {
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body ?? {}),
+        });
+    }
+
     useEffect(() => {
         if (!user) return;
 
         let cancelled = false;
 
-        async function loadTierAndUsage() {
+        async function loadTierUsageAndSender() {
             try {
-                const [summaryRes, usageRes] = await Promise.all([
+                const [summaryRes, usageRes, senderRes] = await Promise.all([
                     authedFetch("/api/dashboard/summary"),
                     authedFetch("/api/automation/email-usage"),
+                    authedFetch("/api/automation/send-email"),
                 ]);
 
                 const summaryJson = (await summaryRes.json()) as DashboardSummaryResponse;
                 const usageJson = (await usageRes.json()) as EmailUsageResponse;
+                const senderJson = await senderRes.json();
 
                 if (cancelled) return;
 
-                const nextTier = summaryJson?.tier === "pro" ? "pro" : "starter";
-                setTier(nextTier);
+                setTier(summaryJson?.tier === "pro" ? "pro" : "starter");
 
                 if (usageJson?.ok && usageJson?.tier === "starter") {
-                    setEmailUsageCount(
-                        typeof usageJson.emailUsage?.used === "number" ? usageJson.emailUsage.used : 0
-                    );
                     setEmailUsageLimit(
-                        typeof usageJson.emailUsage?.limit === "number" ? usageJson.emailUsage.limit : 5
+                        typeof usageJson.emailUsage?.limit === "number"
+                            ? usageJson.emailUsage.limit
+                            : STARTER_EMAIL_LIMIT
                     );
                     setEmailUsageRemaining(
                         typeof usageJson.emailUsage?.remaining === "number"
                             ? usageJson.emailUsage.remaining
                             : null
                     );
-                } else {
-                    setEmailUsageCount(null);
-                    setEmailUsageLimit(null);
-                    setEmailUsageRemaining(null);
+                }
+
+                if (senderJson?.ok && senderJson.sender) {
+                    setEmailSender(senderJson.sender);
                 }
             } catch {
-                if (!cancelled) {
-                    setTier("starter");
-                    setEmailUsageCount(null);
-                    setEmailUsageLimit(null);
-                    setEmailUsageRemaining(null);
-                }
+                if (!cancelled) setTier("starter");
             }
         }
 
-        loadTierAndUsage();
+        loadTierUsageAndSender();
 
         return () => {
             cancelled = true;
@@ -902,12 +731,26 @@ export default function CustomerDetailPage() {
             setDetails(null);
 
             try {
-                const detailsRes = await authedFetch(`/api/dashboard/accounts-at-risk/${encodeURIComponent(id)}`);
-                const detailsJson = (await detailsRes.json()) as RiskDetails;
+                const [detailsRes, aiRes] = await Promise.allSettled([
+                    authedFetch(`/api/dashboard/accounts-at-risk/${encodeURIComponent(id)}`),
+                    authedPost("/api/dashboard/ai/insights", { timeframe: "week" }),
+                ]);
 
-                if (!detailsRes.ok) {
-                    console.warn("Account not found in DB, attempting demo fallback...");
-                    // Dont throw! Just let the code continue to the 'enrichedAccount' logic below 
+                if (aiRes.status === "fulfilled" && aiRes.value.ok) {
+                    const aiJson = (await aiRes.value.json()) as AiWorkspaceRes;
+                    if (!cancelled) setWorkspaceAi(aiJson);
+                } else if (!cancelled) {
+                    setWorkspaceAi(null);
+                }
+
+                if (detailsRes.status !== "fulfilled") {
+                    throw new Error("Failed to load account");
+                }
+
+                const detailsJson = (await detailsRes.value.json()) as RiskDetails;
+
+                if (!detailsRes.value.ok || !detailsJson?.ok) {
+                    throw new Error(detailsJson?.error || "Failed to load account");
                 }
 
                 if (cancelled) return;
@@ -944,12 +787,11 @@ export default function CustomerDetailPage() {
                 }
             } catch (e: any) {
                 if (!cancelled) {
+                    setWorkspaceAi(null);
                     setErr(e?.message || "Something went wrong");
                 }
             } finally {
-                if (!cancelled) {
-                    setLoading(false);
-                }
+                if (!cancelled) setLoading(false);
             }
         }
 
@@ -959,227 +801,6 @@ export default function CustomerDetailPage() {
             cancelled = true;
         };
     }, [id, user]);
-
-    useEffect(() => {
-        if (!id) return;
-        const st = loadPageState(id);
-        if (Array.isArray(st.manualEvents) && st.manualEvents.length) {
-            setManualEvents(st.manualEvents.filter((item) => isWithinLast30Days(item.date)));
-        } else {
-            setManualEvents(buildDemoTimeline(account));
-        }
-    }, [id, account]);
-
-    useEffect(() => {
-        if (!id) return;
-        savePageState(id, {
-            manualEvents: manualEvents.filter((item) => isWithinLast30Days(item.date)),
-        });
-    }, [id, manualEvents]);
-
-    function addManualEvent(event: Omit<AccountTimelineEvent, "id" | "date"> & { date?: string }) {
-        setManualEvents((prev) => [
-            {
-                id: createId(),
-                date: event.date || new Date().toISOString(),
-                ...event,
-            },
-            ...prev,
-        ]);
-    }
-
-    function openEmailModal(kind: "billing" | "inactive" | "checkin") {
-        if (!account) return;
-
-        const t = buildEmailTemplate(kind, account);
-        setEmailSubject(t.subject);
-        setEmailBody(t.body);
-        setSendErr(null);
-        setEmailModal({ open: true, kind });
-    }
-
-    function closeEmailModal() {
-        setEmailModal({ open: false, kind: null });
-        setSendErr(null);
-    }
-
-    async function sendEmail() {
-        if (!account?.email) {
-            setSendErr("No email on this account.");
-            return;
-        }
-
-        setSendingEmail(true);
-        setSendErr(null);
-
-        try {
-            const kind = emailModal.kind;
-
-            const res = await authedFetch(`/api/automation/send-email`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    to: account.email,
-                    subject: emailSubject,
-                    body: emailBody,
-                    accountId: account.id,
-                }),
-            });
-
-            const json = await res.json();
-
-            if (!res.ok || !json?.ok) {
-                if (json?.code === "STARTER_EMAIL_LIMIT_REACHED") {
-                    closeEmailModal();
-                    setUpgradeContext("email");
-                    setShowUpgradeModal(true);
-                    return;
-                }
-
-                throw new Error(json?.error || "Failed to send");
-            }
-
-            if (json?.tier === "pro") {
-                setTier("pro");
-                setEmailUsageCount(null);
-                setEmailUsageLimit(null);
-                setEmailUsageRemaining(null);
-            } else if (json?.emailUsage) {
-                setTier("starter");
-                setEmailUsageCount(
-                    typeof json.emailUsage.used === "number" ? json.emailUsage.used : 0
-                );
-                setEmailUsageLimit(
-                    typeof json.emailUsage.limit === "number" ? json.emailUsage.limit : 5
-                );
-                setEmailUsageRemaining(
-                    typeof json.emailUsage.remaining === "number"
-                        ? json.emailUsage.remaining
-                        : null
-                );
-            }
-
-            if (kind === "billing") {
-                addManualEvent({
-                    type: "billing_recovery_email_sent",
-                    source: "manual",
-                    meta: { amount: account.mrr },
-                });
-            } else if (kind === "inactive") {
-                addManualEvent({
-                    type: "reengagement_email_sent",
-                    source: "manual",
-                    meta: { amount: account.mrr },
-                });
-            } else {
-                addManualEvent({
-                    type: "checkin_email_sent",
-                    source: "manual",
-                    meta: { amount: account.mrr },
-                });
-            }
-
-            closeEmailModal();
-        } catch (e: any) {
-            const message = e?.message || "Couldn’t send email";
-
-            if (
-                message.includes("Starter email limit reached") ||
-                message.includes("Upgrade to Pro")
-            ) {
-                closeEmailModal();
-                setUpgradeContext("email");
-                setShowUpgradeModal(true);
-                return;
-            }
-
-            setSendErr(message);
-        } finally {
-            setSendingEmail(false);
-        }
-    }
-
-    async function runRetryPayment() {
-        if (!account) return;
-
-        setRunningRetryPayment(true);
-        setSendErr(null);
-
-        try {
-            const res = await authedFetch(`/api/automation/retry-payment`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    accountId: account.id,
-                    customerId: details?.customerId || null,
-                }),
-            });
-
-            const json = await res.json();
-
-            if (!res.ok || !json?.ok) {
-                if (json?.code === "PRO_FEATURE_REQUIRED") {
-                    setUpgradeContext("pro-feature");
-                    setShowUpgradeModal(true);
-                    return;
-                }
-
-                throw new Error(json?.error || "Failed to retry payment");
-            }
-
-            addManualEvent({
-                type: "billing_issue_detected",
-                source: "manual",
-                meta: { amount: account.mrr, rawLabel: "Retry payment requested" },
-            });
-        } catch (e: any) {
-            setSendErr(e?.message || "Couldn’t retry payment");
-        } finally {
-            setRunningRetryPayment(false);
-        }
-    }
-
-    async function runSendNotification() {
-        if (!account) return;
-
-        setRunningNotification(true);
-        setSendErr(null);
-
-        try {
-            const res = await authedFetch(`/api/automation/send-notification`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    accountId: account.id,
-                    customerId: details?.customerId || null,
-                    title: `Important update for ${account.companyName}`,
-                    message: `We noticed an important account issue and wanted to notify you promptly. Please review your account or contact support if you need help.`,
-                }),
-            });
-
-            const json = await res.json();
-
-            if (!res.ok || !json?.ok) {
-                if (json?.code === "PRO_FEATURE_REQUIRED") {
-                    setUpgradeContext("pro-feature");
-                    setShowUpgradeModal(true);
-                    return;
-                }
-
-                throw new Error(json?.error || "Failed to send notification");
-            }
-
-            addManualEvent({
-                type: "account_reviewed",
-                source: "manual",
-                meta: { rawLabel: "Notification sent to customer" },
-            });
-        } catch (e: any) {
-            setSendErr(e?.message || "Couldn’t send notification");
-        } finally {
-            setRunningNotification(false);
-        }
-    }
 
     const computedEvents = useMemo<AccountTimelineEvent[]>(() => {
         if (!account) return [];
@@ -1196,8 +817,7 @@ export default function CustomerDetailPage() {
                         id: createId(),
                         type: "payment_failed",
                         date: p.at || new Date().toISOString(),
-                        source: "stripe",
-                        meta: { amount: p.amount ?? account.mrr },
+                        meta: { amount: p.amount ?? account.mrr, rawLabel: p.label },
                     });
                     return;
                 }
@@ -1207,21 +827,34 @@ export default function CustomerDetailPage() {
                         id: createId(),
                         type: "plan_upgraded",
                         date: p.at || new Date().toISOString(),
-                        source: "stripe",
-                        meta: { planName: details?.profile?.plan || undefined },
+                        meta: { planName: details?.profile?.plan || undefined, rawLabel: p.label },
                     });
                     return;
                 }
 
-                if (status.includes("success") || status.includes("paid")) {
+                if (
+                    status.includes("success") ||
+                    status.includes("paid") ||
+                    labelText.includes("payment")
+                ) {
                     items.push({
                         id: createId(),
                         type: "payment_successful",
                         date: p.at || new Date().toISOString(),
-                        source: "stripe",
-                        meta: { amount: p.amount ?? account.mrr },
+                        meta: { amount: p.amount ?? account.mrr, rawLabel: p.label },
                     });
                 }
+            });
+        }
+
+        if (Array.isArray(details?.profile?.supportHistory)) {
+            details.profile.supportHistory.forEach((item) => {
+                items.push({
+                    id: createId(),
+                    type: "generic",
+                    date: item.at || new Date().toISOString(),
+                    meta: { rawLabel: item.label || "Customer activity recorded" },
+                });
             });
         }
 
@@ -1230,19 +863,18 @@ export default function CustomerDetailPage() {
                 id: createId(),
                 type: "billing_issue_detected",
                 date: account.updatedAt || new Date().toISOString(),
-                source: "system",
                 meta: { amount: account.mrr },
             });
         }
 
         if (account.lastActiveAt) {
             const inactive = daysAgo(account.lastActiveAt) ?? 0;
+
             if (inactive >= 7) {
                 items.push({
                     id: createId(),
                     type: "inactivity_detected",
                     date: account.lastActiveAt,
-                    source: "app",
                     meta: { inactiveDays: inactive },
                 });
             }
@@ -1253,7 +885,6 @@ export default function CustomerDetailPage() {
                 id: createId(),
                 type: "risk_increased",
                 date: account.updatedAt,
-                source: "system",
                 meta: { riskScore: account.riskScore },
             });
         } else if (account.riskTrend === "down") {
@@ -1261,20 +892,249 @@ export default function CustomerDetailPage() {
                 id: createId(),
                 type: "risk_decreased",
                 date: account.updatedAt,
-                source: "system",
                 meta: { riskScore: account.riskScore },
             });
         }
 
-        return dedupeEvents(items).filter((item) => isWithinLast30Days(item.date));
+        return dedupeEvents(items).filter((item) => isCurrentMonth(item.date));
     }, [account, details]);
 
     const timeline = useMemo(() => {
-        return dedupeEvents([...computedEvents, ...manualEvents])
-            .filter((item) => isWithinLast30Days(item.date))
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            .slice(0, 6);
-    }, [computedEvents, manualEvents]);
+        const apiActivity =
+            Array.isArray(details?.activity) && details.activity.length > 0
+                ? details.activity.map((item) => ({
+                    id: item.id,
+                    type: item.type as TimelineEventType,
+                    date: item.date,
+                    meta: { rawLabel: item.label },
+                }))
+                : [];
+
+        const instantEvents = instantActivity.map((item) => ({
+            id: item.id,
+            type: item.type as TimelineEventType,
+            date: item.date,
+            meta: { rawLabel: item.label },
+        }));
+
+        const mergedApiEvents = dedupeEvents([...instantEvents, ...apiActivity])
+            .filter((item) => isCurrentMonth(item.date))
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        if (mergedApiEvents.length > 0) return mergedApiEvents;
+
+        const realEvents = dedupeEvents(computedEvents)
+            .filter((item) => isCurrentMonth(item.date))
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        if (realEvents.length > 0) return realEvents;
+
+        if (isDemoAccount(id) && account) {
+            return buildDemoTimeline(account)
+                .filter((item) => isCurrentMonth(item.date))
+                .slice(0, 12);
+        }
+
+        return [];
+    }, [details?.activity, instantActivity, computedEvents, account, id]);
+
+    const accountAiAction = useMemo(() => {
+        if (!account || !workspaceAi?.actions?.length) return null;
+
+        return (
+            workspaceAi.actions.find((action) => action.customerId === account.id) ||
+            workspaceAi.actions.find((action) => action.customerName === account.companyName) ||
+            null
+        );
+    }, [account, workspaceAi?.actions]);
+
+    useEffect(() => {
+        setActivityPage(1);
+    }, [id, timeline.length]);
+
+    const totalActivityPages = Math.max(1, Math.ceil(timeline.length / ACTIVITY_PAGE_SIZE));
+
+    const paginatedTimeline = useMemo(() => {
+        const start = (activityPage - 1) * ACTIVITY_PAGE_SIZE;
+        return timeline.slice(start, start + ACTIVITY_PAGE_SIZE);
+    }, [activityPage, timeline]);
+
+    function persistNotes(nextNotes: AccountNote[]) {
+        if (!id) return;
+        window.localStorage.setItem(`cobrai-account-notes-${id}`, JSON.stringify(nextNotes));
+    }
+
+    function saveNote() {
+        const trimmed = noteText.trim();
+        if (!trimmed) return;
+
+        if (editingNoteId) {
+            const nextNotes = notes.map((note) =>
+                note.id === editingNoteId
+                    ? { ...note, text: trimmed, updatedAt: new Date().toISOString() }
+                    : note
+            );
+
+            setNotes(nextNotes);
+            persistNotes(nextNotes);
+            setEditingNoteId(null);
+            setNoteText("");
+            return;
+        }
+
+        const nextNotes = [
+            {
+                id: createId(),
+                text: trimmed,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            },
+            ...notes,
+        ];
+
+        setNotes(nextNotes);
+        persistNotes(nextNotes);
+        setNoteText("");
+    }
+
+    function deleteNote(noteId: string) {
+        const nextNotes = notes.filter((note) => note.id !== noteId);
+
+        setNotes(nextNotes);
+        persistNotes(nextNotes);
+
+        if (editingNoteId === noteId) {
+            setEditingNoteId(null);
+            setNoteText("");
+        }
+    }
+    function startEditNote(note: AccountNote) {
+        setEditingNoteId(note.id);
+        setNoteText(note.text);
+    }
+
+    function cancelEditNote() {
+        setEditingNoteId(null);
+        setNoteText("");
+    }
+
+    function openEmailModal(kind: "billing" | "inactive" | "checkin") {
+        if (!account) return;
+
+        const reasonText =
+            kind === "billing"
+                ? `${account.reasonLabel} billing invoice payment failed`
+                : kind === "inactive"
+                    ? `${account.reasonLabel} usage inactive activity dropped`
+                    : account.reasonLabel || "retention follow-up";
+
+        const recommendation = getEmailRecommendation({
+            accountName: account.companyName,
+            reason: accountAiAction
+                ? `${accountAiAction.actionTitle} ${accountAiAction.reason}`
+                : reasonText,
+            senderName: emailSender?.senderName || user?.displayName || "Team",
+            companyName: emailSender?.companyName || "Your company",
+        });
+
+        setEmailSubject(recommendation.subject);
+        setEmailBody(recommendation.message);
+        setSendErr(null);
+        setEmailModal({ open: true, kind });
+    }
+
+    function closeEmailModal() {
+        setEmailModal({ open: false, kind: null });
+        setSendErr(null);
+    }
+
+    async function sendEmail() {
+        if (!account?.email) {
+            setSendErr("No email on this account.");
+            return;
+        }
+
+        if (!emailSender?.verified) {
+            setSendErr("Your sending domain is not verified yet. Check Settings → Support & Compliance.");
+            return;
+        }
+
+        setSendingEmail(true);
+        setSendErr(null);
+
+        try {
+            const res = await authedFetch("/api/automation/send-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    to: account.email,
+                    subject: emailSubject,
+                    body: emailBody,
+                    accountId: account.id,
+                }),
+            });
+
+            const json = await res.json();
+
+            if (!res.ok || !json?.ok) {
+                if (json?.code === "STARTER_EMAIL_LIMIT_REACHED") {
+                    closeEmailModal();
+                    setShowUpgradeModal(true);
+                    return;
+                }
+
+                throw new Error(json?.error || "Failed to send email");
+            }
+
+            const instantLabel =
+                emailModal.kind === "billing"
+                    ? "Billing recovery email sent"
+                    : emailModal.kind === "inactive"
+                        ? "Re-engagement email sent"
+                        : "Customer check-in email sent";
+
+            const instantType =
+                emailModal.kind === "billing"
+                    ? "billing_recovery_email_sent"
+                    : emailModal.kind === "inactive"
+                        ? "reengagement_email_sent"
+                        : "checkin_email_sent";
+
+            setInstantActivity((prev) => [
+                {
+                    id: `instant-email-${json?.actionExecutionId || Date.now()}`,
+                    type: instantType,
+                    label: instantLabel,
+                    date: new Date().toISOString(),
+                },
+                ...prev,
+            ]);
+
+            if (json?.tier === "pro") {
+                setTier("pro");
+                setEmailUsageLimit(null);
+                setEmailUsageRemaining(null);
+            } else if (json?.emailUsage) {
+                setTier("starter");
+                setEmailUsageLimit(
+                    typeof json.emailUsage.limit === "number"
+                        ? json.emailUsage.limit
+                        : STARTER_EMAIL_LIMIT
+                );
+                setEmailUsageRemaining(
+                    typeof json.emailUsage.remaining === "number"
+                        ? json.emailUsage.remaining
+                        : null
+                );
+            }
+
+            closeEmailModal();
+        } catch (e: any) {
+            setSendErr(e?.message || "Couldn’t send email");
+        } finally {
+            setSendingEmail(false);
+        }
+    }
 
     if (loading) {
         return (
@@ -1297,40 +1157,74 @@ export default function CustomerDetailPage() {
         );
     }
 
-    const liveInsight = getLiveInsight(details);
-    const insight = liveInsight || buildInsight(account, timeline, details);
-    const confidenceTone = getConfidenceTone(insight.confidence);
+    const plan = getPlanDisplay(details);
+    const createdAt = getCreatedAt(account, details);
+    const nextBilling = getNextBilling(account, details);
+    const lastActive = account.lastActiveAt ? niceDateTime(account.lastActiveAt) : "—";
 
-    const actionToEmailKind = (key: RecommendedAction["key"]) => {
-        if (key === "billing") return "billing";
-        if (key === "inactive") return "inactive";
-        return "checkin";
-    };
+    const recommendedActions = accountAiAction
+        ? [
+            {
+                key:
+                    accountAiAction.actionType === "send_billing_recovery_email"
+                        ? "billing"
+                        : accountAiAction.actionType === "send_reactivation_email"
+                            ? "inactive"
+                            : "checkin",
+                label: accountAiAction.actionTitle,
+                reason: accountAiAction.reason,
+                automationLabel: accountAiAction.actionTitle,
+            } satisfies RecommendedAction,
+        ]
+        : getRecommendedActions(account, details);
 
-    const planMeta = getPlanDisplay(details);
-    const outcomeState = getOutcomeState(account, timeline);
+    const aiSummary = accountAiAction
+        ? `${accountAiAction.actionTitle}: ${accountAiAction.reason}`
+        : buildAiSummaryFromTimeline(account, timeline) ||
+        details?.ai?.summary ||
+        details?.ai?.recommendation ||
+        `${riskLabelFromScore(account.riskScore)} detected from ${account.reasonLabel.toLowerCase()}. Recommended action: ${account.nextAction || "send a check-in email"}.`;
 
-    const recoveredRevenue =
-        outcomeState.label === "Saved"
-            ? account.mrr
-            : timeline.some((e) => e.type === "payment_successful")
-                ? account.mrr
-                : 0;
+    function downloadAccountCsv() {
+        if (!account) return;
 
-    const exposedRevenue =
-        outcomeState.label === "Saved" || outcomeState.label === "Lost" ? 0 : account.mrr;
+        const rows = [
+            ["Account", "Email", "Plan", "MRR", "Risk Score", "Status", "Created At", "Next Billing", "Last Active"],
+            [
+                account.companyName,
+                account.email || "",
+                plan,
+                String(account.mrr),
+                String(account.riskScore),
+                account.status || "Active",
+                niceDate(createdAt),
+                niceDate(nextBilling),
+                lastActive,
+            ],
+            [],
+            ["This Month Activity"],
+            ["Activity", "Date"],
+            ...timeline.map((event) => [eventToLabel(event), niceDateTime(event.date)]),
+            [],
+            ["Notes"],
+            ["Note", "Updated At"],
+            ...notes.map((note) => [note.text, niceDateTime(note.updatedAt)]),
+        ];
 
-    const lastIntervention =
-        timeline.find(
-            (e) =>
-                e.type === "billing_recovery_email_sent" ||
-                e.type === "billing_recovery_email_opened" ||
-                e.type === "reengagement_email_sent" ||
-                e.type === "reengagement_email_opened" ||
-                e.type === "checkin_email_sent" ||
-                e.type === "followup_call_connected" ||
-                e.type === "followup_call_no_response"
-        ) || null;
+        const csv = rows
+            .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+            .join("\n");
+
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${account.companyName.replaceAll(" ", "-").toLowerCase()}-profile.csv`;
+        a.click();
+
+        URL.revokeObjectURL(url);
+    }
 
     return (
         <>
@@ -1339,202 +1233,215 @@ export default function CustomerDetailPage() {
                     <button className={styles.backBtn} onClick={() => router.back()}>
                         Back
                     </button>
-                </div>
 
-                <div className={styles.header}>
-                    <div>
-                        <h1 className={styles.title}>{account.companyName}</h1>
-                        {account.email ? <div className={styles.email}>{account.email}</div> : null}
-                    </div>
-                </div>
-
-                <div className={styles.kpiRow}>
-                    <div className={`${styles.kpiCard} ${styles.kpiNeutral}`}>
-                        <div className={styles.kpiLabel}>MRR at risk</div>
-                        <div className={styles.kpiValue}>{formatMoney(account.mrr)}</div>
-                        <div className={styles.kpiSub}>{formatAnnualValue(account.mrr)} annualized exposure</div>
-                    </div>
-
-                    <div
-                        className={`${styles.kpiCard} ${styles[`kpi${getRiskTone(account.riskScore).charAt(0).toUpperCase()}${getRiskTone(account.riskScore).slice(1)}`]}`}
-                    >
-                        <div className={styles.kpiLabel}>Risk</div>
-                        <div className={styles.kpiValue}>{account.riskScore}</div>
-                        <div className={styles.kpiSubStrong}>{riskLabelFromScore(account.riskScore)}</div>
-                        <div className={styles.kpiSub}>{getRiskDeltaDisplay(account.riskTrend, account.riskDelta)}</div>
-                    </div>
-
-                    <div className={styles.kpiCard}>
-                        <div className={styles.kpiLabel}>Plan</div>
-                        <div className={styles.kpiValueSmall}>{planMeta.label}</div>
-                        <div className={styles.kpiSub}>{planMeta.sub}</div>
-                    </div>
-
-                    <div className={`${styles.kpiCard} ${getOutcomeToneClassName(outcomeState.tone)}`}>
-                        <div className={styles.kpiLabel}>Outcome</div>
-                        <div className={styles.kpiValueSmall}>{outcomeState.label}</div>
-                        <div className={styles.kpiSub}>{outcomeState.sub}</div>
+                    <div className={styles.topRightActions}>
+                        <button className={styles.downloadBtn} onClick={downloadAccountCsv} type="button">
+                            Download CSV
+                        </button>
                     </div>
                 </div>
 
                 <div className={styles.mainGrid}>
-                    <section className={`${styles.card} ${styles.whatsHappeningCard}`}>
-                        <div className={styles.sectionLabel}>What’s happening</div>
+                    <section className={`${styles.card} ${styles.cleanOverviewCard}`}>
+                        <div className={styles.sectionLabel}>Account overview</div>
 
-                        <div className={styles.aiHeadlineRow}>
-                            <div className={styles.aiHeadlineWrap}>
-                                <div className={styles.aiHeadline}>{insight.headline}</div>
-                                <div className={styles.aiRevenue}>
-                                    {formatMoney(account.mrr)} revenue at risk • {formatAnnualValue(account.mrr)} annualized
-                                </div>
-                                {tier !== "pro" ? (
-                                    <div className={styles.kpiSub} style={{ marginTop: 8 }}>
-                                        {typeof emailUsageRemaining === "number"
-                                            ? emailUsageRemaining === 0
-                                                ? "Starter email limit reached. Upgrade to Pro for unlimited email actions."
-                                                : `${emailUsageRemaining} of ${emailUsageLimit ?? 5} email actions remaining on Starter.`
-                                            : "Starter includes up to 5 email actions. Upgrade to Pro for unlimited email actions."}
-                                    </div>
+                        <div className={styles.cleanProfileHeader}>
+                            <div>
+                                <h1 className={styles.cleanProfileName}>{account.companyName}</h1>
+                                {account.email ? (
+                                    <p className={styles.cleanProfileEmail}>{account.email}</p>
                                 ) : null}
                             </div>
 
-                            <div
-                                className={`${styles.aiConfidenceBadge} ${confidenceTone === "high"
-                                    ? styles.aiConfidenceHigh
-                                    : confidenceTone === "medium"
-                                        ? styles.aiConfidenceMedium
-                                        : styles.aiConfidenceLow
+                            <span
+                                className={`${styles.cleanRiskBadge} ${account.riskScore >= 85
+                                    ? styles.cleanRiskDanger
+                                    : account.riskScore >= 70
+                                        ? styles.cleanRiskWarning
+                                        : account.riskScore >= 50
+                                            ? styles.cleanRiskMedium
+                                            : styles.cleanRiskGood
                                     }`}
                             >
-                                Confidence: {insight.confidence}%
-                            </div>
+                                {riskLabelFromScore(account.riskScore)} · {account.riskScore}/100
+                            </span>
                         </div>
 
-                        <div className={styles.bodyText}>{insight.summary}</div>
-
-                        <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                                gap: 12,
-                                marginTop: 16,
-                                marginBottom: 16,
-                            }}
-                        >
-                            <div className={styles.nextActionCard}>
-                                <div className={styles.nextActionLabel}>Revenue exposed</div>
-                                <div className={styles.nextActionValue}>{formatMoney(exposedRevenue)}</div>
+                        <div className={styles.cleanProfileGrid}>
+                            <div className={styles.cleanProfileItem}>
+                                <span>Plan</span>
+                                <strong>{plan}</strong>
                             </div>
 
-                            <div className={styles.nextActionCard}>
-                                <div className={styles.nextActionLabel}>Revenue recovered</div>
-                                <div className={styles.nextActionValue}>{formatMoney(recoveredRevenue)}</div>
+                            <div className={styles.cleanProfileItem}>
+                                <span>MRR</span>
+                                <strong>{formatMoney(account.mrr)}</strong>
                             </div>
 
-                            <div className={styles.nextActionCard}>
-                                <div className={styles.nextActionLabel}>Current outcome</div>
-                                <div className={styles.nextActionValue}>{outcomeState.label}</div>
+                            <div className={styles.cleanProfileItem}>
+                                <span>Created at</span>
+                                <strong>{niceDate(createdAt)}</strong>
                             </div>
 
-                            <div className={styles.nextActionCard}>
-                                <div className={styles.nextActionLabel}>Last intervention</div>
-                                <div className={styles.nextActionValue}>
-                                    {lastIntervention ? eventToLabel(lastIntervention) : "No intervention yet"}
-                                </div>
+                            <div className={styles.cleanProfileItem}>
+                                <span>Next billing</span>
+                                <strong>{niceDate(nextBilling)}</strong>
                             </div>
-                        </div>
 
-                        {insight.drivers.length ? (
-                            <div className={styles.insightBlock}>
-                                <div className={styles.inlineActionsTitle}>Why this account is at risk</div>
-                                <ul className={styles.list}>
-                                    {insight.drivers.map((item, i) => (
-                                        <li key={i}>{item}</li>
-                                    ))}
-                                </ul>
+                            <div className={styles.cleanProfileItem}>
+                                <span>Status</span>
+                                <strong>{account.status || "Active"}</strong>
                             </div>
-                        ) : null}
 
-                        <div className={styles.nextActionCard}>
-                            <div className={styles.nextActionLabel}>Next best action</div>
-                            <div className={styles.nextActionValue}>{insight.nextBestAction}</div>
-                        </div>
-
-                        <div className={styles.inlineActionsBlock}>
-                            <div className={styles.inlineActionsTitle}>Recommended actions</div>
-
-                            <div className={styles.actions}>
-                                {insight.recommendedActions.map((action, index) => (
-                                    <button
-                                        key={action.key}
-                                        className={index === 0 ? styles.actionBtnPrimary : styles.actionBtn}
-                                        onClick={() => openEmailModal(actionToEmailKind(action.key))}
-                                        type="button"
-                                    >
-                                        <span className={styles.actionBtnTitle}>{action.automationLabel}</span>
-                                        <span className={styles.actionBtnSub}>{action.reason}</span>
-                                    </button>
-                                ))}
-
-                                <button
-                                    className={styles.actionBtn}
-                                    onClick={runRetryPayment}
-                                    type="button"
-                                    disabled={runningRetryPayment}
-                                >
-                                    <span className={styles.actionBtnTitle}>
-                                        {runningRetryPayment ? "Running..." : "Retry payment"}
-                                    </span>
-                                    <span className={styles.actionBtnSub}>
-                                        Recover failed billing automatically
-                                    </span>
-                                </button>
-
-                                <button
-                                    className={styles.actionBtn}
-                                    onClick={runSendNotification}
-                                    type="button"
-                                    disabled={runningNotification}
-                                >
-                                    <span className={styles.actionBtnTitle}>
-                                        {runningNotification ? "Sending..." : "Send notification"}
-                                    </span>
-                                    <span className={styles.actionBtnSub}>
-                                        Send an instant customer notification
-                                    </span>
-                                </button>
+                            <div className={styles.cleanProfileItem}>
+                                <span>Last active</span>
+                                <strong>{lastActive}</strong>
                             </div>
                         </div>
                     </section>
 
-                    <section className={`${styles.card} ${styles.accountLogCard}`}>
-                        <div className={styles.sectionLabel}>Recent risk activity</div>
-                        <div className={styles.accountLogTitle}>Last 30 days</div>
-                        <div className={styles.accountLogSub}>Signal → action → response → outcome</div>
+                    <div className={styles.sideStack}>
+                        <section className={`${styles.card} ${styles.cleanAiCard}`}>
+                            <div className={styles.sectionLabel}>AI insight</div>
 
-                        <div className={styles.accountLogTable}>
-                            <div className={styles.accountLogHead}>
-                                <div>Event</div>
-                                <div>Date</div>
+                            <div className={styles.cleanAiContent}>
+                                <strong>Recommended action</strong>
+                                <p>{aiSummary}</p>
                             </div>
 
-                            {timeline.length ? (
-                                timeline.map((event) => (
-                                    <div key={event.id} className={styles.accountLogRow}>
-                                        <div className={styles.accountLogActionText}>{eventToLabel(event)}</div>
-                                        <div className={styles.accountLogDate}>{niceDateTime(event.date)}</div>
+                            <div className={styles.cleanAiContent}>
+                                <strong>Automation</strong>
+
+                                <div className={styles.cleanActionButtons}>
+                                    {recommendedActions.map((action) => (
+                                        <button
+                                            key={action.key}
+                                            type="button"
+                                            className={styles.cleanActionBtn}
+                                            onClick={() => openEmailModal(action.key)}
+                                        >
+                                            {action.automationLabel}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {!emailSender?.verified ? (
+                                <p className={styles.cleanEmailLimitText}>
+                                    Sending domain is not verified yet. Configure it in Settings before sending.
+                                </p>
+                            ) : tier !== "pro" ? (
+                                <p className={styles.cleanEmailLimitText}>
+                                    {typeof emailUsageRemaining === "number"
+                                        ? `${emailUsageRemaining} of ${emailUsageLimit ?? STARTER_EMAIL_LIMIT
+                                        } email actions remaining.`
+                                        : `Starter includes ${STARTER_EMAIL_LIMIT} email actions.`}
+                                </p>
+                            ) : null}
+                        </section>
+
+                        <section className={`${styles.card} ${styles.notesCard}`}>
+                            <div className={styles.sectionLabel}>Account notes</div>
+                            <div className={styles.accountLogTitle}>Private notes</div>
+                            <div className={styles.accountLogSub}>
+                                Notes for your team on this account
+                            </div>
+
+                            <textarea
+                                className={styles.notesTextarea}
+                                value={noteText}
+                                onChange={(e) => setNoteText(e.target.value)}
+                                placeholder="Write a note for this account..."
+                            />
+
+                            <div className={styles.notesActions}>
+                                {editingNoteId ? (
+                                    <button className={styles.noteSecondaryBtn} type="button" onClick={cancelEditNote}>
+                                        Cancel edit
+                                    </button>
+                                ) : null}
+
+                                <button className={styles.notePrimaryBtn} type="button" onClick={saveNote}>
+                                    {editingNoteId ? "Save note" : "Add note"}
+                                </button>
+                            </div>
+
+                            <div className={styles.notesList}>
+                                {notes.length ? (
+                                    notes.map((note: AccountNote) => (
+                                        <div key={note.id} className={styles.noteItem}>
+                                            <p>{note.text}</p>
+                                            <span>Updated {niceDateTime(note.updatedAt)}</span>
+
+                                            <div className={styles.noteItemActions}>
+                                                <button type="button" onClick={() => startEditNote(note)}>
+                                                    Edit
+                                                </button>
+                                                <button type="button" onClick={() => deleteNote(note.id)}>
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className={styles.accountLogEmpty}>No notes yet.</div>
+                                )}
+                            </div>
+                        </section>
+                    </div>
+
+                    <section className={`${styles.card} ${styles.accountLogCard}`}>
+                        <div className={styles.sectionLabel}>Account Log</div>
+                        <div className={styles.accountLogTitle}>Activity Timeline</div>
+                        <div className={styles.accountLogSub}>
+                            Payments, emails, and risk events.
+                        </div>
+
+                        <div className={styles.cleanActivityList}>
+                            {paginatedTimeline.length ? (
+                                paginatedTimeline.map((event) => (
+                                    <div key={event.id} className={styles.cleanActivityRow}>
+                                        <div className={styles.activityRowTop}>
+                                            <strong>{eventToLabel(event)}</strong>
+                                            <em>{eventTone(event)}</em>
+                                        </div>
+                                        <span>{niceDateTime(event.date)}</span>
                                     </div>
                                 ))
                             ) : (
-                                <div className={styles.accountLogEmpty}>No recent account activity in the last 30 days.</div>
+                                <div className={styles.accountLogEmpty}>
+                                    No activity has been recorded this month.
+                                </div>
                             )}
                         </div>
+
+                        {timeline.length > ACTIVITY_PAGE_SIZE ? (
+                            <div className={styles.pagination}>
+                                <button
+                                    type="button"
+                                    onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
+                                    disabled={activityPage === 1}
+                                >
+                                    Previous
+                                </button>
+
+                                <span>
+                                    Page {activityPage} of {totalActivityPages}
+                                </span>
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setActivityPage((p) => Math.min(totalActivityPages, p + 1))
+                                    }
+                                    disabled={activityPage === totalActivityPages}
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        ) : null}
                     </section>
                 </div>
-
-              
-                 
-              
             </div>
 
             <EmailModalPortal open={emailModal.open}>
@@ -1545,8 +1452,11 @@ export default function CustomerDetailPage() {
                                 <div className={styles.emailEyebrow}>Email automation</div>
                                 <div className={styles.emailModalTitle}>Compose email</div>
                                 <div className={styles.emailModalSub}>
-                                    {account.companyName}
-                                    {account.email ? ` • ${account.email}` : ""}
+                                    From{" "}
+                                    {emailSender?.senderEmail
+                                        ? `${emailSender.senderName} <${emailSender.senderEmail}>`
+                                        : emailSender?.senderName || "Team"}
+                                    {account.email ? ` → ${account.email}` : ""}
                                 </div>
                             </div>
 
@@ -1567,7 +1477,6 @@ export default function CustomerDetailPage() {
                                     className={styles.emailInput}
                                     value={emailSubject}
                                     onChange={(e) => setEmailSubject(e.target.value)}
-                                    placeholder="Email subject"
                                 />
                             </div>
 
@@ -1577,21 +1486,10 @@ export default function CustomerDetailPage() {
                                     className={styles.emailTextarea}
                                     value={emailBody}
                                     onChange={(e) => setEmailBody(e.target.value)}
-                                    placeholder="Write your email..."
                                 />
                             </div>
 
                             {sendErr ? <div className={styles.emailError}>{sendErr}</div> : null}
-
-                            {tier !== "pro" ? (
-                                <div className={styles.kpiSub} style={{ marginBottom: 12 }}>
-                                    {typeof emailUsageRemaining === "number"
-                                        ? emailUsageRemaining === 0
-                                            ? "Starter email limit reached. Upgrade to Pro for unlimited email actions."
-                                            : `${emailUsageRemaining} of ${emailUsageLimit ?? 5} email actions remaining on Starter.`
-                                        : "Starter includes up to 5 email actions. Upgrade to Pro for unlimited email actions."}
-                                </div>
-                            ) : null}
 
                             <div className={styles.emailModalActions}>
                                 <button className={styles.emailCancelBtn} type="button" onClick={closeEmailModal}>
@@ -1612,114 +1510,40 @@ export default function CustomerDetailPage() {
             </EmailModalPortal>
 
             {showUpgradeModal ? (
-                <div
-                    style={{
-                        position: "fixed",
-                        inset: 0,
-                        background: "rgba(15, 23, 42, 0.45)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: 20,
-                        zIndex: 1000,
-                    }}
-                    onClick={() => setShowUpgradeModal(false)}
-                >
-                    <div
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                            width: "100%",
-                            maxWidth: 460,
-                            background: "#ffffff",
-                            borderRadius: 24,
-                            padding: 24,
-                            boxShadow: "0 24px 80px rgba(15, 23, 42, 0.18)",
-                            border: "1px solid rgba(15, 23, 42, 0.08)",
-                        }}
-                    >
-                        <div
-                            style={{
-                                display: "inline-flex",
-                                padding: "6px 12px",
-                                borderRadius: 999,
-                                background: "rgba(15, 23, 42, 0.06)",
-                                fontSize: 12,
-                                fontWeight: 700,
-                                color: "#0f172a",
-                                letterSpacing: "0.04em",
-                                textTransform: "uppercase",
-                                marginBottom: 14,
-                            }}
-                        >
-                            Pro feature
+                <div className={styles.modalOverlay} onClick={() => setShowUpgradeModal(false)}>
+                    <div className={styles.emailModal} onClick={(e) => e.stopPropagation()}>
+                        <div className={styles.emailModalHeader}>
+                            <div>
+                                <div className={styles.emailEyebrow}>Upgrade</div>
+                                <div className={styles.emailModalTitle}>Email limit reached</div>
+                                <div className={styles.emailModalSub}>
+                                    Upgrade to Pro to keep sending retention emails.
+                                </div>
+                            </div>
+
+                            <button
+                                className={styles.emailCloseBtn}
+                                onClick={() => setShowUpgradeModal(false)}
+                                type="button"
+                            >
+                                ×
+                            </button>
                         </div>
 
-                        <h3
-                            style={{
-                                margin: 0,
-                                fontSize: 24,
-                                lineHeight: 1.2,
-                                color: "#0f172a",
-                                fontWeight: 700,
-                            }}
-                        >
-                            {upgradeContext === "email"
-                                ? "Upgrade for unlimited email actions"
-                                : "Upgrade to access Pro automations"}
-                        </h3>
-
-                        <p
-                            style={{
-                                margin: "12px 0 0",
-                                fontSize: 15,
-                                lineHeight: 1.65,
-                                color: "#5f6b7a",
-                            }}
-                        >
-                            {upgradeContext === "email"
-                                ? `You’ve used all ${STARTER_EMAIL_LIMIT} email actions included in Starter. Upgrade to Pro to keep sending recovery, re-engagement, and check-in emails without limits.`
-                                : "Retry payment and send notification are available on Pro. Upgrade to unlock advanced retention actions and automations."}
-                        </p>
-
-                        <div
-                            style={{
-                                display: "flex",
-                                gap: 12,
-                                marginTop: 22,
-                                flexWrap: "wrap",
-                            }}
-                        >
+                        <div className={styles.emailModalActions}>
                             <button
+                                className={styles.emailCancelBtn}
                                 type="button"
                                 onClick={() => setShowUpgradeModal(false)}
-                                style={{
-                                    border: "1px solid rgba(15, 23, 42, 0.12)",
-                                    background: "#ffffff",
-                                    color: "#0f172a",
-                                    borderRadius: 999,
-                                    padding: "11px 16px",
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                }}
                             >
                                 Not now
                             </button>
                             <button
+                                className={styles.emailSendBtn}
                                 type="button"
                                 onClick={() => {
                                     setShowUpgradeModal(false);
                                     router.push("/dashboard/settings?tab=manage-plan");
-                                }}
-                                style={{
-                                    border: "none",
-                                    background: "#0f172a",
-                                    color: "#ffffff",
-                                    borderRadius: 999,
-                                    padding: "11px 18px",
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
                                 }}
                             >
                                 Upgrade to Pro

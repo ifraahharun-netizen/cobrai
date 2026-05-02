@@ -1,28 +1,62 @@
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/firebaseAdmin";
+import { requireAuthenticatedUser } from "@/lib/apiAuth";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(req: Request) {
-    const { uid } = await req.json();
+    try {
+        const authResult = await requireAuthenticatedUser(req);
 
-    if (!uid) {
-        return NextResponse.json({ error: "Missing uid" }, { status: 400 });
-    }
+        if (!authResult.ok) {
+            return authResult.response;
+        }
 
-    const adminDb = getAdminDb();
+        const { user } = authResult;
 
-    await adminDb.doc(`users/${uid}/integrations/main`).set(
-        {
-            hubspot: {
-                connected: false,
-                accountName: "",
-                accessToken: "",
-                connectedAt: null,
+        if (!user.workspaceId) {
+            return NextResponse.json(
+                { error: "No workspace for user" },
+                { status: 404 }
+            );
+        }
+
+        const adminDb = getAdminDb();
+
+        await adminDb.doc(`users/${user.firebaseUid}/integrations/main`).set(
+            {
+                hubspot: {
+                    connected: false,
+                    accountName: "",
+                    accessToken: "",
+                    refreshToken: "",
+                    connectedAt: null,
+                },
+                updatedAt: FieldValue.serverTimestamp(),
             },
-            updatedAt: FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-    );
+            { merge: true }
+        );
 
-    return NextResponse.json({ ok: true });
+        await prisma.integration.updateMany({
+            where: {
+                workspaceId: user.workspaceId,
+                provider: "hubspot",
+            },
+            data: {
+                status: "disconnected",
+                accessTokenEnc: "",
+                refreshTokenEnc: "",
+                lastSyncError: null,
+            },
+        });
+
+        return NextResponse.json({ ok: true });
+    } catch (error) {
+        console.error("HubSpot disconnect failed:", error);
+
+        return NextResponse.json(
+            { error: "Failed to disconnect HubSpot" },
+            { status: 500 }
+        );
+    }
 }

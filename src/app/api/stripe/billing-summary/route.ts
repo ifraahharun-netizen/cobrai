@@ -35,9 +35,7 @@ export async function GET(req: Request) {
                 stripeCustomers: {
                     orderBy: { createdAt: "desc" },
                     take: 1,
-                    select: {
-                        stripeId: true,
-                    },
+                    select: { stripeId: true },
                 },
                 stripeSubscriptions: {
                     orderBy: { createdAt: "desc" },
@@ -79,9 +77,7 @@ export async function GET(req: Request) {
                 const stripe = getStripeClient();
                 const subscription = await stripe.subscriptions.retrieve(
                     latestSubscription.stripeId,
-                    {
-                        expand: ["items.data"],
-                    }
+                    { expand: ["items.data"] }
                 );
 
                 billingStatus = subscription.status;
@@ -106,14 +102,13 @@ export async function GET(req: Request) {
             billingStatus,
             renewalDate,
             trialEndsAt: workspace.trialEndsAt?.toISOString() ?? null,
-            stripeCustomerId: hasRealStripeCustomer ? latestCustomer?.stripeId ?? null : null,
-            stripeSubscriptionId: hasRealStripeSubscription
-                ? latestSubscription?.stripeId ?? null
-                : null,
+            stripeCustomerId: null,
+            stripeSubscriptionId: null,
             hasBilling: hasRealStripeCustomer || hasRealStripeSubscription,
         });
     } catch (error) {
         console.error("Billing summary error:", error);
+
         return NextResponse.json(
             { error: "Failed to load billing summary" },
             { status: 500 }

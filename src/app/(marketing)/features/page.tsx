@@ -4,41 +4,39 @@ export default function FeaturesPage() {
     return (
         <section className="landingSection">
             <div className="sectionShell">
-               
+
                 <h1 className="sectionTitle">
-                    Built to protect revenue, not just display metrics
+                    Turn churn signals into revenue-saving actions
                 </h1>
                 <p className="sectionText">
-                    Cobrai combines churn detection, account prioritisation, revenue
-                    visibility, and retention workflows in one focused experience.
+                    Cobrai brings your customer data into one place, identifies real churn
+                    risk, and helps your team take action where it matters most — before
+                    revenue is lost.
                 </p>
 
                 {/* TOP 3 CARDS */}
                 <div className="grid3" style={{ marginTop: 24 }}>
                     <div className="card">
-                     
                         <h3 className="cardTitle">Accounts at risk</h3>
                         <p className="cardText">
-                            Prioritise customers by urgency, revenue exposure, and actionability
-                            so teams know who to work on first.
+                            Instantly identify high-risk customers, prioritised by urgency and
+                            revenue impact so your team knows exactly where to focus.
                         </p>
                     </div>
 
                     <div className="card">
-                       
                         <h3 className="cardTitle">MRR impact visibility</h3>
                         <p className="cardText">
-                            See how much revenue is at risk, what is being protected, and where
-                            the biggest retention opportunities sit.
+                            See exactly how much revenue is at risk and where the biggest
+                            opportunities to protect it are.
                         </p>
                     </div>
 
                     <div className="card">
-                     
                         <h3 className="cardTitle">Clear next actions</h3>
                         <p className="cardText">
-                            Move faster with account-level context, suggested outreach, and
-                            clearer paths to protect revenue before it slips.
+                            Move from insight to action with clear recommendations and
+                            suggested outreach for every at-risk account.
                         </p>
                     </div>
                 </div>
@@ -46,14 +44,13 @@ export default function FeaturesPage() {
                 {/* HOW IT WORKS */}
                 <div className="featureStack">
                     <div className="featureBlock">
-
                         <h2 className="featureHeading">
-                            Connect signals. Detect risk. Take action earlier.
+                            See risk earlier. Act faster. Protect revenue.
                         </h2>
                         <p className="featureBody">
-                            Cobrai is designed to make retention work more proactive. Instead of
-                            waiting for churn to show up in hindsight, teams get earlier visibility
-                            into risk and a clearer understanding of what to do next.
+                            Most teams only react to churn after it happens. Cobrai gives you
+                            early visibility into risk, explains what’s driving it, and helps
+                            your team take the right action before customers leave.
                         </p>
                     </div>
 
@@ -63,8 +60,8 @@ export default function FeaturesPage() {
                             <div>
                                 <h3>Connect your tools</h3>
                                 <p>
-                                    Bring together customer, billing, and behavioural signals from
-                                    the systems your team already uses.
+                                    Sync billing, customer, and product signals from the tools
+                                    your team already uses — no complex setup required.
                                 </p>
                             </div>
                         </div>
@@ -72,10 +69,10 @@ export default function FeaturesPage() {
                         <div className="featureStep">
                             <span className="featureNumber">2</span>
                             <div>
-                                <h3>Cobrai finds the cause</h3>
+                                <h3>Identify churn risk</h3>
                                 <p>
-                                    Detect churn risk early and understand what is driving the
-                                    pressure behind each account.
+                                    Cobrai detects early warning signs and shows which accounts
+                                    are at risk, why it’s happening, and how it impacts revenue.
                                 </p>
                             </div>
                         </div>
@@ -83,10 +80,10 @@ export default function FeaturesPage() {
                         <div className="featureStep">
                             <span className="featureNumber">3</span>
                             <div>
-                                <h3>Act before revenue is lost</h3>
+                                <h3>Take action before it’s too late</h3>
                                 <p>
-                                    Prioritise the right accounts, trigger better outreach, and
-                                    focus your team on the work that protects MRR.
+                                    Prioritise the right customers, take targeted action, and
+                                    focus your team on protecting MRR where it matters most.
                                 </p>
                             </div>
                         </div>

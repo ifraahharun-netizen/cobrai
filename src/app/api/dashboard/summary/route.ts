@@ -26,8 +26,9 @@ type DashboardInsight = {
 type DashboardSummary = {
   ok: boolean;
   error?: string;
-  tier?: "starter" | "pro" | "scale";
+  tier?: "free" | "starter" | "pro" | "scale";
   demoMode?: boolean;
+  trialEndsAt?: string | null;
   connectedIntegrations?: string[];
 
   kpis?: {
@@ -507,7 +508,11 @@ export async function GET(req: Request) {
 
     const ws = await prisma.workspace.findUnique({
       where: { id: workspaceId },
-      select: { tier: true, demoMode: true },
+      select: {
+        tier: true,
+        demoMode: true,
+        trialEndsAt: true,
+      },
     });
 
     const now = new Date();
@@ -1095,10 +1100,10 @@ export async function GET(req: Request) {
 
     const response: DashboardSummary = {
       ok: true,
-      tier: (ws?.tier as "starter" | "pro" | "scale") || "starter",
+      tier: (ws?.tier as "free" | "starter" | "pro" | "scale") || "free",
       demoMode: effectiveDemoMode,
+      trialEndsAt: ws?.trialEndsAt?.toISOString() ?? null,
       connectedIntegrations: connectedIntegrations.map((i) => i.provider),
-
       kpis: {
         totalMrr,
         mrrAtRisk,
@@ -1260,7 +1265,7 @@ export async function GET(req: Request) {
     console.error("GET /api/dashboard/summary failed:", e);
 
     return NextResponse.json(
-      { ok: false, error: e?.message ?? "Unknown error" } satisfies DashboardSummary,
+      { ok: false, error: "Failed to load dashboard summary"} satisfies DashboardSummary,
       { status: 500 }
     );
   }

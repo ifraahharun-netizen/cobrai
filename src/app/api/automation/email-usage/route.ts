@@ -37,8 +37,12 @@ export async function GET(req: Request) {
             return jsonError("Workspace not found", 404);
         }
 
-        const tier = workspace.tier === "pro" ? "pro" : "starter";
-        const now = new Date();
+        const tier =
+            workspace.tier === "pro"
+                ? "pro"
+                : workspace.tier === "starter"
+                    ? "starter"
+                    : "free"; const now = new Date();
         const resetAt = workspace.emailResetAt;
         const shouldResetWindow = !resetAt || resetAt.getTime() <= now.getTime();
 
@@ -77,7 +81,7 @@ export async function GET(req: Request) {
 
         return NextResponse.json({
             ok: true,
-            tier: "starter",
+            tier,
             emailUsage: {
                 used,
                 limit: STARTER_WEEKLY_EMAIL_CAP,

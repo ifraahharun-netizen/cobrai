@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const PROTECTED_APP_PREFIXES = ["/dashboard"];
+
 const PROTECTED_API_PREFIXES = [
     "/api/dashboard",
     "/api/automation",
     "/api/progress",
+    "/api/email",
+    "/api/stripe",
+    "/api/integrations",
 ];
 
 function isProtectedPath(pathname: string) {
@@ -21,20 +25,13 @@ export function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
-    if (
-        pathname.startsWith("/_next") ||
-        pathname.startsWith("/favicon") ||
-        pathname.startsWith("/public")
-    ) {
-        return NextResponse.next();
-    }
-
     const authHeader = req.headers.get("authorization");
-    const hasBearerToken = !!authHeader?.startsWith("Bearer ");
+    const hasBearerToken = authHeader?.startsWith("Bearer ");
 
-    // For API routes, require Authorization header early.
+    const hasSessionCookie = Boolean(req.cookies.get("session")?.value);
+
     if (pathname.startsWith("/api")) {
-        if (!hasBearerToken) {
+        if (!hasBearerToken && !hasSessionCookie) {
             return NextResponse.json(
                 { ok: false, error: "Unauthorized" },
                 { status: 401 }
@@ -44,10 +41,23 @@ export function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
-    // For app routes, let the client-side auth flow handle redirect.
+    if (!hasSessionCookie) {
+        const loginUrl = new URL("/login", req.url);
+        loginUrl.searchParams.set("next", pathname);
+        return NextResponse.redirect(loginUrl);
+    }
+
     return NextResponse.next();
 }
 
 export const config = {
-    matcher: ["/dashboard/:path*", "/api/dashboard/:path*", "/api/automation/:path*", "/api/progress"],
+    matcher: [
+        "/dashboard/:path*",
+        "/api/dashboard/:path*",
+        "/api/automation/:path*",
+        "/api/progress/:path*",
+        "/api/email/:path*",
+        "/api/stripe/:path*",
+        "/api/integrations/:path*",
+    ],
 };

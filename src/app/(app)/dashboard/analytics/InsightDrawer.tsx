@@ -1,49 +1,67 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged, type User } from "firebase/auth";
-import { getFirebaseAuth } from "@/lib/firebase.client";
-import styles from "./analytics.module.css";
-import { hasFeatureAccess } from "@/lib/permissions";
+import { canAccessFeature, type PlanTier } from "@/lib/permissions";
+import { getEmailRecommendation } from "@/lib/emailRecommendations";
+import type { ActionFirstRecommendation } from "@/lib/ai/types";
 
 type DrawerView = "mrr" | "churn";
+type InsightTab = "drivers" | "forecast";
 type ConfidenceLevel = "High" | "Medium" | "Low";
-type EmailKind = "billing" | "inactive" | "checkin" | "expansion";
-type DrawerPlanTier = "starter" | "pro" | "scale";
-
-type InsightItem = {
-    id: string;
-    createdAt: string;
-    title: string;
-    summary: string;
-    impactLabel?: string;
-    href?: string;
-};
 
 type DrawerInsights = {
     months: { current: string; previous: string | null };
     mrr: {
         currentMinor: number;
         prevMinor: number | null;
+        deltaMinor: number | null;
         deltaPct: number | null;
+        drivers: null | {
+            newMinor: number;
+            expansionMinor: number;
+            contractionMinor: number;
+            churnedMinor: number;
+            driverAccounts: Array<{
+                id: string;
+                accountName: string;
+                email: string | null;
+                label: string;
+                valueMinor: number;
+                tone: "positive" | "negative";
+                lastEventAt?: string | null;
+            }>;
+        };
+        topMovers: Array<{
+            id: string;
+            name: string;
+            email: string | null;
+            deltaMinor: number;
+            label: string;
+        }>;
     };
     churn: {
         currentPct: number | null;
+        prevPct: number | null;
         deltaPp: number | null;
+        churnedAccounts: Array<{
+            id: string;
+            name: string;
+            email: string | null;
+            mrrMinor: number;
+            lastEventAt?: string | null;
+        }>;
     };
 };
 
 type RiskAccountRow = {
     id: string;
     name: string;
-    email?: string | null;
+    email: string | null;
     reason: string;
     mrrMinor: number | null;
     automation: string;
-    confidence?: ConfidenceLevel;
-    lastEventAt?: string | null;
-    lastActiveAt?: string;
+    lastEventAt: string | null;
 };
 
 type ExpansionRow = {
@@ -63,11 +81,15 @@ type DriverRow = {
     label: string;
     valueMinor: number;
     tone: "positive" | "negative";
-    lastEventAt?: string | null;
-    date?: string;
+    lastEventAt: string | null;
 };
 
 type Forecast = {
+    lastMonth: string;
+    lastValue: number;
+    prevMonth: string;
+    prevValue: number;
+    delta: number;
     projectedNext: number;
     confidencePct: number;
 } | null;
@@ -77,27 +99,11 @@ type AiSummary = {
     bullets: string[];
 };
 
-type AiInsightMetrics = {
-    businessHealthScore: number;
-    businessHealthLabel: string;
-    businessHealthTone: string;
-    confidenceScore: number;
-    confidenceLabel: string;
-    nextMonthMrr: number | null;
-    nextMonthChurn: number | null;
-};
-
-type InsightsFeed = {
-    ok?: boolean;
-    items?: InsightItem[];
-} | null;
-
-type EmailModalState = {
-    open: boolean;
-    kind: EmailKind | null;
-    to: string;
-    accountId?: string;
+type EmailDraft = {
     accountName: string;
+    email: string;
+    subject: string;
+    message: string;
 };
 
 type Props = {
@@ -110,497 +116,220 @@ type Props = {
     riskAccountRows: RiskAccountRow[];
     expansionRows: ExpansionRow[];
     mrrDriverRows: DriverRow[];
+    aiActions?: ActionFirstRecommendation[];
     mrrForecast: Forecast;
     churnForecast: Forecast;
-    aiMrr: AiSummary;
     aiChurn: AiSummary;
-    aiInsightMetrics: AiInsightMetrics;
-    insights: InsightsFeed;
-    tier: DrawerPlanTier;
+    aiMrr?: AiSummary;
+    tier: "free" | "starter" | "pro" | "scale";
+    trialEndsAt?: string | null;
 };
 
-function formatGBPFromMinor(maybeMinor: number | null | undefined) {
-    const minor = Number(maybeMinor || 0);
-    const pounds = minor / 100;
+const PAGE_SIZE = 3;
 
-    try {
-        return new Intl.NumberFormat("en-GB", {
-            style: "currency",
-            currency: "GBP",
-            maximumFractionDigits: 0,
-        }).format(pounds);
-    } catch {
-        return `£${pounds.toFixed(0)}`;
-    }
+function normalizePlanTier(tier?: "free" | "starter" | "pro" | "scale"): PlanTier {
+    if (tier === "pro" || tier === "scale") return "pro";
+    if (tier === "starter") return "starter";
+    return "free";
 }
 
-function formatCompactGBPFromMinor(minor: number) {
-    const pounds = minor / 100;
+function formatGBPFromMinor(value?: number | null) {
+    const pounds = Number(value || 0) / 100;
+
     return new Intl.NumberFormat("en-GB", {
         style: "currency",
         currency: "GBP",
         maximumFractionDigits: 0,
+    }).format(pounds);
+}
+
+function formatCompactGBPFromMinor(value?: number | null) {
+    const pounds = Number(value || 0) / 100;
+
+    return new Intl.NumberFormat("en-GB", {
+        style: "currency",
+        currency: "GBP",
         notation: "compact",
+        maximumFractionDigits: 1,
     }).format(pounds);
 }
 
-function formatProjectedGBP(pounds: number | null | undefined) {
-    if (typeof pounds !== "number") return "—";
-
-    return new Intl.NumberFormat("en-GB", {
-        style: "currency",
-        currency: "GBP",
-        maximumFractionDigits: 0,
-    }).format(pounds);
+function formatPct(value?: number | null) {
+    if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+    return `${value.toFixed(1)}%`;
 }
 
-function formatPeriod(months: { current: string; previous: string | null }) {
-    if (!months.current) return "Current period";
+function formatPp(value?: number | null) {
+    if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+    return `${value >= 0 ? "+" : ""}${value.toFixed(1)}pp`;
+}
 
-    const current = new Date(`${months.current}-01T00:00:00`);
-    if (Number.isNaN(current.getTime())) {
-        return months.previous ? `${months.previous} → ${months.current}` : months.current;
-    }
-
-    const currentMonth = current.toLocaleString("en-GB", { month: "long" });
-    const currentYear = current.getFullYear();
-
-    if (!months.previous) {
-        return `${currentMonth} ${currentYear}`;
-    }
-
-    const previous = new Date(`${months.previous}-01T00:00:00`);
-    if (Number.isNaN(previous.getTime())) {
-        return `${months.previous} → ${months.current}`;
-    }
-
-    const previousMonth = previous.toLocaleString("en-GB", { month: "long" });
-    const previousYear = previous.getFullYear();
-
-    if (previousYear === currentYear) {
-        return `${previousMonth} → ${currentMonth} ${currentYear}`;
-    }
-
-    return `${previousMonth} ${previousYear} → ${currentMonth} ${currentYear}`;
+function formatSignedPct(value?: number | null) {
+    if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+    return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
 
 function niceWhen(iso?: string | null) {
     if (!iso) return "—";
+
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return "—";
+
     return d.toLocaleString("en-GB", {
         day: "2-digit",
         month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
+        year: "numeric",
     });
 }
 
-function formatDeltaPct(deltaPct: number | null | undefined) {
-    if (typeof deltaPct !== "number") return null;
-    return `${deltaPct >= 0 ? "↑" : "↓"} ${Math.abs(deltaPct).toFixed(1)}%`;
+function accountHref(id?: string | null) {
+    if (!id) return "/dashboard/accounts-at-risk";
+    return `/dashboard/accounts-at-risk/${id}`;
 }
 
-function formatDeltaPp(deltaPp: number | null | undefined) {
-    if (typeof deltaPp !== "number") return null;
-    return `${deltaPp <= 0 ? "↓" : "↑"} ${Math.abs(deltaPp).toFixed(1)}pp`;
+function suggestedAction(reason?: string | null, automation?: string | null) {
+    const recommendation = getEmailRecommendation({
+        accountName: "this account",
+        reason: `${reason || ""} ${automation || ""}`,
+    });
+
+    return recommendation.action;
 }
 
-function buildMrrSummaryLine(
-    forecast: Forecast,
-    expansionRows: ExpansionRow[],
-    riskAccountRows: RiskAccountRow[]
-) {
-    const topExpansion = expansionRows[0];
-    const topRisk = riskAccountRows[0];
+function buildEmailDraft(acc: RiskAccountRow, mode?: "risk" | "retry"): EmailDraft {
+    const recommendation = getEmailRecommendation({
+        accountName: acc.name,
+        reason: `${acc.reason || ""} ${acc.automation || ""} ${mode || ""}`,
+    });
 
-    if (topExpansion && topRisk) {
-        return `MRR increased this month, supported by expansion in ${topExpansion.name}, but downside remains concentrated in ${riskAccountRows.length} at-risk accounts.`;
-    }
-
-    if (topExpansion) {
-        return `MRR increased this month, driven by new subscriptions and expansion in ${topExpansion.name}.`;
-    }
-
-    if (topRisk) {
-        return `MRR is holding, but revenue risk remains concentrated in a small number of at-risk accounts.`;
-    }
-
-    if (forecast) {
-        return `MRR movement is stable this month, with the projection based on recent revenue trends.`;
-    }
-
-    return `MRR movement is stable this month based on the latest connected account and billing signals.`;
-}
-
-function buildChurnSummaryLine(riskAccountRows: RiskAccountRow[]) {
-    if (riskAccountRows.length > 0) {
-        return `Churn pressure increased this month, with the highest risk concentrated in accounts showing declining usage, weak engagement, or billing risk.`;
-    }
-
-    return `Churn signals are limited this month, but Cobrai is continuing to monitor account-level changes for early warning signs.`;
-}
-
-function getTopRiskReasons(riskAccountRows: RiskAccountRow[]) {
-    const reasonMap = new Map<string, number>();
-
-    for (const row of riskAccountRows) {
-        const value = row.reason?.trim();
-        if (!value) continue;
-        reasonMap.set(value, (reasonMap.get(value) || 0) + 1);
-    }
-
-    return Array.from(reasonMap.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([reason]) => reason);
-}
-
-function getTotalAtRiskMinor(riskAccountRows: RiskAccountRow[]) {
-    return riskAccountRows.reduce((sum, row) => sum + Number(row.mrrMinor || 0), 0);
-}
-
-function getTotalOpportunityMinor(expansionRows: ExpansionRow[]) {
-    return expansionRows.reduce((sum, row) => sum + Number(row.upsideMinor || 0), 0);
-}
-
-function getTopGrowthSignals(mrrDriverRows: DriverRow[]) {
-    const labelMap = new Map<string, number>();
-
-    for (const row of mrrDriverRows) {
-        if (Number(row.valueMinor || 0) <= 0) continue;
-        const value = row.label?.trim();
-        if (!value) continue;
-        labelMap.set(value, (labelMap.get(value) || 0) + 1);
-    }
-
-    return Array.from(labelMap.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([label]) => label);
-}
-
-function cardStyle(): CSSProperties {
     return {
-        border: "1px solid #eef2f7",
-        borderRadius: 18,
-        background: "#ffffff",
-        padding: 16,
+        accountName: acc.name,
+        email: acc.email || "",
+        subject: recommendation.subject,
+        message: recommendation.message,
     };
 }
 
-function sectionTitleStyle(): CSSProperties {
-    return {
-        fontSize: 15,
-        fontWeight: 800,
-        color: "#0f172a",
-        marginBottom: 6,
-    };
+type KeyDriver = {
+    id: string;
+    name: string;
+    email: string | null;
+    category: "New subscriber" | "Upgrade" | "Retained account" | "Churn risk";
+    label: string;
+    mrrMinor: number;
+    date: string | null;
+    tone: "positive" | "negative";
+};
+
+function getDriverCategory(label: string, tone: "positive" | "negative"): KeyDriver["category"] {
+    const l = label.toLowerCase();
+
+    if (tone === "negative") return "Churn risk";
+    if (l.includes("upgrade") || l.includes("expansion") || l.includes("seat")) return "Upgrade";
+    if (l.includes("retained") || l.includes("recovered") || l.includes("saved")) return "Retained account";
+    return "New subscriber";
 }
 
-function sectionSubStyle(): CSSProperties {
-    return {
-        fontSize: 12,
-        color: "#64748b",
-        marginBottom: 12,
-        lineHeight: 1.45,
-    };
-}
+const demoKeyDrivers: KeyDriver[] = [
+    {
+        id: "brightops",
+        name: "BrightOps",
+        email: "ops@brightops.com",
+        category: "Upgrade",
+        label: "Annual plan upgrade",
+        mrrMinor: 13300,
+        date: "2026-04-05T10:30:00Z",
+        tone: "positive",
+    },
+    {
+        id: "kitecrm",
+        name: "KiteCRM",
+        email: "finance@kitecrm.com",
+        category: "New subscriber",
+        label: "New subscription started",
+        mrrMinor: 12400,
+        date: "2026-04-04T14:10:00Z",
+        tone: "positive",
+    },
+    {
+        id: "cedarworks",
+        name: "CedarWorks",
+        email: "hello@cedarworks.io",
+        category: "Retained account",
+        label: "Recovered failed payment",
+        mrrMinor: 6800,
+        date: "2026-04-03T09:20:00Z",
+        tone: "positive",
+    },
+    {
+        id: "northstar-labs",
+        name: "Northstar Labs",
+        email: "billing@northstarlabs.co",
+        category: "Retained account",
+        label: "Renewed after retention follow-up",
+        mrrMinor: 9200,
+        date: "2026-04-02T12:15:00Z",
+        tone: "positive",
+    },
+    {
+        id: "luma-studio",
+        name: "Luma Studio",
+        email: "team@lumastudio.io",
+        category: "New subscriber",
+        label: "Trial converted to paid",
+        mrrMinor: 7400,
+        date: "2026-04-01T09:05:00Z",
+        tone: "positive",
+    },
+];
 
-function normalizeKey(value?: string | null) {
-    return (value || "").trim().toLowerCase();
-}
-
-function isBadRouteValue(value?: string | null) {
-    const v = (value || "").trim().toLowerCase();
-    return !v || v === "undefined" || v === "/undefined" || v === "null" || v === "/null";
-}
-
-function isBadIdValue(value?: string | null) {
-    const v = (value || "").trim().toLowerCase();
-    return !v || v === "undefined" || v === "null";
-}
-
-function resolveRiskEmail(
-    row: RiskAccountRow,
-    driverRows: DriverRow[],
-    expansionRows: ExpansionRow[]
-) {
-    if (row.email?.trim()) return row.email;
-
-    const rowId = normalizeKey(row.id);
-    const rowName = normalizeKey(row.name);
-
-    const driverMatch = driverRows.find(
-        (item) =>
-            (item.email?.trim() || "") &&
-            (normalizeKey(item.id) === rowId || normalizeKey(item.accountName) === rowName)
-    );
-    if (driverMatch?.email?.trim()) return driverMatch.email;
-
-    const expansionMatch = expansionRows.find(
-        (item) =>
-            (item.email?.trim() || "") &&
-            (normalizeKey(item.id) === rowId || normalizeKey(item.name) === rowName)
-    );
-    if (expansionMatch?.email?.trim()) return expansionMatch.email;
-
-    return null;
-}
-
-function resolveExpansionEmail(row: ExpansionRow, driverRows: DriverRow[]) {
-    if (row.email?.trim()) return row.email;
-
-    const rowId = normalizeKey(row.id);
-    const rowName = normalizeKey(row.name);
-
-    const driverMatch = driverRows.find(
-        (item) =>
-            (item.email?.trim() || "") &&
-            (normalizeKey(item.id) === rowId || normalizeKey(item.accountName) === rowName)
-    );
-
-    return driverMatch?.email?.trim() || null;
-}
-
-function resolveExpansionSignal(row: ExpansionRow, driverRows: DriverRow[]) {
-    const rowId = normalizeKey(row.id);
-    const rowName = normalizeKey(row.name);
-
-    const driverMatch = driverRows.find(
-        (item) => normalizeKey(item.id) === rowId || normalizeKey(item.accountName) === rowName
-    );
-
-    return driverMatch?.label?.trim() || "Expansion opportunity detected";
-}
-
-function resolveExpansionDate(
-    row: ExpansionRow,
-    driverRows: DriverRow[],
-    monthKey?: string
-) {
-    const rowId = normalizeKey(row.id);
-    const rowName = normalizeKey(row.name);
-
-    const driverMatch = driverRows.find(
-        (item) => normalizeKey(item.id) === rowId || normalizeKey(item.accountName) === rowName
-    );
-
-    return resolveDisplayDate(
-        driverMatch?.lastEventAt,
-        row.id || row.name || row.action,
-        monthKey
-    );
-}
-
-function buildDemoFallbackIso(seed: string, monthKey?: string) {
-    const safeSeed = seed || "cobrai";
-    let total = 0;
-    for (let i = 0; i < safeSeed.length; i += 1) total += safeSeed.charCodeAt(i);
-
-    const year = monthKey?.slice(0, 4) ? Number(monthKey.slice(0, 4)) : 2026;
-    const monthFromKey = monthKey?.slice(5, 7) ? Number(monthKey.slice(5, 7)) : 4;
-    const monthIndex = Number.isFinite(monthFromKey) && monthFromKey >= 1 ? monthFromKey - 1 : 3;
-
-    const day = (total % 24) + 1;
-    const hour = 9 + (total % 8);
-    const minute = total % 60;
-
-    return new Date(Date.UTC(year, monthIndex, day, hour, minute, 0)).toISOString();
-}
-
-function resolveDisplayDate(
-    actualIso: string | null | undefined,
-    seed: string,
-    monthKey?: string
-) {
-    if (actualIso) return actualIso;
-    return buildDemoFallbackIso(seed, monthKey);
-}
-
-function humanizeDriverLabel(label?: string | null) {
-    const value = (label || "").trim();
-    if (!value) return "";
-
-    const lowered = value.toLowerCase();
-
-    if (lowered.includes("new subscription")) return "new customers";
-    if (lowered.includes("upgrade")) return "upgrades";
-    if (lowered.includes("expansion")) return "expansion";
-    if (lowered.includes("recovered failed payment")) return "recovered payments";
-    if (lowered.includes("payment recovered")) return "recovered payments";
-    if (lowered.includes("reactivation")) return "reactivations";
-    if (lowered.includes("contraction")) return "contraction";
-    if (lowered.includes("downgrade")) return "downgrades";
-    if (lowered.includes("churn")) return "churn";
-
-    return value.charAt(0).toLowerCase() + value.slice(1);
-}
-
-function joinDriverLabels(labels: string[]) {
-    if (!labels.length) return "";
-    if (labels.length === 1) return labels[0];
-    if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
-    return `${labels.slice(0, -1).join(", ")}, and ${labels[labels.length - 1]}`;
-}
-
-function buildForecastWhyLine(
-    mrrDriverRows: DriverRow[],
-    riskAccountRows: RiskAccountRow[]
-) {
-    const positiveLabels = Array.from(
-        new Set(
-            mrrDriverRows
-                .filter((row) => row.valueMinor > 0)
-                .sort((a, b) => Math.abs(b.valueMinor) - Math.abs(a.valueMinor))
-                .slice(0, 3)
-                .map((row) => humanizeDriverLabel(row.label))
-                .filter(Boolean)
-        )
-    );
-
-    const riskReasons = Array.from(
-        new Set(
-            riskAccountRows
-                .map((row) => row.reason?.trim())
-                .filter((reason): reason is string => Boolean(reason))
-                .slice(0, 2)
-        )
-    );
-
-    if (positiveLabels.length && riskReasons.length) {
-        return `Projection is supported by ${joinDriverLabels(positiveLabels)}, with downside still concentrated in accounts showing ${joinDriverLabels(
-            riskReasons.map((reason) => reason.toLowerCase())
-        )}.`;
-    }
-
-    if (positiveLabels.length) {
-        return `Projection is supported by ${joinDriverLabels(positiveLabels)}.`;
-    }
-
-    if (riskReasons.length) {
-        return `Projection remains sensitive to accounts showing ${joinDriverLabels(
-            riskReasons.map((reason) => reason.toLowerCase())
-        )}.`;
-    }
-
-    return `Projection is based on the latest connected revenue, billing, and account-risk signals.`;
-}
-
-function inferRiskEmailKind(row: RiskAccountRow): EmailKind {
-    const reason = (row.reason || "").toLowerCase();
-    const action = (row.automation || "").toLowerCase();
-
-    if (reason.includes("billing") || action.includes("billing")) return "billing";
-    if (
-        reason.includes("inactive") ||
-        reason.includes("usage") ||
-        reason.includes("engagement") ||
-        action.includes("re-engagement") ||
-        action.includes("reengagement")
-    ) {
-        return "inactive";
-    }
-
-    return "checkin";
-}
-
-function buildDrawerEmailTemplate(
-    kind: EmailKind,
-    accountName: string,
-    contextLine?: string
-) {
-    const company = accountName || "there";
-    const context = contextLine?.trim() || "recent account signals";
-
-    if (kind === "billing") {
-        return {
-            subject: `Quick billing check-in — ${company}`,
-            body:
-                `Hi ${company} team,\n\n` +
-                `We noticed a billing-related risk signal on your account (${context}).\n\n` +
-                `Could you confirm the right billing contact and whether anything is blocking payment? Happy to help resolve this today.\n\n` +
-                `Best,\nCobrai`,
-        };
-    }
-
-    if (kind === "inactive") {
-        return {
-            subject: `Can we help you get value this week? — ${company}`,
-            body:
-                `Hi ${company} team,\n\n` +
-                `We noticed usage has dropped recently (${context}).\n\n` +
-                `Would you like a quick 10-minute walkthrough to get you back on track?\n\n` +
-                `Best,\nCobrai`,
-        };
-    }
-
-    if (kind === "expansion") {
-        return {
-            subject: `Opportunity to expand value — ${company}`,
-            body:
-                `Hi ${company} team,\n\n` +
-                `We’ve spotted a positive growth signal on your account (${context}).\n\n` +
-                `Would it be helpful to explore additional seats, an annual plan, or a broader rollout?\n\n` +
-                `Best,\nCobrai`,
-        };
-    }
-
-    return {
-        subject: `Quick check-in — ${company}`,
-        body:
-            `Hi ${company} team,\n\n` +
-            `Just checking in — we’re seeing ${context}.\n\n` +
-            `If helpful, we can suggest the best next step for your team.\n\n` +
-            `Best,\nCobrai`,
-    };
-}
-
-const DRIVER_PAGE_SIZE = 3;
-const RISK_PAGE_SIZE = 3;
-const OPPORTUNITY_PAGE_SIZE = 3;
-
-function blurLockStyle(): CSSProperties {
-    return {
-        position: "relative",
-        overflow: "hidden",
-    };
-}
-
-function blurredInnerStyle(): CSSProperties {
-    return {
-        filter: "blur(8px)",
-        pointerEvents: "none",
-        userSelect: "none",
-    };
-}
-
-function overlayLockStyle(): CSSProperties {
-    return {
-        position: "absolute",
-        inset: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-        background: "rgba(255,255,255,0.72)",
-        backdropFilter: "saturate(120%)",
-        zIndex: 2,
-    };
-}
-
-function lockCardStyle(): CSSProperties {
-    return {
-        width: "100%",
-        maxWidth: 360,
-        border: "1px solid rgba(15, 23, 42, 0.08)",
-        borderRadius: 18,
-        background: "#ffffff",
-        boxShadow: "0 16px 40px rgba(15, 23, 42, 0.10)",
-        padding: 18,
-        textAlign: "center",
-    };
-}
+const demoHighRiskAccounts: RiskAccountRow[] = [
+    {
+        id: "bloompay",
+        name: "BloomPay",
+        email: "ops@bloompay.co",
+        reason: "Low adoption of core feature",
+        mrrMinor: 34900,
+        automation: "Send re-engagement email",
+        lastEventAt: null,
+    },
+    {
+        id: "cedarworks",
+        name: "CedarWorks",
+        email: "hello@cedarworks.io",
+        reason: "Usage dropped sharply in the last 14 days",
+        mrrMinor: 21900,
+        automation: "Send usage recovery email",
+        lastEventAt: null,
+    },
+    {
+        id: "kite-labs",
+        name: "Kite Labs",
+        email: "finance@kitelabs.co",
+        reason: "Renewal window approaching with downgrade signals",
+        mrrMinor: 12900,
+        automation: "Book retention check-in",
+        lastEventAt: null,
+    },
+    {
+        id: "northstar-labs",
+        name: "Northstar Labs",
+        email: "billing@northstarlabs.co",
+        reason: "Payment risk and reduced product activity",
+        mrrMinor: 9200,
+        automation: "Send payment recovery email",
+        lastEventAt: null,
+    },
+    {
+        id: "luma-studio",
+        name: "Luma Studio",
+        email: "team@lumastudio.io",
+        reason: "Seats inactive after trial conversion",
+        mrrMinor: 7400,
+        automation: "Send onboarding support email",
+        lastEventAt: null,
+    },
+];
 
 export default function InsightDrawer({
     open,
@@ -610,2420 +339,1408 @@ export default function InsightDrawer({
     isDemoPreview,
     drawerInsights,
     riskAccountRows,
-    expansionRows,
     mrrDriverRows,
     mrrForecast,
     churnForecast,
-    aiMrr,
     aiChurn,
-    aiInsightMetrics,
-    insights,
+    aiMrr,
+    aiActions = [],
     tier,
+    trialEndsAt,
 }: Props) {
     const router = useRouter();
-    const isPro = tier === "pro" || tier === "scale";
 
-    const [user, setUser] = useState<User | null>(null);
     const [driverPage, setDriverPage] = useState(0);
-    const [riskPage, setRiskPage] = useState(0);
-    const [opportunityPage, setOpportunityPage] = useState(0);
+    const [insightTab, setInsightTab] = useState<InsightTab>("drivers");
+    const [emailDraft, setEmailDraft] = useState<EmailDraft | null>(null);
 
-    const [emailModal, setEmailModal] = useState<EmailModalState>({
-        open: false,
-        kind: null,
-        to: "",
-        accountId: undefined,
-        accountName: "",
-    });
-    const [sendingEmail, setSendingEmail] = useState(false);
-    const [sendErr, setSendErr] = useState<string | null>(null);
-    const [emailSubject, setEmailSubject] = useState("");
-    const [emailBody, setEmailBody] = useState("");
-    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-
-    useEffect(() => {
-        const auth = getFirebaseAuth();
-        const unsub = onAuthStateChanged(auth, (u) => setUser(u));
-        return () => unsub();
-    }, []);
-
-    useEffect(() => {
-        if (!open) return;
-
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === "Escape") {
-                if (emailModal.open) {
-                    closeEmailModal();
-                } else if (showUpgradeModal) {
-                    setShowUpgradeModal(false);
-                } else {
-                    onClose();
-                }
-            }
-        };
-
-        document.addEventListener("keydown", onKey);
-        const prevOverflow = document.body.style.overflow;
-        document.body.style.overflow = "hidden";
-
-        return () => {
-            document.removeEventListener("keydown", onKey);
-            document.body.style.overflow = prevOverflow;
-        };
-    }, [open, onClose, emailModal.open, showUpgradeModal]);
+    const isMrr = drawerView === "mrr";
+    const forecast = isMrr ? mrrForecast : churnForecast;
 
     useEffect(() => {
         setDriverPage(0);
-        setRiskPage(0);
-        setOpportunityPage(0);
-    }, [drawerView, open]);
+        setInsightTab("drivers");
+    }, [drawerView]);
 
-    function safePush(path?: string | null) {
-        if (isBadRouteValue(path)) return;
-        onClose();
-        router.push(path as string);
-    }
+    useEffect(() => {
+        document.body.style.overflow = open ? "hidden" : "";
 
-    function closeEmailModal() {
-        setEmailModal({
-            open: false,
-            kind: null,
-            to: "",
-            accountId: undefined,
-            accountName: "",
-        });
-        setEmailSubject("");
-        setEmailBody("");
-        setSendErr(null);
-        setSendingEmail(false);
-    }
+        return () => {
+            document.body.style.overflow = "";
+        };
+    }, [open]);
 
-    function openUpgrade() {
-        setShowUpgradeModal(true);
-    }
+    const hasProAccess = canAccessFeature({
+        plan: normalizePlanTier(tier),
+        feature: "forecasting",
+        trialEndsAt: trialEndsAt ?? null,
+        isDemoMode: isDemoPreview,
+    });
 
-    function openRiskEmailModal(row: RiskAccountRow, to: string) {
-        const kind = inferRiskEmailKind(row);
-        const template = buildDrawerEmailTemplate(kind, row.name, row.reason || row.automation);
+    const keyDrivers = useMemo<KeyDriver[]>(() => {
+        if (isMrr) {
+            const liveRows = mrrDriverRows.map((row) => ({
+                id: row.id,
+                name: row.accountName,
+                email: row.email,
+                category: getDriverCategory(row.label, row.tone),
+                label: row.label,
+                mrrMinor: row.valueMinor,
+                date: row.lastEventAt,
+                tone: row.tone,
+            }));
 
-        setEmailSubject(template.subject);
-        setEmailBody(template.body);
-        setSendErr(null);
-        setEmailModal({
-            open: true,
-            kind,
-            to,
-            accountId: row.id,
-            accountName: row.name,
-        });
-    }
-
-    function openExpansionEmailModal(row: ExpansionRow, to: string, signal: string) {
-        const template = buildDrawerEmailTemplate(
-            "expansion",
-            row.name,
-            row.reason || signal || row.action
-        );
-
-        setEmailSubject(template.subject);
-        setEmailBody(template.body);
-        setSendErr(null);
-        setEmailModal({
-            open: true,
-            kind: "expansion",
-            to,
-            accountId: row.id,
-            accountName: row.name,
-        });
-    }
-
-    async function authedFetch(url: string, init?: RequestInit) {
-        const token = user ? await user.getIdToken() : null;
-        return fetch(url, {
-            cache: "no-store",
-            ...(init || {}),
-            headers: {
-                ...(init?.headers || {}),
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-        });
-    }
-
-    async function sendEmail() {
-        if (!emailModal.to) {
-            setSendErr("No email on this account.");
-            return;
+            return liveRows.length ? liveRows : demoKeyDrivers;
         }
 
-        setSendingEmail(true);
-        setSendErr(null);
+        const churnRows = riskAccountRows.map((row) => ({
+            id: row.id,
+            name: row.name,
+            email: row.email,
+            category: "Churn risk" as const,
+            label: row.reason,
+            mrrMinor: row.mrrMinor ?? 0,
+            date: row.lastEventAt,
+            tone: "negative" as const,
+        }));
 
-        try {
-            const res = await authedFetch(`/api/automation/send-email`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    to: emailModal.to,
-                    subject: emailSubject,
-                    body: emailBody,
-                    accountId: emailModal.accountId,
-                }),
-            });
+        if (churnRows.length) return churnRows;
 
-            const json = await res.json();
-            if (!res.ok || !json?.ok) {
-                throw new Error(json?.error || "Failed to send");
-            }
+        return drawerInsights.churn.churnedAccounts.map((row) => ({
+            id: row.id,
+            name: row.name,
+            email: row.email,
+            category: "Churn risk" as const,
+            label: "Recently churned or inactive account",
+            mrrMinor: row.mrrMinor,
+            date: row.lastEventAt ?? null,
+            tone: "negative" as const,
+        }));
+    }, [isMrr, mrrDriverRows, riskAccountRows, drawerInsights.churn.churnedAccounts]);
 
-            closeEmailModal();
-        } catch (e: any) {
-            setSendErr(e?.message || "Couldn’t send email");
-        } finally {
-            setSendingEmail(false);
-        }
-    }
+    const highRiskAccounts = useMemo(() => {
+        if (riskAccountRows.length) return riskAccountRows.slice(0, 5);
 
-    const title = drawerView === "mrr" ? "MRR insights" : "Churn insights";
-    const periodLabel = isDemoPreview
-        ? "Demo preview — using sample signals until live billing and activity data are connected."
-        : formatPeriod(drawerInsights.months);
-
-    const mrrSummaryLine = buildMrrSummaryLine(mrrForecast, expansionRows, riskAccountRows);
-    const churnSummaryLine = buildChurnSummaryLine(riskAccountRows);
-    const topReasons = getTopRiskReasons(riskAccountRows);
-    const topGrowthSignals = getTopGrowthSignals(mrrDriverRows);
-    const totalAtRiskMinor = getTotalAtRiskMinor(riskAccountRows);
-    const totalOpportunityMinor = getTotalOpportunityMinor(expansionRows);
-    const mrrForecastWhyLine = buildForecastWhyLine(mrrDriverRows, riskAccountRows);
-
-    const sortedRiskAccounts = [...riskAccountRows].sort(
-        (a, b) => Number(b.mrrMinor || 0) - Number(a.mrrMinor || 0)
-    );
-
-    const sortedExpansionRows = [...expansionRows].sort(
-        (a, b) => Number(b.upsideMinor || 0) - Number(a.upsideMinor || 0)
-    );
-
-    const positiveDriverRows = [...mrrDriverRows]
-        .filter((row) => row.valueMinor > 0)
-        .sort((a, b) => Math.abs(b.valueMinor) - Math.abs(a.valueMinor));
-
-    const totalDriverPages = Math.max(1, Math.ceil(positiveDriverRows.length / DRIVER_PAGE_SIZE));
-    const pagedDriverRows = positiveDriverRows.slice(
-        driverPage * DRIVER_PAGE_SIZE,
-        driverPage * DRIVER_PAGE_SIZE + DRIVER_PAGE_SIZE
-    );
-
-    const totalRiskPages = Math.max(1, Math.ceil(sortedRiskAccounts.length / RISK_PAGE_SIZE));
-    const pagedRiskRows = sortedRiskAccounts.slice(
-        riskPage * RISK_PAGE_SIZE,
-        riskPage * RISK_PAGE_SIZE + RISK_PAGE_SIZE
-    );
-
-    const totalOpportunityPages = Math.max(
-        1,
-        Math.ceil(sortedExpansionRows.length / OPPORTUNITY_PAGE_SIZE)
-    );
-    const pagedOpportunityRows = sortedExpansionRows.slice(
-        opportunityPage * OPPORTUNITY_PAGE_SIZE,
-        opportunityPage * OPPORTUNITY_PAGE_SIZE + OPPORTUNITY_PAGE_SIZE
-    );
-
-    const openAccount = (id?: string) => {
-        if (!isPro) {
-            openUpgrade();
-            return;
+        if (drawerInsights.churn.churnedAccounts.length) {
+            return drawerInsights.churn.churnedAccounts.slice(0, 5).map((row) => ({
+                id: row.id,
+                name: row.name,
+                email: row.email,
+                reason: "Recently churned or inactive account",
+                mrrMinor: row.mrrMinor,
+                automation: "Retention follow-up",
+                lastEventAt: row.lastEventAt ?? null,
+            }));
         }
 
-        if (isBadIdValue(id)) {
-            safePush("/dashboard/accounts-at-risk");
-            return;
-        }
+        return demoHighRiskAccounts;
+    }, [riskAccountRows, drawerInsights.churn.churnedAccounts]);
 
-        safePush(`/dashboard/customer/${id}`);
+    const actionFirstAccounts = useMemo<RiskAccountRow[]>(() => {
+        if (!aiActions.length) return [];
+
+        return aiActions.slice(0, 5).map((action) => ({
+            id: action.customerId,
+            name: action.customerName,
+            email: null,
+            reason: action.reason,
+            mrrMinor: action.mrrAtRiskMinor,
+            automation: action.actionTitle,
+            lastEventAt: null,
+        }));
+    }, [aiActions]);
+
+    const totalPages = Math.max(1, Math.ceil(keyDrivers.length / PAGE_SIZE));
+    const safePage = Math.min(driverPage, totalPages - 1);
+    const visibleDrivers = keyDrivers.slice(
+        safePage * PAGE_SIZE,
+        safePage * PAGE_SIZE + PAGE_SIZE
+    );
+
+    const deltaValue = isMrr ? drawerInsights.mrr.deltaPct : drawerInsights.churn.deltaPp;
+    const movementIsPositive = isMrr ? (deltaValue ?? 0) >= 0 : (deltaValue ?? 0) <= 0;
+
+    const movementArrow =
+        deltaValue === 0 || deltaValue === null || deltaValue === undefined
+            ? "→"
+            : movementIsPositive
+                ? "↑"
+                : "↓";
+
+    const movementLabel = isMrr
+        ? `${formatSignedPct(drawerInsights.mrr.deltaPct)} vs ${formatGBPFromMinor(
+            drawerInsights.mrr.prevMinor
+        )} previous month`
+        : `${formatPp(drawerInsights.churn.deltaPp)} vs previous month`;
+
+    const withoutChurnMinor = highRiskAccounts.reduce(
+        (total, acc) => total + Math.max(0, acc.mrrMinor ?? 0),
+        0
+    );
+
+    const kpis = [
+        {
+            label: isMrr ? "Total MRR" : "Current churn",
+            value: isMrr
+                ? formatGBPFromMinor(drawerInsights.mrr.currentMinor)
+                : formatPct(drawerInsights.churn.currentPct),
+            sub: `${movementArrow} ${movementLabel}`,
+            tone: movementIsPositive ? "#15803d" : "#b91c1c",
+        },
+        {
+            label: "Confidence",
+            value: forecast ? `${forecast.confidencePct}%` : "—",
+            sub: isMrr
+                ? `MoM change: ${formatSignedPct(drawerInsights.mrr.deltaPct)}`
+                : `MoM change: ${formatPp(drawerInsights.churn.deltaPp)}`,
+            tone: "#64748b",
+        },
+    ];
+
+    const defaultAiMrr: AiSummary = {
+        headline:
+            (drawerInsights.mrr.deltaPct ?? 0) >= 0
+                ? "MRR is moving in the right direction."
+                : "MRR fell mainly due to churn.",
+        bullets: [
+            `Current MRR is ${formatGBPFromMinor(drawerInsights.mrr.currentMinor)}.`,
+            `MoM change: ${formatSignedPct(drawerInsights.mrr.deltaPct)}.`,
+            "Review high-risk accounts before they become lost revenue.",
+        ],
     };
+
+    const ai = isMrr ? aiMrr ?? defaultAiMrr : aiChurn;
 
     if (!open) return null;
 
     return (
-        <>
-            <div className={styles.slideoverOverlay} role="dialog" aria-modal="true">
-                <div className={styles.slideoverBackdrop} onClick={onClose} />
-                <div className={styles.slideoverPanel}>
-                    <div className={styles.slideoverHeader}>
-                        <div className={styles.slideoverTitle}>{title}</div>
-
-                        <div
+        <div
+            style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 80,
+                display: "flex",
+                justifyContent: "flex-end",
+                background: "rgba(15,23,42,0.2)",
+                backdropFilter: "blur(6px)",
+            }}
+            onMouseDown={onClose}
+        >
+            <aside
+                onMouseDown={(e) => e.stopPropagation()}
+                style={{
+                    width: "min(900px, 100%)",
+                    height: "100%",
+                    background: "#fbfbfc",
+                    borderLeft: "1px solid #e5e7eb",
+                    boxShadow: "-20px 0 60px rgba(15,23,42,0.13)",
+                    padding: "18px 24px",
+                    overflowY: "hidden",
+                    color: "#0f172a",
+                }}
+            >
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        justifyContent: "space-between",
+                        gap: 14,
+                        marginBottom: 12,
+                    }}
+                >
+                    <div>
+                        <h2
                             style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 10,
-                                flexWrap: "wrap",
-                                justifyContent: "flex-end",
+                                margin: 0,
+                                fontSize: 19,
+                                lineHeight: 1.1,
+                                color: "#111827",
+                                fontWeight: 650,
+                                letterSpacing: "-0.02em",
                             }}
                         >
-                            <button
-                                type="button"
-                                className={styles.linkBtn}
-                                onClick={() => onSwitchView(drawerView === "mrr" ? "churn" : "mrr")}
-                            >
-                                {drawerView === "mrr" ? "Switch to churn insight" : "Switch to MRR insight"}
-                            </button>
+                            {isMrr ? "MRR insights" : "Churn insights"}
+                        </h2>
 
-                            <button
-                                type="button"
-                                className={styles.linkBtn}
-                                onClick={onClose}
-                            >
-                                Close ✕
-                            </button>
-                        </div>
+                        <p
+                            style={{
+                                margin: "6px 0 0",
+                                color: "#64748b",
+                                fontSize: 13,
+                                lineHeight: 1.4,
+                                fontWeight: 400,
+                            }}
+                        >
+                            {isMrr
+                                ? "What changed revenue this month and where to act."
+                                : "What changed churn this month and which accounts need action."}
+                        </p>
                     </div>
 
-                    <div className={styles.slideoverBody}>
-                        {drawerView === "mrr" ? (
-                            <>
-                                <div style={{ ...cardStyle(), marginBottom: 14 }}>
-                                    <div
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 999,
+                            border: "1px solid #e5e7eb",
+                            background: "#ffffff",
+                            color: "#111827",
+                            fontSize: 18,
+                            cursor: "pointer",
+                        }}
+                    >
+                        ×
+                    </button>
+                </div>
+
+                <div
+                    style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 6,
+                        padding: 4,
+                        borderRadius: 999,
+                        background: "#f6f8fb",
+                        marginBottom: 12,
+                        border: "1px solid #e5e7eb",
+                    }}
+                >
+                    {(["mrr", "churn"] as DrawerView[]).map((view) => {
+                        const active = drawerView === view;
+
+                        return (
+                            <button
+                                key={view}
+                                type="button"
+                                onClick={() => {
+                                    setDriverPage(0);
+                                    setInsightTab("drivers");
+                                    onSwitchView(view);
+                                }}
+                                style={{
+                                    border: 0,
+                                    borderRadius: 999,
+                                    padding: "9px 12px",
+                                    fontWeight: 550,
+                                    cursor: "pointer",
+                                    background: active ? "#ffffff" : "transparent",
+                                    color: active ? "#111827" : "#64748b",
+                                    boxShadow: active
+                                        ? "0 8px 18px rgba(15,23,42,0.08)"
+                                        : "none",
+                                }}
+                            >
+                                {view === "mrr" ? "MRR" : "Churn"}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <section
+                    style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                        gap: 12,
+                        marginBottom: 12,
+                    }}
+                >
+                    {kpis.map((kpi) => (
+                        <div
+                            key={kpi.label}
+                            style={{
+                                padding: "13px 15px",
+                                borderRadius: 20,
+                                background: "#ffffff",
+                                border: "1px solid #e7ebf0",
+                                boxShadow: "0 10px 28px rgba(15,23,42,0.04)",
+                                minHeight: 92,
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "center",
+                            }}
+                        >
+                            <div
+                                style={{
+                                    fontSize: 10.5,
+                                    color: "#64748b",
+                                    fontWeight: 500,
+                                    textTransform: "uppercase",
+                                    letterSpacing: 0.4,
+                                    marginBottom: 7,
+                                }}
+                            >
+                                {kpi.label}
+                            </div>
+
+                            <div
+                                style={{
+                                    fontSize: 26,
+                                    lineHeight: 1,
+                                    fontWeight: 650,
+                                    color: "#111827",
+                                    letterSpacing: "-0.045em",
+                                    marginBottom: 8,
+                                }}
+                            >
+                                {kpi.value}
+                            </div>
+
+                            <div
+                                style={{
+                                    fontSize: 12,
+                                    color: kpi.tone,
+                                    fontWeight: 500,
+                                    lineHeight: 1.3,
+                                }}
+                            >
+                                {kpi.sub}
+                            </div>
+                        </div>
+                    ))}
+                </section>
+
+                <section
+                    style={{
+                        border: "1px solid #e5e7eb",
+                        background: "#ffffff",
+                        borderRadius: 22,
+                        padding: 14,
+                        boxShadow: "0 12px 34px rgba(15,23,42,0.045)",
+                    }}
+                >
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr",
+                            gap: 6,
+                            padding: 4,
+                            borderRadius: 999,
+                            background: "#f8fafc",
+                            border: "1px solid #e5e7eb",
+                            marginBottom: 12,
+                        }}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setInsightTab("drivers")}
+                            style={{
+                                border: 0,
+                                borderRadius: 999,
+                                padding: "8px 12px",
+                                background: insightTab === "drivers" ? "#ffffff" : "transparent",
+                                color: insightTab === "drivers" ? "#111827" : "#64748b",
+                                boxShadow:
+                                    insightTab === "drivers"
+                                        ? "0 8px 18px rgba(15,23,42,0.07)"
+                                        : "none",
+                                fontSize: 13,
+                                fontWeight: 550,
+                                cursor: "pointer",
+                            }}
+                        >
+                            Key drivers
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setInsightTab("forecast")}
+                            style={{
+                                border: 0,
+                                borderRadius: 999,
+                                padding: "8px 12px",
+                                background: insightTab === "forecast" ? "#ffffff" : "transparent",
+                                color: insightTab === "forecast" ? "#111827" : "#64748b",
+                                boxShadow:
+                                    insightTab === "forecast"
+                                        ? "0 8px 18px rgba(15,23,42,0.07)"
+                                        : "none",
+                                fontSize: 13,
+                                fontWeight: 550,
+                                cursor: "pointer",
+                            }}
+                        >
+                            AI forecast
+                        </button>
+                    </div>
+
+                    {insightTab === "drivers" ? (
+                        <>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    gap: 12,
+                                    marginBottom: 10,
+                                }}
+                            >
+                                <div>
+                                    <h3
                                         style={{
-                                            fontSize: 12,
-                                            fontWeight: 800,
+                                            margin: 0,
+                                            fontSize: 16,
+                                            color: "#111827",
+                                            letterSpacing: "-0.025em",
+                                            fontWeight: 650,
+                                        }}
+                                    >
+                                        Key drivers
+                                    </h3>
+
+                                    <p
+                                        style={{
+                                            margin: "4px 0 0",
                                             color: "#64748b",
-                                            textTransform: "uppercase",
-                                            letterSpacing: 0.3,
-                                            marginBottom: 8,
+                                            fontSize: 12.5,
+                                            fontWeight: 400,
                                         }}
                                     >
-                                        MRR
-                                    </div>
-
-                                    <div style={{ fontSize: 13, color: "#64748b", marginBottom: 10 }}>
-                                        {periodLabel}
-                                    </div>
-
-                                    <div
-                                        style={{
-                                            fontSize: 14,
-                                            color: "#0f172a",
-                                            lineHeight: 1.55,
-                                            fontWeight: 600,
-                                            marginBottom: 14,
-                                        }}
-                                    >
-                                        {isDemoPreview
-                                            ? "Previewing sample MRR signals until live data is connected."
-                                            : mrrSummaryLine}
-                                    </div>
-
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "end",
-                                            justifyContent: "space-between",
-                                            gap: 16,
-                                            flexWrap: "wrap",
-                                        }}
-                                    >
-                                        <div>
-                                            <div
-                                                style={{
-                                                    display: "flex",
-                                                    alignItems: "baseline",
-                                                    gap: 10,
-                                                    flexWrap: "wrap",
-                                                }}
-                                            >
-                                                <div
-                                                    style={{
-                                                        fontSize: 32,
-                                                        fontWeight: 900,
-                                                        color: "#0f172a",
-                                                        lineHeight: 1,
-                                                    }}
-                                                >
-                                                    {formatGBPFromMinor(drawerInsights.mrr.currentMinor)}
-                                                </div>
-
-                                                {typeof drawerInsights.mrr.deltaPct === "number" ? (
-                                                    <div
-                                                        style={{
-                                                            fontSize: 14,
-                                                            fontWeight: 800,
-                                                            color:
-                                                                drawerInsights.mrr.deltaPct >= 0
-                                                                    ? "#16a34a"
-                                                                    : "#dc2626",
-                                                        }}
-                                                    >
-                                                        {formatDeltaPct(drawerInsights.mrr.deltaPct)}
-                                                    </div>
-                                                ) : null}
-                                            </div>
-
-                                            <div
-                                                style={{
-                                                    fontSize: 13,
-                                                    color: "#64748b",
-                                                    fontWeight: 600,
-                                                    marginTop: 8,
-                                                }}
-                                            >
-                                                {typeof drawerInsights.mrr.prevMinor === "number"
-                                                    ? `vs ${formatGBPFromMinor(drawerInsights.mrr.prevMinor)} previous month`
-                                                    : "vs previous month"}
-                                            </div>
-                                        </div>
-
-                                        <div
-                                            style={{
-                                                minWidth: 120,
-                                                textAlign: "right",
-                                            }}
-                                        >
-                                            <div
-                                                style={{
-                                                    fontSize: 12,
-                                                    color: "#64748b",
-                                                    fontWeight: 700,
-                                                    marginBottom: 4,
-                                                }}
-                                            >
-                                                Confidence
-                                            </div>
-                                            <div
-                                                style={{
-                                                    fontSize: 22,
-                                                    fontWeight: 900,
-                                                    color: "#0f172a",
-                                                    lineHeight: 1,
-                                                }}
-                                            >
-                                                {mrrForecast
-                                                    ? `${mrrForecast.confidencePct}%`
-                                                    : `${aiInsightMetrics.confidenceScore}%`}
-                                            </div>
-                                        </div>
-                                    </div>
+                                        {isMrr
+                                            ? "What drove revenue changes this month."
+                                            : "What drove churn risk this month."}
+                                    </p>
                                 </div>
 
                                 <div
                                     style={{
-                                        display: "grid",
-                                        gridTemplateColumns: "0.95fr 1.05fr",
-                                        gap: 14,
-                                        marginBottom: 14,
-                                        alignItems: "start",
+                                        fontSize: 12,
+                                        fontWeight: 500,
+                                        color: "#64748b",
                                     }}
                                 >
-                                    <div style={cardStyle()}>
-                                        <div style={sectionTitleStyle()}>Key Drivers</div>
-                                        <div style={sectionSubStyle()}>
-                                            Positive MRR contributors this month only.
-                                        </div>
-
-                                        {pagedDriverRows.length ? (
-                                            <div style={{ display: "grid", gap: 10 }}>
-                                                {pagedDriverRows.map((row, idx) => {
-                                                    const displayDate = resolveDisplayDate(
-                                                        row.lastEventAt,
-                                                        row.id || row.accountName || row.label,
-                                                        drawerInsights.months.current
-                                                    );
-
-                                                    return (
-                                                        <button
-                                                            key={`${row.id || row.accountName || row.label}-${idx}`}
-                                                            type="button"
-                                                            onClick={() => openAccount(row.id)}
-                                                            className={styles.drawerClickableCard}
-                                                            style={{
-                                                                border: "1px solid #eef2f7",
-                                                                borderRadius: 14,
-                                                                padding: 12,
-                                                                background: "#fff",
-                                                                cursor: "pointer",
-                                                                textAlign: "left",
-                                                                width: "100%",
-                                                            }}
-                                                        >
-                                                            <div
-                                                                style={{
-                                                                    display: "flex",
-                                                                    justifyContent: "space-between",
-                                                                    gap: 12,
-                                                                    alignItems: "start",
-                                                                    marginBottom: 4,
-                                                                }}
-                                                            >
-                                                                <div
-                                                                    style={{
-                                                                        fontSize: 14,
-                                                                        fontWeight: 800,
-                                                                        color: "#0f172a",
-                                                                    }}
-                                                                >
-                                                                    {row.accountName || row.label}
-                                                                </div>
-                                                                <div
-                                                                    style={{
-                                                                        fontSize: 13,
-                                                                        fontWeight: 900,
-                                                                        color: "#16a34a",
-                                                                        whiteSpace: "nowrap",
-                                                                    }}
-                                                                >
-                                                                    +{formatCompactGBPFromMinor(Math.abs(row.valueMinor))}
-                                                                </div>
-                                                            </div>
-
-                                                            <div
-                                                                style={{
-                                                                    fontSize: 12,
-                                                                    color: "#64748b",
-                                                                    marginBottom: 2,
-                                                                }}
-                                                            >
-                                                                {row.email || "No email"}
-                                                            </div>
-
-                                                            <div
-                                                                style={{
-                                                                    fontSize: 11,
-                                                                    color: "#94a3b8",
-                                                                    marginBottom: 6,
-                                                                }}
-                                                            >
-                                                                {niceWhen(displayDate)}
-                                                            </div>
-
-                                                            <div
-                                                                style={{
-                                                                    fontSize: 13,
-                                                                    color: "#475569",
-                                                                    lineHeight: 1.45,
-                                                                }}
-                                                            >
-                                                                {row.label}
-                                                            </div>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        ) : (
-                                            <div style={{ fontSize: 13, color: "#64748b" }}>
-                                                No positive MRR drivers yet.
-                                            </div>
-                                        )}
-
-                                        {positiveDriverRows.length > 0 ? (
-                                            <div
-                                                style={{
-                                                    display: "flex",
-                                                    justifyContent: "space-between",
-                                                    alignItems: "center",
-                                                    marginTop: 12,
-                                                }}
-                                            >
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setDriverPage((p) => Math.max(0, p - 1))}
-                                                    disabled={driverPage === 0}
-                                                    style={{
-                                                        border: "1px solid #e2e8f0",
-                                                        background: driverPage === 0 ? "#f8fafc" : "#fff",
-                                                        color: driverPage === 0 ? "#94a3b8" : "#0f172a",
-                                                        borderRadius: 10,
-                                                        padding: "8px 12px",
-                                                        fontSize: 13,
-                                                        fontWeight: 700,
-                                                        cursor: driverPage === 0 ? "default" : "pointer",
-                                                    }}
-                                                >
-                                                    Previous
-                                                </button>
-
-                                                <div
-                                                    style={{
-                                                        fontSize: 12,
-                                                        fontWeight: 700,
-                                                        color: "#64748b",
-                                                    }}
-                                                >
-                                                    Page {driverPage + 1} of {totalDriverPages}
-                                                </div>
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setDriverPage((p) =>
-                                                            Math.min(totalDriverPages - 1, p + 1)
-                                                        )
-                                                    }
-                                                    disabled={driverPage >= totalDriverPages - 1}
-                                                    style={{
-                                                        border: "1px solid #e2e8f0",
-                                                        background:
-                                                            driverPage >= totalDriverPages - 1
-                                                                ? "#f8fafc"
-                                                                : "#fff",
-                                                        color:
-                                                            driverPage >= totalDriverPages - 1
-                                                                ? "#94a3b8"
-                                                                : "#0f172a",
-                                                        borderRadius: 10,
-                                                        padding: "8px 12px",
-                                                        fontSize: 13,
-                                                        fontWeight: 700,
-                                                        cursor:
-                                                            driverPage >= totalDriverPages - 1
-                                                                ? "default"
-                                                                : "pointer",
-                                                    }}
-                                                >
-                                                    Next
-                                                </button>
-                                            </div>
-                                        ) : null}
-                                    </div>
-
-                                    <div style={{ ...cardStyle(), ...(!isPro ? blurLockStyle() : {}) }}>
-                                        <div style={!isPro ? blurredInnerStyle() : undefined}>
-                                            <div style={sectionTitleStyle()}>Forecast (AI)</div>
-                                            <div style={sectionSubStyle()}>
-                                                Projected next month MRR based on current growth signals and risk concentration.
-                                            </div>
-
-                                            <div
-                                                style={{
-                                                    fontSize: 30,
-                                                    fontWeight: 900,
-                                                    color: "#0f172a",
-                                                    lineHeight: 1.1,
-                                                    marginBottom: 12,
-                                                }}
-                                            >
-                                                {mrrForecast
-                                                    ? formatProjectedGBP(mrrForecast.projectedNext)
-                                                    : "—"}
-                                            </div>
-
-                                            <div
-                                                style={{
-                                                    display: "grid",
-                                                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                                                    gap: 10,
-                                                    marginBottom: 12,
-                                                }}
-                                            >
-                                                <div
-                                                    style={{
-                                                        border: "1px solid #eef2f7",
-                                                        borderRadius: 12,
-                                                        padding: 12,
-                                                        background: "#fff",
-                                                    }}
-                                                >
-                                                    <div
-                                                        style={{
-                                                            fontSize: 11,
-                                                            color: "#64748b",
-                                                            fontWeight: 700,
-                                                            marginBottom: 6,
-                                                        }}
-                                                    >
-                                                        This month
-                                                    </div>
-                                                    <div
-                                                        style={{
-                                                            fontSize: 16,
-                                                            fontWeight: 900,
-                                                            color: "#0f172a",
-                                                        }}
-                                                    >
-                                                        {formatGBPFromMinor(drawerInsights.mrr.currentMinor)}
-                                                    </div>
-                                                </div>
-
-                                                <div
-                                                    style={{
-                                                        border: "1px solid #eef2f7",
-                                                        borderRadius: 12,
-                                                        padding: 12,
-                                                        background: "#fff",
-                                                    }}
-                                                >
-                                                    <div
-                                                        style={{
-                                                            fontSize: 11,
-                                                            color: "#64748b",
-                                                            fontWeight: 700,
-                                                            marginBottom: 6,
-                                                        }}
-                                                    >
-                                                        Previous month
-                                                    </div>
-                                                    <div
-                                                        style={{
-                                                            fontSize: 16,
-                                                            fontWeight: 900,
-                                                            color: "#0f172a",
-                                                        }}
-                                                    >
-                                                        {typeof drawerInsights.mrr.prevMinor === "number"
-                                                            ? formatGBPFromMinor(drawerInsights.mrr.prevMinor)
-                                                            : "—"}
-                                                    </div>
-                                                </div>
-
-                                                <div
-                                                    style={{
-                                                        border: "1px solid #eef2f7",
-                                                        borderRadius: 12,
-                                                        padding: 12,
-                                                        background: "#fff",
-                                                    }}
-                                                >
-                                                    <div
-                                                        style={{
-                                                            fontSize: 11,
-                                                            color: "#64748b",
-                                                            fontWeight: 700,
-                                                            marginBottom: 6,
-                                                        }}
-                                                    >
-                                                        Projected next
-                                                    </div>
-                                                    <div
-                                                        style={{
-                                                            fontSize: 16,
-                                                            fontWeight: 900,
-                                                            color: "#0f172a",
-                                                        }}
-                                                    >
-                                                        {mrrForecast
-                                                            ? formatProjectedGBP(mrrForecast.projectedNext)
-                                                            : "—"}
-                                                    </div>
-                                                </div>
-
-                                                <div
-                                                    style={{
-                                                        border: "1px solid #eef2f7",
-                                                        borderRadius: 12,
-                                                        padding: 12,
-                                                        background: "#fff",
-                                                    }}
-                                                >
-                                                    <div
-                                                        style={{
-                                                            fontSize: 11,
-                                                            color: "#64748b",
-                                                            fontWeight: 700,
-                                                            marginBottom: 6,
-                                                        }}
-                                                    >
-                                                        Confidence
-                                                    </div>
-                                                    <div
-                                                        style={{
-                                                            fontSize: 16,
-                                                            fontWeight: 900,
-                                                            color: "#0f172a",
-                                                        }}
-                                                    >
-                                                        {mrrForecast
-                                                            ? `${mrrForecast.confidencePct}%`
-                                                            : `${aiInsightMetrics.confidenceScore}%`}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div
-                                                style={{
-                                                    fontSize: 13,
-                                                    color: "#475569",
-                                                    lineHeight: 1.55,
-                                                    marginBottom: 12,
-                                                    fontWeight: 600,
-                                                }}
-                                            >
-                                                {isDemoPreview
-                                                    ? "Projection is based on sample new customer, upgrade, and churn signals until live data is connected."
-                                                    : mrrForecastWhyLine}
-                                            </div>
-
-                                            <div
-                                                style={{
-                                                    fontSize: 13,
-                                                    color: "#475569",
-                                                    lineHeight: 1.55,
-                                                    marginBottom: 12,
-                                                }}
-                                            >
-                                                {aiMrr.headline}
-                                            </div>
-
-                                            <div style={{ display: "grid", gap: 10 }}>
-                                                {aiMrr.bullets?.slice(0, 3).map((bullet, idx) => (
-                                                    <div
-                                                        key={`${bullet}-${idx}`}
-                                                        style={{
-                                                            border: "1px solid #eef2f7",
-                                                            borderRadius: 12,
-                                                            padding: 12,
-                                                            fontSize: 13,
-                                                            color: "#475569",
-                                                            lineHeight: 1.45,
-                                                            fontWeight: 600,
-                                                        }}
-                                                    >
-                                                        {bullet}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        {!isPro ? (
-                                            <div style={overlayLockStyle()}>
-                                                <div style={lockCardStyle()}>
-                                                    <div
-                                                        style={{
-                                                            fontSize: 11,
-                                                            fontWeight: 800,
-                                                            color: "#64748b",
-                                                            textTransform: "uppercase",
-                                                            letterSpacing: 0.4,
-                                                            marginBottom: 8,
-                                                        }}
-                                                    >
-                                                        Pro feature
-                                                    </div>
-                                                    <div
-                                                        style={{
-                                                            fontSize: 18,
-                                                            fontWeight: 900,
-                                                            color: "#0f172a",
-                                                            marginBottom: 8,
-                                                        }}
-                                                    >
-                                                        Unlock AI forecasts
-                                                    </div>
-                                                    <div
-                                                        style={{
-                                                            fontSize: 13,
-                                                            color: "#64748b",
-                                                            lineHeight: 1.55,
-                                                            marginBottom: 14,
-                                                        }}
-                                                    >
-                                                        Upgrade to Pro for unlimited AI insights, forecasts, and account-level prioritisation.
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setShowUpgradeModal(false);
-                                                            onClose();
-                                                            router.push("/dashboard/settings?tab=manage-plan");
-                                                        }}
-                                                        style={{
-                                                            border: "none",
-                                                            background: "#0f172a",
-                                                            color: "#ffffff",
-                                                            borderRadius: 999,
-                                                            padding: "11px 18px",
-                                                            fontSize: 14,
-                                                            fontWeight: 600,
-                                                            cursor: "pointer",
-                                                        }}
-                                                    >
-                                                        Upgrade to Pro
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ) : null}
-                                    </div>
+                                    {safePage + 1}/{totalPages}
                                 </div>
+                            </div>
 
-                                <div style={{ ...cardStyle(), ...(!isPro ? blurLockStyle() : {}) }}>
-                                    <div style={sectionTitleStyle()}>MRR Opportunities</div>
-                                    <div style={sectionSubStyle()}>
-                                        Accounts most likely to expand revenue this month. Open the account or send an email directly.
-                                    </div>
-
+                            <div style={{ display: "grid", gap: 8 }}>
+                                {visibleDrivers.map((row) => (
                                     <div
+                                        key={`${row.id}-${row.name}`}
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => router.push(accountHref(row.id))}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") router.push(accountHref(row.id));
+                                        }}
                                         style={{
-                                            display: "flex",
-                                            justifyContent: "space-between",
+                                            width: "100%",
+                                            display: "grid",
+                                            gridTemplateColumns: "minmax(0, 1fr) auto",
                                             gap: 12,
                                             alignItems: "center",
-                                            marginBottom: 12,
-                                            flexWrap: "wrap",
+                                            padding: "9px 13px",
+                                            borderRadius: 15,
+                                            border: "1px solid #edf1f5",
+                                            background: "#ffffff",
+                                            cursor: "pointer",
+                                            textAlign: "left",
+                                            boxShadow: "0 6px 18px rgba(15,23,42,0.025)",
+                                            transition: "all 0.18s ease",
                                         }}
                                     >
-                                        <div
-                                            style={{
-                                                fontSize: 14,
-                                                color: "#0f172a",
-                                                fontWeight: 700,
-                                            }}
-                                        >
-                                            {formatGBPFromMinor(totalOpportunityMinor)} potential upside across{" "}
-                                            {sortedExpansionRows.length} account
-                                            {sortedExpansionRows.length === 1 ? "" : "s"}
-                                        </div>
-                                    </div>
-
-                                    {!isPro ? (
-                                        <>
-                                            <div style={{ display: "grid", gap: 12 }}>
-                                                {pagedOpportunityRows.length ? (
-                                                    pagedOpportunityRows.map((row) => (
-                                                        <div
-                                                            key={row.id}
-                                                            style={{
-                                                                border: "1px solid #eef2f7",
-                                                                borderRadius: 14,
-                                                                padding: 14,
-                                                                background: "#fff",
-                                                                display: "flex",
-                                                                justifyContent: "space-between",
-                                                                gap: 12,
-                                                                alignItems: "center",
-                                                            }}
-                                                        >
-                                                            <div style={{ minWidth: 0 }}>
-                                                                <div
-                                                                    style={{
-                                                                        fontSize: 14,
-                                                                        fontWeight: 800,
-                                                                        color: "#0f172a",
-                                                                        marginBottom: 4,
-                                                                    }}
-                                                                >
-                                                                    {row.name}
-                                                                </div>
-                                                                <div
-                                                                    style={{
-                                                                        fontSize: 12,
-                                                                        color: "#64748b",
-                                                                    }}
-                                                                >
-                                                                    Upgrade to see full opportunity details
-                                                                </div>
-                                                            </div>
-
-                                                            <div
-                                                                style={{
-                                                                    fontSize: 13,
-                                                                    fontWeight: 900,
-                                                                    color: "#16a34a",
-                                                                    whiteSpace: "nowrap",
-                                                                }}
-                                                            >
-                                                                {row.upsideMinor
-                                                                    ? `+${formatGBPFromMinor(row.upsideMinor)}`
-                                                                    : "—"}
-                                                            </div>
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    <div style={{ fontSize: 13, color: "#64748b" }}>
-                                                        No strong MRR opportunities found yet.
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <div style={overlayLockStyle()}>
-                                                <div style={lockCardStyle()}>
-                                                    <div
-                                                        style={{
-                                                            fontSize: 11,
-                                                            fontWeight: 800,
-                                                            color: "#64748b",
-                                                            textTransform: "uppercase",
-                                                            letterSpacing: 0.4,
-                                                            marginBottom: 8,
-                                                        }}
-                                                    >
-                                                        Pro feature
-                                                    </div>
-                                                    <div
-                                                        style={{
-                                                            fontSize: 18,
-                                                            fontWeight: 900,
-                                                            color: "#0f172a",
-                                                            marginBottom: 8,
-                                                        }}
-                                                    >
-                                                        Unlock full MRR opportunities
-                                                    </div>
-                                                    <div
-                                                        style={{
-                                                            fontSize: 13,
-                                                            color: "#64748b",
-                                                            lineHeight: 1.55,
-                                                            marginBottom: 14,
-                                                        }}
-                                                    >
-                                                        See account names, growth signals, action suggestions, and send expansion emails with Pro.
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setShowUpgradeModal(false);
-                                                            onClose();
-                                                            router.push("/dashboard/settings?tab=manage-plan");
-                                                        }}
-                                                        style={{
-                                                            border: "none",
-                                                            background: "#0f172a",
-                                                            color: "#ffffff",
-                                                            borderRadius: 999,
-                                                            padding: "11px 18px",
-                                                            fontSize: 14,
-                                                            fontWeight: 600,
-                                                            cursor: "pointer",
-                                                        }}
-                                                    >
-                                                        Upgrade to Pro
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            {topGrowthSignals.length ? (
-                                                <div
-                                                    style={{
-                                                        display: "flex",
-                                                        gap: 8,
-                                                        flexWrap: "wrap",
-                                                        marginBottom: 12,
-                                                    }}
-                                                >
-                                                    {topGrowthSignals.map((signal) => (
-                                                        <div
-                                                            key={signal}
-                                                            style={{
-                                                                fontSize: 12,
-                                                                fontWeight: 700,
-                                                                color: "#475569",
-                                                                background: "#f8fafc",
-                                                                border: "1px solid #e2e8f0",
-                                                                borderRadius: 999,
-                                                                padding: "6px 10px",
-                                                            }}
-                                                        >
-                                                            {signal}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : null}
-
-                                            {pagedOpportunityRows.length ? (
-                                                <>
-                                                    <div
-                                                        style={{
-                                                            border: "1px solid #eef2f7",
-                                                            borderRadius: 14,
-                                                            overflow: "hidden",
-                                                            background: "#fff",
-                                                        }}
-                                                    >
-                                                        <div
-                                                            style={{
-                                                                display: "grid",
-                                                                gridTemplateColumns: "1.15fr 0.7fr 1.45fr 1fr",
-                                                                padding: "10px 12px",
-                                                                background: "#f8fafc",
-                                                                borderBottom: "1px solid #eef2f7",
-                                                                fontSize: 12,
-                                                                fontWeight: 800,
-                                                                color: "#64748b",
-                                                                gap: 12,
-                                                            }}
-                                                        >
-                                                            <div>Account</div>
-                                                            <div>Potential upside</div>
-                                                            <div>Growth signal</div>
-                                                            <div>Action suggestion</div>
-                                                        </div>
-
-                                                        {pagedOpportunityRows.map((row, index) => {
-                                                            const resolvedEmail = resolveExpansionEmail(
-                                                                row,
-                                                                mrrDriverRows
-                                                            );
-                                                            const signal = resolveExpansionSignal(
-                                                                row,
-                                                                mrrDriverRows
-                                                            );
-                                                            const displayDate = resolveExpansionDate(
-                                                                row,
-                                                                mrrDriverRows,
-                                                                drawerInsights.months.current
-                                                            );
-
-                                                            return (
-                                                                <div
-                                                                    key={row.id}
-                                                                    style={{
-                                                                        display: "grid",
-                                                                        gridTemplateColumns:
-                                                                            "1.15fr 0.7fr 1.45fr 1fr",
-                                                                        padding: "12px",
-                                                                        gap: 12,
-                                                                        alignItems: "center",
-                                                                        borderBottom:
-                                                                            index === pagedOpportunityRows.length - 1
-                                                                                ? "none"
-                                                                                : "1px solid #f1f5f9",
-                                                                    }}
-                                                                >
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => openAccount(row.id)}
-                                                                        className={styles.drawerClickableCard}
-                                                                        style={{
-                                                                            border: "none",
-                                                                            background: "transparent",
-                                                                            padding: 0,
-                                                                            textAlign: "left",
-                                                                            cursor: "pointer",
-                                                                            width: "100%",
-                                                                        }}
-                                                                    >
-                                                                        <div
-                                                                            style={{
-                                                                                fontSize: 14,
-                                                                                fontWeight: 800,
-                                                                                color: "#0f172a",
-                                                                            }}
-                                                                        >
-                                                                            {row.name}
-                                                                        </div>
-                                                                        <div
-                                                                            style={{
-                                                                                fontSize: 12,
-                                                                                color: "#64748b",
-                                                                                marginTop: 3,
-                                                                            }}
-                                                                        >
-                                                                            {resolvedEmail || "No email"}
-                                                                        </div>
-                                                                        <div
-                                                                            style={{
-                                                                                fontSize: 11,
-                                                                                color: "#94a3b8",
-                                                                                marginTop: 2,
-                                                                            }}
-                                                                        >
-                                                                            {niceWhen(displayDate)}
-                                                                        </div>
-                                                                    </button>
-
-                                                                    <div
-                                                                        style={{
-                                                                            fontSize: 13,
-                                                                            fontWeight: 900,
-                                                                            color: "#16a34a",
-                                                                            whiteSpace: "nowrap",
-                                                                        }}
-                                                                    >
-                                                                        {row.upsideMinor
-                                                                            ? `+${formatGBPFromMinor(
-                                                                                row.upsideMinor
-                                                                            )}`
-                                                                            : "—"}
-                                                                    </div>
-
-                                                                    <div
-                                                                        style={{
-                                                                            fontSize: 13,
-                                                                            color: "#475569",
-                                                                            lineHeight: 1.45,
-                                                                        }}
-                                                                    >
-                                                                        {signal}
-                                                                    </div>
-
-                                                                    <div>
-                                                                        <div
-                                                                            style={{
-                                                                                fontSize: 12,
-                                                                                color: "#64748b",
-                                                                                lineHeight: 1.4,
-                                                                                marginBottom: 8,
-                                                                                fontWeight: 600,
-                                                                            }}
-                                                                        >
-                                                                            {row.action ||
-                                                                                "Send an expansion email"}
-                                                                        </div>
-
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => {
-                                                                                if (!resolvedEmail) return;
-                                                                                openExpansionEmailModal(
-                                                                                    row,
-                                                                                    resolvedEmail,
-                                                                                    signal
-                                                                                );
-                                                                            }}
-                                                                            disabled={!resolvedEmail}
-                                                                            style={{
-                                                                                border: "1px solid #e2e8f0",
-                                                                                background: resolvedEmail ? "#ffffff" : "#f8fafc",
-                                                                                color: resolvedEmail ? "#0f172a" : "#94a3b8",
-                                                                                borderRadius: 10,
-                                                                                padding: "7px 12px",
-                                                                                fontSize: 12,
-                                                                                fontWeight: 700,
-                                                                                cursor: resolvedEmail ? "pointer" : "default",
-                                                                            }}
-                                                                        >
-                                                                            Send email
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-
-                                                    {sortedExpansionRows.length > 0 ? (
-                                                        <div
-                                                            style={{
-                                                                display: "flex",
-                                                                justifyContent: "space-between",
-                                                                alignItems: "center",
-                                                                marginTop: 12,
-                                                            }}
-                                                        >
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    setOpportunityPage((p) =>
-                                                                        Math.max(0, p - 1)
-                                                                    )
-                                                                }
-                                                                disabled={opportunityPage === 0}
-                                                                style={{
-                                                                    border: "1px solid #e2e8f0",
-                                                                    background:
-                                                                        opportunityPage === 0
-                                                                            ? "#f8fafc"
-                                                                            : "#fff",
-                                                                    color:
-                                                                        opportunityPage === 0
-                                                                            ? "#94a3b8"
-                                                                            : "#0f172a",
-                                                                    borderRadius: 10,
-                                                                    padding: "8px 12px",
-                                                                    fontSize: 13,
-                                                                    fontWeight: 700,
-                                                                    cursor:
-                                                                        opportunityPage === 0
-                                                                            ? "default"
-                                                                            : "pointer",
-                                                                }}
-                                                            >
-                                                                Previous
-                                                            </button>
-
-                                                            <div
-                                                                style={{
-                                                                    fontSize: 12,
-                                                                    fontWeight: 700,
-                                                                    color: "#64748b",
-                                                                }}
-                                                            >
-                                                                Page {opportunityPage + 1} of{" "}
-                                                                {totalOpportunityPages}
-                                                            </div>
-
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    setOpportunityPage((p) =>
-                                                                        Math.min(
-                                                                            totalOpportunityPages - 1,
-                                                                            p + 1
-                                                                        )
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    opportunityPage >=
-                                                                    totalOpportunityPages - 1
-                                                                }
-                                                                style={{
-                                                                    border: "1px solid #e2e8f0",
-                                                                    background:
-                                                                        opportunityPage >=
-                                                                            totalOpportunityPages - 1
-                                                                            ? "#f8fafc"
-                                                                            : "#fff",
-                                                                    color:
-                                                                        opportunityPage >=
-                                                                            totalOpportunityPages - 1
-                                                                            ? "#94a3b8"
-                                                                            : "#0f172a",
-                                                                    borderRadius: 10,
-                                                                    padding: "8px 12px",
-                                                                    fontSize: 13,
-                                                                    fontWeight: 700,
-                                                                    cursor:
-                                                                        opportunityPage >=
-                                                                            totalOpportunityPages - 1
-                                                                            ? "default"
-                                                                            : "pointer",
-                                                                }}
-                                                            >
-                                                                Next
-                                                            </button>
-                                                        </div>
-                                                    ) : null}
-                                                </>
-                                            ) : (
-                                                <div style={{ fontSize: 13, color: "#64748b" }}>
-                                                    No strong MRR opportunities found yet.
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div style={{ ...cardStyle(), marginBottom: 14 }}>
-                                    <div
-                                        style={{
-                                            fontSize: 12,
-                                            fontWeight: 800,
-                                            color: "#64748b",
-                                            textTransform: "uppercase",
-                                            letterSpacing: 0.3,
-                                            marginBottom: 8,
-                                        }}
-                                    >
-                                        Churn
-                                    </div>
-
-                                    <div style={{ fontSize: 13, color: "#64748b", marginBottom: 10 }}>
-                                        {periodLabel}
-                                    </div>
-
-                                    <div
-                                        style={{
-                                            fontSize: 14,
-                                            color: "#0f172a",
-                                            lineHeight: 1.55,
-                                            fontWeight: 600,
-                                            marginBottom: 14,
-                                        }}
-                                    >
-                                        {isDemoPreview
-                                            ? "Previewing sample churn signals until live data is connected."
-                                            : churnSummaryLine}
-                                    </div>
-
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "end",
-                                            justifyContent: "space-between",
-                                            gap: 16,
-                                            flexWrap: "wrap",
-                                        }}
-                                    >
-                                        <div>
+                                        <div style={{ minWidth: 0 }}>
                                             <div
                                                 style={{
                                                     display: "flex",
-                                                    alignItems: "baseline",
-                                                    gap: 10,
-                                                    flexWrap: "wrap",
-                                                }}
-                                            >
-                                                <div
-                                                    style={{
-                                                        fontSize: 32,
-                                                        fontWeight: 900,
-                                                        color: "#0f172a",
-                                                        lineHeight: 1,
-                                                    }}
-                                                >
-                                                    {typeof drawerInsights.churn.currentPct === "number"
-                                                        ? `${drawerInsights.churn.currentPct.toFixed(1)}%`
-                                                        : "—"}
-                                                </div>
-
-                                                {typeof drawerInsights.churn.deltaPp === "number" ? (
-                                                    <div
-                                                        style={{
-                                                            fontSize: 14,
-                                                            fontWeight: 800,
-                                                            color:
-                                                                drawerInsights.churn.deltaPp <= 0
-                                                                    ? "#16a34a"
-                                                                    : "#dc2626",
-                                                        }}
-                                                    >
-                                                        {formatDeltaPp(drawerInsights.churn.deltaPp)}
-                                                    </div>
-                                                ) : null}
-                                            </div>
-
-                                            <div
-                                                style={{
-                                                    fontSize: 13,
-                                                    color: "#64748b",
-                                                    fontWeight: 600,
-                                                    marginTop: 8,
-                                                }}
-                                            >
-                                                vs previous month
-                                            </div>
-                                        </div>
-
-                                        <div
-                                            style={{
-                                                minWidth: 120,
-                                                textAlign: "right",
-                                            }}
-                                        >
-                                            <div
-                                                style={{
-                                                    fontSize: 12,
-                                                    color: "#64748b",
-                                                    fontWeight: 700,
+                                                    alignItems: "center",
+                                                    gap: 8,
                                                     marginBottom: 4,
                                                 }}
                                             >
-                                                Confidence
-                                            </div>
-                                            <div
-                                                style={{
-                                                    fontSize: 22,
-                                                    fontWeight: 900,
-                                                    color: "#0f172a",
-                                                    lineHeight: 1,
-                                                }}
-                                            >
-                                                {churnForecast
-                                                    ? `${churnForecast.confidencePct}%`
-                                                    : `${aiInsightMetrics.confidenceScore}%`}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                                <span
+                                                    style={{
+                                                        padding: "4px 8px",
+                                                        borderRadius: 999,
+                                                        background:
+                                                            row.category === "Churn risk"
+                                                                ? "#fef2f2"
+                                                                : row.category === "Upgrade"
+                                                                    ? "#eff6ff"
+                                                                    : row.category ===
+                                                                        "Retained account"
+                                                                        ? "#ecfdf5"
+                                                                        : "#f8fafc",
+                                                        color:
+                                                            row.category === "Churn risk"
+                                                                ? "#dc2626"
+                                                                : row.category === "Upgrade"
+                                                                    ? "#2563eb"
+                                                                    : row.category ===
+                                                                        "Retained account"
+                                                                        ? "#15803d"
+                                                                        : "#64748b",
+                                                        fontSize: 10.5,
+                                                        fontWeight: 550,
+                                                        whiteSpace: "nowrap",
+                                                    }}
+                                                >
+                                                    {row.category}
+                                                </span>
 
-                                <div
-                                    style={{
-                                        display: "grid",
-                                        gridTemplateColumns: "1fr",
-                                        gap: 14,
-                                        marginBottom: 14,
-                                    }}
-                                >
-                                    <div style={{ ...cardStyle(), ...(!isPro ? blurLockStyle() : {}) }}>
-                                        <div style={!isPro ? blurredInnerStyle() : undefined}>
-                                            <div style={sectionTitleStyle()}>Forecast (AI)</div>
-                                            <div style={sectionSubStyle()}>
-                                                Projected next month churn based on recent movement and account-level risk signals.
-                                            </div>
-
-                                            <div
-                                                style={{
-                                                    fontSize: 30,
-                                                    fontWeight: 900,
-                                                    color: "#0f172a",
-                                                    lineHeight: 1.1,
-                                                    marginBottom: 10,
-                                                }}
-                                            >
-                                                {churnForecast
-                                                    ? `${churnForecast.projectedNext.toFixed(1)}%`
-                                                    : "—"}
+                                                <span
+                                                    style={{
+                                                        fontSize: 13.5,
+                                                        fontWeight: 650,
+                                                        color: "#111827",
+                                                        whiteSpace: "nowrap",
+                                                        overflow: "hidden",
+                                                        textOverflow: "ellipsis",
+                                                    }}
+                                                >
+                                                    {row.name}
+                                                </span>
                                             </div>
 
                                             <div
                                                 style={{
-                                                    fontSize: 13,
-                                                    color: "#475569",
-                                                    lineHeight: 1.55,
-                                                    marginBottom: 12,
+                                                    fontSize: 11.5,
+                                                    color: "#334155",
+                                                    fontWeight: 500,
+                                                    whiteSpace: "nowrap",
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                    marginBottom: 2,
                                                 }}
                                             >
-                                                {aiChurn.headline}
+                                                {row.email || "No email"} • {niceWhen(row.date)}
                                             </div>
 
-                                            <div style={{ display: "grid", gap: 10 }}>
-                                                {aiChurn.bullets?.slice(0, 3).map((bullet, idx) => (
-                                                    <div
-                                                        key={`${bullet}-${idx}`}
-                                                        style={{
-                                                            border: "1px solid #eef2f7",
-                                                            borderRadius: 12,
-                                                            padding: 12,
-                                                            fontSize: 13,
-                                                            color: "#475569",
-                                                            lineHeight: 1.45,
-                                                            fontWeight: 600,
-                                                        }}
-                                                    >
-                                                        {bullet}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        {!isPro ? (
-                                            <div style={overlayLockStyle()}>
-                                                <div style={lockCardStyle()}>
-                                                    <div
-                                                        style={{
-                                                            fontSize: 11,
-                                                            fontWeight: 800,
-                                                            color: "#64748b",
-                                                            textTransform: "uppercase",
-                                                            letterSpacing: 0.4,
-                                                            marginBottom: 8,
-                                                        }}
-                                                    >
-                                                        Pro feature
-                                                    </div>
-                                                    <div
-                                                        style={{
-                                                            fontSize: 18,
-                                                            fontWeight: 900,
-                                                            color: "#0f172a",
-                                                            marginBottom: 8,
-                                                        }}
-                                                    >
-                                                        Unlock churn forecasts
-                                                    </div>
-                                                    <div
-                                                        style={{
-                                                            fontSize: 13,
-                                                            color: "#64748b",
-                                                            lineHeight: 1.55,
-                                                            marginBottom: 14,
-                                                        }}
-                                                    >
-                                                        Upgrade to Pro for unlimited AI insights, forecasts, and account-level prioritisation.
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setShowUpgradeModal(false);
-                                                            onClose();
-                                                            router.push("/dashboard/settings?tab=manage-plan");
-                                                        }}
-                                                        style={{
-                                                            border: "none",
-                                                            background: "#0f172a",
-                                                            color: "#ffffff",
-                                                            borderRadius: 999,
-                                                            padding: "11px 18px",
-                                                            fontSize: 14,
-                                                            fontWeight: 600,
-                                                            cursor: "pointer",
-                                                        }}
-                                                    >
-                                                        Upgrade to Pro
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ) : null}
-                                    </div>
-
-                                    <div style={{ ...cardStyle(), ...(!isPro ? blurLockStyle() : {}) }}>
-                                        <div style={sectionTitleStyle()}>Key Accounts at Risk</div>
-                                        <div style={sectionSubStyle()}>
-                                            Highest-MRR accounts currently most at risk of churn. Open the account or send an email directly.
-                                        </div>
-
-                                        <div
-                                            style={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
-                                                gap: 12,
-                                                alignItems: "center",
-                                                marginBottom: 12,
-                                                flexWrap: "wrap",
-                                            }}
-                                        >
                                             <div
                                                 style={{
-                                                    fontSize: 14,
-                                                    color: "#0f172a",
-                                                    fontWeight: 700,
+                                                    fontSize: 11.5,
+                                                    color: "#64748b",
+                                                    fontWeight: 400,
+                                                    whiteSpace: "nowrap",
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
                                                 }}
                                             >
-                                                {formatGBPFromMinor(totalAtRiskMinor)} across{" "}
-                                                {sortedRiskAccounts.length} account
-                                                {sortedRiskAccounts.length === 1 ? "" : "s"}
+                                                {row.label}
                                             </div>
 
                                             <button
                                                 type="button"
-                                                onClick={() => {
-                                                    if (!isPro) {
-                                                        openUpgrade();
-                                                        return;
-                                                    }
-                                                    openAccount();
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEmailDraft(
+                                                        buildEmailDraft({
+                                                            id: row.id,
+                                                            name: row.name,
+                                                            email: row.email,
+                                                            reason: row.label,
+                                                            mrrMinor: row.mrrMinor,
+                                                            automation: row.category,
+                                                            lastEventAt: row.date,
+                                                        })
+                                                    );
                                                 }}
                                                 style={{
-                                                    border: "none",
-                                                    background: "transparent",
-                                                    padding: 0,
+                                                    width: "fit-content",
+                                                    border: "1px solid #e5e7eb",
+                                                    background: "#ffffff",
+                                                    color: "#111827",
+                                                    borderRadius: 999,
+                                                    padding: "5px 9px",
+                                                    fontSize: 10.8,
+                                                    fontWeight: 550,
                                                     cursor: "pointer",
-                                                    fontSize: 13,
-                                                    fontWeight: 800,
-                                                    color: "#1665c7ff",
+                                                    marginTop: 7,
                                                 }}
                                             >
-                                                Full at Risk Accounts
+                                                Send email
                                             </button>
                                         </div>
 
-                                        {!isPro ? (
-                                            <>
-                                                <div style={{ display: "grid", gap: 12 }}>
-                                                    {pagedRiskRows.length ? (
-                                                        pagedRiskRows.map((row) => (
-                                                            <div
-                                                                key={row.id}
-                                                                style={{
-                                                                    border: "1px solid #eef2f7",
-                                                                    borderRadius: 14,
-                                                                    padding: 14,
-                                                                    background: "#fff",
-                                                                    display: "flex",
-                                                                    justifyContent: "space-between",
-                                                                    gap: 12,
-                                                                    alignItems: "center",
-                                                                }}
-                                                            >
-                                                                <div style={{ minWidth: 0 }}>
-                                                                    <div
-                                                                        style={{
-                                                                            fontSize: 14,
-                                                                            fontWeight: 800,
-                                                                            color: "#0f172a",
-                                                                            marginBottom: 4,
-                                                                        }}
-                                                                    >
-                                                                        Account hidden
-                                                                    </div>
-                                                                    <div
-                                                                        style={{
-                                                                            fontSize: 12,
-                                                                            color: "#64748b",
-                                                                        }}
-                                                                    >
-                                                                        Upgrade to see account names, reasons, and actions
-                                                                    </div>
-                                                                </div>
+                                        <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                                            <div
+                                                style={{
+                                                    fontSize: 13,
+                                                    fontWeight: 650,
+                                                    color:
+                                                        row.tone === "positive"
+                                                            ? "#15803d"
+                                                            : "#dc2626",
+                                                }}
+                                            >
+                                                {row.mrrMinor >= 0 ? "+" : "-"}
+                                                {formatCompactGBPFromMinor(Math.abs(row.mrrMinor))}
+                                            </div>
 
-                                                                <div
-                                                                    style={{
-                                                                        fontSize: 13,
-                                                                        fontWeight: 900,
-                                                                        color: "#dc2626",
-                                                                        whiteSpace: "nowrap",
-                                                                    }}
-                                                                >
-                                                                    {row.mrrMinor
-                                                                        ? formatGBPFromMinor(row.mrrMinor)
-                                                                        : "—"}
-                                                                </div>
-                                                            </div>
-                                                        ))
-                                                    ) : (
-                                                        <div style={{ fontSize: 13, color: "#64748b" }}>
-                                                            No at-risk accounts found.
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                <div style={overlayLockStyle()}>
-                                                    <div style={lockCardStyle()}>
-                                                        <div
-                                                            style={{
-                                                                fontSize: 11,
-                                                                fontWeight: 800,
-                                                                color: "#64748b",
-                                                                textTransform: "uppercase",
-                                                                letterSpacing: 0.4,
-                                                                marginBottom: 8,
-                                                            }}
-                                                        >
-                                                            Pro feature
-                                                        </div>
-                                                        <div
-                                                            style={{
-                                                                fontSize: 18,
-                                                                fontWeight: 900,
-                                                                color: "#0f172a",
-                                                                marginBottom: 8,
-                                                            }}
-                                                        >
-                                                            Unlock key accounts at risk
-                                                        </div>
-                                                        <div
-                                                            style={{
-                                                                fontSize: 13,
-                                                                color: "#64748b",
-                                                                lineHeight: 1.55,
-                                                                marginBottom: 14,
-                                                            }}
-                                                        >
-                                                            See which accounts are driving churn risk, why they are at risk, and the best next action with Pro.
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                setShowUpgradeModal(false);
-                                                                onClose();
-                                                                router.push("/dashboard/settings?tab=manage-plan");
-                                                            }}
-                                                            style={{
-                                                                border: "none",
-                                                                background: "#0f172a",
-                                                                color: "#ffffff",
-                                                                borderRadius: 999,
-                                                                padding: "11px 18px",
-                                                                fontSize: 14,
-                                                                fontWeight: 600,
-                                                                cursor: "pointer",
-                                                            }}
-                                                        >
-                                                            Upgrade to Pro
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <>
-                                                {topReasons.length ? (
-                                                    <div
-                                                        style={{
-                                                            display: "flex",
-                                                            gap: 8,
-                                                            flexWrap: "wrap",
-                                                            marginBottom: 12,
-                                                        }}
-                                                    >
-                                                        {topReasons.map((reason) => (
-                                                            <div
-                                                                key={reason}
-                                                                style={{
-                                                                    fontSize: 12,
-                                                                    fontWeight: 700,
-                                                                    color: "#475569",
-                                                                    background: "#f8fafc",
-                                                                    border: "1px solid #e2e8f0",
-                                                                    borderRadius: 999,
-                                                                    padding: "6px 10px",
-                                                                }}
-                                                            >
-                                                                {reason}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : null}
-
-                                                {pagedRiskRows.length ? (
-                                                    <>
-                                                        <div
-                                                            style={{
-                                                                border: "1px solid #eef2f7",
-                                                                borderRadius: 14,
-                                                                overflow: "hidden",
-                                                                background: "#fff",
-                                                            }}
-                                                        >
-                                                            <div
-                                                                style={{
-                                                                    display: "grid",
-                                                                    gridTemplateColumns:
-                                                                        "1.15fr 0.7fr 1.45fr 1fr",
-                                                                    padding: "10px 12px",
-                                                                    background: "#f8fafc",
-                                                                    borderBottom: "1px solid #eef2f7",
-                                                                    fontSize: 12,
-                                                                    fontWeight: 800,
-                                                                    color: "#64748b",
-                                                                    gap: 12,
-                                                                }}
-                                                            >
-                                                                <div>Account</div>
-                                                                <div>MRR at risk</div>
-                                                                <div>Reason</div>
-                                                                <div>Action suggestion</div>
-                                                            </div>
-
-                                                            {pagedRiskRows.map((row, index) => {
-                                                                const resolvedEmail = resolveRiskEmail(
-                                                                    row,
-                                                                    mrrDriverRows,
-                                                                    expansionRows
-                                                                );
-                                                                const displayDate = resolveDisplayDate(
-                                                                    row.lastEventAt,
-                                                                    row.id || row.name || row.reason,
-                                                                    drawerInsights.months.current
-                                                                );
-
-                                                                return (
-                                                                    <div
-                                                                        key={row.id}
-                                                                        style={{
-                                                                            display: "grid",
-                                                                            gridTemplateColumns:
-                                                                                "1.15fr 0.7fr 1.45fr 1fr",
-                                                                            padding: "12px",
-                                                                            gap: 12,
-                                                                            alignItems: "center",
-                                                                            borderBottom:
-                                                                                index === pagedRiskRows.length - 1
-                                                                                    ? "none"
-                                                                                    : "1px solid #f1f5f9",
-                                                                        }}
-                                                                    >
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => openAccount(row.id)}
-                                                                            className={styles.drawerClickableCard}
-                                                                            style={{
-                                                                                border: "none",
-                                                                                background: "transparent",
-                                                                                padding: 0,
-                                                                                textAlign: "left",
-                                                                                cursor: "pointer",
-                                                                                width: "100%",
-                                                                            }}
-                                                                        >
-                                                                            <div
-                                                                                style={{
-                                                                                    fontSize: 14,
-                                                                                    fontWeight: 800,
-                                                                                    color: "#0f172a",
-                                                                                }}
-                                                                            >
-                                                                                {row.name}
-                                                                            </div>
-                                                                            <div
-                                                                                style={{
-                                                                                    fontSize: 12,
-                                                                                    color: "#64748b",
-                                                                                    marginTop: 3,
-                                                                                }}
-                                                                            >
-                                                                                {resolvedEmail || "No email"}
-                                                                            </div>
-                                                                            <div
-                                                                                style={{
-                                                                                    fontSize: 11,
-                                                                                    color: "#94a3b8",
-                                                                                    marginTop: 2,
-                                                                                }}
-                                                                            >
-                                                                                {niceWhen(displayDate)}
-                                                                            </div>
-                                                                        </button>
-
-                                                                        <div
-                                                                            style={{
-                                                                                fontSize: 13,
-                                                                                fontWeight: 900,
-                                                                                color: "#dc2626",
-                                                                                whiteSpace: "nowrap",
-                                                                            }}
-                                                                        >
-                                                                            {row.mrrMinor
-                                                                                ? formatGBPFromMinor(row.mrrMinor)
-                                                                                : "—"}
-                                                                        </div>
-
-                                                                        <div
-                                                                            style={{
-                                                                                fontSize: 13,
-                                                                                color: "#475569",
-                                                                                lineHeight: 1.45,
-                                                                            }}
-                                                                        >
-                                                                            {row.reason}
-                                                                        </div>
-
-                                                                        <div>
-                                                                            <div
-                                                                                style={{
-                                                                                    display: "inline-flex",
-                                                                                    alignItems: "center",
-                                                                                    fontSize: 11,
-                                                                                    fontWeight: 700,
-                                                                                    padding: "4px 8px",
-                                                                                    borderRadius: 999,
-                                                                                    background:
-                                                                                        row.confidence === "High"
-                                                                                            ? "#dcfce7"
-                                                                                            : row.confidence === "Medium"
-                                                                                                ? "#fef3c7"
-                                                                                                : "#f1f5f9",
-                                                                                    color:
-                                                                                        row.confidence === "High"
-                                                                                            ? "#166534"
-                                                                                            : row.confidence === "Medium"
-                                                                                                ? "#92400e"
-                                                                                                : "#475569",
-                                                                                    marginBottom: 8,
-                                                                                }}
-                                                                            >
-                                                                                {row.confidence || "Low"} confidence
-                                                                            </div>
-
-                                                                            <div
-                                                                                style={{
-                                                                                    fontSize: 12,
-                                                                                    color: "#64748b",
-                                                                                    lineHeight: 1.4,
-                                                                                    marginBottom: 8,
-                                                                                    fontWeight: 600,
-                                                                                }}
-                                                                            >
-                                                                                {row.automation ||
-                                                                                    "Send a retention email"}
-                                                                            </div>
-
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => {
-                                                                                    if (!resolvedEmail) return;
-                                                                                    openRiskEmailModal(
-                                                                                        row,
-                                                                                        resolvedEmail
-                                                                                    );
-                                                                                }}
-                                                                                disabled={!resolvedEmail}
-                                                                                style={{
-                                                                                    border: "1px solid #e2e8f0",
-                                                                                    background: resolvedEmail ? "#ffffff" : "#f8fafc",
-                                                                                    color: resolvedEmail ? "#0f172a" : "#94a3b8",
-                                                                                    borderRadius: 10,
-                                                                                    padding: "7px 12px",
-                                                                                    fontSize: 12,
-                                                                                    fontWeight: 700,
-                                                                                    cursor: resolvedEmail ? "pointer" : "default",
-                                                                                }}
-                                                                            >
-                                                                                Send email
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-
-                                                        {sortedRiskAccounts.length > 0 ? (
-                                                            <div
-                                                                style={{
-                                                                    display: "flex",
-                                                                    justifyContent: "space-between",
-                                                                    alignItems: "center",
-                                                                    marginTop: 12,
-                                                                }}
-                                                            >
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        setRiskPage((p) => Math.max(0, p - 1))
-                                                                    }
-                                                                    disabled={riskPage === 0}
-                                                                    style={{
-                                                                        border: "1px solid #e2e8f0",
-                                                                        background:
-                                                                            riskPage === 0
-                                                                                ? "#f8fafc"
-                                                                                : "#fff",
-                                                                        color:
-                                                                            riskPage === 0
-                                                                                ? "#94a3b8"
-                                                                                : "#0f172a",
-                                                                        borderRadius: 10,
-                                                                        padding: "8px 12px",
-                                                                        fontSize: 13,
-                                                                        fontWeight: 700,
-                                                                        cursor:
-                                                                            riskPage === 0
-                                                                                ? "default"
-                                                                                : "pointer",
-                                                                    }}
-                                                                >
-                                                                    Previous
-                                                                </button>
-
-                                                                <div
-                                                                    style={{
-                                                                        fontSize: 12,
-                                                                        fontWeight: 700,
-                                                                        color: "#64748b",
-                                                                    }}
-                                                                >
-                                                                    Page {riskPage + 1} of {totalRiskPages}
-                                                                </div>
-
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        setRiskPage((p) =>
-                                                                            Math.min(
-                                                                                totalRiskPages - 1,
-                                                                                p + 1
-                                                                            )
-                                                                        )
-                                                                    }
-                                                                    disabled={
-                                                                        riskPage >= totalRiskPages - 1
-                                                                    }
-                                                                    style={{
-                                                                        border: "1px solid #e2e8f0",
-                                                                        background:
-                                                                            riskPage >= totalRiskPages - 1
-                                                                                ? "#f8fafc"
-                                                                                : "#fff",
-                                                                        color:
-                                                                            riskPage >= totalRiskPages - 1
-                                                                                ? "#94a3b8"
-                                                                                : "#0f172a",
-                                                                        borderRadius: 10,
-                                                                        padding: "8px 12px",
-                                                                        fontSize: 13,
-                                                                        fontWeight: 700,
-                                                                        cursor:
-                                                                            riskPage >= totalRiskPages - 1
-                                                                                ? "default"
-                                                                                : "pointer",
-                                                                    }}
-                                                                >
-                                                                    Next
-                                                                </button>
-                                                            </div>
-                                                        ) : null}
-                                                    </>
-                                                ) : (
-                                                    <div style={{ fontSize: 13, color: "#64748b" }}>
-                                                        No at-risk accounts found.
-                                                    </div>
-                                                )}
-                                            </>
-                                        )}
+                                            <div
+                                                style={{
+                                                    fontSize: 9.5,
+                                                    fontWeight: 550,
+                                                    color: "#64748b",
+                                                    marginTop: 2,
+                                                    textTransform: "uppercase",
+                                                    letterSpacing: 0.3,
+                                                }}
+                                            >
+                                                MRR
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </>
-                        )}
+                                ))}
+                            </div>
 
-                        {insights?.ok && insights.items?.length ? (
-                            <div className={styles.drawerCard}>
-                                <div className={styles.drawerSubhead}>Recent automated insights</div>
-                                <div className={styles.drawerInsightList}>
-                                    {insights.items.slice(0, 6).map((it) => (
-                                        <button
-                                            key={it.id}
-                                            type="button"
-                                            className={styles.drawerInsightCard}
-                                            onClick={() => {
-                                                safePush(it.href);
-                                            }}
-                                        >
-                                            <div className={styles.drawerInsightTop}>
-                                                <div className={styles.drawerInsightTitle}>
-                                                    {it.title}
-                                                </div>
-                                                <div className={styles.drawerInsightMeta}>
-                                                    {niceWhen(it.createdAt)}
-                                                </div>
-                                            </div>
-                                            <div className={styles.drawerInsightSummary}>
-                                                {it.summary}
-                                            </div>
-                                            {it.impactLabel ? (
-                                                <div className={styles.drawerInsightImpact}>
-                                                    {it.impactLabel}
-                                                </div>
-                                            ) : null}
-                                        </button>
-                                    ))}
+                            <div
+                                style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    gap: 10,
+                                    marginTop: 10,
+                                }}
+                            >
+                                <button
+                                    type="button"
+                                    disabled={safePage === 0}
+                                    onClick={() => setDriverPage((p) => Math.max(0, p - 1))}
+                                    style={{
+                                        border: "1px solid #e5e7eb",
+                                        background: "#ffffff",
+                                        color: safePage === 0 ? "#cbd5e1" : "#111827",
+                                        borderRadius: 999,
+                                        padding: "7px 11px",
+                                        fontSize: 12,
+                                        fontWeight: 500,
+                                        cursor: safePage === 0 ? "not-allowed" : "pointer",
+                                    }}
+                                >
+                                    Previous
+                                </button>
+
+                                <button
+                                    type="button"
+                                    disabled={safePage >= totalPages - 1}
+                                    onClick={() =>
+                                        setDriverPage((p) => Math.min(totalPages - 1, p + 1))
+                                    }
+                                    style={{
+                                        border: "1px solid #e5e7eb",
+                                        background: "#ffffff",
+                                        color:
+                                            safePage >= totalPages - 1 ? "#cbd5e1" : "#111827",
+                                        borderRadius: 999,
+                                        padding: "7px 11px",
+                                        fontSize: 12,
+                                        fontWeight: 500,
+                                        cursor:
+                                            safePage >= totalPages - 1
+                                                ? "not-allowed"
+                                                : "pointer",
+                                    }}
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </>
+                    ) : isMrr ? (
+                        <ForecastMrrContent
+                            hasProAccess={hasProAccess}
+                            router={router}
+                            ai={ai}
+                            withoutChurnMinor={withoutChurnMinor}
+                            highRiskAccounts={
+                                actionFirstAccounts.length ? actionFirstAccounts : highRiskAccounts
+                            }
+                            onEmailClick={(acc) => setEmailDraft(buildEmailDraft(acc, "risk"))}
+                        />
+                    ) : (
+                        <ForecastChurnContent
+                            hasProAccess={hasProAccess}
+                            router={router}
+                            highRiskAccounts={
+                                actionFirstAccounts.length ? actionFirstAccounts : highRiskAccounts
+                            }
+                            onEmailClick={(acc) => setEmailDraft(buildEmailDraft(acc, "retry"))}
+                        />
+                    )}
+                </section>
+            </aside>
+
+            {emailDraft ? (
+                <EmailComposeModal
+                    draft={emailDraft}
+                    onClose={() => setEmailDraft(null)}
+                    onChange={setEmailDraft}
+                />
+            ) : null}
+        </div>
+    );
+}
+
+function ForecastMrrContent({
+    hasProAccess,
+    router,
+    ai,
+    withoutChurnMinor,
+    highRiskAccounts,
+    onEmailClick,
+}: {
+    hasProAccess: boolean;
+    router: ReturnType<typeof useRouter>;
+    ai: AiSummary;
+    withoutChurnMinor: number;
+    highRiskAccounts: RiskAccountRow[];
+    onEmailClick: (acc: RiskAccountRow) => void;
+}) {
+    return (
+        <div style={{ position: "relative", overflow: "hidden" }}>
+            {!hasProAccess ? <ForecastLockOverlay router={router} /> : null}
+
+            <div style={{ display: "grid", gap: 10 }}>
+                <h3
+                    style={{
+                        margin: 0,
+                        fontSize: 16,
+                        lineHeight: 1.2,
+                        letterSpacing: "-0.025em",
+                        color: "#111827",
+                        fontWeight: 650,
+                    }}
+                >
+                    {ai.headline}
+                </h3>
+
+                <div
+                    style={{
+                        padding: 12,
+                        borderRadius: 15,
+                        background: "#f8fafc",
+                        border: "1px solid #e5e7eb",
+                    }}
+                >
+                    <div
+                        style={{
+                            fontSize: 10,
+                            fontWeight: 500,
+                            color: "#64748b",
+                            textTransform: "uppercase",
+                            letterSpacing: 0.35,
+                            marginBottom: 5,
+                        }}
+                    >
+                        Without churn
+                    </div>
+
+                    <div
+                        style={{
+                            fontSize: 22,
+                            fontWeight: 650,
+                            color: "#111827",
+                            letterSpacing: "-0.04em",
+                            marginBottom: 4,
+                        }}
+                    >
+                        +{formatGBPFromMinor(withoutChurnMinor)}
+                    </div>
+
+                    <div style={{ fontSize: 11.5, color: "#64748b", lineHeight: 1.3 }}>
+                        MoM potential if these high-risk accounts are retained.
+                    </div>
+                </div>
+
+                <RiskTable
+                    title="High-risk accounts to address immediately"
+                    buttonText="View full list"
+                    buttonHref="/dashboard/accounts-at-risk"
+                    columns={["Account", "Reason", "AI suggestion", "MRR"]}
+                    rows={highRiskAccounts}
+                    router={router}
+                    mode="risk"
+                    onEmailClick={onEmailClick}
+                />
+            </div>
+        </div>
+    );
+}
+
+function ForecastChurnContent({
+    hasProAccess,
+    router,
+    highRiskAccounts,
+    onEmailClick,
+}: {
+    hasProAccess: boolean;
+    router: ReturnType<typeof useRouter>;
+    highRiskAccounts: RiskAccountRow[];
+    onEmailClick: (acc: RiskAccountRow) => void;
+}) {
+    const retentionImpactMinor = highRiskAccounts.reduce(
+        (total, acc) => total + Math.max(0, acc.mrrMinor ?? 0),
+        0
+    );
+
+    return (
+        <div style={{ position: "relative", overflow: "hidden" }}>
+            {!hasProAccess ? <ForecastLockOverlay router={router} /> : null}
+
+            <div style={{ display: "grid", gap: 10 }}>
+                <h3
+                    style={{
+                        margin: 0,
+                        fontSize: 16,
+                        lineHeight: 1.2,
+                        letterSpacing: "-0.025em",
+                        color: "#111827",
+                        fontWeight: 650,
+                    }}
+                >
+                    Retention actions failed and need retry.
+                </h3>
+
+                <div
+                    style={{
+                        padding: 12,
+                        borderRadius: 15,
+                        background: "#f8fafc",
+                        border: "1px solid #e5e7eb",
+                    }}
+                >
+                    <div
+                        style={{
+                            fontSize: 10,
+                            fontWeight: 500,
+                            color: "#64748b",
+                            textTransform: "uppercase",
+                            letterSpacing: 0.35,
+                            marginBottom: 5,
+                        }}
+                    >
+                        Retention impact
+                    </div>
+
+                    <div
+                        style={{
+                            fontSize: 22,
+                            fontWeight: 650,
+                            color: "#111827",
+                            letterSpacing: "-0.04em",
+                            marginBottom: 4,
+                        }}
+                    >
+                        {formatGBPFromMinor(retentionImpactMinor)}
+                    </div>
+
+                    <div style={{ fontSize: 11.5, color: "#64748b", lineHeight: 1.3 }}>
+                        Revenue still at risk from failed or unresolved retention actions.
+                    </div>
+                </div>
+
+                <RiskTable
+                    title="Failed progress breakdown to retry immediately"
+                    buttonText="View progress"
+                    buttonHref="/dashboard/progress"
+                    columns={["Account", "Failed progress", "Retry action", "MRR"]}
+                    rows={highRiskAccounts}
+                    router={router}
+                    mode="retry"
+                    onEmailClick={onEmailClick}
+                />
+            </div>
+        </div>
+    );
+}
+
+function ForecastLockOverlay({ router }: { router: ReturnType<typeof useRouter> }) {
+    return (
+        <div
+            style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 2,
+                display: "grid",
+                placeItems: "center",
+                background: "rgba(255,255,255,0.76)",
+                backdropFilter: "blur(8px)",
+                padding: 20,
+            }}
+        >
+            <div
+                style={{
+                    maxWidth: 320,
+                    textAlign: "center",
+                    background: "#ffffff",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 18,
+                    padding: 18,
+                    color: "#111827",
+                    boxShadow: "0 18px 44px rgba(15,23,42,0.12)",
+                }}
+            >
+                <div style={{ fontSize: 15, fontWeight: 650, marginBottom: 6 }}>
+                    Pro AI forecast
+                </div>
+
+                <div
+                    style={{
+                        fontSize: 13,
+                        color: "#64748b",
+                        fontWeight: 400,
+                        lineHeight: 1.5,
+                        marginBottom: 12,
+                    }}
+                >
+                    Upgrade to Pro to unlock forecasts, opportunities and AI next actions.
+                </div>
+
+                <button
+                    type="button"
+                    onClick={() => router.push("/dashboard/settings?tab=manage-plan")}
+                    style={{
+                        border: 0,
+                        borderRadius: 999,
+                        background: "#111827",
+                        color: "#ffffff",
+                        fontWeight: 550,
+                        padding: "10px 14px",
+                        cursor: "pointer",
+                    }}
+                >
+                    Manage plan
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function RiskTable({
+    title,
+    buttonText,
+    buttonHref,
+    columns,
+    rows,
+    router,
+    mode,
+    onEmailClick,
+}: {
+    title: string;
+    buttonText: string;
+    buttonHref: string;
+    columns: [string, string, string, string];
+    rows: RiskAccountRow[];
+    router: ReturnType<typeof useRouter>;
+    mode: "risk" | "retry";
+    onEmailClick: (acc: RiskAccountRow) => void;
+}) {
+    const uniqueRows = Array.from(new Map(rows.map((row) => [row.id, row])).values());
+
+    return (
+        <div>
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 10,
+                    marginBottom: 7,
+                }}
+            >
+                <div style={{ fontSize: 13, fontWeight: 650, color: "#111827" }}>{title}</div>
+
+                <button
+                    type="button"
+                    onClick={() => router.push(buttonHref)}
+                    style={{
+                        border: "1px solid #e5e7eb",
+                        background: "#ffffff",
+                        color: "#111827",
+                        borderRadius: 999,
+                        padding: "6px 10px",
+                        fontSize: 11.5,
+                        fontWeight: 550,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                    }}
+                >
+                    {buttonText}
+                </button>
+            </div>
+
+            <div
+                style={{
+                    border: "1px solid #eef2f7",
+                    borderRadius: 15,
+                    overflow: "hidden",
+                    background: "#ffffff",
+                }}
+            >
+                <div
+                    style={{
+                        display: "grid",
+                        gridTemplateColumns: "1.05fr 1.25fr 1.25fr 0.45fr",
+                        gap: 10,
+                        padding: "8px 10px",
+                        background: "#f8fafc",
+                        borderBottom: "1px solid #eef2f7",
+                        fontSize: 10.5,
+                        fontWeight: 650,
+                        color: "#64748b",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.25,
+                    }}
+                >
+                    <div>{columns[0]}</div>
+                    <div>{columns[1]}</div>
+                    <div>{columns[2]}</div>
+                    <div style={{ textAlign: "right" }}>{columns[3]}</div>
+                </div>
+
+                {uniqueRows.length ? (
+                    uniqueRows.map((acc) => (
+                        <div
+                            key={acc.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => router.push(accountHref(acc.id))}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") router.push(accountHref(acc.id));
+                            }}
+                            style={{
+                                width: "100%",
+                                display: "grid",
+                                gridTemplateColumns: "1.05fr 1.25fr 1.25fr 0.45fr",
+                                gap: 10,
+                                alignItems: "center",
+                                padding: "7px 10px",
+                                borderBottom: "1px solid #f1f5f9",
+                                background: "#ffffff",
+                                cursor: "pointer",
+                                textAlign: "left",
+                            }}
+                        >
+                            <div style={{ minWidth: 0 }}>
+                                <div
+                                    style={{
+                                        fontSize: 12.5,
+                                        fontWeight: 650,
+                                        color: "#111827",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                    }}
+                                >
+                                    {acc.name}
+                                </div>
+
+                                <div
+                                    style={{
+                                        fontSize: 10.8,
+                                        color: "#64748b",
+                                        marginTop: 2,
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                    }}
+                                >
+                                    {acc.email || "No email"}
                                 </div>
                             </div>
-                        ) : null}
+
+                            <div
+                                style={{
+                                    minWidth: 0,
+                                    fontSize: 11.2,
+                                    color: "#475569",
+                                    lineHeight: 1.25,
+                                    whiteSpace: "normal",
+                                }}
+                            >
+                                {acc.reason}
+                            </div>
+
+                            <div
+                                style={{
+                                    minWidth: 0,
+                                    display: "grid",
+                                    gap: 5,
+                                    fontSize: 11.2,
+                                    color: "#111827",
+                                    fontWeight: 500,
+                                    lineHeight: 1.25,
+                                    whiteSpace: "normal",
+                                }}
+                            >
+                                <span>
+                                    {acc.automation || suggestedAction(acc.reason, acc.automation)}
+                                </span>
+
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onEmailClick(acc);
+                                    }}
+                                    style={{
+                                        width: "fit-content",
+                                        border: "1px solid #e5e7eb",
+                                        background: "#ffffff",
+                                        color: "#111827",
+                                        borderRadius: 999,
+                                        padding: "5px 9px",
+                                        fontSize: 10.8,
+                                        fontWeight: 550,
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    Send email
+                                </button>
+                            </div>
+
+                            <div
+                                style={{
+                                    fontSize: 12,
+                                    fontWeight: 650,
+                                    color: mode === "retry" ? "#b91c1c" : "#dc2626",
+                                    textAlign: "right",
+                                    whiteSpace: "nowrap",
+                                }}
+                            >
+                                {formatCompactGBPFromMinor(acc.mrrMinor)}
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <div style={{ padding: "10px 12px", fontSize: 12, color: "#64748b" }}>
+                        No accounts need immediate action right now.
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function EmailComposeModal({
+    draft,
+    onClose,
+    onChange,
+}: {
+    draft: EmailDraft;
+    onClose: () => void;
+    onChange: (draft: EmailDraft) => void;
+}) {
+    return (
+        <div
+            onMouseDown={(e) => {
+                e.stopPropagation();
+                onClose();
+            }}
+            style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 120,
+                display: "grid",
+                placeItems: "center",
+                background: "rgba(15,23,42,0.22)",
+                backdropFilter: "blur(7px)",
+                padding: 14,
+            }}
+        >
+            <div
+                onMouseDown={(e) => e.stopPropagation()}
+                style={{
+                    width: "min(560px, calc(100vw - 28px))",
+                    maxHeight: "calc(100vh - 36px)",
+                    overflow: "hidden",
+                    borderRadius: 22,
+                    background: "#ffffff",
+                    border: "1px solid #e5e7eb",
+                    boxShadow: "0 28px 80px rgba(15,23,42,0.22)",
+                    padding: 0,
+                    color: "#111827",
+                }}
+            >
+                <div
+                    style={{
+                        padding: 18,
+                        maxHeight: "calc(100vh - 36px)",
+                        overflowY: "auto",
+                    }}
+                >
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            justifyContent: "space-between",
+                            gap: 14,
+                            marginBottom: 14,
+                        }}
+                    >
+                        <div>
+                            <div
+                                style={{
+                                    fontSize: 10,
+                                    fontWeight: 650,
+                                    letterSpacing: 0.45,
+                                    textTransform: "uppercase",
+                                    color: "#64748b",
+                                    marginBottom: 5,
+                                }}
+                            >
+                                Email automation
+                            </div>
+
+                            <h3
+                                style={{
+                                    margin: 0,
+                                    fontSize: 20,
+                                    lineHeight: 1.1,
+                                    fontWeight: 650,
+                                    letterSpacing: "-0.03em",
+                                    color: "#111827",
+                                }}
+                            >
+                                Compose email
+                            </h3>
+
+                            <p
+                                style={{
+                                    margin: "4px 0 0",
+                                    fontSize: 12.5,
+                                    color: "#64748b",
+                                }}
+                            >
+                                {draft.accountName} • {draft.email || "No email"}
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: 999,
+                                border: "1px solid #e5e7eb",
+                                background: "#ffffff",
+                                color: "#64748b",
+                                cursor: "pointer",
+                                fontSize: 18,
+                                lineHeight: 1,
+                                flexShrink: 0,
+                            }}
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    <div style={{ display: "grid", gap: 10 }}>
+                        <label style={{ display: "grid", gap: 5 }}>
+                            <span style={{ fontSize: 11.5, fontWeight: 550, color: "#64748b" }}>
+                                To
+                            </span>
+                            <input
+                                value={draft.email}
+                                onChange={(e) => onChange({ ...draft, email: e.target.value })}
+                                placeholder="customer@email.com"
+                                style={{
+                                    width: "100%",
+                                    border: "1px solid #e5e7eb",
+                                    borderRadius: 12,
+                                    padding: "10px 12px",
+                                    outline: "none",
+                                    fontSize: 13,
+                                    color: "#111827",
+                                    background: "#fbfdff",
+                                }}
+                            />
+                        </label>
+
+                        <label style={{ display: "grid", gap: 5 }}>
+                            <span style={{ fontSize: 11.5, fontWeight: 550, color: "#64748b" }}>
+                                Subject
+                            </span>
+                            <input
+                                value={draft.subject}
+                                onChange={(e) => onChange({ ...draft, subject: e.target.value })}
+                                style={{
+                                    width: "100%",
+                                    border: "1px solid #e5e7eb",
+                                    borderRadius: 12,
+                                    padding: "10px 12px",
+                                    outline: "none",
+                                    fontSize: 13,
+                                    color: "#111827",
+                                    background: "#fbfdff",
+                                }}
+                            />
+                        </label>
+
+                        <label style={{ display: "grid", gap: 5 }}>
+                            <span style={{ fontSize: 11.5, fontWeight: 550, color: "#64748b" }}>
+                                Message
+                            </span>
+                            <textarea
+                                value={draft.message}
+                                onChange={(e) => onChange({ ...draft, message: e.target.value })}
+                                rows={6}
+                                style={{
+                                    width: "100%",
+                                    border: "1px solid #e5e7eb",
+                                    borderRadius: 12,
+                                    padding: "11px 12px",
+                                    outline: "none",
+                                    fontSize: 13,
+                                    lineHeight: 1.5,
+                                    color: "#111827",
+                                    background: "#fbfdff",
+                                    resize: "vertical",
+                                    fontFamily: "inherit",
+                                    minHeight: 130,
+                                    maxHeight: 190,
+                                }}
+                            />
+                        </label>
+                    </div>
+
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "flex-end",
+                            alignItems: "center",
+                            gap: 10,
+                            marginTop: 14,
+                        }}
+                    >
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            style={{
+                                border: "1px solid #e5e7eb",
+                                background: "#ffffff",
+                                color: "#111827",
+                                borderRadius: 999,
+                                padding: "9px 14px",
+                                fontSize: 12.5,
+                                fontWeight: 550,
+                                cursor: "pointer",
+                            }}
+                        >
+                            Cancel
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            style={{
+                                border: 0,
+                                background: "#111827",
+                                color: "#ffffff",
+                                borderRadius: 999,
+                                padding: "10px 15px",
+                                fontSize: 12.5,
+                                fontWeight: 650,
+                                cursor: "pointer",
+                                boxShadow: "0 10px 22px rgba(15,23,42,0.18)",
+                            }}
+                        >
+                            Send email
+                        </button>
                     </div>
                 </div>
             </div>
-
-            {showUpgradeModal ? (
-                <div
-                    style={{
-                        position: "fixed",
-                        inset: 0,
-                        background: "rgba(15, 23, 42, 0.45)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: 20,
-                        zIndex: 1100,
-                    }}
-                    onClick={() => setShowUpgradeModal(false)}
-                >
-                    <div
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                            width: "100%",
-                            maxWidth: 460,
-                            background: "#ffffff",
-                            borderRadius: 24,
-                            padding: 24,
-                            boxShadow: "0 24px 80px rgba(15, 23, 42, 0.18)",
-                            border: "1px solid rgba(15, 23, 42, 0.08)",
-                        }}
-                    >
-                        <div
-                            style={{
-                                display: "inline-flex",
-                                padding: "6px 12px",
-                                borderRadius: 999,
-                                background: "rgba(15, 23, 42, 0.06)",
-                                fontSize: 12,
-                                fontWeight: 700,
-                                color: "#0f172a",
-                                letterSpacing: "0.04em",
-                                textTransform: "uppercase",
-                                marginBottom: 14,
-                            }}
-                        >
-                            Pro feature
-                        </div>
-
-                        <h3
-                            style={{
-                                margin: 0,
-                                fontSize: 24,
-                                lineHeight: 1.2,
-                                color: "#0f172a",
-                                fontWeight: 700,
-                            }}
-                        >
-                            Upgrade to unlock deeper AI insights
-                        </h3>
-
-                        <p
-                            style={{
-                                margin: "12px 0 0",
-                                fontSize: 15,
-                                lineHeight: 1.65,
-                                color: "#5f6b7a",
-                            }}
-                        >
-                            Upgrade to Pro for unlimited AI insights, forecasts, key accounts at risk, and full expansion opportunities.
-                        </p>
-
-                        <div
-                            style={{
-                                display: "flex",
-                                gap: 12,
-                                marginTop: 22,
-                                flexWrap: "wrap",
-                            }}
-                        >
-                            <button
-                                type="button"
-                                onClick={() => setShowUpgradeModal(false)}
-                                style={{
-                                    border: "1px solid rgba(15, 23, 42, 0.12)",
-                                    background: "#ffffff",
-                                    color: "#0f172a",
-                                    borderRadius: 999,
-                                    padding: "11px 16px",
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                }}
-                            >
-                                Not now
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setShowUpgradeModal(false);
-                                    onClose();
-                                    router.push("/dashboard/settings?tab=manage-plan");
-                                }}
-                                style={{
-                                    border: "none",
-                                    background: "#0f172a",
-                                    color: "#ffffff",
-                                    borderRadius: 999,
-                                    padding: "11px 18px",
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                }}
-                            >
-                                Upgrade to Pro
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
-
-            {emailModal.open ? (
-                <div
-                    onClick={closeEmailModal}
-                    style={{
-                        position: "fixed",
-                        inset: 0,
-                        background: "rgba(15, 23, 42, 0.45)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        zIndex: 1000,
-                        padding: 20,
-                    }}
-                >
-                    <div
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                            width: "100%",
-                            maxWidth: 720,
-                            background: "#ffffff",
-                            borderRadius: 20,
-                            border: "1px solid #e5e7eb",
-                            boxShadow: "0 24px 80px rgba(15, 23, 42, 0.2)",
-                            overflow: "hidden",
-                        }}
-                    >
-                        <div
-                            style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "start",
-                                gap: 16,
-                                padding: "20px 20px 14px",
-                                borderBottom: "1px solid #eef2f7",
-                            }}
-                        >
-                            <div>
-                                <div
-                                    style={{
-                                        fontSize: 11,
-                                        fontWeight: 800,
-                                        color: "#64748b",
-                                        textTransform: "uppercase",
-                                        letterSpacing: 0.4,
-                                        marginBottom: 6,
-                                    }}
-                                >
-                                    Email automation
-                                </div>
-                                <div
-                                    style={{
-                                        fontSize: 22,
-                                        fontWeight: 900,
-                                        color: "#0f172a",
-                                        lineHeight: 1.1,
-                                        marginBottom: 4,
-                                    }}
-                                >
-                                    Compose email
-                                </div>
-                                <div
-                                    style={{
-                                        fontSize: 13,
-                                        color: "#64748b",
-                                        fontWeight: 600,
-                                    }}
-                                >
-                                    {emailModal.accountName}
-                                    {emailModal.to ? ` • ${emailModal.to}` : ""}
-                                </div>
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={closeEmailModal}
-                                style={{
-                                    border: "1px solid #e2e8f0",
-                                    background: "#ffffff",
-                                    color: "#0f172a",
-                                    borderRadius: 10,
-                                    width: 36,
-                                    height: 36,
-                                    fontSize: 20,
-                                    lineHeight: 1,
-                                    cursor: "pointer",
-                                }}
-                            >
-                                ×
-                            </button>
-                        </div>
-
-                        <div style={{ padding: 20 }}>
-                            <div style={{ display: "grid", gap: 14 }}>
-                                <div>
-                                    <label
-                                        style={{
-                                            display: "block",
-                                            fontSize: 12,
-                                            fontWeight: 700,
-                                            color: "#64748b",
-                                            marginBottom: 6,
-                                        }}
-                                    >
-                                        To
-                                    </label>
-                                    <input
-                                        value={emailModal.to}
-                                        readOnly
-                                        style={{
-                                            width: "100%",
-                                            border: "1px solid #e2e8f0",
-                                            borderRadius: 12,
-                                            padding: "12px 14px",
-                                            fontSize: 14,
-                                            color: "#0f172a",
-                                            background: "#f8fafc",
-                                            outline: "none",
-                                        }}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label
-                                        style={{
-                                            display: "block",
-                                            fontSize: 12,
-                                            fontWeight: 700,
-                                            color: "#64748b",
-                                            marginBottom: 6,
-                                        }}
-                                    >
-                                        Subject
-                                    </label>
-                                    <input
-                                        value={emailSubject}
-                                        onChange={(e) => setEmailSubject(e.target.value)}
-                                        placeholder="Email subject"
-                                        style={{
-                                            width: "100%",
-                                            border: "1px solid #e2e8f0",
-                                            borderRadius: 12,
-                                            padding: "12px 14px",
-                                            fontSize: 14,
-                                            color: "#0f172a",
-                                            background: "#ffffff",
-                                            outline: "none",
-                                        }}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label
-                                        style={{
-                                            display: "block",
-                                            fontSize: 12,
-                                            fontWeight: 700,
-                                            color: "#64748b",
-                                            marginBottom: 6,
-                                        }}
-                                    >
-                                        Message
-                                    </label>
-                                    <textarea
-                                        value={emailBody}
-                                        onChange={(e) => setEmailBody(e.target.value)}
-                                        placeholder="Write your email..."
-                                        style={{
-                                            width: "100%",
-                                            minHeight: 240,
-                                            resize: "vertical",
-                                            border: "1px solid #e2e8f0",
-                                            borderRadius: 12,
-                                            padding: "14px 14px",
-                                            fontSize: 14,
-                                            lineHeight: 1.55,
-                                            color: "#0f172a",
-                                            background: "#ffffff",
-                                            outline: "none",
-                                            fontFamily: "inherit",
-                                        }}
-                                    />
-                                </div>
-
-                                {sendErr ? (
-                                    <div
-                                        style={{
-                                            fontSize: 13,
-                                            color: "#dc2626",
-                                            fontWeight: 600,
-                                        }}
-                                    >
-                                        {sendErr}
-                                    </div>
-                                ) : null}
-
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "flex-end",
-                                        gap: 10,
-                                        marginTop: 4,
-                                    }}
-                                >
-                                    <button
-                                        type="button"
-                                        onClick={closeEmailModal}
-                                        style={{
-                                            border: "1px solid #e2e8f0",
-                                            background: "#ffffff",
-                                            color: "#0f172a",
-                                            borderRadius: 12,
-                                            padding: "10px 14px",
-                                            fontSize: 14,
-                                            fontWeight: 700,
-                                            cursor: "pointer",
-                                        }}
-                                    >
-                                        Cancel
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={sendEmail}
-                                        disabled={sendingEmail}
-                                        style={{
-                                            border: "none",
-                                            background: "#0f172a",
-                                            color: "#ffffff",
-                                            borderRadius: 12,
-                                            padding: "10px 16px",
-                                            fontSize: 14,
-                                            fontWeight: 800,
-                                            cursor: sendingEmail ? "default" : "pointer",
-                                            opacity: sendingEmail ? 0.7 : 1,
-                                        }}
-                                    >
-                                        {sendingEmail ? "Sending..." : "Send email"}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
-        </>
+        </div>
     );
 }

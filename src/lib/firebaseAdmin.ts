@@ -3,11 +3,8 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { env } from "@/lib/env";
 
-let initialized = false;
-
 function initAdmin() {
-    if (initialized || getApps().length) {
-        initialized = true;
+    if (getApps().length) {
         return;
     }
 
@@ -20,10 +17,8 @@ function initAdmin() {
 
     const privateKey = privateKeyRaw?.replace(/\\n/g, "\n");
 
-    if (!privateKey) {
-        throw new Error(
-            "Missing Firebase Admin private key. Set FIREBASE_PRIVATE_KEY or FIREBASE_PRIVATE_KEY_B64."
-        );
+    if (!projectId || !clientEmail || !privateKey) {
+        throw new Error("Missing Firebase Admin environment variables.");
     }
 
     initializeApp({
@@ -33,8 +28,6 @@ function initAdmin() {
             privateKey,
         }),
     });
-
-    initialized = true;
 }
 
 export function getAdminAuth() {
@@ -49,5 +42,5 @@ export function getAdminDb() {
 
 export async function verifyFirebaseIdToken(idToken: string) {
     initAdmin();
-    return getAuth().verifyIdToken(idToken);
+    return getAuth().verifyIdToken(idToken, true);
 }

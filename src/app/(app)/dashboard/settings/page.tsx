@@ -20,13 +20,13 @@ const integrations = [
     {
         key: "hubspot",
         name: "HubSpot",
-        description: "Sync customer data and manage CRM workflows.",
+        description: "Sync customer data and manage CRM workflow.",
         icon: <SiHubspot color="#FF7A59" />,
     },
     {
         key: "stripe",
         name: "Stripe",
-        description: "Track billing activity and payment events.",
+        description: "Sync subscriptions, invoices, payments, and MRR.",
         icon: <SiStripe color="#635BFF" />,
     },
 ];
@@ -247,7 +247,10 @@ function SettingsPageContent() {
     const [activeTab, setActiveTab] = useState("Profile");
     const [legalModal, setLegalModal] = useState<LegalModalType>(null);
     const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
-
+    const [supportEmail, setSupportEmail] = useState("");
+    const [supportRequest, setSupportRequest] = useState("");
+    const [sendingSupport, setSendingSupport] = useState(false);
+    const [supportMessage, setSupportMessage] = useState<string | null>(null);
     const [form, setForm] = useState<ProfileForm>({
         name: "",
         email: "",
@@ -256,6 +259,8 @@ function SettingsPageContent() {
         location: "",
         photoURL: "",
     });
+
+
 
     const [integrationState, setIntegrationState] =
         useState<IntegrationState>(emptyIntegrationState);
@@ -472,6 +477,8 @@ function SettingsPageContent() {
                 const mergedPhone = profile?.phone || "";
                 const mergedLocation = profile?.location || "";
                 const mergedPhotoURL = profile?.photoURL || user.photoURL || "";
+
+                setSupportEmail(mergedEmail);
 
                 setForm({
                     name: mergedName,
@@ -931,6 +938,55 @@ function SettingsPageContent() {
 
     const modalContent = legalModal === "terms" ? termsContent : privacyContent;
 
+    async function handleSendSupportRequest() {
+        if (!firebaseUser) return;
+
+        try {
+            setSendingSupport(true);
+            setSupportMessage(null);
+
+            if (!supportEmail.trim()) {
+                throw new Error("Please enter your email address.");
+            }
+
+            if (!supportRequest.trim()) {
+                throw new Error("Please describe your request.");
+            }
+
+            if (supportRequest.trim().length < 10) {
+                throw new Error("Please write a little more detail.");
+            }
+
+            const token = await firebaseUser.getIdToken(true);
+
+            const res = await fetch("/api/support/request", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    email: supportEmail.trim().toLowerCase(),
+                    request: supportRequest.trim(),
+                    name: form.name || firebaseUser.displayName || "",
+                }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data?.error || "Failed to send request.");
+            }
+
+            setSupportRequest("");
+            setSupportMessage("Message sent. We’ll get back to you shortly.");
+        } catch (error: any) {
+            setSupportMessage(error?.message || "Could not send your request.");
+        } finally {
+            setSendingSupport(false);
+        }
+    }
+
     return (
         <>
             <main className={styles.page}>
@@ -1092,9 +1148,9 @@ function SettingsPageContent() {
                                     <section className={styles.card}>
                                         <div className={styles.cardHeader}>
                                             <div>
-                                                <h3 className={styles.cardTitle}>Integrations & Workflow</h3>
+                                                <h3 className={styles.cardTitle}>Integration</h3>
                                                 <p className={styles.cardSubtext}>
-                                                    Connect the tools you need for your MVP.
+                                                    Connect the tools Cobrai needs to read customer, billing, and CRM signals.
                                                 </p>
                                             </div>
                                         </div>
@@ -1109,6 +1165,8 @@ function SettingsPageContent() {
                                                 const state = integrationState[key];
                                                 const connected = state.connected;
                                                 const busy = connectingKey === key;
+
+
 
                                                 return (
                                                     <div key={item.key} className={styles.integrationRow}>
@@ -1250,7 +1308,7 @@ function SettingsPageContent() {
                                                         name="domain"
                                                         value={emailForm.domain}
                                                         onChange={handleEmailFieldChange}
-                                                        placeholder="acme.com"
+                                                        placeholder="yourcompany.com"
                                                         className={styles.contactInput}
                                                     />
                                                 </div>
@@ -1261,7 +1319,7 @@ function SettingsPageContent() {
                                                         name="senderName"
                                                         value={emailForm.senderName}
                                                         onChange={handleEmailFieldChange}
-                                                        placeholder="Sarah from Acme"
+                                                        placeholder="company name"
                                                         className={styles.contactInput}
                                                     />
                                                 </div>
@@ -1272,7 +1330,7 @@ function SettingsPageContent() {
                                                         name="senderEmail"
                                                         value={emailForm.senderEmail}
                                                         onChange={handleEmailFieldChange}
-                                                        placeholder="sarah@acme.com"
+                                                        placeholder="support@yourcompany.com"
                                                         className={styles.contactInput}
                                                     />
                                                 </div>
@@ -1283,7 +1341,7 @@ function SettingsPageContent() {
                                                         name="senderReplyTo"
                                                         value={emailForm.senderReplyTo}
                                                         onChange={handleEmailFieldChange}
-                                                        placeholder="sarah@acme.com"
+                                                        placeholder="support@yourcompany.com"
                                                         className={styles.contactInput}
                                                     />
                                                 </div>
@@ -1370,7 +1428,7 @@ function SettingsPageContent() {
                                             )}
 
                                             <p className={styles.cardSubtext}>
-                                                Flow: connect your domain, add the DNS records in your domain provider, verify the domain, then save the sender email that matches that domain.
+                                                Connect your domain, add the DNS records, verify ownership, then save a sender email that matches your domain.
                                             </p>
                                         </div>
                                     </section>
@@ -1676,44 +1734,49 @@ function SettingsPageContent() {
                                         <div className={styles.contactSection}>
                                             <div className={styles.contactIntro}>
                                                 <h2 className={styles.contactTitle}>
-                                                    Need Assistance? Contact Us
+                                                    Contact support
                                                 </h2>
                                                 <p className={styles.contactText}>
-                                                    Need help with your workspace, billing, integrations,
-                                                    or account access? Send us a request and our team will
-                                                    get back to you.
-                                                </p>
+                                                    We’ll get back to you within 24 hours.                                                </p>
                                             </div>
 
                                             <div className={styles.contactCard}>
+                                                {supportMessage && (
+                                                    <p style={{ marginBottom: 12 }}>{supportMessage}</p>
+                                                )}
+
                                                 <div className={styles.contactField}>
                                                     <label className={styles.contactLabel}>
-                                                        Your Email Address
+                                                        Email
                                                     </label>
                                                     <input
                                                         type="email"
-                                                        placeholder="Enter your email"
-                                                        className={styles.contactInput}
-                                                        defaultValue={form.email || ""}
+                                                        placeholder="your@email.com" className={styles.contactInput}
+                                                        value={supportEmail}
+                                                        onChange={(e) => setSupportEmail(e.target.value)}
                                                     />
                                                 </div>
 
                                                 <div className={styles.contactField}>
                                                     <label className={styles.contactLabel}>
-                                                        Your Request
+                                                        Message
                                                     </label>
                                                     <textarea
-                                                        placeholder="Describe your issue, question, or request..."
+                                                        placeholder="Describe your issue..."
                                                         className={styles.contactTextarea}
                                                         rows={5}
+                                                        value={supportRequest}
+                                                        onChange={(e) => setSupportRequest(e.target.value)}
                                                     />
                                                 </div>
 
                                                 <button
                                                     type="button"
                                                     className={styles.contactSubmit}
+                                                    onClick={handleSendSupportRequest}
+                                                    disabled={sendingSupport || !firebaseUser}
                                                 >
-                                                    Send your request
+                                                    {sendingSupport ? "Sending..." : "Send message"}
                                                 </button>
                                             </div>
                                         </div>
@@ -1746,6 +1809,7 @@ function SettingsPageContent() {
                                         </div>
                                     </section>
                                 )}
+
                             </div>
                         </div>
                     </section>

@@ -30,6 +30,7 @@ const STARTER_FEATURES: FeatureKey[] = [
     "basic-risk-accounts",
     "basic-churn-mrr",
     "manual-email",
+    "ai-insights",
 ];
 
 const PRO_FEATURES: FeatureKey[] = [
@@ -53,9 +54,6 @@ const PLAN_FEATURES: Record<PlanTier, FeatureKey[]> = {
 
 /* ================= CORE CHECK ================= */
 
-/**
- * Check if a plan has access to a feature
- */
 export function hasFeatureAccess(
     plan: PlanTier | null | undefined,
     feature: FeatureKey
@@ -66,39 +64,68 @@ export function hasFeatureAccess(
     return features?.includes(feature) ?? false;
 }
 
+/* ================= TRIAL / DEMO-AWARE CHECK ================= */
+
+export function getTrialDaysLeft(
+    trialEndsAt: string | Date | null | undefined
+): number | null {
+    if (!trialEndsAt) return null;
+
+    const end =
+        trialEndsAt instanceof Date
+            ? trialEndsAt.getTime()
+            : new Date(trialEndsAt).getTime();
+
+    if (!Number.isFinite(end)) return null;
+
+    const diff = end - Date.now();
+
+    if (diff <= 0) return 0;
+
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+export function hasActiveTrial(
+    trialEndsAt: string | Date | null | undefined
+): boolean {
+    const daysLeft = getTrialDaysLeft(trialEndsAt);
+
+    return typeof daysLeft === "number" && daysLeft > 0;
+}
+
+export function canAccessFeature(params: {
+    plan: PlanTier | null | undefined;
+    feature: FeatureKey;
+    trialEndsAt?: string | Date | null;
+    isDemoMode?: boolean;
+}): boolean {
+    const { plan, feature, trialEndsAt, isDemoMode } = params;
+
+    if (isDemoMode) return true;
+
+    if (hasActiveTrial(trialEndsAt)) return true;
+
+    return hasFeatureAccess(plan, feature);
+}
+
 /* ================= HELPERS ================= */
 
-/**
- * Get all features for a plan
- */
 export function getPlanFeatures(plan: PlanTier): FeatureKey[] {
     return PLAN_FEATURES[plan] ?? [];
 }
 
-/**
- * Check if feature belongs to free/demo mode only
- */
 export function isFreeFeature(feature: FeatureKey): boolean {
     return PLAN_FEATURES.free.includes(feature);
 }
 
-/**
- * Check if feature is included in Starter
- */
 export function isStarterFeature(feature: FeatureKey): boolean {
     return PLAN_FEATURES.starter.includes(feature);
 }
 
-/**
- * Check if feature requires Pro
- */
 export function isProFeature(feature: FeatureKey): boolean {
     return PRO_FEATURES.includes(feature) && !STARTER_FEATURES.includes(feature);
 }
 
-/**
- * Useful for app logic
- */
 export function isPaidPlan(plan: PlanTier | null | undefined): boolean {
     return plan === "starter" || plan === "pro";
 }
@@ -107,9 +134,8 @@ export function isDemoPlan(plan: PlanTier | null | undefined): boolean {
     return plan === "free";
 }
 
-/**
- * Upgrade suggestions (used in modals / UI copy)
- */
+/* ================= UPGRADE COPY ================= */
+
 export function getUpgradeMessage(feature: FeatureKey): {
     title: string;
     description: string;

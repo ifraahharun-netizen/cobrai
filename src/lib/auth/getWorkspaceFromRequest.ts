@@ -12,15 +12,14 @@ export class AuthError extends Error {
 }
 
 function extractBearerToken(req: Request) {
-    const authHeader = req.headers.get("authorization") || "";
-    if (!authHeader.startsWith("Bearer ")) {
+    const authHeader = req.headers.get("authorization") ?? "";
+    const [scheme, token] = authHeader.split(" ");
+
+    if (scheme !== "Bearer" || !token) {
         throw new AuthError("Missing authorization token", 401);
     }
 
-    const token = authHeader.slice(7).trim();
-    if (!token) {
-        throw new AuthError("Missing authorization token", 401);
-    }
+    return token.trim();
 
     return token;
 }
@@ -39,7 +38,7 @@ export async function getWorkspaceFromRequest(req: Request) {
     });
 
     if (!user) {
-        throw new AuthError("User not found", 401);
+        throw new AuthError("Unauthorized", 401);
     }
 
     if (!user.workspaceId) {

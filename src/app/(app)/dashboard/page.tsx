@@ -5,8 +5,22 @@ import { useRouter } from "next/navigation";
 import EChart from "@/components/charts/EChart";
 import { churnTrendOption, mrrProtectedOption } from "@/components/charts/options";
 import { getFirebaseAuth } from "@/lib/firebase.client";
-import { onAuthStateChanged } from "firebase/auth";
-import TrialBanner from "@/components/billing/Trialbanner";
+import { onAuthStateChanged, signOut, type User } from "firebase/auth";
+import {
+    PoundSterling,
+    AlertTriangle,
+    TrendingDown,
+    ShieldCheck,
+    Clock3,
+    Crown,
+    Settings,
+    LogOut,
+    ChevronDown,
+    type LucideIcon,
+} from "lucide-react";
+
+import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
+import { canAccessFeature } from "@/lib/permissions";
 
 import styles from "./dashboardshell.module.css";
 
@@ -46,6 +60,15 @@ type ProgressRow = {
     mrrSavedMinor: number;
     riskScore: number;
     date: string;
+};
+
+type AiWorkspaceRes = {
+    insights: Insight[];
+    actions: ActionFirstRecommendation[];
+    cached: boolean;
+    source: "ai" | "fallback" | "cache" | "fallback_after_error";
+    timeframe: string;
+    promptVersion: string;
 };
 
 type ProgressApiResponse = {
@@ -96,18 +119,25 @@ type InsightFeedItem = {
     sortTime: number;
 };
 
+type KPI = {
+    label: string;
+    value: string;
+    subtext: string;
+    trend: {
+        arrow: string;
+        color: string;
+    };
+    Icon: LucideIcon;
+};
+
 function formatGBPFromMinor(minor: number | null | undefined) {
     const value = Number(minor || 0) / 100;
 
-    try {
-        return new Intl.NumberFormat("en-GB", {
-            style: "currency",
-            currency: "GBP",
-            maximumFractionDigits: 0,
-        }).format(value);
-    } catch {
-        return `£${value.toFixed(0)}`;
-    }
+    return new Intl.NumberFormat("en-GB", {
+        style: "currency",
+        currency: "GBP",
+        maximumFractionDigits: 0,
+    }).format(value);
 }
 
 function formatCompactDate(iso?: string | null) {
@@ -121,68 +151,98 @@ function formatCompactDate(iso?: string | null) {
         month: "short",
     });
 }
+
 function normalizeDashboardChurnPct(value: unknown) {
     const num = Number(value ?? 0);
 
     if (!Number.isFinite(num)) return 0;
-
-    // Fix values like 34 → 3.4
     if (num > 20) return Number((num / 10).toFixed(1));
 
     return Number(num.toFixed(1));
 }
 
+function accountDateTime(value?: string) {
+    return value ? new Date(value).getTime() : 0;
+}
+
+function getInitials(user: User | null) {
+    const name = user?.displayName || user?.email || "User";
+
+    return name
+        .split(/[ @.]/)
+        .filter(Boolean)
+        .map((part) => part[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+}
+
+function getTrialDaysLeft(trialEndsAt: string | null) {
+    if (!trialEndsAt) return null;
+
+    const end = new Date(trialEndsAt).getTime();
+    if (!Number.isFinite(end)) return null;
+
+    const diff = end - Date.now();
+    if (diff <= 0) return 0;
+
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function formatRefreshTime(value: string | null) {
+    if (!value) return "Not refreshed yet";
+
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "Not refreshed yet";
+
+    return `Last refreshed ${d.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+    })}`;
+}
 
 export default function DashboardPage() {
     const router = useRouter();
     const auth = useMemo(() => getFirebaseAuth(), []);
 
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [profileOpen, setProfileOpen] = useState(false);
     const [upgradeOpen, setUpgradeOpen] = useState(false);
+    const [insightsRefreshedAt, setInsightsRefreshedAt] = useState<string | null>(null);
 
     const [billing, setBilling] = useState<DashboardBilling>({
         plan: "free",
         trialEndsAt: null,
     });
 
-    async function loadBilling() {
-        try {
-            if (!auth.currentUser) return;
+    const [churnMonths, setChurnMonths] = useState<string[]>([]);
+    const [churnPct, setChurnPct] = useState<number[]>([]);
+    const [mrrNames, setMrrNames] = useState<string[]>([]);
+    const [mrrVals, setMrrVals] = useState<number[]>([]);
+    const [riskAccounts, setRiskAccounts] = useState<RiskAccount[]>([]);
+    const [opportunityAccounts, setOpportunityAccounts] = useState<OpportunityAccount[]>([]);
+    const [progressData, setProgressData] = useState<ProgressApiResponse | null>(null);
+    const [isPro, setIsPro] = useState(false);
+    const [apiDemoMode, setApiDemoMode] = useState<boolean | null>(null);
+    const [isLoaded, setIsLoaded] = useState(false);
+    const [workspaceAi, setWorkspaceAi] = useState<AiWorkspaceRes | null>(null);
 
-            const token = await auth.currentUser.getIdToken();
-
-            const res = await fetch("/api/stripe/billing-summary", {
-                method: "GET",
-                cache: "no-store",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            if (!res.ok) {
-                throw new Error("Failed to load billing summary");
-            }
-
-            const data = await res.json();
-
-            setBilling({
-                plan:
-                    data.plan === "pro"
-                        ? "pro"
-                        : data.plan === "starter"
-                            ? "starter"
-                            : "free",
-                trialEndsAt: data.trialEndsAt ?? null,
-            });
-        } catch (error) {
-            console.error("[Dashboard] loadBilling failed:", error);
-        }
-    }
+    const [kpiTotalMrrCurrent, setKpiTotalMrrCurrent] = useState<number | null>(null);
+    const [kpiTotalMrrPrevious, setKpiTotalMrrPrevious] = useState<number | null>(null);
+    const [kpiMrrAtRiskCurrent, setKpiMrrAtRiskCurrent] = useState<number | null>(null);
+    const [kpiMrrAtRiskPrevious, setKpiMrrAtRiskPrevious] = useState<number | null>(null);
+    const [kpiChurnProxyCurrent, setKpiChurnProxyCurrent] = useState<number | null>(null);
+    const [kpiChurnProxyPrevious, setKpiChurnProxyPrevious] = useState<number | null>(null);
+    const [kpiMrrProtectedCurrent, setKpiMrrProtectedCurrent] = useState<number | null>(null);
+    const [kpiMrrProtectedPrevious, setKpiMrrProtectedPrevious] = useState<number | null>(null);
 
     const demoChurnMonths = ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
     const demoChurnPct = [5.8, 5.1, 4.7, 4.3, 3.9, 3.4];
 
     const demoMrrMonths = ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
-    const demoMrrVals = [420, 510, 480, 620, 590, 710];
+    const demoMrrVals = [690, 520, 420, 330, 200, 95];
 
     const demoRiskAccounts: RiskAccount[] = [
         {
@@ -215,16 +275,6 @@ export default function DashboardPage() {
             tags: ["onboarding", "support"],
             updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
         },
-        {
-            id: "4",
-            company: "Peak Analytics",
-            email: "ops@peakanalytics.com",
-            reason: "Low feature adoption",
-            risk: 59,
-            mrr: 210,
-            tags: ["adoption"],
-            updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
-        },
     ];
 
     const demoOpportunities: OpportunityAccount[] = [
@@ -244,14 +294,6 @@ export default function DashboardPage() {
             upside: 98,
             updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString(),
         },
-        {
-            id: "13",
-            company: "CedarWorks",
-            email: "hello@cedarworks.io",
-            signal: "Recovered failed payment",
-            upside: 64,
-            updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 6).toISOString(),
-        },
     ];
 
     const demoProgressData: ProgressApiResponse = {
@@ -268,19 +310,8 @@ export default function DashboardPage() {
             actionsExecutedPct: 9,
             successRatePct: 6,
         },
-        recentMrrSaved: [
-            { id: "1", account: "Acme Ltd", mrrSavedMinor: 21900 },
-            { id: "2", account: "Beta Systems", mrrSavedMinor: 12900 },
-        ],
-        nextPriorityAccounts: [
-            {
-                id: "3",
-                account: "Northwind",
-                aiReason: "Onboarding incomplete",
-                mrrMinor: 34900,
-                riskScore: 61,
-            },
-        ],
+        recentMrrSaved: [],
+        nextPriorityAccounts: [],
         progressBreakdown: [
             {
                 id: "1",
@@ -291,7 +322,7 @@ export default function DashboardPage() {
                 outcome: "success",
                 mrrSavedMinor: 21900,
                 riskScore: 88,
-                date: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+                date: new Date().toISOString(),
             },
             {
                 id: "2",
@@ -303,17 +334,6 @@ export default function DashboardPage() {
                 mrrSavedMinor: 12900,
                 riskScore: 82,
                 date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-            },
-            {
-                id: "3",
-                accountId: "3",
-                account: "Northwind",
-                action: "Onboarding push",
-                aiReason: "Setup remains incomplete",
-                outcome: "failed",
-                mrrSavedMinor: 34900,
-                riskScore: 61,
-                date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString(),
             },
         ],
         actionPerformance: [],
@@ -330,91 +350,17 @@ export default function DashboardPage() {
         mrrProtectedPrevious: 1200,
     };
 
-    const [churnMonths, setChurnMonths] = useState<string[]>([]);
-    const [churnPct, setChurnPct] = useState<number[]>([]);
-    const [mrrNames, setMrrNames] = useState<string[]>([]);
-    const [mrrVals, setMrrVals] = useState<number[]>([]);
-    const [riskAccounts, setRiskAccounts] = useState<RiskAccount[]>([]);
-    const [opportunityAccounts, setOpportunityAccounts] = useState<OpportunityAccount[]>([]);
-    const [progressData, setProgressData] = useState<ProgressApiResponse | null>(null);
-    const [isPro, setIsPro] = useState(false);
-    const [apiDemoMode, setApiDemoMode] = useState<boolean | null>(null);
-    const [isLoaded, setIsLoaded] = useState(false);
-
-    const [kpiTotalMrrCurrent, setKpiTotalMrrCurrent] = useState<number | null>(null);
-    const [kpiTotalMrrPrevious, setKpiTotalMrrPrevious] = useState<number | null>(null);
-    const [kpiMrrAtRiskCurrent, setKpiMrrAtRiskCurrent] = useState<number | null>(null);
-    const [kpiMrrAtRiskPrevious, setKpiMrrAtRiskPrevious] = useState<number | null>(null);
-    const [kpiChurnProxyCurrent, setKpiChurnProxyCurrent] = useState<number | null>(null);
-    const [kpiChurnProxyPrevious, setKpiChurnProxyPrevious] = useState<number | null>(null);
-    const [kpiMrrProtectedCurrent, setKpiMrrProtectedCurrent] = useState<number | null>(null);
-    const [kpiMrrProtectedPrevious, setKpiMrrProtectedPrevious] = useState<number | null>(null);
-
-    const resetDashboardState = () => {
-        setChurnMonths([]);
-        setChurnPct([]);
-        setMrrNames([]);
-        setMrrVals([]);
-        setRiskAccounts([]);
-        setOpportunityAccounts([]);
-        setProgressData(null);
-        setIsPro(false);
-        setApiDemoMode(null);
-        setIsLoaded(false);
-        setBilling({
-            plan: "free",
-            trialEndsAt: null,
-        });
-
-        setKpiTotalMrrCurrent(null);
-        setKpiTotalMrrPrevious(null);
-        setKpiMrrAtRiskCurrent(null);
-        setKpiMrrAtRiskPrevious(null);
-        setKpiChurnProxyCurrent(null);
-        setKpiChurnProxyPrevious(null);
-        setKpiMrrProtectedCurrent(null);
-        setKpiMrrProtectedPrevious(null);
-    };
-
     const isDemoMode = apiDemoMode === true;
     const isLiveOnlyMode = apiDemoMode === false;
 
-    const hasLiveChurn =
-        apiDemoMode === false &&
-        churnMonths.length >= 6 &&
-        churnPct.length >= 6 &&
-        churnPct.every((v) => Number.isFinite(v) && v > 0 && v <= 20);
-    const hasLiveMrr =
-        mrrNames.length >= 6 &&
-        mrrVals.length >= 6 &&
-        mrrVals.every((v) => Number.isFinite(v) && v >= 0);
-    const hasConnectedDataSource = (progressData?.connectedIntegrations?.length ?? 0) > 0;
-    const hasLiveRisk = riskAccounts.length > 0;
-    const hasLiveOpportunities = opportunityAccounts.length > 0;
-    const hasLiveProgress = Boolean(progressData?.progressBreakdown?.length);
-    const hasLiveKpis =
-        typeof kpiTotalMrrCurrent === "number" &&
-        typeof kpiTotalMrrPrevious === "number" &&
-        typeof kpiMrrAtRiskCurrent === "number" &&
-        typeof kpiMrrAtRiskPrevious === "number" &&
-        typeof kpiChurnProxyCurrent === "number" &&
-        typeof kpiChurnProxyPrevious === "number" &&
-        typeof kpiMrrProtectedCurrent === "number" &&
-        typeof kpiMrrProtectedPrevious === "number";
+    const trialDaysLeft = getTrialDaysLeft(billing.trialEndsAt);
+    const showTrialPill =
+        billing.plan === "free" && typeof trialDaysLeft === "number" && trialDaysLeft > 0;
 
-    const activeChurnMonths = hasLiveChurn ? churnMonths : demoChurnMonths;
-    const activeChurnPct = hasLiveChurn ? churnPct : demoChurnPct;
+    const hasUnlimitedLiveInsights =
+        isPro || (billing.plan === "free" && typeof trialDaysLeft === "number" && trialDaysLeft > 0);
 
-    const activeMrrMonths = isDemoMode ? demoMrrMonths : mrrNames;
-    const activeMrrVals = isDemoMode ? demoMrrVals : mrrVals;
-
-    const activeRiskAccounts = isDemoMode ? demoRiskAccounts : riskAccounts;
-
-    const activeOpportunityAccounts = isDemoMode
-        ? demoOpportunities
-        : opportunityAccounts;
-
-    const activeProgressData = isDemoMode ? demoProgressData : progressData;
+    const liveInsightLimit = hasUnlimitedLiveInsights ? 999 : 4;
 
     const formatGBP = (value: number) => `£${Math.round(value).toLocaleString()}`;
 
@@ -428,7 +374,6 @@ export default function DashboardPage() {
         pct: number,
         previousValue?: number | null,
         options?: {
-            lowerIsBetter?: boolean;
             isCurrency?: boolean;
             suffix?: string;
         }
@@ -436,74 +381,17 @@ export default function DashboardPage() {
         const isCurrency = options?.isCurrency ?? false;
         const suffix = options?.suffix ?? "";
 
-        if (!previousValue && previousValue !== 0) {
-            return "No previous month data";
-        }
+        if (!previousValue && previousValue !== 0) return "No previous month data";
 
         if (delta === 0) {
-            if (isCurrency) {
-                return `No change vs ${formatGBP(previousValue)} last month`;
-            }
-
-            return `No change vs ${previousValue}${suffix} last month`;
+            return isCurrency
+                ? `No change vs ${formatGBP(previousValue)} last month`
+                : `No change vs ${previousValue}${suffix} last month`;
         }
 
-        if (isCurrency) {
-            return `${Math.abs(pct).toFixed(1)}% vs ${formatGBP(previousValue)} last month`;
-        }
-
-        return `${Math.abs(pct).toFixed(1)}% vs ${previousValue}${suffix} last month`;
-    };
-
-    const getSuggestedAction = (account: RiskAccount) => {
-        const reason = account.reason.toLowerCase();
-        const tags = account.tags ?? [];
-
-        if (tags.includes("billing") || reason.includes("payment failed") || reason.includes("billing")) {
-            return "Send billing recovery";
-        }
-
-        if (tags.includes("onboarding") || reason.includes("onboarding")) {
-            return "Complete onboarding";
-        }
-
-        if (tags.includes("support") || reason.includes("ticket") || reason.includes("sentiment")) {
-            return "Manual check-in";
-        }
-
-        if (tags.includes("adoption") || reason.includes("feature adoption")) {
-            return "Send re-engagement";
-        }
-
-        if (tags.includes("usage") || reason.includes("no login") || reason.includes("usage")) {
-            return "Trigger usage nudge";
-        }
-
-        return "Review account";
-    };
-
-    const getRiskBadgeStyle = (risk: number) => {
-        if (risk >= 80) {
-            return {
-                background: "#fef2f2",
-                color: "#dc2626",
-                border: "1px solid #fecaca",
-            };
-        }
-
-        if (risk >= 70) {
-            return {
-                background: "#fff7ed",
-                color: "#ea580c",
-                border: "1px solid #fed7aa",
-            };
-        }
-
-        return {
-            background: "#fefce8",
-            color: "#a16207",
-            border: "1px solid #fde68a",
-        };
+        return isCurrency
+            ? `${Math.abs(pct).toFixed(1)}% vs ${formatGBP(previousValue)} last month`
+            : `${Math.abs(pct).toFixed(1)}% vs ${previousValue}${suffix} last month`;
     };
 
     const getTrendMeta = (delta: number, lowerIsBetter = true) => {
@@ -513,68 +401,52 @@ export default function DashboardPage() {
 
         return {
             arrow: isNeutral ? "•" : isUp ? "↑" : "↓",
-            color: isNeutral ? "#6b7280" : isGood ? "#16a34a" : "#dc2626",
+            color: isNeutral ? "#6b7280" : isGood ? "#119f5dff" : "#d32c2cff",
         };
     };
 
-    const formatRecentDate = (value?: string) => {
-        if (!value) return "Recent";
+    const hasLiveChurn =
+        apiDemoMode === false &&
+        churnMonths.length >= 6 &&
+        churnPct.length >= 6 &&
+        churnPct.every((v) => Number.isFinite(v) && v > 0 && v <= 20);
 
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return "Recent";
+    const hasLiveMrr =
+        apiDemoMode === false &&
+        mrrNames.length >= 6 &&
+        mrrVals.length >= 6 &&
+        mrrVals.every((v) => Number.isFinite(v) && v >= 0);
 
-        return date.toLocaleDateString("en-GB", {
-            day: "numeric",
-            month: "short",
-        });
-    };
+    const hasLiveRisk = riskAccounts.length > 0;
+    const hasLiveOpportunities = opportunityAccounts.length > 0;
+    const hasLiveProgress = Boolean(progressData?.progressBreakdown?.length);
 
-    const isCurrentMonth = (value?: string) => {
-        if (!value) return false;
+    const hasLiveKpis =
+        typeof kpiTotalMrrCurrent === "number" &&
+        typeof kpiTotalMrrPrevious === "number" &&
+        typeof kpiMrrAtRiskCurrent === "number" &&
+        typeof kpiMrrAtRiskPrevious === "number" &&
+        typeof kpiChurnProxyCurrent === "number" &&
+        typeof kpiChurnProxyPrevious === "number" &&
+        typeof kpiMrrProtectedCurrent === "number" &&
+        typeof kpiMrrProtectedPrevious === "number";
 
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return false;
+    const canViewCriticalAccounts = canAccessFeature({
+        plan: billing.plan,
+        feature: "full-risk-list",
+        trialEndsAt: billing.trialEndsAt,
+        isDemoMode,
+    });
 
-        const now = new Date();
-        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    };
+    const activeChurnMonths = hasLiveChurn ? churnMonths : demoChurnMonths;
+    const activeChurnPct = hasLiveChurn ? churnPct : demoChurnPct;
 
-    const getRiskSignalLabel = (account: RiskAccount) => {
-        const reason = account.reason.toLowerCase();
-        const tags = account.tags ?? [];
+    const activeMrrMonths = hasLiveMrr ? mrrNames : demoMrrMonths;
+    const activeMrrVals = hasLiveMrr ? mrrVals : demoMrrVals;
 
-        if (
-            tags.includes("billing") ||
-            reason.includes("payment failed") ||
-            reason.includes("billing") ||
-            reason.includes("invoice")
-        ) {
-            return "Failed payment";
-        }
-
-        if (
-            tags.includes("usage") ||
-            reason.includes("no login") ||
-            reason.includes("inactive") ||
-            reason.includes("inactivity")
-        ) {
-            return "Low engagement";
-        }
-
-        if (
-            tags.includes("adoption") ||
-            reason.includes("feature adoption") ||
-            reason.includes("adoption")
-        ) {
-            return "Low adoption";
-        }
-
-        if (tags.includes("onboarding") || reason.includes("onboarding")) {
-            return "Onboarding incomplete";
-        }
-
-        return "Risk detected";
-    };
+    const activeRiskAccounts = isDemoMode ? demoRiskAccounts : riskAccounts;
+    const activeOpportunityAccounts = isDemoMode ? demoOpportunities : opportunityAccounts;
+    const activeProgressData = isDemoMode ? demoProgressData : progressData;
 
     const totalMrrCurrent = isDemoMode
         ? demoKpis.totalMrrCurrent
@@ -624,100 +496,140 @@ export default function DashboardPage() {
             ? kpiMrrProtectedPrevious
             : 0;
 
-    const totalMrrDeltaVsPrevious = totalMrrCurrent - totalMrrPrevious;
-    const totalMrrDeltaPct = formatPercentChange(totalMrrCurrent, totalMrrPrevious);
+    const totalMrrDelta = totalMrrCurrent - totalMrrPrevious;
+    const mrrAtRiskDelta = mrrAtRiskCurrent - mrrAtRiskPrevious;
+    const churnDelta = churnProxyCurrent - churnProxyPrevious;
+    const protectedDelta = totalProtected - previousProtected;
 
-    const mrrAtRiskDeltaVsPrevious = mrrAtRiskCurrent - mrrAtRiskPrevious;
-    const mrrAtRiskDeltaPct = formatPercentChange(mrrAtRiskCurrent, mrrAtRiskPrevious);
-
-    const churnDeltaVsPrevious = churnProxyCurrent - churnProxyPrevious;
-    const churnDeltaPct = churnProxyPrevious
-        ? Math.abs((churnDeltaVsPrevious / churnProxyPrevious) * 100)
-        : 0;
-
-    const protectedDeltaVsPrevious = totalProtected - previousProtected;
-    const protectedDeltaPct = formatPercentChange(totalProtected, previousProtected);
-
-    const totalMrrTrend = getTrendMeta(totalMrrDeltaVsPrevious, false);
-    const atRiskTrend = getTrendMeta(mrrAtRiskDeltaVsPrevious, true);
-    const churnTrendMeta = getTrendMeta(churnDeltaVsPrevious, true);
-    const protectedTrend = getTrendMeta(protectedDeltaVsPrevious, false);
-
-    const topRiskAccounts = [...activeRiskAccounts].sort((a, b) => b.risk - a.risk).slice(0, 3);
-
-    const kpis = [
+    const kpis: KPI[] = [
         {
             label: "Total MRR",
             value: formatGBP(totalMrrCurrent),
-            subtext: formatKpiSubtext(totalMrrDeltaVsPrevious, totalMrrDeltaPct, totalMrrPrevious, {
-                isCurrency: true,
-                lowerIsBetter: false,
-            }),
-            trend: totalMrrTrend,
-            valueColor: "#111827",
+            subtext: formatKpiSubtext(
+                totalMrrDelta,
+                formatPercentChange(totalMrrCurrent, totalMrrPrevious),
+                totalMrrPrevious,
+                { isCurrency: true }
+            ),
+            trend: getTrendMeta(totalMrrDelta, false),
+            Icon: PoundSterling,
         },
         {
             label: "MRR at risk",
             value: formatGBP(mrrAtRiskCurrent),
-            subtext: formatKpiSubtext(mrrAtRiskDeltaVsPrevious, mrrAtRiskDeltaPct, mrrAtRiskPrevious, {
-                isCurrency: true,
-                lowerIsBetter: true,
-            }),
-            trend: atRiskTrend,
-            valueColor: "#111827",
+            subtext: formatKpiSubtext(
+                mrrAtRiskDelta,
+                formatPercentChange(mrrAtRiskCurrent, mrrAtRiskPrevious),
+                mrrAtRiskPrevious,
+                { isCurrency: true }
+            ),
+            trend: getTrendMeta(mrrAtRiskDelta, true),
+            Icon: AlertTriangle,
         },
         {
             label: "Churn proxy",
             value: `${churnProxyCurrent.toFixed(1)}%`,
-            subtext: `${Math.abs(churnDeltaPct).toFixed(1)}% vs last month`,
-            trend: churnTrendMeta,
-            valueColor: "#111827",
+            subtext: `${Math.abs(formatPercentChange(churnProxyCurrent, churnProxyPrevious)).toFixed(1)}% vs last month`,
+            trend: getTrendMeta(churnDelta, true),
+            Icon: TrendingDown,
         },
         {
             label: "MRR protected",
             value: formatGBP(totalProtected),
-            subtext: formatKpiSubtext(protectedDeltaVsPrevious, protectedDeltaPct, previousProtected, {
-                isCurrency: true,
-                lowerIsBetter: false,
-            }),
-            trend: protectedTrend,
-            valueColor: "#111827",
+            subtext: formatKpiSubtext(
+                protectedDelta,
+                formatPercentChange(totalProtected, previousProtected),
+                previousProtected,
+                { isCurrency: true }
+            ),
+            trend: getTrendMeta(protectedDelta, false),
+            Icon: ShieldCheck,
         },
     ];
 
+    const topRiskAccounts = [...activeRiskAccounts]
+        .sort((a, b) => b.risk - a.risk)
+        .slice(0, 3);
+
+    const getSuggestedAction = (account: RiskAccount) => {
+        const reason = account.reason.toLowerCase();
+        const tags = account.tags ?? [];
+
+        if (tags.includes("billing") || reason.includes("payment")) return "Send billing recovery";
+        if (tags.includes("onboarding") || reason.includes("onboarding")) return "Complete onboarding";
+        if (tags.includes("support") || reason.includes("ticket")) return "Manual check-in";
+        if (tags.includes("adoption") || reason.includes("adoption")) return "Send re-engagement";
+        if (tags.includes("usage") || reason.includes("login")) return "Trigger usage nudge";
+
+        return "Review account";
+    };
+
+    const formatRecentDate = (value?: string) => {
+        if (!value) return "Recent";
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "Recent";
+
+        return date.toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+        });
+    };
+
+    const isCurrentMonth = (value?: string) => {
+        if (!value) return false;
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return false;
+
+        const now = new Date();
+        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    };
+
+    const aiInsightFeed = useMemo<InsightFeedItem[]>(() => {
+        const actions = workspaceAi?.actions ?? [];
+
+        if (!actions.length) return [];
+
+        return actions
+            .filter((action) => action.actionType !== "none")
+            .slice(0, liveInsightLimit)
+            .map((action, index) => ({
+                id: `ai-${action.customerId}-${action.actionType}-${index}`,
+                type: "risk",
+                title: action.actionTitle,
+                summary: action.reason,
+                meta: `${action.customerName} • ${action.priority} priority`,
+                amountLabel: action.mrrAtRiskMinor
+                    ? formatGBPFromMinor(action.mrrAtRiskMinor)
+                    : `${action.riskScore}/100 risk`,
+                amountTone: "risk",
+                href: `/dashboard/accounts-at-risk/${action.customerId}`,
+                sortTime: Date.now() - index,
+            }));
+    }, [workspaceAi?.actions, liveInsightLimit]);
+
     const insightFeed = useMemo<InsightFeedItem[]>(() => {
+        if (aiInsightFeed.length) return aiInsightFeed;
+
         const progressItems: InsightFeedItem[] = (activeProgressData?.progressBreakdown ?? [])
             .filter((row) => isCurrentMonth(row.date))
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
             .slice(0, 2)
             .map((row) => {
-                const amountTone =
-                    row.outcome === "success" ? "opportunity" : row.outcome === "failed" ? "risk" : "neutral";
-
-                const amountLabel =
-                    row.mrrSavedMinor > 0
-                        ? row.outcome === "failed"
-                            ? `-${formatGBPFromMinor(row.mrrSavedMinor)}`
-                            : `+${formatGBPFromMinor(row.mrrSavedMinor)}`
-                        : undefined;
-
-                const summary =
-                    row.outcome === "success"
-                        ? `${row.action} succeeded for ${row.account}. ${row.aiReason}`
-                        : row.outcome === "pending"
-                            ? `${row.action} is in progress for ${row.account}. ${row.aiReason}`
-                            : `${row.action} failed for ${row.account}. ${row.aiReason}`;
-
                 const targetId = row.accountId || row.customerId;
 
                 return {
                     id: `progress-${row.id}`,
                     type: "progress",
                     title: `Progress update — ${row.account}`,
-                    summary,
+                    summary: `${row.action} ${row.outcome === "success" ? "succeeded" : "is in progress"
+                        }. ${row.aiReason}`,
                     meta: `Action Impact • ${formatCompactDate(row.date)}`,
-                    amountLabel,
-                    amountTone,
+                    amountLabel: row.mrrSavedMinor
+                        ? `+${formatGBPFromMinor(row.mrrSavedMinor)}`
+                        : undefined,
+                    amountTone: row.outcome === "success" ? "opportunity" : "neutral",
                     href: targetId ? `/dashboard/accounts-at-risk/${targetId}` : undefined,
                     sortTime: new Date(row.date).getTime(),
                 };
@@ -725,235 +637,123 @@ export default function DashboardPage() {
 
         const riskItems: InsightFeedItem[] = activeRiskAccounts
             .filter((account) => isCurrentMonth(account.updatedAt))
-            .sort((a, b) => {
-                const aTime = accountDateTime(a.updatedAt);
-                const bTime = accountDateTime(b.updatedAt);
-                return bTime - aTime;
-            })
             .slice(0, 2)
             .map((account) => ({
                 id: `risk-${account.id}`,
-                type: "risk" as const,
-                title: `${account.company} — ${getRiskSignalLabel(account)}`,
+                type: "risk",
+                title: `${account.company} — Risk detected`,
                 summary: account.reason,
                 meta: formatRecentDate(account.updatedAt),
                 amountLabel: formatGBP(account.mrr),
-                amountTone: "risk" as const,
+                amountTone: "risk",
                 href: `/dashboard/accounts-at-risk/${account.id}`,
                 sortTime: accountDateTime(account.updatedAt),
             }));
 
         const opportunityItems: InsightFeedItem[] = activeOpportunityAccounts
             .filter((account) => isCurrentMonth(account.updatedAt))
-            .sort((a, b) => {
-                const aTime = accountDateTime(a.updatedAt);
-                const bTime = accountDateTime(b.updatedAt);
-                return bTime - aTime;
-            })
             .slice(0, 2)
             .map((account) => ({
                 id: `opp-${account.id}`,
-                type: "opportunity" as const,
+                type: "opportunity",
                 title: `${account.company} — Opportunity`,
                 summary: account.signal,
                 meta: formatRecentDate(account.updatedAt),
                 amountLabel: `+${formatGBP(account.upside)}`,
-                amountTone: "opportunity" as const,
+                amountTone: "opportunity",
                 href: `/dashboard/accounts-at-risk/${account.id}`,
                 sortTime: accountDateTime(account.updatedAt),
             }));
 
         return [...progressItems, ...riskItems, ...opportunityItems]
             .sort((a, b) => b.sortTime - a.sortTime)
-            .slice(0, isPro ? 999 : 5);
-    }, [activeOpportunityAccounts, activeProgressData, activeRiskAccounts, isPro]);
+            .slice(0, liveInsightLimit);
+    }, [
+        activeOpportunityAccounts,
+        activeProgressData,
+        activeRiskAccounts,
+        liveInsightLimit,
+        aiInsightFeed,
+    ]);
 
-    function accountDateTime(value?: string) {
-        return value ? new Date(value).getTime() : 0;
+    async function loadWorkspaceAi(user: User) {
+        try {
+            const token = await user.getIdToken();
+
+            const res = await fetch("/api/dashboard/ai/insights", {
+                method: "POST",
+                cache: "no-store",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ timeframe: "week" }),
+            });
+
+            if (!res.ok) {
+                setWorkspaceAi(null);
+                return;
+            }
+
+            const data = (await res.json()) as AiWorkspaceRes;
+            setWorkspaceAi(data);
+            setInsightsRefreshedAt(new Date().toISOString());
+        } catch (err) {
+            console.error("AI LOAD ERROR:", err);
+            setWorkspaceAi(null);
+        }
     }
 
-    const hasConnectedIntegrations = (progressData?.connectedIntegrations?.length ?? 0) > 0;
-    const hasAnyInsightData =
-        activeRiskAccounts.length > 0 ||
-        activeOpportunityAccounts.length > 0 ||
-        (activeProgressData?.progressBreakdown?.length ?? 0) > 0;
+    async function loadBilling() {
+        try {
+            if (!auth.currentUser) return;
 
-    function renderInsightCards() {
-        return (
-            <div className={styles.insightsList}>
-                {insightFeed.length > 0 ? (
-                    insightFeed.map((item) => (
-                        <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => {
-                                if (!item.href) return;
+            const token = await auth.currentUser.getIdToken();
 
-                                const href = item.href.trim();
+            const res = await fetch("/api/stripe/billing-summary", {
+                method: "GET",
+                cache: "no-store",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
 
-                                if (!href || href === "undefined" || href === "null") return;
+            if (!res.ok) return;
 
-                                router.push(href);
-                            }}
-                            style={{
-                                width: "100%",
-                                textAlign: "left",
-                                border: "1px solid #eef2f7",
-                                background: "#fff",
-                                borderRadius: 14,
-                                padding: "12px 14px",
-                                cursor: item.href ? "pointer" : "default",
-                                transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
-                                boxShadow: "0 0 0 rgba(0,0,0,0)",
-                            }}
-                            onMouseEnter={(e) => {
-                                if (!item.href) return;
-                                e.currentTarget.style.transform = "translateY(-1px)";
-                                e.currentTarget.style.boxShadow = "0 8px 20px rgba(15,23,42,0.06)";
-                                e.currentTarget.style.borderColor = "#dbe4ee";
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.transform = "translateY(0)";
-                                e.currentTarget.style.boxShadow = "0 0 0 rgba(0,0,0,0)";
-                                e.currentTarget.style.borderColor = "#eef2f7";
-                            }}
-                        >
-                            <div
-                                style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "flex-start",
-                                    gap: 12,
-                                }}
-                            >
-                                <div style={{ minWidth: 0, flex: 1 }}>
-                                    <div
-                                        style={{
-                                            fontSize: 13,
-                                            fontWeight: 700,
-                                            color: "#111827",
-                                            lineHeight: 1.4,
-                                        }}
-                                    >
-                                        {item.title}
-                                    </div>
+            const data = await res.json();
 
-                                    <div
-                                        style={{
-                                            marginTop: 4,
-                                            fontSize: 12,
-                                            color: "#4b5563",
-                                            lineHeight: 1.45,
-                                        }}
-                                    >
-                                        {item.summary}
-                                    </div>
-
-                                    {item.meta ? (
-                                        <div
-                                            style={{
-                                                marginTop: 5,
-                                                fontSize: 11,
-                                                fontWeight: 600,
-                                                color: "#6b7280",
-                                            }}
-                                        >
-                                            {item.meta}
-                                        </div>
-                                    ) : null}
-                                </div>
-
-                                {item.amountLabel ? (
-                                    <div
-                                        style={{
-                                            flexShrink: 0,
-                                            fontSize: 13,
-                                            fontWeight: 800,
-                                            color:
-                                                item.amountTone === "risk"
-                                                    ? "#dc2626"
-                                                    : item.amountTone === "opportunity"
-                                                        ? "#16a34a"
-                                                        : "#111827",
-                                        }}
-                                    >
-                                        {item.amountLabel}
-                                    </div>
-                                ) : null}
-                            </div>
-                        </button>
-                    ))
-                ) : (
-                    <div style={{ fontSize: 14, color: "#6b7280", paddingTop: 8 }}>
-                        No recent insight activity yet.
-                    </div>
-                )}
-            </div>
-        );
+            setBilling({
+                plan: data.plan === "pro" ? "pro" : data.plan === "starter" ? "starter" : "free",
+                trialEndsAt: data.trialEndsAt ?? null,
+            });
+        } catch (error) {
+            console.error("[Dashboard] loadBilling failed:", error);
+        }
     }
 
-    function renderAiInsightsContent() {
-        if (!isLoaded) {
-            return (
-                <div style={{ fontSize: 14, color: "#6b7280", paddingTop: 8 }}>
-                    Analyzing your customer data...
-                </div>
-            );
-        }
-
-        if (apiDemoMode === true) {
-            return renderInsightCards();
-        }
-
-        if (apiDemoMode === false && !hasConnectedIntegrations) {
-            return (
-                <div
-                    style={{
-                        border: "1px dashed #dbe4ee",
-                        borderRadius: 14,
-                        padding: 16,
-                        background: "#fcfcfd",
-                    }}
-                >
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
-                        Connect a data source to unlock AI insights
-                    </div>
-                    <div style={{ marginTop: 6, fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>
-                        Connect Stripe, HubSpot, or another source so Cobrai can analyze churn risk,
-                        billing issues, usage changes, and retention opportunities.
-                    </div>
-                </div>
-            );
-        }
-
-        if (apiDemoMode === false && hasConnectedIntegrations && !hasAnyInsightData) {
-            return (
-                <div
-                    style={{
-                        border: "1px dashed #dbe4ee",
-                        borderRadius: 14,
-                        padding: 16,
-                        background: "#fcfcfd",
-                    }}
-                >
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
-                        AI insights are getting ready
-                    </div>
-                    <div style={{ marginTop: 6, fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>
-                        Your integrations are connected. Once more customer activity, billing, and risk data
-                        sync in, Cobrai will start generating account-level AI insights here.
-                    </div>
-                </div>
-            );
-        }
-
-        return renderInsightCards();
-    }
+    const resetDashboardState = () => {
+        setCurrentUser(null);
+        setChurnMonths([]);
+        setChurnPct([]);
+        setMrrNames([]);
+        setMrrVals([]);
+        setRiskAccounts([]);
+        setOpportunityAccounts([]);
+        setProgressData(null);
+        setIsPro(false);
+        setApiDemoMode(null);
+        setIsLoaded(false);
+        setWorkspaceAi(null);
+        setInsightsRefreshedAt(null);
+        setBilling({ plan: "free", trialEndsAt: null });
+    };
 
     useEffect(() => {
         let cancelled = false;
 
         const unsub = onAuthStateChanged(auth, async (user) => {
+            setCurrentUser(user);
+
             if (!user) {
                 resetDashboardState();
                 return;
@@ -961,6 +761,8 @@ export default function DashboardPage() {
 
             try {
                 const token = await user.getIdToken();
+
+                void loadWorkspaceAi(user);
 
                 const summaryRes = await fetch("/api/dashboard/summary", {
                     headers: { Authorization: `Bearer ${token}` },
@@ -974,46 +776,56 @@ export default function DashboardPage() {
                 const data = await summaryRes.json();
                 if (cancelled) return;
 
-                const resolvedDemoMode = typeof data?.demoMode === "boolean" ? data.demoMode : true;
-                setApiDemoMode(resolvedDemoMode);
+                setApiDemoMode(typeof data?.demoMode === "boolean" ? data.demoMode : true);
 
-                if (Array.isArray(data?.churnTrend?.months) && Array.isArray(data?.churnTrend?.values)) {
-                    setChurnMonths(data.churnTrend.months);
-                    setChurnPct(data.churnTrend.values.map((v: unknown) => normalizeDashboardChurnPct(v)));
-                } else {
-                    setChurnMonths([]);
-                    setChurnPct([]);
-                }
+                setChurnMonths(Array.isArray(data?.churnTrend?.months) ? data.churnTrend.months : []);
+                setChurnPct(
+                    Array.isArray(data?.churnTrend?.values)
+                        ? data.churnTrend.values.map((v: unknown) => normalizeDashboardChurnPct(v))
+                        : []
+                );
 
-                if (Array.isArray(data?.mrrProtectedChart?.months) && Array.isArray(data?.mrrProtectedChart?.values)) {
-                    setMrrNames(data.mrrProtectedChart.months);
-                    setMrrVals(data.mrrProtectedChart.values.map((v: unknown) => Number(v ?? 0)));
-                } else {
-                    setMrrNames([]);
-                    setMrrVals([]);
-                }
+                setMrrNames(
+                    Array.isArray(data?.mrrProtectedChart?.months)
+                        ? data.mrrProtectedChart.months
+                        : []
+                );
+                setMrrVals(
+                    Array.isArray(data?.mrrProtectedChart?.values)
+                        ? data.mrrProtectedChart.values.map((v: unknown) => Number(v ?? 0))
+                        : []
+                );
 
                 setKpiTotalMrrCurrent(
-                    typeof data?.totalMrrTrend?.current === "number" ? data.totalMrrTrend.current : null
+                    typeof data?.totalMrrTrend?.current === "number"
+                        ? data.totalMrrTrend.current
+                        : null
                 );
                 setKpiTotalMrrPrevious(
-                    typeof data?.totalMrrTrend?.previous === "number" ? data.totalMrrTrend.previous : null
+                    typeof data?.totalMrrTrend?.previous === "number"
+                        ? data.totalMrrTrend.previous
+                        : null
                 );
-
                 setKpiMrrAtRiskCurrent(
-                    typeof data?.mrrAtRiskTrend?.current === "number" ? data.mrrAtRiskTrend.current : null
+                    typeof data?.mrrAtRiskTrend?.current === "number"
+                        ? data.mrrAtRiskTrend.current
+                        : null
                 );
                 setKpiMrrAtRiskPrevious(
-                    typeof data?.mrrAtRiskTrend?.previous === "number" ? data.mrrAtRiskTrend.previous : null
+                    typeof data?.mrrAtRiskTrend?.previous === "number"
+                        ? data.mrrAtRiskTrend.previous
+                        : null
                 );
-
                 setKpiChurnProxyCurrent(
-                    typeof data?.churnProxyTrend?.current === "number" ? data.churnProxyTrend.current : null
+                    typeof data?.churnProxyTrend?.current === "number"
+                        ? data.churnProxyTrend.current
+                        : null
                 );
                 setKpiChurnProxyPrevious(
-                    typeof data?.churnProxyTrend?.previous === "number" ? data.churnProxyTrend.previous : null
+                    typeof data?.churnProxyTrend?.previous === "number"
+                        ? data.churnProxyTrend.previous
+                        : null
                 );
-
                 setKpiMrrProtectedCurrent(
                     typeof data?.mrrProtected?.current === "number" ? data.mrrProtected.current : null
                 );
@@ -1021,9 +833,9 @@ export default function DashboardPage() {
                     typeof data?.mrrProtected?.previous === "number" ? data.mrrProtected.previous : null
                 );
 
-                if (Array.isArray(data?.riskAccounts)) {
-                    setRiskAccounts(
-                        data.riskAccounts.map((a: any) => ({
+                setRiskAccounts(
+                    Array.isArray(data?.riskAccounts)
+                        ? data.riskAccounts.map((a: any) => ({
                             id: String(a.id ?? ""),
                             company: String(a.company ?? "Unknown account"),
                             email: a.email ?? "",
@@ -1033,14 +845,12 @@ export default function DashboardPage() {
                             tags: Array.isArray(a.tags) ? a.tags : [],
                             updatedAt: a.updatedAt ?? "",
                         }))
-                    );
-                } else {
-                    setRiskAccounts([]);
-                }
+                        : []
+                );
 
-                if (Array.isArray(data?.opportunities)) {
-                    setOpportunityAccounts(
-                        data.opportunities.map((a: any) => ({
+                setOpportunityAccounts(
+                    Array.isArray(data?.opportunities)
+                        ? data.opportunities.map((a: any) => ({
                             id: String(a.id ?? ""),
                             company: String(a.company ?? "Unknown account"),
                             email: a.email ?? "",
@@ -1048,10 +858,8 @@ export default function DashboardPage() {
                             upside: Number(a.upside ?? 0),
                             updatedAt: a.updatedAt ?? "",
                         }))
-                    );
-                } else {
-                    setOpportunityAccounts([]);
-                }
+                        : []
+                );
 
                 setIsPro(data?.tier === "pro" || data?.tier === "scale");
 
@@ -1062,12 +870,10 @@ export default function DashboardPage() {
                         headers: { Authorization: `Bearer ${token}` },
                     });
 
-                    if (!progressRes.ok) {
-                        setProgressData(null);
-                    } else {
+                    if (progressRes.ok) {
                         const progressJson = await progressRes.json();
 
-                        const normalizedProgress: ProgressApiResponse = {
+                        setProgressData({
                             mode: progressJson?.mode === "live" ? "live" : "demo",
                             workspaceTier: String(progressJson?.workspaceTier ?? ""),
                             connectedIntegrations: Array.isArray(progressJson?.connectedIntegrations)
@@ -1083,22 +889,8 @@ export default function DashboardPage() {
                                 actionsExecutedPct: Number(progressJson?.kpis?.actionsExecutedPct ?? 0),
                                 successRatePct: Number(progressJson?.kpis?.successRatePct ?? 0),
                             },
-                            recentMrrSaved: Array.isArray(progressJson?.recentMrrSaved)
-                                ? progressJson.recentMrrSaved.map((item: any) => ({
-                                    id: String(item?.id ?? ""),
-                                    account: String(item?.account ?? ""),
-                                    mrrSavedMinor: Number(item?.mrrSavedMinor ?? 0),
-                                }))
-                                : [],
-                            nextPriorityAccounts: Array.isArray(progressJson?.nextPriorityAccounts)
-                                ? progressJson.nextPriorityAccounts.map((item: any) => ({
-                                    id: String(item?.id ?? ""),
-                                    account: String(item?.account ?? ""),
-                                    aiReason: String(item?.aiReason ?? ""),
-                                    mrrMinor: Number(item?.mrrMinor ?? 0),
-                                    riskScore: Number(item?.riskScore ?? 0),
-                                }))
-                                : [],
+                            recentMrrSaved: [],
+                            nextPriorityAccounts: [],
                             progressBreakdown: Array.isArray(progressJson?.progressBreakdown)
                                 ? progressJson.progressBreakdown.map((row: any) => ({
                                     id: String(row?.id ?? ""),
@@ -1118,47 +910,25 @@ export default function DashboardPage() {
                                     date: String(row?.date ?? ""),
                                 }))
                                 : [],
-                            actionPerformance: Array.isArray(progressJson?.actionPerformance)
-                                ? progressJson.actionPerformance.map((row: any) => ({
-                                    id: String(row?.id ?? ""),
-                                    action: String(row?.action ?? ""),
-                                    executions: Number(row?.executions ?? 0),
-                                    mrrSavedMinor: Number(row?.mrrSavedMinor ?? 0),
-                                    avgRiskDecreasePct: Number(row?.avgRiskDecreasePct ?? 0),
-                                }))
-                                : [],
-                        };
-
-                        if (!cancelled) {
-                            setProgressData(normalizedProgress);
-                        }
-                    }
-                } catch {
-                    if (!cancelled) {
+                            actionPerformance: [],
+                        });
+                    } else {
                         setProgressData(null);
                     }
+                } catch {
+                    setProgressData(null);
                 }
 
+                await loadBilling();
+
                 if (!cancelled) {
-                    await loadBilling();
                     setIsLoaded(true);
                 }
             } catch (err) {
                 console.error("Failed to load dashboard summary", err);
 
                 if (!cancelled) {
-                    setChurnMonths([]);
-                    setChurnPct([]);
-                    setMrrNames([]);
-                    setMrrVals([]);
-                    setRiskAccounts([]);
-                    setOpportunityAccounts([]);
-                    setProgressData(null);
                     setApiDemoMode(true);
-                    setBilling({
-                        plan: "free",
-                        trialEndsAt: null,
-                    });
                     setIsLoaded(true);
                 }
             }
@@ -1183,6 +953,96 @@ export default function DashboardPage() {
     return (
         <div className={styles.page}>
             <div className={styles.content}>
+                <div className={styles.topUtilityBar}>
+                    <div />
+
+                    <div className={styles.topRightControls}>
+                        {showTrialPill ? (
+                            <button
+                                type="button"
+                                className={styles.trialPill}
+                                onClick={() => router.push("/dashboard/settings?tab=manage-plan")}
+                            >
+                                <Clock3 size={14} strokeWidth={1.8} />
+                                <span>
+                                    Trial ends in <strong>{trialDaysLeft} days</strong>
+                                </span>
+                            </button>
+                        ) : null}
+
+                        <div className={styles.profileWrap}>
+                            <button
+                                type="button"
+                                className={styles.profileButton}
+                                onClick={() => setProfileOpen((v) => !v)}
+                            >
+                                <span className={styles.profileCircle}>{getInitials(currentUser)}</span>
+                                <span className={styles.profileName}>
+                                    {currentUser?.displayName ||
+                                        currentUser?.email?.split("@")[0] ||
+                                        "Account"}
+                                </span>
+                                <ChevronDown size={14} strokeWidth={1.8} />
+                            </button>
+
+                            {profileOpen ? (
+                                <div className={styles.profileMenu}>
+                                    <div className={styles.profileMenuHeader}>
+                                        <span className={styles.profileCircleLarge}>
+                                            {getInitials(currentUser)}
+                                        </span>
+                                        <div>
+                                            <div className={styles.profileMenuName}>
+                                                {currentUser?.displayName || "Cobrai user"}
+                                            </div>
+                                            <div className={styles.profileMenuEmail}>
+                                                {currentUser?.email || "No email"}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        className={styles.profileMenuItem}
+                                        onClick={() => {
+                                            setProfileOpen(false);
+                                            router.push("/dashboard/settings?tab=manage-plan");
+                                        }}
+                                    >
+                                        <Crown size={15} strokeWidth={1.8} />
+                                        Manage plan
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className={styles.profileMenuItem}
+                                        onClick={() => {
+                                            setProfileOpen(false);
+                                            router.push("/dashboard/settings");
+                                        }}
+                                    >
+                                        <Settings size={15} strokeWidth={1.8} />
+                                        Settings
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className={styles.profileMenuItem}
+                                        onClick={async () => {
+                                            setProfileOpen(false);
+                                            await signOut(auth);
+                                            router.push("/login");
+                                        }}
+                                    >
+                                        <LogOut size={15} strokeWidth={1.8} />
+                                        Sign out
+                                    </button>
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
+                </div>
+
                 <div className={styles.header}>
                     <div>
                         <h1 className={styles.title}>Dashboard</h1>
@@ -1192,515 +1052,235 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                <TrialBanner plan={billing.plan} trialEndsAt={billing.trialEndsAt} />
-
                 {showLiveEmptyState && (
                     <div className={styles.card} style={{ marginBottom: 16, padding: 18 }}>
-                        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>
+                        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>
                             No live dashboard data yet
                         </div>
-                        <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
-                            Your workspace is in live mode, so demo data is hidden. Connect data
-                            sources and complete the first sync to populate charts, risks, insights, and customer mix.
+                        <div style={{ fontSize: 13, color: "#666666", lineHeight: 1.6 }}>
+                            Your workspace is in live mode. Connect data sources and complete the first
+                            sync to populate your dashboard.
                         </div>
                     </div>
                 )}
 
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                        gap: 16,
-                        marginBottom: 16,
-                    }}
-                >
-                    {kpis.map((kpi) => (
-                        <div key={kpi.label} className={styles.card} style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280" }}>
-                                {kpi.label}
-                            </div>
+                <div className={styles.kpiGrid}>
+                    {kpis.map((kpi) => {
+                        const Icon = kpi.Icon;
 
-                            <div
-                                style={{
-                                    marginTop: 8,
-                                    fontSize: 19,
-                                    lineHeight: 1.1,
-                                    fontWeight: 800,
-                                    color: kpi.valueColor,
-                                }}
-                            >
-                                {kpi.value}
-                            </div>
+                        return (
+                            <div key={kpi.label} className={styles.kpiCard}>
+                                <div>
+                                    <div className={styles.kpiLabel}>{kpi.label}</div>
+                                    <div className={styles.kpiValue}>{kpi.value}</div>
 
-                            <div
-                                style={{
-                                    marginTop: 6,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 6,
-                                    fontSize: 12,
-                                    color: "#6b7280",
-                                    flexWrap: "wrap",
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        color: kpi.trend.color,
-                                        fontWeight: 700,
-                                        fontSize: 12,
-                                    }}
-                                >
-                                    {kpi.trend.arrow}
-                                </span>
-                                <span>{kpi.subtext}</span>
+                                    <div className={styles.kpiSubline}>
+                                        <span style={{ color: kpi.trend.color, fontWeight: 600 }}>
+                                            {kpi.trend.arrow}
+                                        </span>
+                                        <span>{kpi.subtext}</span>
+                                    </div>
+                                </div>
+
+                                <div className={styles.kpiIcon}>
+                                    <Icon size={16} strokeWidth={1.8} />
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 <div className={styles.midGrid}>
                     <div className={styles.card}>
-                        <div
-                            className={styles.cardHeader}
-                            style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "flex-start",
-                                gap: 12,
-                            }}
-                        >
+                        <div className={styles.cardHeader}>
                             <div>
-                                <h4>Churn Trend </h4>
-                                <div
-                                    style={{
-                                        marginTop: 8,
-                                        fontSize: 13,
-                                        lineHeight: 1.5,
-                                        color: "#6b7280",
-                                    }}
-                                >
-                                    Monthly churn rate over time.
-                                </div>
+                                <h4>Churn Trend</h4>
+                                <p>Monthly churn rate.</p>
                             </div>
 
                             <button
                                 type="button"
+                                className={styles.softButton}
                                 onClick={() => router.push("/dashboard/analytics")}
-                                style={{
-                                    border: "1px solid #e5e7eb",
-                                    background: "#fff",
-                                    borderRadius: 8,
-                                    padding: "6px 10px",
-                                    fontSize: 12,
-                                    fontWeight: 600,
-                                    color: "#000000",
-                                    cursor: "pointer",
-                                    flexShrink: 0,
-                                }}
                             >
                                 View full churn trend
                             </button>
                         </div>
 
                         <div className={styles.chartPreview}>
-                            {activeChurnMonths.length > 0 && activeChurnPct.length > 0 ? (
-                                <EChart
-                                    key={`churn-demo-${activeChurnMonths.join("-")}-${activeChurnPct.join("-")}`}
-                                    option={{
-                                        animationDuration: 600,
-                                        grid: {
-                                            top: 20,
-                                            right: 16,
-                                            bottom: 28,
-                                            left: 44,
-                                            containLabel: true,
-                                        },
-                                        tooltip: {
-                                            trigger: "axis",
-                                            formatter: (params: any) => {
-                                                const point = Array.isArray(params) ? params[0] : params;
-                                                return `${point.axisValue}<br/>${Number(point.value).toFixed(1)}% churn`;
-                                            },
-                                        },
-                                        xAxis: {
-                                            type: "category",
-                                            data: activeChurnMonths,
-                                            boundaryGap: false,
-                                            axisTick: { show: false },
-                                            axisLine: { lineStyle: { color: "#e5e7eb" } },
-                                            axisLabel: {
-                                                color: "#6b7280",
-                                                fontSize: 12,
-                                                margin: 12,
-                                            },
-                                        },
-                                        yAxis: {
-                                            type: "value",
-                                            min: 2.5,
-                                            max: 6.5,
-                                            interval: 1,
-                                            axisLine: { show: false },
-                                            axisTick: { show: false },
-                                            axisLabel: {
-                                                color: "#6b7280",
-                                                fontSize: 12,
-                                                formatter: (value: number) => `${value}%`,
-                                                margin: 10,
-                                            },
-                                            splitLine: {
-                                                lineStyle: { color: "#f1f5f9" },
-                                            },
-                                        },
-                                        series: [
-                                            {
-                                                type: "line",
-                                                data: activeChurnPct,
-                                                smooth: true,
-                                                symbol: "circle",
-                                                symbolSize: 7,
-                                                lineStyle: {
-                                                    width: 3,
-                                                    color: "#5f8fdc",
-                                                },
-                                                itemStyle: {
-                                                    color: "#5f8fdc",
-                                                },
-                                                areaStyle: {
-                                                    color: "rgba(95, 143, 220, 0.14)",
-                                                },
-                                            },
-                                        ],
-                                    }}
-
-                                />) : (
-                                <div style={{ fontSize: 14, color: "#6b7280", padding: 16 }}>
-                                    No churn data yet.
-                                </div>
-                            )}
+                            <EChart option={churnTrendOption(activeChurnMonths, activeChurnPct, isPro)} />
                         </div>
                     </div>
 
                     <div className={styles.card}>
-                        <div
-                            className={styles.cardHeader}
-                            style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "flex-start",
-                                gap: 12,
-                            }}
-                        >
+                        <div className={styles.cardHeader}>
                             <div>
                                 <h4>MRR Protected</h4>
-                                <div
-                                    style={{
-                                        marginTop: 8,
-                                        fontSize: 13,
-                                        lineHeight: 1.5,
-                                        color: "#6b7280",
-                                    }}
-                                >
-                                    Revenue protected across recent retention activity.
-                                </div>
+                                <p>Revenue protected across recent retention activity.</p>
                             </div>
 
                             <button
                                 type="button"
+                                className={styles.softButton}
                                 onClick={() => router.push("/dashboard/analytics")}
-                                style={{
-                                    border: "1px solid #e5e7eb",
-                                    background: "#fff",
-                                    borderRadius: 8,
-                                    padding: "6px 10px",
-                                    fontSize: 12,
-                                    fontWeight: 600,
-                                    color: "#000000",
-                                    cursor: "pointer",
-                                    flexShrink: 0,
-                                }}
                             >
                                 View full MRR chart
                             </button>
                         </div>
 
                         <div className={styles.chartPreview}>
-                            {activeMrrMonths.length > 0 && activeMrrVals.length > 0 ? (
-                                <EChart
-                                    key="forced-demo-churn"
-                                    option={churnTrendOption(
-                                        ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar"],
-                                        [5.8, 5.1, 4.7, 4.3, 3.9, 3.4],
-                                        isPro
-                                    )}
-                                />) : (
-                                <div style={{ fontSize: 14, color: "#6b7280", padding: 16 }}>
-                                    No MRR data yet.
-                                </div>
-                            )}
+                            <EChart option={mrrProtectedOption(activeMrrMonths, activeMrrVals, isPro)} />
                         </div>
                     </div>
                 </div>
 
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "minmax(0, 1.28fr) minmax(340px, 0.72fr)",
-                        gap: 16,
-                        alignItems: "start",
-                    }}
-                >
-                    <div style={{ display: "grid", gap: 16 }}>
-                        <div className={styles.card}>
-                            <div
-                                className={styles.cardTop}
-                                style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center",
+                <div className={styles.bottomGrid}>
+                    <div className={styles.card}>
+                        <div className={styles.cardTop}>
+                            <div>
+                                <h4>Accounts at Risk</h4>
+                                <p>
+                                    {topRiskAccounts.length === 0
+                                        ? "No urgent churn risk right now"
+                                        : "Act now to protect revenue"}
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                className={styles.softButton}
+                                onClick={() => {
+                                    if (!canViewCriticalAccounts) {
+                                        setUpgradeOpen(true);
+                                        return;
+                                    }
+                                    router.push("/dashboard/accounts-at-risk?filter=critical");
                                 }}
                             >
-                                <div>
-                                    <h4>Accounts at Risk</h4>
-                                    <div style={{ marginTop: 6, fontSize: 13, color: "#6b7280" }}>
-                                        Top {Math.min(topRiskAccounts.length, 3)} accounts by revenue risk, reason, and suggested next action.
-                                    </div>
-                                </div>
+                                View all accounts at risk
+                            </button>
+                        </div>
 
-                                <button
-                                    type="button"
-                                    onClick={() => router.push("/dashboard/accounts-at-risk")}
-                                    style={{
-                                        border: "1px solid #e5e7eb",
-                                        background: "#fff",
-                                        borderRadius: 8,
-                                        padding: "6px 10px",
-                                        fontSize: 12,
-                                        fontWeight: 600,
-                                        color: "#000000",
-                                        cursor: "pointer",
-                                        flexShrink: 0,
-                                    }}
-                                >
-                                    View all accounts at risk
-                                </button>
-                            </div>
+                        <div className={styles.riskList}>
+                            {topRiskAccounts.length > 0 ? (
+                                topRiskAccounts.map((a) => (
+                                    <button
+                                        key={a.id}
+                                        type="button"
+                                        onClick={() => router.push(`/dashboard/accounts-at-risk/${a.id}`)}
+                                        className={styles.riskRow}
+                                    >
+                                        <div>
+                                            <strong>{a.company}</strong>
+                                            <span>{a.reason}</span>
+                                            <small>Suggested action: {getSuggestedAction(a)}</small>
+                                        </div>
 
-                            <div className={styles.riskList}>
-                                {topRiskAccounts.length > 0 ? (
-                                    topRiskAccounts.map((a) => (
-                                        <button
-                                            key={a.id}
-                                            type="button"
-                                            onClick={() => router.push(`/dashboard/accounts-at-risk/${a.id}`)}
-                                            className={styles.riskRow}
-                                            style={{
-                                                width: "100%",
-                                                textAlign: "left",
-                                                alignItems: "stretch",
-                                                gap: 14,
-                                                paddingTop: 14,
-                                                paddingBottom: 14,
-                                                border: "none",
-                                                background: "#fff",
-                                                cursor: "pointer",
-                                                borderRadius: 14,
-                                                transition: "transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease",
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.transform = "translateY(-1px)";
-                                                e.currentTarget.style.boxShadow = "0 8px 20px rgba(15,23,42,0.06)";
-                                                e.currentTarget.style.background = "#fcfcfd";
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.transform = "translateY(0)";
-                                                e.currentTarget.style.boxShadow = "none";
-                                                e.currentTarget.style.background = "#fff";
-                                            }}
-                                        >
-                                            <div style={{ minWidth: 0, flex: 1 }}>
-                                                <div
-                                                    style={{
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "space-between",
-                                                        gap: 12,
-                                                        marginBottom: 8,
-                                                    }}
-                                                >
-                                                    <strong style={{ color: "#111827" }}>{a.company}</strong>
-
-                                                    <div
-                                                        style={{
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            gap: 8,
-                                                            flexShrink: 0,
-                                                        }}
-                                                    >
-                                                        <span className={styles.badge} style={getRiskBadgeStyle(a.risk)}>
-                                                            {a.risk}
-                                                        </span>
-
-                                                        <span
-                                                            className={styles.mrr}
-                                                            style={{
-                                                                fontWeight: 800,
-                                                                color: "#dc2626",
-                                                            }}
-                                                        >
-                                                            {formatGBP(a.mrr)}
-                                                        </span>
-                                                    </div>
-                                                </div>
-
-                                                <div style={{ display: "grid", gap: 8 }}>
-                                                    <div style={{ fontSize: 12, color: "#6b7280" }}>
-                                                        <span style={{ fontWeight: 600, color: "#111827" }}>Reason:</span>{" "}
-                                                        {a.reason}
-                                                    </div>
-
-                                                    <div style={{ fontSize: 12, color: "#6b7280" }}>
-                                                        <span style={{ fontWeight: 600, color: "#111827" }}>Suggested action:</span>{" "}
-                                                        {getSuggestedAction(a)}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </button>
-                                    ))
-                                ) : (
-                                    <div style={{ fontSize: 14, color: "#6b7280", paddingTop: 8 }}>
-                                        No at-risk accounts yet.
-                                    </div>
-                                )}
-                            </div>
+                                        <div className={styles.riskRowRight}>
+                                            <span
+                                                className={`${styles.badge} ${a.risk >= 80
+                                                        ? styles.riskCritical
+                                                        : a.risk >= 65
+                                                            ? styles.riskMedium
+                                                            : styles.riskLow
+                                                    }`}
+                                            >
+                                                {a.risk}
+                                            </span>
+                                            <span className={styles.mrr}>{formatGBP(a.mrr)}</span>
+                                        </div>
+                                    </button>
+                                ))
+                            ) : (
+                                <div className={styles.emptyText}>No at-risk accounts yet.</div>
+                            )}
                         </div>
                     </div>
 
-                    <div style={{ display: "grid", gap: 16 }}>
-                        <div className={styles.card}>
-                            <div
-                                className={styles.cardTop}
-                                style={{
-                                    marginBottom: 14,
-                                }}
-                            >
-                                <div style={{ minWidth: 0 }}>
-                                    <h4
-                                        style={{
-                                            margin: 0,
-                                            fontSize: 15,
-                                            fontWeight: 800,
-                                            lineHeight: 1.2,
-                                            color: "#111827",
-                                        }}
-                                    >
-                                        AI Insights
-                                    </h4>
+                    <div className={styles.card}>
+                        <div className={styles.cardTop}>
+                            <div className={styles.insightsHeaderLeft}>
+                                <h4 className={styles.insightsTitle}>AI Insights</h4>
 
-                                    {isPro ? (
-                                        <div
-                                            style={{
-                                                marginTop: 8,
-                                                fontSize: 14,
-                                                fontWeight: 600,
-                                                lineHeight: 1.45,
-                                                color: "#4b5563",
-                                            }}
-                                        >
-                                            Live insights across account risk, actions, and revenue impact.
-                                        </div>
-                                    ) : (
-                                        <div
-                                            style={{
-                                                marginTop: 8,
-                                                fontSize: 14,
-                                                lineHeight: 1.5,
-                                            }}
-                                        >
-                                            <span
-                                                style={{
-                                                    fontWeight: 600,
-                                                    color: "#4b5563",
-                                                }}
-                                            >
-                                                Live insights across account risk, actions, and revenue impact.
-                                            </span>{" "}
-                                            <span
-                                                style={{
-                                                    color: "#9ca3af",
-                                                    fontWeight: 500,
-                                                }}
-                                            >
-                                                Upgrade to Pro for unlimited AI insights.
-                                            </span>
-                                        </div>
-                                    )}
+                                <p className={styles.insightsSubheading}>
+                                    Priority actions based on revenue risk, billing, and customer activity.
+                                </p>
+
+                                <div className={styles.insightsMeta}>
+                                    <Clock3 size={13} strokeWidth={1.8} />
+                                    <span>{formatRefreshTime(insightsRefreshedAt)}</span>
                                 </div>
                             </div>
 
-                            {renderAiInsightsContent()}
+                            <button
+                                type="button"
+                                className={styles.softButton}
+                                onClick={() => {
+                                    if (!hasUnlimitedLiveInsights) {
+                                        setUpgradeOpen(true);
+                                        return;
+                                    }
+
+                                    if (currentUser) {
+                                        void loadWorkspaceAi(currentUser);
+                                    }
+                                }}
+                            >
+                                Refresh
+                            </button>
+                        </div>
+
+                        <div className={styles.insightsList}>
+                            {insightFeed.length > 0 ? (
+                                insightFeed.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        className={styles.insightCard}
+                                        onClick={() => {
+                                            if (item.href) router.push(item.href);
+                                        }}
+                                    >
+                                        <div>
+                                            <strong>{item.title}</strong>
+                                            <span>{item.summary}</span>
+                                            {item.meta ? <small>{item.meta}</small> : null}
+                                        </div>
+
+                                        {item.amountLabel ? (
+                                            <b
+                                                className={
+                                                    item.amountTone === "risk"
+                                                        ? styles.amountRisk
+                                                        : item.amountTone === "opportunity"
+                                                            ? styles.amountOpportunity
+                                                            : styles.amountNeutral
+                                                }
+                                            >
+                                                {item.amountLabel}
+                                            </b>
+                                        ) : null}
+                                    </button>
+                                ))
+                            ) : (
+                                <div className={styles.emptyText}>No recent insight activity yet.</div>
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {upgradeOpen && (
-                <>
-                    <div
-                        onClick={() => setUpgradeOpen(false)}
-                        style={{
-                            position: "fixed",
-                            inset: 0,
-                            background: "rgba(15, 23, 42, 0.28)",
-                            zIndex: 70,
-                        }}
-                    />
+            {upgradeOpen ? (
+                <div className={styles.upgradeOverlay}>
+                    <div className={styles.upgradeModal}>
+                        <h3>Upgrade to Pro</h3>
+                        <p>
+                            Upgrade to Pro for unlimited live insights, deeper customer behaviour signals,
+                            and priority retention actions.
+                        </p>
 
-                    <div
-                        style={{
-                            position: "fixed",
-                            top: "50%",
-                            left: "50%",
-                            transform: "translate(-50%, -50%)",
-                            width: 420,
-                            maxWidth: "92vw",
-                            background: "#fff",
-                            border: "1px solid #e5e7eb",
-                            borderRadius: 18,
-                            boxShadow: "0 20px 50px rgba(0,0,0,0.12)",
-                            zIndex: 80,
-                            padding: 24,
-                        }}
-                    >
-                        <div style={{ fontSize: 22, fontWeight: 700, color: "#111827", marginBottom: 8 }}>
-                            Upgrade to Pro
-                        </div>
-
-                        <div style={{ fontSize: 14, lineHeight: 1.6, color: "#4b5563", marginBottom: 18 }}>
-                            Viewing deeper insight drivers is available on Pro. Upgrade to unlock account-level
-                            drivers, deeper attribution, and priority actions.
-                        </div>
-
-                        <div
-                            style={{
-                                display: "flex",
-                                gap: 10,
-                                justifyContent: "flex-end",
-                            }}
-                        >
-                            <button
-                                type="button"
-                                onClick={() => setUpgradeOpen(false)}
-                                style={{
-                                    border: "1px solid #e5e7eb",
-                                    background: "#fff",
-                                    borderRadius: 10,
-                                    padding: "10px 14px",
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                }}
-                            >
+                        <div className={styles.modalActions}>
+                            <button type="button" onClick={() => setUpgradeOpen(false)}>
                                 Not now
                             </button>
 
@@ -1708,25 +1288,15 @@ export default function DashboardPage() {
                                 type="button"
                                 onClick={() => {
                                     setUpgradeOpen(false);
-                                    router.push("/dashboard/settings");
-                                }}
-                                style={{
-                                    border: "1px solid #111827",
-                                    background: "#111827",
-                                    color: "#fff",
-                                    borderRadius: 10,
-                                    padding: "10px 14px",
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
+                                    router.push("/dashboard/settings?tab=manage-plan");
                                 }}
                             >
                                 Upgrade to Pro
                             </button>
                         </div>
                     </div>
-                </>
-            )}
+                </div>
+            ) : null}
         </div>
     );
 }

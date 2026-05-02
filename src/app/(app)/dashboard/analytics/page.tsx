@@ -1,14 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+    useEffect,
+    useMemo,
+    useState,
+    type Dispatch,
+    type ReactNode,
+    type SetStateAction,
+} from "react";
 import { useRouter } from "next/navigation";
 import EChart from "@/components/charts/EChart";
 import type { EChartsOption } from "echarts";
 
 import InsightDrawer from "./InsightDrawer";
+import { canAccessFeature, type PlanTier } from "@/lib/permissions";
 
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase.client";
+
+import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
 
 import styles from "./analytics.module.css";
 
@@ -17,8 +27,9 @@ import styles from "./analytics.module.css";
 type DashboardSummary = {
     ok: boolean;
     error?: string;
-    tier?: "starter" | "pro" | "scale";
+    tier?: "free" | "starter" | "pro" | "scale";
     demoMode?: boolean;
+    trialEndsAt?: string | null;
     connectedIntegrations?: string[];
     kpis?: {
         totalMrr?: number;
@@ -55,6 +66,15 @@ type MrrProtectedRes = {
     ok: boolean;
     mrrProtected?: number;
     error?: string;
+};
+
+type AiWorkspaceRes = {
+    insights: Insight[];
+    actions: ActionFirstRecommendation[];
+    cached: boolean;
+    source: "ai" | "fallback" | "cache" | "fallback_after_error";
+    timeframe: string;
+    promptVersion: string;
 };
 
 type AutomationStatusRes = {
@@ -202,6 +222,12 @@ function normalizeConfidence(value?: string | null): ConfidenceLevel | undefined
     return undefined;
 }
 
+function normalizePlanTier(tier?: "free" | "starter" | "pro" | "scale"): PlanTier {
+    if (tier === "pro" || tier === "scale") return "pro";
+    if (tier === "starter") return "starter";
+    return "free";
+}
+
 function formatGBPFromMinor(maybeMinor: number | null | undefined) {
     const minor = Number(maybeMinor || 0);
     const pounds = minor / 100;
@@ -249,6 +275,27 @@ async function authedGet(url: string, user: User) {
         headers: {
             Authorization: `Bearer ${token}`,
         },
+    });
+
+    if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`${res.status} ${res.statusText} ${text}`);
+    }
+
+    return res.json();
+}
+
+async function authedPost(url: string, user: User, body?: unknown) {
+    const token = await user.getIdToken(true);
+
+    const res = await fetch(url, {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body ?? {}),
     });
 
     if (!res.ok) {
@@ -337,7 +384,6 @@ function buildSeriesTooltipHtml(args: {
     } = args;
 
     const monthLabel = formatMonthLongYear(monthKey);
-
     const currentLabel = title === "MAU" ? "Active monthly users" : title;
 
     const currentText =
@@ -441,10 +487,11 @@ function computeMauSummary(series: Array<{ x: string; y: number | null }>) {
 function computeForecastFromSeries(series: Array<{ x: string; y: number | null }> | null) {
     if (!series || series.length < 2) return null;
 
-    const valid = series.filter((p) => typeof p.y === "number" && Number.isFinite(Number(p.y))) as Array<{
-        x: string;
-        y: number;
-    }>;
+    const valid = series.filter(
+        (p): p is { x: string; y: number } =>
+            typeof p.y === "number" && Number.isFinite(Number(p.y))
+    );
+
     if (valid.length < 2) return null;
 
     const last = valid[valid.length - 1];
@@ -489,7 +536,10 @@ function buildMrrAiSummary(ins: NonNullable<TimeseriesRes["insights"]>["mrr"]) {
         ins.prevMinor && ins.prevMinor > 0 ? (withoutChurnDelta / ins.prevMinor) * 100 : null;
 
     return {
-        headline: (ins.deltaPct ?? 0) < 0 ? `MRR fell mainly due to ${mainDrag}.` : `MRR grew, driven by new + expansion.`,
+        headline:
+            (ins.deltaPct ?? 0) < 0
+                ? `MRR fell mainly due to ${mainDrag}.`
+                : `MRR grew, driven by new + expansion.`,
         bullets: [
             d
                 ? `Downside: ${formatCompactGBPFromMinor(totalDown)} (churn ${formatCompactGBPFromMinor(
@@ -527,7 +577,9 @@ function buildChurnAiSummary(ins: NonNullable<TimeseriesRes["insights"]>["churn"
                         ? "Churn was flat month over month."
                         : "Churn insight unavailable.",
         bullets: [
-            typeof ins.currentPct === "number" ? `Current churn: ${ins.currentPct.toFixed(1)}%.` : "Current churn not available.",
+            typeof ins.currentPct === "number"
+                ? `Current churn: ${ins.currentPct.toFixed(1)}%.`
+                : "Current churn not available.",
             typeof delta === "number" ? `MoM change: ${formatSigned(delta, 1)}pp.` : "MoM change unavailable.",
             top ? `Largest churn impact: ${top.name} (${formatGBPFromMinor(top.mrrMinor)}).` : null,
         ].filter(Boolean) as string[],
@@ -589,13 +641,11 @@ function formatDeltaPpLabel(v: number | null | undefined) {
 function getDriverRows(
     drivers: NonNullable<TimeseriesRes["insights"]>["mrr"]["drivers"]
 ) {
-    if (!drivers || !Array.isArray((drivers as any).driverAccounts)) {
+    if (!drivers || !Array.isArray(drivers.driverAccounts)) {
         return [];
     }
 
-    const rows = drivers.driverAccounts;
-
-    return rows
+    return drivers.driverAccounts
         .filter(
             (row) =>
                 row &&
@@ -758,10 +808,10 @@ function buildBarOption(
 
     return {
         grid: {
-            left: 38,
+            left: 44,
             right: 18,
-            top: 20,
-            bottom: 34,
+            top: 22,
+            bottom: 36,
             containLabel: false,
         },
         tooltip: {
@@ -801,13 +851,16 @@ function buildBarOption(
         xAxis: {
             type: "category",
             data: xs,
-            axisLine: { show: false },
+            axisLine: {
+                show: true,
+                lineStyle: { color: "#e5e7eb" },
+            },
             axisTick: { show: false },
             axisLabel: {
-                color: "#8b97aa",
+                color: "#4b5563",
                 fontSize: 12,
-                fontWeight: 600,
-                margin: 14,
+                fontWeight: 500,
+                margin: 12,
             },
         },
         yAxis: {
@@ -818,15 +871,15 @@ function buildBarOption(
             axisLine: { show: false },
             axisTick: { show: false },
             axisLabel: {
-                color: "#8b97aa",
+                color: "#4b5563",
                 fontSize: 12,
-                fontWeight: 600,
+                fontWeight: 500,
             },
             splitLine: {
                 show: true,
                 lineStyle: {
-                    color: "#edf2f8",
-                    type: "dashed",
+                    color: "#eef2f7",
+                    type: "solid",
                 },
             },
         },
@@ -834,28 +887,13 @@ function buildBarOption(
             {
                 name: title,
                 type: "bar",
-                data: ys.map((value, index) => ({
-                    value,
-                    itemStyle: {
-                        color:
-                            index === ys.length - 1
-                                ? "#3468f6"
-                                : {
-                                    type: "linear",
-                                    x: 0,
-                                    y: 0,
-                                    x2: 0,
-                                    y2: 1,
-                                    colorStops: [
-                                        { offset: 0, color: "#9fb4ff" },
-                                        { offset: 1, color: "#dfe6ff" },
-                                    ],
-                                },
-                        borderRadius: [10, 10, 0, 0],
-                    },
-                })),
-                barWidth: 26,
-                barCategoryGap: "30%",
+                data: ys,
+                itemStyle: {
+                    color: "#73baf4ff",
+                    borderRadius: [10, 10, 0, 0],
+                },
+                barWidth: 28,
+                barCategoryGap: "36%",
                 barMinHeight: 8,
                 emphasis: { disabled: true },
             },
@@ -868,7 +906,12 @@ function buildMetricBarOption(
     points: Array<{ x: string; y: number | null }>,
     yMode: "currency" | "percent" = "currency"
 ): EChartsOption {
-    const xs = points.map((p) => p.x);
+    const xs = points.map((p) => {
+        const d = new Date(`${p.x}-01T00:00:00`);
+        if (Number.isNaN(d.getTime())) return p.x;
+        return d.toLocaleString("en-GB", { month: "short" });
+    });
+
     const ys = points.map((p) => (Number.isFinite(Number(p.y)) ? Number(p.y) : null));
 
     const valid = ys.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
@@ -878,38 +921,36 @@ function buildMetricBarOption(
     const maxVal = hasData ? Math.max(...valid) : 0;
     const range = Math.max(1, maxVal - minVal);
 
-    const percentValues = valid;
-    const percentMin = percentValues.length > 0 ? Math.min(...percentValues) : 0;
-    const percentMax = percentValues.length > 0 ? Math.max(...percentValues) : 0;
-    const percentRange = Math.max(0.5, percentMax - percentMin);
-
     const axisMin =
         yMode === "percent"
-            ? Math.max(0, percentMin - percentRange * 0.4)
+            ? Math.max(0, minVal - range * 0.35)
             : Math.max(0, minVal - range * 0.25);
 
     const axisMax =
         yMode === "percent"
-            ? percentMax + percentRange * 0.4
-            : Math.ceil(maxVal + range * 0.18);
+            ? maxVal + range * 0.4
+            : Math.ceil(maxVal + range * 0.2);
 
     return {
         grid: {
-            left: 12,
-            right: 12,
-            top: 8,
-            bottom: 8,
+            left: 44,
+            right: 18,
+            top: 22,
+            bottom: 36,
             containLabel: false,
         },
         tooltip: {
             trigger: "axis",
-            axisPointer: {
-                type: "none",
-            },
+            axisPointer: { type: "none" },
+            backgroundColor: "#ffffff",
+            borderColor: "#e8edf5",
+            borderWidth: 1,
+            padding: 12,
+            extraCssText:
+                "border-radius:14px;box-shadow:0 14px 34px rgba(15,23,42,0.12);",
             formatter: (params: any) => {
                 const first = Array.isArray(params) ? params[0] : params;
-                const dataIndex =
-                    typeof first?.dataIndex === "number" ? first.dataIndex : -1;
+                const dataIndex = typeof first?.dataIndex === "number" ? first.dataIndex : -1;
 
                 if (dataIndex < 0 || dataIndex >= points.length) return "";
 
@@ -936,44 +977,56 @@ function buildMetricBarOption(
         xAxis: {
             type: "category",
             data: xs,
-            show: false,
+            axisLine: {
+                show: true,
+                lineStyle: { color: "#e5e7eb" },
+            },
+            axisTick: { show: false },
+            axisLabel: {
+                color: "#4b5563",
+                fontSize: 12,
+                fontWeight: 500,
+                margin: 12,
+            },
         },
         yAxis: {
             type: "value",
-            show: false,
             min: axisMin,
             max: axisMax,
+            splitNumber: 4,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: {
+                color: "#4b5563",
+                fontSize: 12,
+                fontWeight: 500,
+                formatter: (value: number) => {
+                    if (yMode === "currency") return `£${Math.round(value)}`;
+                    if (yMode === "percent") return `${Number(value).toFixed(1)}%`;
+                    return String(value);
+                },
+            },
+            splitLine: {
+                show: true,
+                lineStyle: {
+                    color: "#eef2f7",
+                    type: "solid",
+                },
+            },
         },
         series: [
             {
                 name: title,
                 type: "bar",
-                data: ys.map((value, index) => ({
-                    value,
-                    itemStyle: {
-                        color:
-                            index === ys.length - 1
-                                ? "#3867e6ff"
-                                : {
-                                    type: "linear",
-                                    x: 0,
-                                    y: 0,
-                                    x2: 0,
-                                    y2: 1,
-                                    colorStops: [
-                                        { offset: 0, color: "#9fb4ff" },
-                                        { offset: 1, color: "#dfe6ff" },
-                                    ],
-                                },
-                        borderRadius: [10, 10, 0, 0],
-                    },
-                })),
-                barWidth: 26,
-                barCategoryGap: "18%",
-                barMinHeight: 8,
-                emphasis: {
-                    disabled: true,
+                data: ys,
+                itemStyle: {
+                    color: "#73baf4ff",
+                    borderRadius: [10, 10, 0, 0],
                 },
+                barWidth: 28,
+                barCategoryGap: "36%",
+                barMinHeight: 8,
+                emphasis: { disabled: true },
             },
         ],
     };
@@ -1124,6 +1177,7 @@ export default function AnalyticsPage() {
     const [mrrRange, setMrrRange] = useState<RangeKey>("auto");
     const [churnRange, setChurnRange] = useState<RangeKey>("auto");
     const [mauRange, setMauRange] = useState<RangeKey>("auto");
+    const [workspaceAi, setWorkspaceAi] = useState<AiWorkspaceRes | null>(null);
 
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [drawerView, setDrawerView] = useState<DrawerView>("mrr");
@@ -1182,6 +1236,7 @@ export default function AnalyticsPage() {
                 setError(e?.message ?? "Failed to load analytics");
                 setSummary(null);
                 setMrrProtected(null);
+                setWorkspaceAi(null);
             } finally {
                 if (cancelled) return;
                 setLoading(false);
@@ -1200,7 +1255,7 @@ export default function AnalyticsPage() {
 
         async function loadOne(
             selectedRange: RangeKey,
-            setter: React.Dispatch<React.SetStateAction<TimeseriesRes | null>>
+            setter: Dispatch<SetStateAction<TimeseriesRes | null>>
         ) {
             try {
                 if (!user) return;
@@ -1236,20 +1291,28 @@ export default function AnalyticsPage() {
             try {
                 if (!user) return;
 
-                const isPro = s?.tier === "pro" || s?.tier === "scale" || s?.demoMode === true;
+                const isPro = canAccessFeature({
+                    plan: normalizePlanTier(s?.tier),
+                    feature: "ai-insights",
+                    trialEndsAt: s?.trialEndsAt ?? null,
+                    isDemoMode: s?.demoMode === true,
+                });
 
                 if (!isPro) {
                     setAutomation(null);
                     setInsights(null);
                     setAttention(null);
+                    setWorkspaceAi(null);
                     return;
                 }
 
-                const [aRes, iRes, tRes] = await Promise.allSettled([
+                const [aRes, iRes, tRes, aiRes] = await Promise.allSettled([
                     authedGet("/api/dashboard/automation/status", user) as Promise<AutomationStatusRes>,
                     authedGet("/api/dashboard/automation/insights", user) as Promise<InsightsFeedRes>,
                     authedGet("/api/dashboard/automation/attention", user) as Promise<AttentionRes>,
-                ]);
+                    authedPost("/api/dashboard/ai/insights", user, {
+                        timeframe: mrrRange === "ytd" ? "month" : "week"
+                    }) as Promise<AiWorkspaceRes>,]);
 
                 if (cancelled) return;
 
@@ -1261,11 +1324,18 @@ export default function AnalyticsPage() {
 
                 if (tRes.status === "fulfilled" && tRes.value?.ok) setAttention(tRes.value);
                 else setAttention({ ok: false, rows: [], error: "Attention table unavailable" });
+                if (aiRes.status === "fulfilled") setWorkspaceAi(aiRes.value);
+                else setWorkspaceAi(null);
+
             } catch {
+
+
                 if (cancelled) return;
                 setAutomation({ ok: false, error: "Automation status unavailable" });
                 setInsights({ ok: false, items: [], error: "Insights unavailable" });
                 setAttention({ ok: false, rows: [], error: "Attention table unavailable" });
+                setWorkspaceAi(null);
+
             }
         }
 
@@ -1274,7 +1344,7 @@ export default function AnalyticsPage() {
         return () => {
             cancelled = true;
         };
-    }, [status, user, summary?.tier, summary?.demoMode]);
+    }, [status, user, summary, mrrRange]);
 
     const mrrSource = mrrTimeseries;
     const churnSource = churnTimeseries;
@@ -1306,7 +1376,7 @@ export default function AnalyticsPage() {
         validRawMrr.length > 0 &&
         Math.max(...validRawMrr) - Math.min(...validRawMrr) > 8;
 
-    const mrrSeries: Array<{ x: string; y: number | null }> | null =
+    const mrrSeries: Array<{ x: string; y: number | null }> =
         hasMeaningfulMrrData ? rawMrrSeries : mrrFallbackSeries;
 
     const churnFallbackSeries: Array<{ x: string; y: number | null }> =
@@ -1381,6 +1451,7 @@ export default function AnalyticsPage() {
 
     const mauPrevPoint = mauSeries.length >= 2 ? mauSeries[mauSeries.length - 2] : null;
     const mauCurrentPoint = mauSeries.length >= 1 ? mauSeries[mauSeries.length - 1] : null;
+
     const selectedMauPoint =
         selectedMauIndex !== null && mauSeries[selectedMauIndex]
             ? mauSeries[selectedMauIndex]
@@ -1391,22 +1462,10 @@ export default function AnalyticsPage() {
         : "Current month";
 
     const selectedMauActivity = useMemo(() => {
-        if (!selectedMauPoint?.x) {
-            return null;
-        }
+        if (!selectedMauPoint?.x) return null;
 
-        return mauSource?.activityByMonth?.find(
-            (row) => row.month === selectedMauPoint.x
-        ) ?? null;
+        return mauSource?.activityByMonth?.find((row) => row.month === selectedMauPoint.x) ?? null;
     }, [mauSource?.activityByMonth, selectedMauPoint?.x]);
-
-    const mauSummary = useMemo(() => computeMauSummary(mauSeries), [mauSeries]);
-
-    const activeMonthLabel = useMemo(() => {
-        return mauCurrentPoint?.x
-            ? formatMonthLong(mauCurrentPoint.x)
-            : "Current month";
-    }, [mauCurrentPoint]);
 
     const mrrRangeLabel = useMemo(() => {
         const used = mrrSource?.rangeUsed || mrrRange;
@@ -1446,7 +1505,12 @@ export default function AnalyticsPage() {
             distribution[band] += 1;
         }
 
-        const isPro = summary?.tier === "pro" || summary?.tier === "scale" || summary?.demoMode === true;
+        const isPro = canAccessFeature({
+            plan: normalizePlanTier(summary?.tier),
+            feature: "forecasting",
+            trialEndsAt: summary?.trialEndsAt ?? null,
+            isDemoMode: summary?.demoMode === true,
+        });
 
         return {
             distribution,
@@ -1518,11 +1582,7 @@ export default function AnalyticsPage() {
                     : drawerInsights.churn.currentPct ?? null,
         };
     }, [
-        summary?.demoMode,
-        summary?.kpis?.totalMrr,
-        summary?.kpis?.mrrAtRisk,
-        summary?.kpis?.atRiskAccounts,
-        summary?.kpis?.churnPct,
+        summary,
         mrrProtected,
         drawerInsights.mrr.currentMinor,
         drawerInsights.churn.currentPct,
@@ -1584,11 +1644,9 @@ export default function AnalyticsPage() {
                 };
             }),
         };
-    }, [attention?.ok, attention?.rows, drawerInsights.mrr.topMovers, accountLookup]);
+    }, [attention, drawerInsights.mrr.topMovers, accountLookup]);
 
-    const isDemoPreview = !mrrTimeseries?.insights;
-
-
+    const isDemoPreview = summary?.demoMode === true || !mrrTimeseries?.insights;
 
     const mauLatestDeltaPct = useMemo(() => {
         const current =
@@ -1603,81 +1661,6 @@ export default function AnalyticsPage() {
         if (current === null || prev === null || prev <= 0) return null;
         return ((current - prev) / prev) * 100;
     }, [mauCurrentPoint, mauPrevPoint]);
-
-    const mauAverageDeltaPct = useMemo(() => {
-        const deltas = mauSeries
-            .map((p, idx) => {
-                if (idx === 0) return null;
-                const current = typeof p.y === "number" && Number.isFinite(p.y) ? p.y : null;
-                const prev =
-                    typeof mauSeries[idx - 1]?.y === "number" && Number.isFinite(mauSeries[idx - 1].y)
-                        ? mauSeries[idx - 1].y
-                        : null;
-                if (current === null || prev === null || prev <= 0) return null;
-                return ((current - prev) / prev) * 100;
-            })
-            .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-
-        if (!deltas.length) return null;
-        return deltas.reduce((sum, v) => sum + v, 0) / deltas.length;
-    }, [mauSeries]);
-
-    const mauInsightText = useMemo(() => {
-        const monthLabel = mauCurrentPoint?.x ? formatMonthLong(mauCurrentPoint.x) : "this month";
-        const delta = mauLatestDeltaPct;
-        const trials = summary?.activitySummary?.newTrials ?? 0;
-        const newSubs = summary?.activitySummary?.newSubscriptions ?? 0;
-
-        if (typeof delta !== "number") {
-            return "MAU insight will appear once enough monthly history is available.";
-        }
-
-        if (delta < 0) {
-            const driver =
-                trials < newSubs
-                    ? "driven by lower trial conversions"
-                    : "driven by softer customer activity";
-            return `MAU dropped ${Math.abs(delta).toFixed(1)}% in ${monthLabel}, ${driver}.`;
-        }
-
-        const driver =
-            (summary?.activitySummary?.reactivations ?? 0) > 0
-                ? "supported by reactivations and steady engagement"
-                : "supported by stronger recent customer activity";
-
-        return `Monthly users increased ${Math.abs(delta).toFixed(1)}% in ${monthLabel}, ${driver}.`;
-    }, [
-        mauCurrentPoint,
-        mauLatestDeltaPct,
-        summary?.activitySummary?.newTrials,
-        summary?.activitySummary?.newSubscriptions,
-        summary?.activitySummary?.reactivations,
-    ]);
-
-    const mauTrendLabel = useMemo(() => {
-        if (typeof mauLatestDeltaPct !== "number" || typeof mauAverageDeltaPct !== "number") return null;
-        return mauLatestDeltaPct >= mauAverageDeltaPct
-            ? "above average growth trend"
-            : "below average growth trend";
-    }, [mauLatestDeltaPct, mauAverageDeltaPct]);
-
-    const mauTrendColor =
-        typeof mauLatestDeltaPct !== "number"
-            ? "#64748b"
-            : mauLatestDeltaPct > 0
-                ? "#16a34a"
-                : mauLatestDeltaPct < 0
-                    ? "#dc2626"
-                    : "#64748b";
-
-    const mauTrendArrow =
-        typeof mauLatestDeltaPct !== "number"
-            ? "→"
-            : mauLatestDeltaPct > 0
-                ? "↑"
-                : mauLatestDeltaPct < 0
-                    ? "↓"
-                    : "→";
 
     const previousMrrMinor = useMemo(() => {
         if (typeof mrrDeltaPct !== "number") return null;
@@ -1823,25 +1806,39 @@ export default function AnalyticsPage() {
             value: `${aiInsightMetrics.businessHealthScore}/100`,
             sub: `${aiInsightMetrics.businessHealthLabel} • ${aiInsightMetrics.confidenceLabel} confidence`,
         };
-
-        const impactPills = [
-            atRiskAccounts > 0
-                ? `${atRiskAccounts} account${atRiskAccounts === 1 ? "" : "s"} at risk`
-                : null,
-            mrrAtRiskMinor > 0 ? `${formatGBPFromMinor(mrrAtRiskMinor)} exposed` : null,
-            failedSubscriptions > 0
-                ? `${failedSubscriptions} failed subscription${failedSubscriptions === 1 ? "" : "s"}`
-                : null,
-        ].filter(Boolean) as string[];
+        const actionFirstActions =
+            workspaceAi?.actions?.slice(0, 3).map((action) => ({
+                title: action.actionTitle,
+                meta: `${action.customerName} • ${action.priority} priority`,
+                impact: action.mrrAtRiskMinor
+                    ? `${formatGBPFromMinor(action.mrrAtRiskMinor)} at risk`
+                    : `${action.riskScore}/100 risk`,
+                tone:
+                    action.severity === "critical" || action.severity === "high"
+                        ? "danger"
+                        : action.severity === "medium"
+                            ? "warn"
+                            : "good",
+                href: `/dashboard/accounts-at-risk/${action.customerId}`,
+            })) ?? [];
 
         const actions: Array<{
             title: string;
             meta: string;
             impact: string;
             tone: "danger" | "warn" | "good";
-            targetAccountId?: string;
             href?: string;
         }> = [];
+
+        if (actionFirstActions.length) {
+            return {
+                headline: "Cobrai found the next best retention actions.",
+                summaryLine: `${actionFirstActions.length} action${actionFirstActions.length === 1 ? "" : "s"} prioritised by risk, revenue, and confidence.`,
+                tone: actionFirstActions[0]?.tone ?? "good",
+                primaryMetric,
+                actions: actionFirstActions,
+            };
+        }
 
         if (failedSubscriptions > 0) {
             const targetRisk = aiRiskOpp.risk[0];
@@ -1851,7 +1848,6 @@ export default function AnalyticsPage() {
                 meta: `Target ${failedSubscriptions} failed subscription${failedSubscriptions === 1 ? "" : "s"}`,
                 impact: mrrAtRiskMinor > 0 ? `${formatGBPFromMinor(mrrAtRiskMinor)} at risk` : "Revenue protection",
                 tone: "danger",
-                targetAccountId: targetRisk?.id || undefined,
                 href: targetRisk?.id
                     ? `/dashboard/customer/${targetRisk.id}`
                     : "/dashboard/accounts-at-risk",
@@ -1866,7 +1862,6 @@ export default function AnalyticsPage() {
                 meta: `${atRiskAccounts} customer${atRiskAccounts === 1 ? "" : "s"} flagged by Cobrai`,
                 impact: mrrAtRiskMinor > 0 ? `${formatGBPFromMinor(mrrAtRiskMinor)} exposed` : "Lower churn pressure",
                 tone: "warn",
-                targetAccountId: targetRisk?.id || undefined,
                 href: targetRisk?.id ? `/dashboard/customer/${targetRisk.id}` : "/dashboard/accounts-at-risk",
             });
         }
@@ -1879,7 +1874,6 @@ export default function AnalyticsPage() {
                 meta: topOpp ? `${topOpp.name} and similar accounts show upside` : "Expansion-ready accounts detected",
                 impact: topOpp?.meta || "Expansion opportunity",
                 tone: "good",
-                targetAccountId: topOpp?.id || undefined,
                 href: topOpp?.id ? `/dashboard/customer/${topOpp.id}` : "/dashboard/accounts-at-risk",
             });
         }
@@ -1899,7 +1893,6 @@ export default function AnalyticsPage() {
             summaryLine,
             tone,
             primaryMetric,
-            impactPills,
             actions: actions.slice(0, 3),
         };
     }, [
@@ -1915,13 +1908,16 @@ export default function AnalyticsPage() {
         aiInsightMetrics.confidenceLabel,
         aiRiskOpp.opp,
         aiRiskOpp.risk,
+        workspaceAi?.actions,
     ]);
 
     const mrrDriverRows = useMemo(() => getDriverRows(drawerInsights.mrr.drivers), [drawerInsights.mrr.drivers]);
+
     const riskAccountRows = useMemo(
         () => getRiskAccountRows(attention, summary, drawerInsights),
         [attention, summary, drawerInsights]
     );
+
     const expansionRows = useMemo(
         () => getExpansionRows(mrrTimeseries, drawerInsights, attention),
         [mrrTimeseries, drawerInsights, attention]
@@ -1977,7 +1973,7 @@ export default function AnalyticsPage() {
         );
     }
 
-    let content: React.ReactNode = null;
+    let content: ReactNode = null;
 
     if (status === "checking" || loading) {
         content = (
@@ -2014,8 +2010,15 @@ export default function AnalyticsPage() {
 
                 <div className={styles.kpiGrid}>
                     <div className={styles.kpiCard}>
-                        <div className={styles.kpiLabel}>Total MRR</div>
-                        <div className={styles.kpiValue}>{formatGBPFromMinor(demoKpis.totalMrr)}</div>
+                        <div className={styles.kpiTop}>
+                            <div className={styles.kpiLabel}>Total MRR</div>
+                            <div className={styles.kpiIcon}>£</div>
+                        </div>
+
+                        <div className={styles.kpiValue}>
+                            {formatGBPFromMinor(demoKpis.totalMrr)}
+                        </div>
+
                         <div className={styles.kpiSub}>
                             {typeof mrrDeltaPct === "number" && previousMrrMinor !== null ? (
                                 <>
@@ -2031,8 +2034,15 @@ export default function AnalyticsPage() {
                     </div>
 
                     <div className={styles.kpiCard}>
-                        <div className={styles.kpiLabel}>MRR Protected</div>
-                        <div className={styles.kpiValue}>{formatGBPFromMinor(demoKpis.mrrProtected)}</div>
+                        <div className={styles.kpiTop}>
+                            <div className={styles.kpiLabel}>MRR Protected</div>
+                            <div className={styles.kpiIcon}>✓</div>
+                        </div>
+
+                        <div className={styles.kpiValue}>
+                            {formatGBPFromMinor(demoKpis.mrrProtected)}
+                        </div>
+
                         <div className={styles.kpiSub}>
                             {typeof protectedDeltaPct === "number" && previousMrrProtected !== null ? (
                                 <>
@@ -2048,33 +2058,49 @@ export default function AnalyticsPage() {
                     </div>
 
                     <div className={styles.kpiCard}>
-                        <div className={styles.kpiLabel}>MRR At Risk</div>
-                        <div className={styles.kpiValue}>{formatGBPFromMinor(demoKpis.mrrAtRisk)}</div>
+                        <div className={styles.kpiTop}>
+                            <div className={styles.kpiLabel}>MRR At Risk</div>
+                            <div className={styles.kpiIcon}>!</div>
+                        </div>
+
+                        <div className={styles.kpiValue}>
+                            {formatGBPFromMinor(demoKpis.mrrAtRisk)}
+                        </div>
+
                         <div className={styles.kpiSub}>
                             {typeof atRiskDeltaPct === "number" && previousMrrAtRisk !== null ? (
                                 <>
                                     {renderDelta(atRiskDeltaPct, true)}
-                                    <span style={{ marginLeft: 6, color: "#92a9c8ff" }}>
+                                    <span style={{ marginLeft: 6, color: "#64748b" }}>
                                         vs {formatGBPFromMinor(previousMrrAtRisk)} last month
                                     </span>
                                 </>
-                            ) : null}
+                            ) : (
+                                "Revenue currently at risk"
+                            )}
                         </div>
                     </div>
 
                     <div className={styles.kpiCard}>
-                        <div className={styles.kpiLabel}>Churn</div>
-                        <div className={styles.kpiValue}>{formatPct(demoKpis.churnPct)}</div>
+                        <div className={styles.kpiTop}>
+                            <div className={styles.kpiLabel}>Churn Proxy</div>
+                            <div className={styles.kpiIcon}>↓</div>
+                        </div>
+
+                        <div className={styles.kpiValue}>
+                            {formatPct(demoKpis.churnPct)}
+                        </div>
+
                         <div className={styles.kpiSub}>
                             {typeof churnDeltaPp === "number" && previousChurnPct !== null ? (
                                 <>
                                     {renderDeltaPp(churnDeltaPp, true)}
-                                    <span style={{ marginLeft: 6, color: "#798eadff" }}>
+                                    <span style={{ marginLeft: 6, color: "#64748b" }}>
                                         vs {previousChurnPct.toFixed(1)}% last month
                                     </span>
                                 </>
                             ) : (
-                                "Based on monthly customer activity"
+                                "Based on customer activity"
                             )}
                         </div>
                     </div>
@@ -2093,7 +2119,7 @@ export default function AnalyticsPage() {
                             <div className={styles.chartHeader}>
                                 <div>
                                     <div className={styles.chartTitle}>MRR Trend</div>
-                                    <div className={styles.chartMeta}>{mrrRangeLabel} • GBP</div>
+                                    <div className={styles.chartMeta}>{mrrRangeLabel} • Revenue over time</div>
                                 </div>
 
                                 <div className={styles.chartActions}>
@@ -2124,7 +2150,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             <div className={styles.chartBodyXL} style={{ height: 260 }}>
-                                {mrrSeries?.length ? (
+                                {mrrSeries.length ? (
                                     <EChart option={buildMetricBarOption("MRR", mrrSeries, "currency")} />
                                 ) : (
                                     <div className={styles.emptyPanel}>
@@ -2149,7 +2175,7 @@ export default function AnalyticsPage() {
                                 <div>
                                     <div className={styles.chartTitle}>Churn Trend</div>
                                     <div className={styles.chartMeta}>
-                                        {churnRangeLabel} • Proxy % of previous-month customers not returning
+                                        {churnRangeLabel} • Customer churn over time
                                     </div>
                                 </div>
 
@@ -2181,7 +2207,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             <div className={styles.chartBodyXL} style={{ height: 260 }}>
-                                {churnSeries?.length ? (
+                                {churnSeries.length ? (
                                     <EChart option={buildMetricBarOption("Churn", churnSeries, "percent")} />
                                 ) : (
                                     <div className={styles.emptyPanel}>
@@ -2207,9 +2233,9 @@ export default function AnalyticsPage() {
                         <div className={styles.chartCardXL}>
                             <div className={styles.chartHeader}>
                                 <div>
-                                    <div className={styles.chartTitle}>Active Monthly Users</div>
-                                    <div className={styles.chartMeta}>
-                                        {mauRangeLabel} • Active customers by last activity month
+                                    <div className={styles.chartTitle}>Customer Activity Trend</div>
+
+                                    <div className={styles.chartMeta} >Track engagement levels across your customer base
                                     </div>
                                 </div>
 
@@ -2434,8 +2460,6 @@ export default function AnalyticsPage() {
                     </div>
                 </div>
 
-
-
                 <InsightDrawer
                     open={drawerOpen}
                     drawerView={drawerView}
@@ -2450,15 +2474,12 @@ export default function AnalyticsPage() {
                     churnForecast={churnForecast}
                     aiMrr={aiMrr}
                     aiChurn={aiChurn}
-                    aiInsightMetrics={aiInsightMetrics}
-                    insights={insights}
-                    tier={summary?.tier === "pro" ? "pro" : "starter"}
+                    aiActions={workspaceAi?.actions ?? []}
+                    tier={summary?.tier ?? "free"}
+                    trialEndsAt={summary?.trialEndsAt ?? null}
                 />
             </>
-
-
         );
-
     }
 
     return <div className={styles.page}>{content}</div>;

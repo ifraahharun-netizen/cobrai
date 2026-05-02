@@ -1,38 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
+import { requireAuthenticatedUser } from "@/lib/apiAuth";
 import { syncHubSpotWorkspace } from "@/lib/hubspot/sync";
-// import { decryptString } from "@/lib/crypto"; // use your real decrypt helper if needed
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function getBearerToken(req: Request) {
-    const h = req.headers.get("authorization") || "";
-    const m = h.match(/^Bearer\s+(.+)$/i);
-    return m?.[1] || null;
-}
-
 export async function POST(req: Request) {
     try {
-        const token = getBearerToken(req);
+        const authResult = await requireAuthenticatedUser(req);
 
-        if (!token) {
-            return NextResponse.json(
-                { ok: false, error: "Missing Authorization Bearer token" },
-                { status: 401 }
-            );
+        if (!authResult.ok) {
+            return authResult.response;
         }
 
-        const decoded = await verifyFirebaseIdToken(token);
-        const firebaseUid = decoded.uid;
+        const { user } = authResult;
 
-        const user = await prisma.user.findUnique({
-            where: { firebaseUid },
-            select: { workspaceId: true },
-        });
-
-        if (!user?.workspaceId) {
+        if (!user.workspaceId) {
             return NextResponse.json(
                 { ok: false, error: "No workspace for user" },
                 { status: 404 }
@@ -63,8 +47,6 @@ export async function POST(req: Request) {
             );
         }
 
-        // If the token is encrypted, decrypt it here.
-        // const accessToken = decryptString(integration.accessTokenEnc);
         const accessToken = integration.accessTokenEnc;
 
         const result = await syncHubSpotWorkspace({
@@ -89,11 +71,11 @@ export async function POST(req: Request) {
             ok: true,
             result,
         });
-    } catch (e: any) {
+    } catch (e) {
         console.error("hubspot sync POST failed:", e);
 
         return NextResponse.json(
-            { ok: false, error: e?.message || "HubSpot sync failed" },
+            { ok: false, error: "HubSpot sync failed" },
             { status: 500 }
         );
     }

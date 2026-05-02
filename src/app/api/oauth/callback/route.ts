@@ -1,83 +1,81 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cert, getApps, initializeApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
 import { prisma } from "@/lib/prisma";
+import { getAdminDb } from "@/lib/firebaseAdmin";
+import { encrypt } from "@/lib/crypto";
 import { syncHubSpotWorkspace } from "@/lib/hubspot/sync";
 
 export const dynamic = "force-dynamic";
 
-function getAdminDb() {
-    if (!getApps().length) {
-        const projectId = process.env.FIREBASE_PROJECT_ID;
-        const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+function getAppBaseUrl(req: NextRequest): string {
+    const envUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL;
 
-        const privateKeyRaw = process.env.FIREBASE_PRIVATE_KEY_B64
-            ? Buffer.from(process.env.FIREBASE_PRIVATE_KEY_B64, "base64").toString("utf8")
-            : process.env.FIREBASE_PRIVATE_KEY;
-
-        const privateKey = privateKeyRaw?.replace(/\\n/g, "\n");
-
-        if (!projectId || !clientEmail || !privateKey) {
-            throw new Error("Missing Firebase Admin environment variables.");
-        }
-
-        initializeApp({
-            credential: cert({
-                projectId,
-                clientEmail,
-                privateKey,
-            }),
-        });
-    }
-
-    return getFirestore();
-}
-
-function getAppBaseUrl(req: NextRequest) {
-    const envUrl =
-        process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "";
-
-    if (envUrl) {
+    if (envUrl && typeof envUrl === "string") {
         return envUrl.replace(/\/$/, "");
     }
 
     return req.nextUrl.origin.replace(/\/$/, "");
 }
 
-export async function GET(req: NextRequest) {
-    console.log("=== HUBSPOT CALLBACK ROUTE RUNNING ===");
+function safeRedirect(appBaseUrl: string, path: string) {
+    return NextResponse.redirect(new URL(path, appBaseUrl));
+}
 
+function getScope(data: any) {
+    if (Array.isArray(data?.scopes)) return data.scopes.join(" ");
+    if (typeof data?.scope === "string") return data.scope;
+    return "";
+}
+
+function clearOAuthCookies(response: NextResponse) {
+    response.cookies.set("hubspot_uid", "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0,
+    });
+
+    response.cookies.set("hubspot_oauth_state", "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 0,
+    });
+}
+
+export async function GET(req: NextRequest) {
     const code = req.nextUrl.searchParams.get("code");
     const state = req.nextUrl.searchParams.get("state");
     const error = req.nextUrl.searchParams.get("error");
-    const errorDescription = req.nextUrl.searchParams.get("error_description");
 
     const cookieUid = req.cookies.get("hubspot_uid")?.value || "";
-    const uid = cookieUid || state || "";
+    const cookieState = req.cookies.get("hubspot_oauth_state")?.value || "";
 
     const appBaseUrl = getAppBaseUrl(req);
 
     if (error) {
-        return NextResponse.redirect(
-            new URL(
-                `/dashboard/settings?error=hubspot_oauth_error&message=${encodeURIComponent(
-                    errorDescription || error
-                )}`,
-                appBaseUrl
-            )
+        const response = safeRedirect(
+            appBaseUrl,
+            "/dashboard/settings?error=hubspot_oauth_error"
         );
+        clearOAuthCookies(response);
+        return response;
     }
 
     if (!code) {
-        return NextResponse.redirect(
-            new URL("/dashboard/settings?error=no_code", appBaseUrl)
-        );
+        const response = safeRedirect(appBaseUrl, "/dashboard/settings?error=no_code");
+        clearOAuthCookies(response);
+        return response;
     }
 
-    if (!uid) {
-        return NextResponse.redirect(
-            new URL("/dashboard/settings?error=missing_uid", appBaseUrl)
+    if (!cookieUid || !cookieState || !state || state !== cookieState) {
+        const response = safeRedirect(
+            appBaseUrl,
+            "/dashboard/settings?error=invalid_oauth_state"
         );
+        clearOAuthCookies(response);
+        return response;
     }
 
     const clientId = process.env.HUBSPOT_CLIENT_ID;
@@ -87,13 +85,18 @@ export async function GET(req: NextRequest) {
         `${appBaseUrl}/api/integrations/hubspot/callback`;
 
     if (!clientId || !clientSecret) {
-        return NextResponse.redirect(
-            new URL("/dashboard/settings?error=missing_hubspot_env", appBaseUrl)
+        console.error("Missing HubSpot OAuth environment variables");
+
+        const response = safeRedirect(
+            appBaseUrl,
+            "/dashboard/settings?error=hubspot_not_configured"
         );
+        clearOAuthCookies(response);
+        return response;
     }
 
     try {
-        const res = await fetch("https://api.hubapi.com/oauth/v1/token", {
+        const tokenRes = await fetch("https://api.hubapi.com/oauth/v1/token", {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
@@ -108,55 +111,77 @@ export async function GET(req: NextRequest) {
             cache: "no-store",
         });
 
-        const data = await res.json();
+        const data = await tokenRes.json();
 
-        if (!res.ok) {
-            console.error("[HubSpot Callback] token exchange failed:", data);
+        if (!tokenRes.ok) {
+            console.error("[HubSpot Callback] token exchange failed:", {
+                status: tokenRes.status,
+                error: data?.error,
+                message: data?.message,
+            });
 
-            return NextResponse.redirect(
-                new URL("/dashboard/settings?error=oauth_failed", appBaseUrl)
+            const response = safeRedirect(
+                appBaseUrl,
+                "/dashboard/settings?error=oauth_failed"
             );
+            clearOAuthCookies(response);
+            return response;
         }
 
-        const db = getAdminDb();
+        const accessToken =
+            typeof data?.access_token === "string" ? data.access_token : "";
 
-        await db
+        const refreshToken =
+            typeof data?.refresh_token === "string" ? data.refresh_token : "";
+
+        if (!accessToken || !refreshToken) {
+            console.error("[HubSpot Callback] missing OAuth tokens");
+
+            const response = safeRedirect(
+                appBaseUrl,
+                "/dashboard/settings?error=oauth_failed"
+            );
+            clearOAuthCookies(response);
+            return response;
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { firebaseUid: cookieUid },
+            select: { workspaceId: true },
+        });
+
+        if (!user?.workspaceId) {
+            const response = safeRedirect(
+                appBaseUrl,
+                "/dashboard/settings?error=no_workspace"
+            );
+            clearOAuthCookies(response);
+            return response;
+        }
+
+        const scope = getScope(data);
+        const hubId = data?.hub_id ? String(data.hub_id) : null;
+        const connectedAt = new Date().toISOString();
+
+        const adminDb = getAdminDb();
+
+        await adminDb
             .collection("users")
-            .doc(uid)
+            .doc(cookieUid)
             .collection("integrations")
             .doc("main")
             .set(
                 {
                     hubspot: {
                         connected: true,
-                        accountName: data?.hub_id
-                            ? `Hub ID ${data.hub_id}`
-                            : "HubSpot Connected",
-                        hubId: data?.hub_id || null,
-                        accessToken: data?.access_token || "",
-                        refreshToken: data?.refresh_token || "",
-                        scope:
-                            Array.isArray(data?.scopes)
-                                ? data.scopes.join(" ")
-                                : typeof data?.scope === "string"
-                                    ? data.scope
-                                    : "",
-                        connectedAt: new Date().toISOString(),
+                        accountName: hubId ? `Hub ID ${hubId}` : "HubSpot Connected",
+                        hubId,
+                        scope,
+                        connectedAt,
                     },
                 },
                 { merge: true }
             );
-
-        const user = await prisma.user.findUnique({
-            where: { firebaseUid: uid },
-            select: { workspaceId: true },
-        });
-
-        if (!user?.workspaceId) {
-            return NextResponse.redirect(
-                new URL("/dashboard/settings?error=no_workspace", appBaseUrl)
-            );
-        }
 
         await prisma.integration.upsert({
             where: {
@@ -169,34 +194,24 @@ export async function GET(req: NextRequest) {
                 workspaceId: user.workspaceId,
                 provider: "hubspot",
                 status: "connected",
-                accessTokenEnc: data?.access_token || "",
-                refreshTokenEnc: data?.refresh_token || "",
-                externalAccountId: data?.hub_id ? String(data.hub_id) : null,
+                accessTokenEnc: encrypt(accessToken),
+                refreshTokenEnc: encrypt(refreshToken),
+                externalAccountId: hubId,
                 metadata: {
-                    scope:
-                        Array.isArray(data?.scopes)
-                            ? data.scopes.join(" ")
-                            : typeof data?.scope === "string"
-                                ? data.scope
-                                : "",
-                    connectedAt: new Date().toISOString(),
+                    scope,
+                    connectedAt,
                 },
                 lastSyncedAt: null,
                 lastSyncError: null,
             },
             update: {
                 status: "connected",
-                accessTokenEnc: data?.access_token || "",
-                refreshTokenEnc: data?.refresh_token || "",
-                externalAccountId: data?.hub_id ? String(data.hub_id) : null,
+                accessTokenEnc: encrypt(accessToken),
+                refreshTokenEnc: encrypt(refreshToken),
+                externalAccountId: hubId,
                 metadata: {
-                    scope:
-                        Array.isArray(data?.scopes)
-                            ? data.scopes.join(" ")
-                            : typeof data?.scope === "string"
-                                ? data.scope
-                                : "",
-                    connectedAt: new Date().toISOString(),
+                    scope,
+                    connectedAt,
                 },
                 lastSyncError: null,
             },
@@ -205,7 +220,7 @@ export async function GET(req: NextRequest) {
         try {
             const syncResult = await syncHubSpotWorkspace({
                 workspaceId: user.workspaceId,
-                accessToken: data?.access_token || "",
+                accessToken,
             });
 
             await prisma.integration.update({
@@ -219,18 +234,13 @@ export async function GET(req: NextRequest) {
                     lastSyncedAt: new Date(),
                     lastSyncError: null,
                     metadata: {
-                        scope:
-                            Array.isArray(data?.scopes)
-                                ? data.scopes.join(" ")
-                                : typeof data?.scope === "string"
-                                    ? data.scope
-                                    : "",
-                        connectedAt: new Date().toISOString(),
+                        scope,
+                        connectedAt,
                         lastSyncSummary: syncResult,
                     },
                 },
             });
-        } catch (syncError: any) {
+        } catch (syncError) {
             console.error("[HubSpot Callback] sync error:", syncError);
 
             await prisma.integration.update({
@@ -241,29 +251,27 @@ export async function GET(req: NextRequest) {
                     },
                 },
                 data: {
-                    lastSyncError: syncError?.message || "HubSpot sync failed",
+                    lastSyncError: "HubSpot sync failed",
                 },
             });
         }
 
-        const response = NextResponse.redirect(
-            new URL("/dashboard/settings?hubspot=connected", appBaseUrl)
+        const response = safeRedirect(
+            appBaseUrl,
+            "/dashboard/settings?hubspot=connected"
         );
 
-        response.cookies.set("hubspot_uid", "", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            path: "/",
-            maxAge: 0,
-        });
-
+        clearOAuthCookies(response);
         return response;
     } catch (error) {
         console.error("[HubSpot Callback] error:", error);
 
-        return NextResponse.redirect(
-            new URL("/dashboard/settings?error=server_error", appBaseUrl)
+        const response = safeRedirect(
+            appBaseUrl,
+            "/dashboard/settings?error=server_error"
         );
+
+        clearOAuthCookies(response);
+        return response;
     }
 }
