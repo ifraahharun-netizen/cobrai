@@ -1,10 +1,12 @@
-import type { Metadata } from "next";
+import { Suspense } from "react";
 import AccountsAtRiskClient from "./AccountsAtRiskClient";
 
-export const metadata: Metadata = {
-    title: "Accounts at Risk • Cobrai",
-};
+export const dynamic = "force-dynamic";
 
-export default function AccountsAtRiskPage() {
-    return <AccountsAtRiskClient />;
+export default function Page() {
+    return (
+        <Suspense fallback={null}>
+            <AccountsAtRiskClient />
+        </Suspense>
+    );
 }

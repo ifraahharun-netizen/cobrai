@@ -1,4 +1,4 @@
-// lib/ai/actionCopy.ts
+// src/lib/ai/actionCopy.ts
 
 import type { RecommendedActionType } from "./types";
 
@@ -30,6 +30,18 @@ export const actionCopy: Record<RecommendedActionType, ActionCopyItem> = {
         title: "Review account issues",
         description:
             "Investigate what is causing low engagement or friction in this account.",
+    },
+
+    retry_failed_payment: {
+        title: "Retry payment",
+        description:
+            "Retry the failed payment or review the billing issue before the account churns.",
+    },
+
+    view_failed_accounts: {
+        title: "View failed accounts",
+        description:
+            "Review accounts affected by failed payments or unsuccessful retention actions.",
     },
 
     monitor_account: {

@@ -20,7 +20,8 @@ export async function POST(req: Request) {
         const { workspaceId } = await getWorkspaceFromRequest(req);
 
         const body = await req.json().catch(() => ({}));
-        const timeframe = typeof body?.timeframe === "string" ? body.timeframe : "week";
+        const timeframe =
+            typeof body?.timeframe === "string" ? body.timeframe : "week";
 
         const workspace = await prisma.workspace.findUnique({
             where: { id: workspaceId },
@@ -29,8 +30,8 @@ export async function POST(req: Request) {
                 tier: true,
                 trialEndsAt: true,
                 demoMode: true,
-                aiActionsUsedThisWeek: true,
-                aiResetAt: true,
+                emailActionsUsedThisWeek: true,
+                emailResetAt: true,
             },
         });
 
@@ -52,9 +53,12 @@ export async function POST(req: Request) {
             isTrialActive;
 
         const shouldReset =
-            !workspace.aiResetAt || workspace.aiResetAt.getTime() <= Date.now();
+            !workspace.emailResetAt ||
+            workspace.emailResetAt.getTime() <= Date.now();
 
-        const usedThisWeek = shouldReset ? 0 : workspace.aiActionsUsedThisWeek ?? 0;
+        const usedThisWeek = shouldReset
+            ? 0
+            : workspace.emailActionsUsedThisWeek ?? 0;
 
         if (!isUnlimited && workspace.tier === "starter") {
             if (usedThisWeek >= STARTER_AI_LIMIT_PER_WEEK) {
@@ -86,12 +90,16 @@ export async function POST(req: Request) {
             source: workspace.demoMode ? "demo" : "live",
         });
 
+        const resetAt = shouldReset
+            ? getNextWeeklyReset()
+            : workspace.emailResetAt;
+
         if (!isUnlimited && workspace.tier === "starter" && !result.cached) {
             await prisma.workspace.update({
                 where: { id: workspaceId },
                 data: {
-                    aiActionsUsedThisWeek: usedThisWeek + 1,
-                    aiResetAt: shouldReset ? getNextWeeklyReset() : workspace.aiResetAt,
+                    emailActionsUsedThisWeek: usedThisWeek + 1,
+                    emailResetAt: resetAt,
                 },
             });
         }
@@ -103,7 +111,7 @@ export async function POST(req: Request) {
                     ? {
                         used: result.cached ? usedThisWeek : usedThisWeek + 1,
                         limit: STARTER_AI_LIMIT_PER_WEEK,
-                        resetAt: shouldReset ? getNextWeeklyReset() : workspace.aiResetAt,
+                        resetAt,
                     }
                     : null,
         });

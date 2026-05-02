@@ -1,5 +1,6 @@
 "use client";
 
+
 import { useEffect, useMemo, useState } from "react";
 import styles from "./risk.module.css";
 import { getFirebaseAuth } from "@/lib/firebase.client";
