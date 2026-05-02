@@ -32,11 +32,28 @@ export default function HomePage() {
                 return;
             }
 
-            await signInWithEmailAndPassword(
+            const credential = await signInWithEmailAndPassword(
                 res.auth,
                 email.trim().toLowerCase(),
                 password
             );
+
+            const idToken = await credential.user.getIdToken(true);
+
+            const sessionRes = await fetch("/api/auth/session", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ idToken }),
+            });
+
+            if (!sessionRes.ok) {
+                throw new Error("Login succeeded, but session could not be created.");
+            }
+
+            router.push("/dashboard");
+            router.refresh();
 
             router.push("/dashboard");
         } catch (err: any) {
