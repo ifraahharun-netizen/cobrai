@@ -19,14 +19,14 @@ export const metadata: Metadata = {
     title: "Cobrai",
     description: "AI-powered retention intelligence for subscription businesses.",
     icons: {
-        icon: "/favicon.ico",
-        shortcut: "/favicon.ico",
+        icon: "/icon.svg",
+        shortcut: "/icon.svg",
         apple: "/apple-touch-icon.png",
     },
     openGraph: {
         title: "Cobrai",
         description: "AI-powered retention intelligence for subscription businesses.",
-        url: "https://cobri.uk",
+        url: "https://cobria.uk",
         siteName: "Cobrai",
         images: [
             {
