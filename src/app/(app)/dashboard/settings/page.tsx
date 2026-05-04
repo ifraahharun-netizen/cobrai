@@ -1153,9 +1153,6 @@ function SettingsPageContent() {
                                             </div>
                                         </div>
 
-                                        {integrationMessage && (
-                                            <p style={{ marginBottom: 12 }}>{integrationMessage}</p>
-                                        )}
 
                                         <div className={styles.integrationList}>
                                             {integrations.map((item) => {
