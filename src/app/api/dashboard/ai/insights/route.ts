@@ -6,15 +6,6 @@ import { getWorkspaceFromRequest } from "@/lib/auth/getWorkspaceFromRequest";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const STARTER_AI_LIMIT_PER_WEEK = 10;
-
-function getNextWeeklyReset() {
-    const now = new Date();
-    const reset = new Date(now);
-    reset.setDate(now.getDate() + 7);
-    return reset;
-}
-
 export async function POST(req: Request) {
     try {
         const { workspaceId } = await getWorkspaceFromRequest(req);
@@ -30,8 +21,6 @@ export async function POST(req: Request) {
                 tier: true,
                 trialEndsAt: true,
                 demoMode: true,
-                emailActionsUsedThisWeek: true,
-                emailResetAt: true,
             },
         });
 
@@ -46,38 +35,17 @@ export async function POST(req: Request) {
             workspace.trialEndsAt instanceof Date &&
             workspace.trialEndsAt.getTime() > Date.now();
 
-        const isUnlimited =
+        const canUseAi =
+            workspace.tier === "starter" ||
             workspace.tier === "pro" ||
             workspace.tier === "scale" ||
-            workspace.demoMode ||
+            workspace.demoMode === true ||
             isTrialActive;
 
-        const shouldReset =
-            !workspace.emailResetAt ||
-            workspace.emailResetAt.getTime() <= Date.now();
-
-        const usedThisWeek = shouldReset
-            ? 0
-            : workspace.emailActionsUsedThisWeek ?? 0;
-
-        if (!isUnlimited && workspace.tier === "starter") {
-            if (usedThisWeek >= STARTER_AI_LIMIT_PER_WEEK) {
-                return NextResponse.json(
-                    {
-                        error: "AI usage limit reached",
-                        code: "STARTER_AI_LIMIT_REACHED",
-                        limit: STARTER_AI_LIMIT_PER_WEEK,
-                        used: usedThisWeek,
-                    },
-                    { status: 429 }
-                );
-            }
-        }
-
-        if (!isUnlimited && workspace.tier !== "starter") {
+        if (!canUseAi) {
             return NextResponse.json(
                 {
-                    error: "AI insights require Starter or Pro",
+                    error: "AI insights require an active trial, Starter, Pro, or Scale plan",
                     code: "AI_PLAN_REQUIRED",
                 },
                 { status: 403 }
@@ -90,31 +58,7 @@ export async function POST(req: Request) {
             source: workspace.demoMode ? "demo" : "live",
         });
 
-        const resetAt = shouldReset
-            ? getNextWeeklyReset()
-            : workspace.emailResetAt;
-
-        if (!isUnlimited && workspace.tier === "starter" && !result.cached) {
-            await prisma.workspace.update({
-                where: { id: workspaceId },
-                data: {
-                    emailActionsUsedThisWeek: usedThisWeek + 1,
-                    emailResetAt: resetAt,
-                },
-            });
-        }
-
-        return NextResponse.json({
-            ...result,
-            usage:
-                workspace.tier === "starter" && !isUnlimited
-                    ? {
-                        used: result.cached ? usedThisWeek : usedThisWeek + 1,
-                        limit: STARTER_AI_LIMIT_PER_WEEK,
-                        resetAt,
-                    }
-                    : null,
-        });
+        return NextResponse.json(result);
     } catch (err) {
         return NextResponse.json(
             {

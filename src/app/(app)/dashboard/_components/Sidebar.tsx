@@ -35,9 +35,9 @@ export default function Sidebar() {
                 <div className={styles.brandRow}>
                     <Link href="/dashboard" aria-label="Cobrai" className={styles.brandLink}>
                         <Image
-                            src="/branding/cobrai.logo.jpg"
+                            src="/branding/cobrai.logo.jpg.PNG"
                             alt="COBRAI"
-                            width={130}
+                            width={120}
                             height={34}
                             priority
                             unoptimized

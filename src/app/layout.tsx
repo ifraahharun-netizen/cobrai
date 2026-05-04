@@ -1,6 +1,7 @@
 import "./globals.css";
 import { DM_Sans, Tinos } from "next/font/google";
 import Script from "next/script";
+import type { Metadata } from "next";
 
 const headingFont = DM_Sans({
     subsets: ["latin"],
@@ -14,8 +15,32 @@ const bodyFont = Tinos({
     variable: "--font-body",
 });
 
+export const metadata: Metadata = {
+    title: "Cobrai",
+    description: "AI-powered retention intelligence for subscription businesses.",
+    icons: {
+        icon: "/favicon.ico",
+        shortcut: "/favicon.ico",
+        apple: "/apple-touch-icon.png",
+    },
+    openGraph: {
+        title: "Cobrai",
+        description: "AI-powered retention intelligence for subscription businesses.",
+        url: "https://cobri.uk",
+        siteName: "Cobrai",
+        images: [
+            {
+                url: "/og-image.png",
+                width: 1200,
+                height: 630,
+                alt: "Cobrai",
+            },
+        ],
+        type: "website",
+    },
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-    // Server-side env read
     const firebasePublicConfig = {
         apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
         authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -28,7 +53,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     return (
         <html lang="en" className={`${headingFont.variable} ${bodyFont.variable}`}>
             <head>
-                {/* ✅ Icon styles */}
                 <link
                     rel="stylesheet"
                     href="https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css"
@@ -42,7 +66,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     href="https://cdn-uicons.flaticon.com/uicons-thin-rounded/css/uicons-thin-rounded.css"
                 />
 
-                {/* ✅ Firebase config (unchanged) */}
                 <Script
                     id="firebase-public-config"
                     strategy="beforeInteractive"

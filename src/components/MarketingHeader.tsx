@@ -17,13 +17,13 @@ export default function MarketingHeader() {
             <div className="siteHeaderInner">
                 <Link href="/" aria-label="Cobrai home" className="logoWrap">
                     <Image
-                        src="/branding/cobrai.logo.jpg"
+                        src="/branding/cobrai.logo.jpg.PNG"
                         alt="Cobrai"
-                        width={100}
-                        height={39}
+                        width={140}
+                        height={89}
                         priority
                     />
-                   
+
                 </Link>
                 <nav className="topNav" aria-label="Main navigation">
                     <Link href="/" className={`navLink ${isActive("/") ? "active" : ""}`}>
