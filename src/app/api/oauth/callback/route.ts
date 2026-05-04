@@ -4,15 +4,12 @@ import { getAdminDb } from "@/lib/firebaseAdmin";
 import { encrypt } from "@/lib/crypto";
 import { syncHubSpotWorkspace } from "@/lib/hubspot/sync";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function getAppBaseUrl(req: NextRequest): string {
     const envUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL;
-
-    if (envUrl && typeof envUrl === "string") {
-        return envUrl.replace(/\/$/, "");
-    }
-
+    if (envUrl && typeof envUrl === "string") return envUrl.replace(/\/$/, "");
     return req.nextUrl.origin.replace(/\/$/, "");
 }
 
@@ -27,21 +24,19 @@ function getScope(data: any) {
 }
 
 function clearOAuthCookies(response: NextResponse) {
-    response.cookies.set("hubspot_uid", "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 0,
-    });
-
-    response.cookies.set("hubspot_oauth_state", "", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 0,
-    });
+    for (const name of [
+        "hubspot_uid",
+        "hubspot_oauth_state",
+        "hubspot_code_verifier",
+    ]) {
+        response.cookies.set(name, "", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+            maxAge: 0,
+        });
+    }
 }
 
 export async function GET(req: NextRequest) {
@@ -51,14 +46,12 @@ export async function GET(req: NextRequest) {
 
     const cookieUid = req.cookies.get("hubspot_uid")?.value || "";
     const cookieState = req.cookies.get("hubspot_oauth_state")?.value || "";
+    const codeVerifier = req.cookies.get("hubspot_code_verifier")?.value || "";
 
     const appBaseUrl = getAppBaseUrl(req);
 
     if (error) {
-        const response = safeRedirect(
-            appBaseUrl,
-            "/dashboard/settings?error=hubspot_oauth_error"
-        );
+        const response = safeRedirect(appBaseUrl, "/dashboard/settings?error=hubspot_oauth_error");
         clearOAuthCookies(response);
         return response;
     }
@@ -69,11 +62,8 @@ export async function GET(req: NextRequest) {
         return response;
     }
 
-    if (!cookieUid || !cookieState || !state || state !== cookieState) {
-        const response = safeRedirect(
-            appBaseUrl,
-            "/dashboard/settings?error=invalid_oauth_state"
-        );
+    if (!cookieUid || !cookieState || !state || state !== cookieState || !codeVerifier) {
+        const response = safeRedirect(appBaseUrl, "/dashboard/settings?error=invalid_oauth_state");
         clearOAuthCookies(response);
         return response;
     }
@@ -85,12 +75,7 @@ export async function GET(req: NextRequest) {
         `${appBaseUrl}/api/integrations/hubspot/callback`;
 
     if (!clientId || !clientSecret) {
-        console.error("Missing HubSpot OAuth environment variables");
-
-        const response = safeRedirect(
-            appBaseUrl,
-            "/dashboard/settings?error=hubspot_not_configured"
-        );
+        const response = safeRedirect(appBaseUrl, "/dashboard/settings?error=hubspot_not_configured");
         clearOAuthCookies(response);
         return response;
     }
@@ -107,6 +92,7 @@ export async function GET(req: NextRequest) {
                 client_secret: clientSecret,
                 redirect_uri: redirectUri,
                 code,
+                code_verifier: codeVerifier,
             }).toString(),
             cache: "no-store",
         });
@@ -114,33 +100,17 @@ export async function GET(req: NextRequest) {
         const data = await tokenRes.json();
 
         if (!tokenRes.ok) {
-            console.error("[HubSpot Callback] token exchange failed:", {
-                status: tokenRes.status,
-                error: data?.error,
-                message: data?.message,
-            });
-
-            const response = safeRedirect(
-                appBaseUrl,
-                "/dashboard/settings?error=oauth_failed"
-            );
+            console.error("[HubSpot Callback] token exchange failed:", data);
+            const response = safeRedirect(appBaseUrl, "/dashboard/settings?error=oauth_failed");
             clearOAuthCookies(response);
             return response;
         }
 
-        const accessToken =
-            typeof data?.access_token === "string" ? data.access_token : "";
-
-        const refreshToken =
-            typeof data?.refresh_token === "string" ? data.refresh_token : "";
+        const accessToken = typeof data?.access_token === "string" ? data.access_token : "";
+        const refreshToken = typeof data?.refresh_token === "string" ? data.refresh_token : "";
 
         if (!accessToken || !refreshToken) {
-            console.error("[HubSpot Callback] missing OAuth tokens");
-
-            const response = safeRedirect(
-                appBaseUrl,
-                "/dashboard/settings?error=oauth_failed"
-            );
+            const response = safeRedirect(appBaseUrl, "/dashboard/settings?error=oauth_failed");
             clearOAuthCookies(response);
             return response;
         }
@@ -151,10 +121,7 @@ export async function GET(req: NextRequest) {
         });
 
         if (!user?.workspaceId) {
-            const response = safeRedirect(
-                appBaseUrl,
-                "/dashboard/settings?error=no_workspace"
-            );
+            const response = safeRedirect(appBaseUrl, "/dashboard/settings?error=no_workspace");
             clearOAuthCookies(response);
             return response;
         }
@@ -197,10 +164,7 @@ export async function GET(req: NextRequest) {
                 accessTokenEnc: encrypt(accessToken),
                 refreshTokenEnc: encrypt(refreshToken),
                 externalAccountId: hubId,
-                metadata: {
-                    scope,
-                    connectedAt,
-                },
+                metadata: { scope, connectedAt },
                 lastSyncedAt: null,
                 lastSyncError: null,
             },
@@ -209,10 +173,7 @@ export async function GET(req: NextRequest) {
                 accessTokenEnc: encrypt(accessToken),
                 refreshTokenEnc: encrypt(refreshToken),
                 externalAccountId: hubId,
-                metadata: {
-                    scope,
-                    connectedAt,
-                },
+                metadata: { scope, connectedAt },
                 lastSyncError: null,
             },
         });
@@ -256,21 +217,13 @@ export async function GET(req: NextRequest) {
             });
         }
 
-        const response = safeRedirect(
-            appBaseUrl,
-            "/dashboard/settings?hubspot=connected"
-        );
-
+        const response = safeRedirect(appBaseUrl, "/dashboard/settings?hubspot=connected");
         clearOAuthCookies(response);
         return response;
     } catch (error) {
         console.error("[HubSpot Callback] error:", error);
 
-        const response = safeRedirect(
-            appBaseUrl,
-            "/dashboard/settings?error=server_error"
-        );
-
+        const response = safeRedirect(appBaseUrl, "/dashboard/settings?error=server_error");
         clearOAuthCookies(response);
         return response;
     }
