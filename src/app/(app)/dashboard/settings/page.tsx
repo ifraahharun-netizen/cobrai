@@ -243,6 +243,7 @@ function formatDomainStatus(status: string | null | undefined) {
 function isVerifiedStatus(status: string | null | undefined) {
     return typeof status === "string" && status.toLowerCase() === "verified";
 }
+
 function SettingsPageContent() {
     const searchParams = useSearchParams();
 
@@ -253,6 +254,7 @@ function SettingsPageContent() {
     const [supportRequest, setSupportRequest] = useState("");
     const [sendingSupport, setSendingSupport] = useState(false);
     const [supportMessage, setSupportMessage] = useState<string | null>(null);
+
     const [form, setForm] = useState<ProfileForm>({
         name: "",
         email: "",
@@ -260,8 +262,6 @@ function SettingsPageContent() {
         location: "",
         photoURL: "",
     });
-
-
 
     const [integrationState, setIntegrationState] =
         useState<IntegrationState>(emptyIntegrationState);
@@ -302,24 +302,23 @@ function SettingsPageContent() {
             setLoadingIntegrations(true);
 
             const firestoreState = await readFirestoreIntegrationState(uid);
-
             let stripeState = firestoreState.stripe;
 
             try {
-                const res = await fetch(`/api/integrations/stripe/status?uid=${encodeURIComponent(uid)}`, {
-                    method: "GET",
-                    cache: "no-store",
-                });
+                const res = await fetch(
+                    `/api/integrations/stripe/status?uid=${encodeURIComponent(uid)}`,
+                    {
+                        method: "GET",
+                        cache: "no-store",
+                    }
+                );
 
                 if (res.ok) {
                     const data = await res.json();
 
                     stripeState = {
                         connected: !!data.connected,
-                        accountName:
-                            data.accountName ||
-                            data.accountEmail ||
-                            "",
+                        accountName: data.accountName || data.accountEmail || "",
                     };
                 }
             } catch (error) {
@@ -448,7 +447,6 @@ function SettingsPageContent() {
                     name: "",
                     email: "",
                     role: "",
-
                     location: "",
                     photoURL: "",
                 });
@@ -475,7 +473,6 @@ function SettingsPageContent() {
                 const mergedName = profile?.name || user.displayName || "";
                 const mergedEmail = user.email || "";
                 const mergedRole = profile?.role || "";
-
                 const mergedLocation = profile?.location || "";
                 const mergedPhotoURL = profile?.photoURL || user.photoURL || "";
 
@@ -594,9 +591,7 @@ function SettingsPageContent() {
         }));
     }
 
-    function handleEmailFieldChange(
-        e: React.ChangeEvent<HTMLInputElement>
-    ) {
+    function handleEmailFieldChange(e: React.ChangeEvent<HTMLInputElement>) {
         const { name, value } = e.target;
         setEmailForm((prev) => ({
             ...prev,
@@ -621,7 +616,6 @@ function SettingsPageContent() {
                 name: profile?.name || firebaseUser.displayName || "",
                 email: firebaseUser.email || "",
                 role: profile?.role || "",
-
                 location: profile?.location || "",
                 photoURL: profile?.photoURL || firebaseUser.photoURL || "",
             });
@@ -649,7 +643,6 @@ function SettingsPageContent() {
                     name: form.name,
                     email: firebaseUser.email || form.email,
                     role: form.role,
-
                     location: form.location,
                     photoURL: form.photoURL,
                     updatedAt: serverTimestamp(),
@@ -730,9 +723,7 @@ function SettingsPageContent() {
             );
         } catch (error: any) {
             console.error(`Failed to disconnect ${key}:`, error);
-            setIntegrationMessage(
-                error?.message || `Failed to disconnect ${key}.`
-            );
+            setIntegrationMessage(error?.message || `Failed to disconnect ${key}.`);
         } finally {
             setConnectingKey(null);
         }
@@ -784,8 +775,14 @@ function SettingsPageContent() {
 
     async function handleManageBilling() {
         if (!firebaseUser) return;
+
         if (!billing.workspaceId) {
             setBillingMessage("No workspace found for billing.");
+            return;
+        }
+
+        if (!billing.stripeCustomerId) {
+            setBillingMessage("No Stripe billing account found yet. Choose a plan first to create billing.");
             return;
         }
 
@@ -940,17 +937,6 @@ function SettingsPageContent() {
         }
     }
 
-    const currentPlanName = formatPlanName(billing.plan);
-    const isFree = billing.plan === "free";
-    const isStarter = billing.plan === "starter";
-    const isPro = billing.plan === "pro";
-    const trialActive = isTrialActive(billing.trialEndsAt);
-    const trialDaysLeft = getTrialDaysLeft(billing.trialEndsAt);
-
-    const domainVerified = isVerifiedStatus(emailSettings.sendingDomainStatus);
-
-    const modalContent = legalModal === "terms" ? termsContent : privacyContent;
-
     async function handleSendSupportRequest() {
         if (!firebaseUser) return;
 
@@ -999,6 +985,15 @@ function SettingsPageContent() {
             setSendingSupport(false);
         }
     }
+
+    const currentPlanName = formatPlanName(billing.plan);
+    const isFree = billing.plan === "free";
+    const isStarter = billing.plan === "starter";
+    const isPro = billing.plan === "pro";
+    const trialActive = isTrialActive(billing.trialEndsAt);
+    const trialDaysLeft = getTrialDaysLeft(billing.trialEndsAt);
+    const domainVerified = isVerifiedStatus(emailSettings.sendingDomainStatus);
+    const modalContent = legalModal === "terms" ? termsContent : privacyContent;
 
     return (
         <>
@@ -1064,9 +1059,7 @@ function SettingsPageContent() {
                                             )}
                                         </div>
 
-                                        {profileMessage && (
-                                            <p style={{ marginBottom: 12 }}>{profileMessage}</p>
-                                        )}
+                                        {profileMessage && <p style={{ marginBottom: 12 }}>{profileMessage}</p>}
 
                                         <div className={styles.profileHeader}>
                                             <div className={styles.profileInfo}>
@@ -1122,7 +1115,6 @@ function SettingsPageContent() {
                                                 )}
                                             </div>
 
-
                                             <div className={styles.field}>
                                                 <span className={styles.label}>Location</span>
                                                 {isEditingProfile ? (
@@ -1153,6 +1145,7 @@ function SettingsPageContent() {
                                             </div>
                                         </div>
 
+                                        {integrationMessage && <p style={{ marginBottom: 12 }}>{integrationMessage}</p>}
 
                                         <div className={styles.integrationList}>
                                             {integrations.map((item) => {
@@ -1161,20 +1154,14 @@ function SettingsPageContent() {
                                                 const connected = state.connected;
                                                 const busy = connectingKey === key;
 
-
-
                                                 return (
                                                     <div key={item.key} className={styles.integrationRow}>
                                                         <div className={styles.integrationLeft}>
-                                                            <div className={styles.integrationIcon}>
-                                                                {item.icon}
-                                                            </div>
+                                                            <div className={styles.integrationIcon}>{item.icon}</div>
 
                                                             <div className={styles.integrationMeta}>
                                                                 <div className={styles.integrationTop}>
-                                                                    <span className={styles.integrationName}>
-                                                                        {item.name}
-                                                                    </span>
+                                                                    <span className={styles.integrationName}>{item.name}</span>
                                                                     <span
                                                                         className={
                                                                             connected
@@ -1195,10 +1182,7 @@ function SettingsPageContent() {
                                                                 </p>
 
                                                                 {connected && state.accountName && (
-                                                                    <p
-                                                                        className={styles.cardSubtext}
-                                                                        style={{ marginTop: 8 }}
-                                                                    >
+                                                                    <p className={styles.cardSubtext} style={{ marginTop: 8 }}>
                                                                         {state.accountName}
                                                                     </p>
                                                                 )}
@@ -1207,25 +1191,15 @@ function SettingsPageContent() {
 
                                                         <button
                                                             type="button"
-                                                            className={
-                                                                connected
-                                                                    ? styles.disconnectBtn
-                                                                    : styles.connectBtn
-                                                            }
+                                                            className={connected ? styles.disconnectBtn : styles.connectBtn}
                                                             onClick={() =>
                                                                 connected
                                                                     ? handleDisconnectIntegration(key)
                                                                     : handleConnectIntegration(key)
                                                             }
-                                                            disabled={
-                                                                busy || !firebaseUser || loadingIntegrations
-                                                            }
+                                                            disabled={busy || !firebaseUser || loadingIntegrations}
                                                         >
-                                                            {busy
-                                                                ? "Please wait..."
-                                                                : connected
-                                                                    ? "Disconnect"
-                                                                    : "Connect"}
+                                                            {busy ? "Please wait..." : connected ? "Disconnect" : "Connect"}
                                                         </button>
                                                     </div>
                                                 );
@@ -1249,9 +1223,7 @@ function SettingsPageContent() {
                                                 </p>
                                             </div>
 
-                                            {emailMessage && (
-                                                <p style={{ marginBottom: 4 }}>{emailMessage}</p>
-                                            )}
+                                            {emailMessage && <p style={{ marginBottom: 4 }}>{emailMessage}</p>}
 
                                             <div className={styles.infoGrid}>
                                                 <div className={styles.field}>
@@ -1440,9 +1412,7 @@ function SettingsPageContent() {
                                             </div>
                                         </div>
 
-                                        {billingMessage && (
-                                            <p style={{ marginBottom: 12 }}>{billingMessage}</p>
-                                        )}
+                                        {billingMessage && <p style={{ marginBottom: 12 }}>{billingMessage}</p>}
 
                                         <div className={styles.pricingSection}>
                                             <div
@@ -1473,23 +1443,11 @@ function SettingsPageContent() {
                                                             minWidth: 0,
                                                         }}
                                                     >
-                                                        <span
-                                                            className={styles.currentPlanLabel}
-                                                            style={{
-                                                                margin: 0,
-                                                                lineHeight: 1.2,
-                                                            }}
-                                                        >
+                                                        <span className={styles.currentPlanLabel} style={{ margin: 0, lineHeight: 1.2 }}>
                                                             Current Plan
                                                         </span>
 
-                                                        <h3
-                                                            className={styles.currentPlanName}
-                                                            style={{
-                                                                margin: 0,
-                                                                lineHeight: 1.1,
-                                                            }}
-                                                        >
+                                                        <h3 className={styles.currentPlanName} style={{ margin: 0, lineHeight: 1.1 }}>
                                                             {loadingBilling ? "Loading..." : currentPlanName}
                                                         </h3>
                                                     </div>
@@ -1539,9 +1497,7 @@ function SettingsPageContent() {
                                                             background: "#ffffff",
                                                         }}
                                                     >
-                                                        <span className={styles.currentPlanMetaLabel}>
-                                                            Renewal date
-                                                        </span>
+                                                        <span className={styles.currentPlanMetaLabel}>Renewal date</span>
                                                         <span className={styles.currentPlanMetaValue}>
                                                             {loadingBilling
                                                                 ? "Loading..."
@@ -1565,9 +1521,7 @@ function SettingsPageContent() {
                                                             background: "#ffffff",
                                                         }}
                                                     >
-                                                        <span className={styles.currentPlanMetaLabel}>
-                                                            Billing status
-                                                        </span>
+                                                        <span className={styles.currentPlanMetaLabel}>Billing status</span>
                                                         <span className={styles.currentPlanMetaValue}>
                                                             {loadingBilling
                                                                 ? "Loading..."
@@ -1594,12 +1548,7 @@ function SettingsPageContent() {
                                                         type="button"
                                                         className={styles.pricingPrimaryBtn}
                                                         onClick={handleManageBilling}
-                                                        disabled={
-                                                            openingPortal ||
-                                                            loadingBilling ||
-                                                            !billing.workspaceId ||
-                                                            !billing.stripeCustomerId
-                                                        }
+                                                        disabled={openingPortal || loadingBilling || !billing.workspaceId}
                                                     >
                                                         {openingPortal ? "Opening..." : "Manage Billing"}
                                                     </button>
@@ -1624,8 +1573,7 @@ function SettingsPageContent() {
                                                     </div>
 
                                                     <div className={styles.pricingDescription}>
-                                                        For early-stage SaaS teams that want clearer
-                                                        visibility into churn risk and account health.
+                                                        For early-stage SaaS teams that want clearer visibility into churn risk and account health.
                                                     </div>
 
                                                     <div className={styles.pricingDivider} />
@@ -1657,9 +1605,7 @@ function SettingsPageContent() {
                                                     </button>
                                                 </div>
 
-                                                <div
-                                                    className={`${styles.pricingCard} ${styles.pricingCardFeatured}`}
-                                                >
+                                                <div className={`${styles.pricingCard} ${styles.pricingCardFeatured}`}>
                                                     <div className={styles.planBadgeDark}>Pro</div>
 
                                                     <div className={styles.pricingCardTitle}>
@@ -1676,8 +1622,7 @@ function SettingsPageContent() {
                                                     </div>
 
                                                     <div className={styles.pricingDescription}>
-                                                        For growing teams that need deeper MRR insights,
-                                                        stronger prioritisation, and faster actioning.
+                                                        For growing teams that need deeper MRR insights, stronger prioritisation, and faster actioning.
                                                     </div>
 
                                                     <div className={styles.pricingDivider} />
@@ -1728,34 +1673,28 @@ function SettingsPageContent() {
                                     <section className={styles.card}>
                                         <div className={styles.contactSection}>
                                             <div className={styles.contactIntro}>
-                                                <h2 className={styles.contactTitle}>
-                                                    Contact support
-                                                </h2>
+                                                <h2 className={styles.contactTitle}>Contact support</h2>
                                                 <p className={styles.contactText}>
-                                                    We’ll get back to you within 24 hours.                                                </p>
+                                                    We’ll get back to you within 24 hours.
+                                                </p>
                                             </div>
 
                                             <div className={styles.contactCard}>
-                                                {supportMessage && (
-                                                    <p style={{ marginBottom: 12 }}>{supportMessage}</p>
-                                                )}
+                                                {supportMessage && <p style={{ marginBottom: 12 }}>{supportMessage}</p>}
 
                                                 <div className={styles.contactField}>
-                                                    <label className={styles.contactLabel}>
-                                                        Email
-                                                    </label>
+                                                    <label className={styles.contactLabel}>Email</label>
                                                     <input
                                                         type="email"
-                                                        placeholder="your@email.com" className={styles.contactInput}
+                                                        placeholder="your@email.com"
+                                                        className={styles.contactInput}
                                                         value={supportEmail}
                                                         onChange={(e) => setSupportEmail(e.target.value)}
                                                     />
                                                 </div>
 
                                                 <div className={styles.contactField}>
-                                                    <label className={styles.contactLabel}>
-                                                        Message
-                                                    </label>
+                                                    <label className={styles.contactLabel}>Message</label>
                                                     <textarea
                                                         placeholder="Describe your issue..."
                                                         className={styles.contactTextarea}
@@ -1804,7 +1743,6 @@ function SettingsPageContent() {
                                         </div>
                                     </section>
                                 )}
-
                             </div>
                         </div>
                     </section>
@@ -1934,8 +1872,6 @@ function SettingsPageContent() {
                 </div>
             )}
         </>
-
-
     );
 }
 
