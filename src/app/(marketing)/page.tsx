@@ -13,7 +13,6 @@ export default function HomePage() {
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const [showDemo, setShowDemo] = useState(false);
 
     async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -54,8 +53,6 @@ export default function HomePage() {
 
             router.push("/dashboard");
             router.refresh();
-
-            router.push("/dashboard");
         } catch (err: any) {
             const msg =
                 err?.code === "auth/invalid-credential"
@@ -93,13 +90,9 @@ export default function HomePage() {
                                     Start Free — See At-Risk Revenue
                                 </Link>
 
-                                <button
-                                    type="button"
-                                    className="secondaryBtn"
-                                    onClick={() => setShowDemo(true)}
-                                >
+                                <Link href="/demo" className="secondaryBtn">
                                     View Demo
-                                </button>
+                                </Link>
                             </div>
                         </div>
                     </div>
@@ -206,73 +199,6 @@ export default function HomePage() {
                         </div>
                     </div>
                 </div>
-
-                {showDemo && (
-                    <div className="demoOverlay" onClick={() => setShowDemo(false)}>
-                        <div className="demoModal" onClick={(e) => e.stopPropagation()}>
-                            <button
-                                type="button"
-                                className="demoClose"
-                                onClick={() => setShowDemo(false)}
-                            >
-                                ×
-                            </button>
-
-                            <p className="demoEyebrow">PRODUCT WALKTHROUGH</p>
-
-                            <h2>See how Cobrai protects revenue</h2>
-
-                            <p className="demoIntro">
-                                Cobrai connects your customer and billing signals, detects
-                                churn risk early, and helps your team take action before MRR
-                                is lost.
-                            </p>
-
-                            <div className="demoSteps">
-                                <div className="demoStep">
-                                    <span>01</span>
-                                    <h3>Connect your tools</h3>
-                                    <p>
-                                        Bring together billing, customer, and activity data
-                                        from the tools your team already uses.
-                                    </p>
-                                </div>
-
-                                <div className="demoStep">
-                                    <span>02</span>
-                                    <h3>Spot revenue at risk</h3>
-                                    <p>
-                                        Cobrai highlights customers showing churn signals and
-                                        ranks them by urgency and MRR impact.
-                                    </p>
-                                </div>
-
-                                <div className="demoStep">
-                                    <span>03</span>
-                                    <h3>Take action earlier</h3>
-                                    <p>
-                                        Use clear recommendations and suggested outreach to
-                                        recover customers before they leave.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="demoActions">
-                                <Link href="/signup" className="demoPrimary">
-                                    Start Free
-                                </Link>
-
-                                <button
-                                    type="button"
-                                    className="demoSecondary"
-                                    onClick={() => setShowDemo(false)}
-                                >
-                                    Maybe later
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
         </section>
     );

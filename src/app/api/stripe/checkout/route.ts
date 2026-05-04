@@ -12,6 +12,10 @@ function parseTier(value: unknown): CheckoutTier | null {
     return null;
 }
 
+function isAllowedAppUrl(url: string) {
+    return url.startsWith("https://") || url.startsWith("http://localhost");
+}
+
 export async function POST(req: Request) {
     try {
         const body = await req.json();
@@ -77,18 +81,19 @@ export async function POST(req: Request) {
 
         if (!priceId || !priceId.startsWith("price_")) {
             return NextResponse.json(
-                {
-                    error: "Stripe checkout is not configured correctly.",
-                },
+                { error: "Stripe checkout is not configured correctly." },
                 { status: 500 }
             );
         }
 
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+        const origin = req.headers.get("origin");
+        const fallbackAppUrl = process.env.NEXT_PUBLIC_APP_URL;
 
-        if (!appUrl || !appUrl.startsWith("https://")) {
+        const appUrl = origin || fallbackAppUrl;
+
+        if (!appUrl || !isAllowedAppUrl(appUrl)) {
             return NextResponse.json(
-                { error: "Missing NEXT_PUBLIC_APP_URL." },
+                { error: "Missing or invalid app URL." },
                 { status: 500 }
             );
         }
@@ -99,9 +104,7 @@ export async function POST(req: Request) {
             await stripe.prices.retrieve(priceId);
         } catch {
             return NextResponse.json(
-                {
-                    error: "Stripe checkout price is not available.",
-                },
+                { error: "Stripe checkout price is not available." },
                 { status: 500 }
             );
         }
@@ -112,20 +115,24 @@ export async function POST(req: Request) {
 
         const session = await stripe.checkout.sessions.create({
             mode: "subscription",
+
             ...(existingStripeCustomer?.stripeId
                 ? { customer: existingStripeCustomer.stripeId }
                 : { customer_email: email }),
+
             line_items: [
                 {
                     price: priceId,
                     quantity: 1,
                 },
             ],
+
             metadata: {
                 workspaceId,
                 tier,
                 email,
             },
+
             subscription_data: {
                 metadata: {
                     workspaceId,
@@ -133,6 +140,7 @@ export async function POST(req: Request) {
                     email,
                 },
             },
+
             success_url: `${appUrl}/dashboard/settings?tab=manage-plan&checkout=success`,
             cancel_url: `${appUrl}/dashboard/settings?tab=manage-plan&checkout=cancelled`,
         });
@@ -148,9 +156,7 @@ export async function POST(req: Request) {
         });
 
         return NextResponse.json(
-            {
-                error: "Unable to create checkout session.",
-            },
+            { error: "Unable to create checkout session." },
             { status: 500 }
         );
     }

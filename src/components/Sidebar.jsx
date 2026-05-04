@@ -2,19 +2,24 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signOut } from "firebase/auth";
+import { getFirebaseAuth } from "@/lib/firebase.client";
 
 const nav = [
-    { href: "/app/dashboard", label: "Dashboard" },
-    { href: "/app/customers", label: "Customers" },
-    { href: "/app/insights", label: "Insights" },
-    { href: "/app/charts", label: "Charts" },
-    { href: "/app/integrations", label: "Integrations" },
-    { href: "/app/settings", label: "Settings" },
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/dashboard/accounts-at-risk", label: "Customers" },
+    { href: "/dashboard/analytics", label: "Insights" },
+    { href: "/dashboard/settings", label: "Settings" },
 ];
 
 export default function Sidebar() {
     const pathname = usePathname();
+
+    async function handleLogout() {
+        const auth = getFirebaseAuth();
+        await signOut(auth);
+        window.location.href = "/";
+    }
 
     return (
         <aside className="w-64 bg-neutral-900 text-white p-4 flex flex-col">
@@ -25,7 +30,8 @@ export default function Sidebar() {
 
             <nav className="space-y-1 flex-1">
                 {nav.map((item) => {
-                    const active = pathname.startsWith(item.href);
+                    const active = pathname?.startsWith(item.href);
+
                     return (
                         <Link
                             key={item.href}
@@ -40,7 +46,8 @@ export default function Sidebar() {
             </nav>
 
             <button
-                onClick={() => signOut({ callbackUrl: "/" })}
+                type="button"
+                onClick={handleLogout}
                 className="mt-4 rounded-xl bg-neutral-800 px-3 py-2 hover:bg-neutral-700"
             >
                 Logout

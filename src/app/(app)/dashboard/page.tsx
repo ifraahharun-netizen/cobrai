@@ -755,7 +755,12 @@ export default function DashboardPage() {
             setCurrentUser(user);
 
             if (!user) {
-                resetDashboardState();
+                setTimeout(() => {
+                    if (!auth.currentUser) {
+                        resetDashboardState();
+                    }
+                }, 1200);
+
                 return;
             }
 
@@ -1179,10 +1184,10 @@ export default function DashboardPage() {
                                         <div className={styles.riskRowRight}>
                                             <span
                                                 className={`${styles.badge} ${a.risk >= 80
-                                                        ? styles.riskCritical
-                                                        : a.risk >= 65
-                                                            ? styles.riskMedium
-                                                            : styles.riskLow
+                                                    ? styles.riskCritical
+                                                    : a.risk >= 65
+                                                        ? styles.riskMedium
+                                                        : styles.riskLow
                                                     }`}
                                             >
                                                 {a.risk}

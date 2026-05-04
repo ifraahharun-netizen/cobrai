@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
@@ -30,7 +32,7 @@ function getStripeCustomerId(
 }
 
 function getSubscriptionPeriod(subscription: Stripe.Subscription) {
-    const firstItem = subscription.items.data[0];
+    const firstItem = subscription.items.data[0] as any;
 
     return {
         currentPeriodStart: toDate(firstItem?.current_period_start ?? null),
@@ -41,23 +43,12 @@ function getSubscriptionPeriod(subscription: Stripe.Subscription) {
 function amountFromInvoice(invoice: Stripe.Invoice) {
     const i = invoice as any;
 
-    return Number(
-        i.amount_paid ??
-        i.amount_due ??
-        i.total ??
-        i.subtotal ??
-        0
-    );
+    return Number(i.amount_paid ?? i.amount_due ?? i.total ?? i.subtotal ?? 0);
 }
 
 function invoiceDueDate(invoice: Stripe.Invoice) {
     const i = invoice as any;
-
-    return (
-        toDate(i.due_date) ||
-        toDate(i.created) ||
-        new Date()
-    );
+    return toDate(i.due_date) || toDate(i.created) || new Date();
 }
 
 function invoicePaidDate(invoice: Stripe.Invoice) {
@@ -70,24 +61,12 @@ function invoicePaidDate(invoice: Stripe.Invoice) {
     );
 }
 
-function normalizeInvoiceStatus(invoice: Stripe.Invoice, fallback: string) {
-    const status = String(invoice.status || fallback || "open").toLowerCase();
-
-    if (status === "paid") return "paid";
-    if (status === "uncollectible") return "failed";
-    if (status === "void") return "void";
-    if (status === "draft") return "draft";
-    if (status === "open") return "open";
-
-    return status;
-}
-
 async function updateWorkspacePlan(workspaceId: string, tier: PlanTier) {
     await prisma.workspace.update({
         where: { id: workspaceId },
         data: {
             tier,
-            demoMode: tier === "free",
+            demoMode: false,
         },
     });
 }
@@ -265,8 +244,7 @@ async function createCustomerEvent(args: {
 async function handleInvoiceEvent(
     stripe: Stripe,
     event: Stripe.Event,
-    fallbackStatus: string,
-    eventType: "payment_successful" | "payment_failed" | "invoice_created"
+    eventType: "payment_successful" | "payment_failed"
 ) {
     const invoice = event.data.object as Stripe.Invoice;
 
@@ -292,13 +270,7 @@ async function handleInvoiceEvent(
         stripeCustomerId
     );
 
-    const status =
-        eventType === "payment_successful"
-            ? "paid"
-            : eventType === "payment_failed"
-                ? "failed"
-                : normalizeInvoiceStatus(invoice, fallbackStatus);
-
+    const status = eventType === "payment_successful" ? "paid" : "failed";
     const amount = amountFromInvoice(invoice);
     const dueAt = invoiceDueDate(invoice);
     const paidAt = status === "paid" ? invoicePaidDate(invoice) || new Date() : null;
@@ -422,6 +394,7 @@ export async function POST(req: NextRequest) {
                     console.error("Missing workspaceId in checkout.session.completed");
                     break;
                 }
+
                 const workspaceExists = await prisma.workspace.findUnique({
                     where: { id: workspaceId },
                     select: { id: true },
@@ -435,7 +408,11 @@ export async function POST(req: NextRequest) {
                 await updateSavedStripeEventWorkspace(event.id, workspaceId);
 
                 if (stripeCustomerId) {
-                    await upsertStripeCustomerForWorkspace(stripe, workspaceId, stripeCustomerId);
+                    await upsertStripeCustomerForWorkspace(
+                        stripe,
+                        workspaceId,
+                        stripeCustomerId
+                    );
                 }
 
                 if (stripeSubscriptionId) {
@@ -526,7 +503,11 @@ export async function POST(req: NextRequest) {
                     break;
                 }
 
-                await upsertStripeCustomerForWorkspace(stripe, workspaceId, stripeCustomerId);
+                await upsertStripeCustomerForWorkspace(
+                    stripe,
+                    workspaceId,
+                    stripeCustomerId
+                );
 
                 const { currentPeriodStart, currentPeriodEnd } =
                     getSubscriptionPeriod(subscription);
@@ -560,41 +541,22 @@ export async function POST(req: NextRequest) {
 
                 await updateWorkspacePlan(
                     workspaceId,
-                    tierFromSubscription(subscription.status, subscription.metadata?.tier)
+                    tierFromSubscription(
+                        subscription.status,
+                        subscription.metadata?.tier
+                    )
                 );
 
                 break;
             }
 
-            case "invoice.payment_succeeded":
-            case "invoice.paid": {
-                await handleInvoiceEvent(
-                    stripe,
-                    event,
-                    "paid",
-                    "payment_successful"
-                );
+            case "invoice.payment_succeeded": {
+                await handleInvoiceEvent(stripe, event, "payment_successful");
                 break;
             }
 
             case "invoice.payment_failed": {
-                await handleInvoiceEvent(
-                    stripe,
-                    event,
-                    "failed",
-                    "payment_failed"
-                );
-                break;
-            }
-
-            case "invoice.finalized":
-            case "invoice.created": {
-                await handleInvoiceEvent(
-                    stripe,
-                    event,
-                    "open",
-                    "invoice_created"
-                );
+                await handleInvoiceEvent(stripe, event, "payment_failed");
                 break;
             }
 

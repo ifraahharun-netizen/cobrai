@@ -1,7 +1,12 @@
 "use client";
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
+import {
+    getAuth,
+    setPersistence,
+    browserLocalPersistence,
+    type Auth,
+} from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 
@@ -13,6 +18,7 @@ let app: FirebaseApp | null = null;
 let authInstance: Auth | null = null;
 let dbInstance: Firestore | null = null;
 let storageInstance: FirebaseStorage | null = null;
+let persistencePromise: Promise<void> | null = null;
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -25,14 +31,36 @@ const firebaseConfig = {
 
 function initApp(): FirebaseApp {
     if (app) return app;
+
+    if (!firebaseConfig.apiKey) {
+        throw new Error("Missing Firebase API key");
+    }
+
     app = getApps().length ? getApp() : initializeApp(firebaseConfig);
     return app;
 }
 
 export function getFirebaseAuth(): Auth {
     if (authInstance) return authInstance;
+
     authInstance = getAuth(initApp());
+
+    persistencePromise = setPersistence(
+        authInstance,
+        browserLocalPersistence
+    ).catch((error) => {
+        console.error("Firebase persistence failed:", error);
+    });
+
     return authInstance;
+}
+
+export async function waitForFirebasePersistence() {
+    getFirebaseAuth();
+
+    if (persistencePromise) {
+        await persistencePromise;
+    }
 }
 
 export function getFirebaseDb(): Firestore {
@@ -49,10 +77,6 @@ export function getFirebaseStorage(): FirebaseStorage {
 
 export function getFirebaseAuthSafe(): FirebaseInitResult {
     try {
-        if (!firebaseConfig.apiKey) {
-            return { ok: false, error: "missing-firebase-api-key" };
-        }
-
         return {
             ok: true,
             auth: getFirebaseAuth(),
@@ -60,10 +84,9 @@ export function getFirebaseAuthSafe(): FirebaseInitResult {
             storage: getFirebaseStorage(),
         };
     } catch (e: any) {
-        return { ok: false, error: e?.code || e?.message || "firebase-init-failed" };
+        return {
+            ok: false,
+            error: e?.code || e?.message || "firebase-init-failed",
+        };
     }
 }
-
-export const auth = getFirebaseAuth();
-export const db = getFirebaseDb();
-export const storage = getFirebaseStorage();

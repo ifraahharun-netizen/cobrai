@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 export default function MarketingHeader() {
@@ -14,10 +15,16 @@ export default function MarketingHeader() {
     return (
         <header className="siteHeader">
             <div className="siteHeaderInner">
-                <Link href="/" aria-label="Cobrai home">
-
+                <Link href="/" aria-label="Cobrai home" className="logoWrap">
+                    <Image
+                        src="/branding/cobrai.logo.jpg"
+                        alt="Cobrai"
+                        width={100}
+                        height={39}
+                        priority
+                    />
+                   
                 </Link>
-
                 <nav className="topNav" aria-label="Main navigation">
                     <Link href="/" className={`navLink ${isActive("/") ? "active" : ""}`}>
                         Home

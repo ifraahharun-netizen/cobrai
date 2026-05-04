@@ -1,13 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { onAuthStateChanged, signOut, type User } from "firebase/auth";
-import { auth } from "@/lib/firebase.client";
-import styles from "./dashboardshell.module.css";
-
-
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -16,7 +10,6 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         <div className="min-h-screen bg-[#f6f7fb] text-[#0f1020]">
             <div className="mx-auto max-w-7xl px-4 py-6">
                 <div className="grid grid-cols-[240px_1fr] gap-6">
-                    {/* Sidebar */}
                     <aside className="rounded-2xl border border-black/5 bg-white shadow-sm">
                         <div className="px-5 py-4">
                             <div className="text-lg font-semibold tracking-tight">Cobrai</div>
@@ -37,9 +30,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                         </nav>
                     </aside>
 
-                    {/* Content */}
                     <section className="space-y-4">
-                        {/* Top bar */}
                         <div className="flex items-center justify-between rounded-2xl border border-black/5 bg-white px-5 py-4 shadow-sm">
                             <div className="text-sm font-medium text-black/70">
                                 <span className="mr-2">Connect</span>
@@ -59,7 +50,6 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                             </div>
                         </div>
 
-                        {/* Page content (your /dashboard/page.tsx renders here) */}
                         {children}
                     </section>
                 </div>
@@ -97,5 +87,3 @@ function Pill({ children }: { children: React.ReactNode }) {
         </span>
     );
 }
-
-

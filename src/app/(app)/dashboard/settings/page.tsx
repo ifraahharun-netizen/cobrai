@@ -4,10 +4,13 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import styles from "./settings.module.css";
 import { SiHubspot, SiStripe } from "react-icons/si";
-import { onAuthStateChanged, updateProfile, User } from "firebase/auth";
-import { auth, db } from "@/lib/firebase.client";
+import { onAuthStateChanged, updateProfile, type User } from "firebase/auth";
+import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase.client";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { termsContent, privacyContent } from "@/lib/legalContent";
+
+const auth = getFirebaseAuth();
+const db = getFirebaseDb();
 
 const tabs = [
     "Profile",
@@ -35,7 +38,6 @@ type ProfileForm = {
     name: string;
     email: string;
     role: string;
-    phone: string;
     location: string;
     photoURL: string;
 };
@@ -255,7 +257,6 @@ function SettingsPageContent() {
         name: "",
         email: "",
         role: "",
-        phone: "",
         location: "",
         photoURL: "",
     });
@@ -447,7 +448,7 @@ function SettingsPageContent() {
                     name: "",
                     email: "",
                     role: "",
-                    phone: "",
+
                     location: "",
                     photoURL: "",
                 });
@@ -474,7 +475,7 @@ function SettingsPageContent() {
                 const mergedName = profile?.name || user.displayName || "";
                 const mergedEmail = user.email || "";
                 const mergedRole = profile?.role || "";
-                const mergedPhone = profile?.phone || "";
+
                 const mergedLocation = profile?.location || "";
                 const mergedPhotoURL = profile?.photoURL || user.photoURL || "";
 
@@ -484,7 +485,6 @@ function SettingsPageContent() {
                     name: mergedName,
                     email: mergedEmail,
                     role: mergedRole,
-                    phone: mergedPhone,
                     location: mergedLocation,
                     photoURL: mergedPhotoURL,
                 });
@@ -502,7 +502,6 @@ function SettingsPageContent() {
                             name: mergedName,
                             email: mergedEmail,
                             role: mergedRole,
-                            phone: mergedPhone,
                             location: mergedLocation,
                             photoURL: mergedPhotoURL,
                             createdAt: serverTimestamp(),
@@ -622,7 +621,7 @@ function SettingsPageContent() {
                 name: profile?.name || firebaseUser.displayName || "",
                 email: firebaseUser.email || "",
                 role: profile?.role || "",
-                phone: profile?.phone || "",
+
                 location: profile?.location || "",
                 photoURL: profile?.photoURL || firebaseUser.photoURL || "",
             });
@@ -650,7 +649,7 @@ function SettingsPageContent() {
                     name: form.name,
                     email: firebaseUser.email || form.email,
                     role: form.role,
-                    phone: form.phone,
+
                     location: form.location,
                     photoURL: form.photoURL,
                     updatedAt: serverTimestamp(),
@@ -1109,21 +1108,6 @@ function SettingsPageContent() {
                                                 )}
                                             </div>
 
-                                            <div className={styles.field}>
-                                                <span className={styles.label}>Phone</span>
-                                                {isEditingProfile ? (
-                                                    <input
-                                                        name="phone"
-                                                        value={form.phone}
-                                                        onChange={handleFieldChange}
-                                                        className={styles.contactInput}
-                                                    />
-                                                ) : (
-                                                    <span className={styles.value}>
-                                                        {loadingUser ? "Loading..." : form.phone || "—"}
-                                                    </span>
-                                                )}
-                                            </div>
 
                                             <div className={styles.field}>
                                                 <span className={styles.label}>Location</span>

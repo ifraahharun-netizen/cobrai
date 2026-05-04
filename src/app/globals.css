@@ -1858,3 +1858,16 @@ body {
 .forgotLink:hover {
     text-decoration: underline;
 }
+
+.logoWrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+}
+
+.logoText {
+    font-size: 25px;
+    font-weight: 600;
+    color: #000;
+}
