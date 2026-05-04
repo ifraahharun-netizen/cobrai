@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     const state = crypto.randomUUID();
 
     const authUrl =
-        `https://mcp-eu1.hubspot.com/oauth/authorize/user` +
+        `https://app.hubspot.com/oauth/authorize` +
         `?client_id=${encodeURIComponent(clientId)}` +
         `&scope=${encodeURIComponent(scopes)}` +
         `&redirect_uri=${encodeURIComponent(redirectUri)}` +
