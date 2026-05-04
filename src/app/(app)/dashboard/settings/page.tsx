@@ -700,25 +700,39 @@ function SettingsPageContent() {
             setConnectingKey(key);
             setIntegrationMessage(null);
 
+            const token = await firebaseUser.getIdToken(true);
+
             const response = await fetch(`/api/integrations/${key}/disconnect`, {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({ uid: firebaseUser.uid }),
             });
 
-            if (!response.ok) {
-                throw new Error(`Failed to disconnect ${key}`);
+            const data = await response.json().catch(() => null);
+
+            if (!response.ok || !data?.ok) {
+                throw new Error(data?.error || `Failed to disconnect ${key}`);
             }
 
+            setIntegrationState((prev) => ({
+                ...prev,
+                [key]: {
+                    connected: false,
+                    accountName: "",
+                },
+            }));
+
             await loadIntegrations(firebaseUser.uid);
+
             setIntegrationMessage(
                 key === "hubspot" ? "HubSpot disconnected." : "Stripe disconnected."
             );
-        } catch (error) {
+        } catch (error: any) {
             console.error(`Failed to disconnect ${key}:`, error);
-            setIntegrationMessage(`Failed to disconnect ${key}.`);
+            setIntegrationMessage(
+                error?.message || `Failed to disconnect ${key}.`
+            );
         } finally {
             setConnectingKey(null);
         }
