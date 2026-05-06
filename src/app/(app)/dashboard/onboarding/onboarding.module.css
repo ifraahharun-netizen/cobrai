@@ -205,3 +205,68 @@
     cursor: pointer;
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.08);
 }
+
+.inlineOnboardingCard {
+    width: 100%;
+    max-width: 520px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 12px;
+    margin: 14px 0 18px;
+    padding: 13px 14px;
+    border: 1px solid #e5e5e5;
+    border-radius: 18px;
+    background: #ffffff;
+    text-align: left;
+    cursor: pointer;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.04);
+    transition: 0.18s ease;
+}
+
+.inlineOnboardingCard:hover {
+    transform: translateY(-1px);
+    border-color: #0a0a0a;
+}
+
+.inlineIconGroup {
+    display: flex;
+    align-items: center;
+}
+
+.inlineIcon {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.inlineIcon+.inlineIcon {
+    margin-left: -8px;
+}
+
+.inlineOnboardingCard strong {
+    display: block;
+    color: #0a0a0a;
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.inlineOnboardingCard small {
+    display: block;
+    margin-top: 2px;
+    color: #666666;
+    font-size: 12px;
+}
+
+.inlineOnboardingCard b {
+    padding: 7px 11px;
+    border: 1px solid #d4d4d4;
+    border-radius: 999px;
+    color: #0a0a0a;
+    font-size: 12px;
+    font-weight: 500;
+}

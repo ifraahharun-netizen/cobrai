@@ -19,17 +19,16 @@ export default function FirstRunModal() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
-    const [firstRunCompleted, setFirstRunCompleted] = useState(false);
     const [saving, setSaving] = useState(false);
-
     const [integrations, setIntegrations] = useState<IntegrationState>({
         stripeConnected: false,
         hubspotConnected: false,
     });
 
-    const hasIntegration = useMemo(() => {
-        return integrations.stripeConnected || integrations.hubspotConnected;
-    }, [integrations]);
+    const hasIntegration = useMemo(
+        () => integrations.stripeConnected || integrations.hubspotConnected,
+        [integrations]
+    );
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, async (currentUser) => {
@@ -41,18 +40,13 @@ export default function FirstRunModal() {
             }
 
             try {
-                const userSnap = await getDoc(doc(db, "users", currentUser.uid));
-
                 const integrationSnap = await getDoc(
                     doc(db, "users", currentUser.uid, "integrations", "main")
                 );
 
-                const userData = userSnap.exists() ? userSnap.data() : {};
                 const integrationData = integrationSnap.exists()
                     ? integrationSnap.data()
                     : {};
-
-                const completed = userData?.onboarding?.firstRunCompleted === true;
 
                 const stripeConnected =
                     integrationData?.stripe?.connected === true ||
@@ -64,14 +58,7 @@ export default function FirstRunModal() {
                     integrationData?.hubspotConnected === true ||
                     Boolean(integrationData?.hubspotAccessToken);
 
-                setFirstRunCompleted(completed);
-
-                setIntegrations({
-                    stripeConnected,
-                    hubspotConnected,
-                });
-
-                setShowModal(!completed && !stripeConnected && !hubspotConnected);
+                setIntegrations({ stripeConnected, hubspotConnected });
             } catch (error) {
                 console.error("Failed to load onboarding state:", error);
             } finally {
@@ -96,16 +83,12 @@ export default function FirstRunModal() {
             },
             { merge: true }
         );
-
-        setFirstRunCompleted(true);
     }
 
     async function connectStripe() {
         if (!user) return;
 
-        await markFirstRunCompleted({
-            selectedSetupStep: "stripe",
-        });
+        await markFirstRunCompleted({ selectedSetupStep: "stripe" });
 
         window.location.href = `/api/integrations/stripe/connect?uid=${encodeURIComponent(
             user.uid
@@ -115,9 +98,7 @@ export default function FirstRunModal() {
     async function connectHubSpot() {
         if (!user) return;
 
-        await markFirstRunCompleted({
-            selectedSetupStep: "hubspot",
-        });
+        await markFirstRunCompleted({ selectedSetupStep: "hubspot" });
 
         window.location.href = `/api/integrations/hubspot/connect?uid=${encodeURIComponent(
             user.uid
@@ -144,11 +125,8 @@ export default function FirstRunModal() {
                 { merge: true }
             );
 
-            setFirstRunCompleted(true);
             setShowModal(false);
             window.location.reload();
-        } catch (error) {
-            console.error("Failed to enable demo mode:", error);
         } finally {
             setSaving(false);
         }
@@ -160,13 +138,8 @@ export default function FirstRunModal() {
         setSaving(true);
 
         try {
-            await markFirstRunCompleted({
-                selectedSetupStep: "skipped",
-            });
-
+            await markFirstRunCompleted({ selectedSetupStep: "skipped" });
             setShowModal(false);
-        } catch (error) {
-            console.error("Failed to skip onboarding:", error);
         } finally {
             setSaving(false);
         }
@@ -176,15 +149,27 @@ export default function FirstRunModal() {
 
     return (
         <>
-            {firstRunCompleted && !showModal ? (
-                <button
-                    type="button"
-                    className={styles.reopenOnboardingButton}
-                    onClick={() => setShowModal(true)}
-                >
-                    Connect your tools now to start protecting revenue
-                </button>
-            ) : null}
+            <button
+                type="button"
+                className={styles.inlineOnboardingCard}
+                onClick={() => setShowModal(true)}
+            >
+                <span className={styles.inlineIconGroup}>
+                    <span className={styles.inlineIcon}>
+                        <SiStripe size={16} color="#635BFF" />
+                    </span>
+                    <span className={styles.inlineIcon}>
+                        <SiHubspot size={15} color="#FF7A59" />
+                    </span>
+                </span>
+
+                <span>
+                    <strong>Connect your tools</strong>
+                    <small>Start finding risky customers and protecting revenue.</small>
+                </span>
+
+                <b>Set up</b>
+            </button>
 
             {showModal ? (
                 <div className={styles.modalOverlay}>
@@ -209,7 +194,7 @@ export default function FirstRunModal() {
                                 disabled={saving}
                             >
                                 <span className={styles.integrationIcon}>
-                                    <SiStripe size={25} />
+                                    <SiStripe size={25} color="#635BFF" />
                                 </span>
 
                                 <span className={styles.integrationCopy}>
@@ -227,7 +212,7 @@ export default function FirstRunModal() {
                                 disabled={saving}
                             >
                                 <span className={styles.integrationIcon}>
-                                    <SiHubspot size={24} />
+                                    <SiHubspot size={24} color="#FF7A59" />
                                 </span>
 
                                 <span className={styles.integrationCopy}>

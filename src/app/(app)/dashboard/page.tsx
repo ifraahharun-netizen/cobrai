@@ -960,7 +960,7 @@ export default function DashboardPage() {
     return (
 
         <div className={styles.page}>
-            <FirstRunModal />
+           
 
             <div className={styles.content}>
                 <DomainSetupCard />
@@ -1061,6 +1061,8 @@ export default function DashboardPage() {
                         <p className={styles.subtitle}>
                             Retention intelligence — clear actions that protect revenue.
                         </p>
+
+                        <FirstRunModal />
                     </div>
                 </div>
 
