@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { SiHubspot, SiStripe } from "react-icons/si";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase.client";
 import styles from "./onboarding.module.css";
 
@@ -39,7 +40,7 @@ export default function FirstRunModal() {
 
             try {
                 const userRef = doc(db, "users", currentUser.uid);
-                const onboardingSnap = await getDoc(userRef);
+                const userSnap = await getDoc(userRef);
 
                 const integrationRef = doc(
                     db,
@@ -50,10 +51,7 @@ export default function FirstRunModal() {
                 );
                 const integrationSnap = await getDoc(integrationRef);
 
-                const userData = onboardingSnap.exists()
-                    ? onboardingSnap.data()
-                    : {};
-
+                const userData = userSnap.exists() ? userSnap.data() : {};
                 const integrationData = integrationSnap.exists()
                     ? integrationSnap.data()
                     : {};
@@ -180,35 +178,59 @@ export default function FirstRunModal() {
     return (
         <div className={styles.modalOverlay}>
             <div className={styles.modalCard}>
-                <div className={styles.modalBadge}>First step</div>
+                <div className={styles.modalBadge}>Start here</div>
 
                 <h2 className={styles.modalTitle}>
-                    Let’s identify customers most likely to churn now
+                    Find your highest-risk customers before they churn
                 </h2>
 
                 <p className={styles.modalText}>
-                    Connect your customer or payment data so Cobrai can detect risky
-                    accounts, failed payments, and revenue leakage before customers leave.
+                    Connect your customer data now so Cobrai can instantly detect churn
+                    risk, failed payments, revenue leaks, and accounts that need action
+                    today.
                 </p>
 
-                <div className={styles.modalActions}>
+                <div className={styles.integrationGrid}>
                     <button
                         type="button"
-                        className={styles.primaryButton}
+                        className={styles.integrationOption}
                         onClick={connectStripe}
                         disabled={saving}
                     >
-                        Connect Stripe
+                        <span className={styles.integrationIcon}>
+                            <SiStripe size={24} />
+                        </span>
+
+                        <span className={styles.integrationCopy}>
+                            <strong>Connect Stripe</strong>
+                            <small>Sync subscriptions, invoices, payments and MRR.</small>
+                        </span>
+
+                        <span className={styles.integrationCta}>Connect</span>
                     </button>
 
                     <button
                         type="button"
-                        className={styles.secondaryButton}
+                        className={styles.integrationOption}
                         onClick={connectHubSpot}
                         disabled={saving}
                     >
-                        Connect HubSpot
+                        <span className={styles.integrationIcon}>
+                            <SiHubspot size={23} />
+                        </span>
+
+                        <span className={styles.integrationCopy}>
+                            <strong>Connect HubSpot</strong>
+                            <small>Sync customer activity, lifecycle data and CRM signals.</small>
+                        </span>
+
+                        <span className={styles.integrationCta}>Connect</span>
                     </button>
+                </div>
+
+                <div className={styles.urgentNote}>
+                    The sooner you connect data, the faster Cobrai can surface accounts
+                    at risk of cancelling.
                 </div>
 
                 <button
@@ -217,7 +239,7 @@ export default function FirstRunModal() {
                     onClick={useDemoData}
                     disabled={saving}
                 >
-                    Use demo data for now
+                    Preview with demo data first
                 </button>
 
                 <button
