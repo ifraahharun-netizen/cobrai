@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 
 const MAX_NAME_LENGTH = 80;
+const MAX_COMPANY_NAME_LENGTH = 100;
 
 function getBearerToken(req: NextRequest) {
     const authHeader = req.headers.get("authorization") ?? "";
@@ -44,7 +45,11 @@ export async function POST(req: NextRequest) {
         const rawFullName =
             typeof body?.fullName === "string" ? body.fullName.trim() : "";
 
+        const rawCompanyName =
+            typeof body?.companyName === "string" ? body.companyName.trim() : "";
+
         const fullName = rawFullName.slice(0, MAX_NAME_LENGTH);
+        const companyName = rawCompanyName.slice(0, MAX_COMPANY_NAME_LENGTH);
 
         const email = decoded.email.toLowerCase();
         const firebaseUid = decoded.uid;
@@ -65,7 +70,8 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        const workspaceName = `${getFirstName(fullName)}'s Workspace`;
+        const workspaceName =
+            companyName || `${getFirstName(fullName)}'s Workspace`;
 
         const result = await prisma.$transaction(async (tx) => {
             const workspace = await tx.workspace.create({

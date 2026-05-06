@@ -17,6 +17,7 @@ export default function SignupPage() {
     const router = useRouter();
 
     const [fullName, setFullName] = useState("");
+    const [companyName, setCompanyName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
@@ -28,6 +29,7 @@ export default function SignupPage() {
 
     function validateForm() {
         if (!fullName.trim()) return "Please enter your full name.";
+        if (!companyName.trim()) return "Please enter your company name.";
         if (!email.trim()) return "Please enter your email.";
         if (!/\S+@\S+\.\S+/.test(email.trim())) return "Please enter a valid email.";
         if (!password) return "Please enter a password.";
@@ -85,6 +87,7 @@ export default function SignupPage() {
                 },
                 body: JSON.stringify({
                     fullName: fullName.trim(),
+                    companyName: companyName.trim(),
                 }),
             });
 
@@ -154,6 +157,18 @@ export default function SignupPage() {
                                             value={fullName}
                                             onChange={(e) => setFullName(e.target.value)}
                                             autoComplete="name"
+                                            disabled={loading}
+                                        />
+                                    </div>
+
+                                    <div className="signupRefField">
+                                        <label htmlFor="companyName">Company Name</label>
+                                        <input
+                                            id="companyName"
+                                            type="text"
+                                            value={companyName}
+                                            onChange={(e) => setCompanyName(e.target.value)}
+                                            autoComplete="organization"
                                             disabled={loading}
                                         />
                                     </div>

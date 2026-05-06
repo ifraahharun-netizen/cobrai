@@ -7,7 +7,6 @@ import { SiHubspot, SiStripe, SiResend } from "react-icons/si";
 import { onAuthStateChanged, updateProfile, type User } from "firebase/auth";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase.client";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { termsContent, privacyContent } from "@/lib/legalContent";
 
 const auth = getFirebaseAuth();
 const db = getFirebaseDb();
@@ -18,6 +17,12 @@ const tabs = [
     "Manage Plan",
     "Support & Compliance",
 ];
+
+const TERM_IDS = {
+    privacy: "a777b328-38d8-4bef-8046-88844055517f",
+    terms: "232e972c-8924-4d89-9111-0aa5cc2ce0a5",
+    cookie: "3e188e15-88f8-4ab9-aa2b-ef56422dd785",
+};
 
 const integrations = [
     {
@@ -44,7 +49,7 @@ type ProfileForm = {
 
 type IntegrationKey = "hubspot" | "stripe";
 type BillingPlan = "free" | "starter" | "pro";
-type LegalModalType = "terms" | "privacy" | null;
+type LegalModalType = "terms" | "privacy" | "cookie" | null;
 
 type IntegrationState = {
     hubspot: {
@@ -296,6 +301,24 @@ function SettingsPageContent() {
     const [integrationMessage, setIntegrationMessage] = useState<string | null>(null);
     const [billingMessage, setBillingMessage] = useState<string | null>(null);
     const [emailMessage, setEmailMessage] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!legalModal) return;
+
+        const existingScript = document.getElementById("termly-jssdk");
+
+        if (existingScript) {
+            existingScript.remove();
+        }
+
+        const script = document.createElement("script");
+        script.id = "termly-jssdk";
+        script.type = "text/javascript";
+        script.src = "https://app.termly.io/embed-policy.min.js";
+        script.async = true;
+
+        document.body.appendChild(script);
+    }, [legalModal]);
 
     async function loadIntegrations(uid: string) {
         try {
@@ -747,6 +770,7 @@ function SettingsPageContent() {
 
     async function handleUpgrade(plan: "starter" | "pro") {
         if (!firebaseUser) return;
+
         if (!billing.workspaceId) {
             setBillingMessage("No workspace found for billing.");
             return;
@@ -1009,7 +1033,6 @@ function SettingsPageContent() {
     const trialActive = isTrialActive(billing.trialEndsAt);
     const trialDaysLeft = getTrialDaysLeft(billing.trialEndsAt);
     const domainVerified = isVerifiedStatus(emailSettings.sendingDomainStatus);
-    const modalContent = legalModal === "terms" ? termsContent : privacyContent;
 
     return (
         <>
@@ -1083,6 +1106,9 @@ function SettingsPageContent() {
                                                     {loadingUser ? "Loading..." : form.name || "User"}
                                                 </span>
                                                 <span className={styles.profileSub}>
+                                                    {loadingUser ? "" : emailSettings.workspaceName || "No company set"}
+                                                </span>
+                                                <span className={styles.profileSub}>
                                                     {loadingUser ? "" : form.role || "No role set"}
                                                 </span>
                                                 <span className={styles.profileSub}>
@@ -1107,7 +1133,12 @@ function SettingsPageContent() {
                                                     </span>
                                                 )}
                                             </div>
-
+                                            <div className={styles.field}>
+                                                <span className={styles.label}>Company Name</span>
+                                                <span className={styles.value}>
+                                                    {loadingUser ? "Loading..." : emailSettings.workspaceName || "—"}
+                                                </span>
+                                            </div>
                                             <div className={styles.field}>
                                                 <span className={styles.label}>Email</span>
                                                 <span className={styles.value}>
@@ -1241,8 +1272,6 @@ function SettingsPageContent() {
                                                         Connect Resend
                                                     </span>
                                                 </h3>
-
-
 
                                                 <p className={styles.cardSubtext}>
                                                     Connect your domain so Cobrai can send emails from your company email address to your clients.
@@ -1586,29 +1615,31 @@ function SettingsPageContent() {
                                                     <div className={styles.planBadge}>Starter</div>
 
                                                     <div className={styles.pricingCardTitle}>
-                                                        Built for early-stage teams
+                                                        See every customer and spot early churn risk.
                                                     </div>
 
                                                     <div className={styles.pricingSmallText}>
-                                                        Get started free for 2 weeks
+                                                        Try free for 14 days
                                                     </div>
 
                                                     <div className={styles.pricingRow}>
                                                         <div className={styles.pricingAmount}>£49</div>
-                                                        <div className={styles.pricingInterval}>/month</div>
+                                                        <div className={styles.pricingInterval}>/month after trial</div>
                                                     </div>
 
                                                     <div className={styles.pricingDescription}>
-                                                        For early-stage SaaS teams that want clearer visibility into churn risk and account health.
+                                                        For early-stage SaaS teams that need a clear customer list, health scores, and enough AI guidance to act faster.
                                                     </div>
 
                                                     <div className={styles.pricingDivider} />
 
                                                     <ul className={styles.pricingFeatures}>
-                                                        <li>Accounts at risk view</li>
-                                                        <li>Basic churn visibility</li>
-                                                        <li>Core account health signals</li>
-                                                        <li>Clean dashboard overview</li>
+                                                        <li>Complete customer list</li>
+                                                        <li>Customer health score</li>
+                                                        <li>Limited MRR and churn drivers visibility</li>
+                                                        <li>Limited AI insights</li>
+                                                        <li>Dashboard overview</li>
+                                                        <li>Manual customer outreach</li>
                                                     </ul>
 
                                                     <button
@@ -1635,30 +1666,31 @@ function SettingsPageContent() {
                                                     <div className={styles.planBadgeDark}>Pro</div>
 
                                                     <div className={styles.pricingCardTitle}>
-                                                        Built for growing SaaS teams
+                                                        Scale retention with deeper & unlimited AI
                                                     </div>
 
                                                     <div className={styles.pricingSmallText}>
-                                                        Get started free for 2 weeks then
+                                                        Try free for 14 days
                                                     </div>
 
                                                     <div className={styles.pricingRow}>
                                                         <div className={styles.pricingAmount}>£99</div>
-                                                        <div className={styles.pricingInterval}>/month</div>
+                                                        <div className={styles.pricingInterval}>/month after trial</div>
                                                     </div>
 
                                                     <div className={styles.pricingDescription}>
-                                                        For growing teams that need deeper MRR insights, stronger prioritisation, and faster actioning.
+                                                        For growing SaaS teams that want stronger prioritisation, unlimited AI support, and automated retention action.
                                                     </div>
 
                                                     <div className={styles.pricingDivider} />
 
                                                     <ul className={styles.pricingFeatures}>
                                                         <li>Everything in Starter</li>
-                                                        <li>Deeper MRR insights</li>
-                                                        <li>Stronger customer prioritisation</li>
-                                                        <li>Faster retention workflows</li>
-                                                        <li>More advanced actioning</li>
+                                                        <li>Unlimited AI insights</li>
+                                                        <li>Retention progress tracking</li>
+                                                        <li>Advanced AI forecasts</li>
+                                                        <li>Critical accounts prioritisation</li>
+                                                        <li>Unlimited automations</li>
                                                     </ul>
 
                                                     <button
@@ -1756,7 +1788,7 @@ function SettingsPageContent() {
                                                 className={styles.iconBtn}
                                                 onClick={() => setLegalModal("terms")}
                                             >
-                                                Terms of Service
+                                                Terms & Conditions
                                             </button>
 
                                             <button
@@ -1765,6 +1797,14 @@ function SettingsPageContent() {
                                                 onClick={() => setLegalModal("privacy")}
                                             >
                                                 Privacy Policy
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                className={styles.iconBtn}
+                                                onClick={() => setLegalModal("cookie")}
+                                            >
+                                                Cookie Policy
                                             </button>
                                         </div>
                                     </section>
@@ -1826,7 +1866,11 @@ function SettingsPageContent() {
                                     color: "#111827",
                                 }}
                             >
-                                {modalContent.title}
+                                {legalModal === "privacy"
+                                    ? "Privacy Policy"
+                                    : legalModal === "terms"
+                                        ? "Terms & Conditions"
+                                        : "Cookie Policy"}
                             </h2>
 
                             <button
@@ -1852,47 +1896,14 @@ function SettingsPageContent() {
                         <div
                             style={{
                                 padding: "22px 24px 28px",
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: 24,
                             }}
                         >
-                            {modalContent.sections.map((section) => (
-                                <div key={section.heading}>
-                                    <h3
-                                        style={{
-                                            margin: "0 0 10px",
-                                            fontSize: 16,
-                                            fontWeight: 700,
-                                            color: "#111827",
-                                        }}
-                                    >
-                                        {section.heading}
-                                    </h3>
-
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: 12,
-                                        }}
-                                    >
-                                        {section.body.map((paragraph, index) => (
-                                            <p
-                                                key={`${section.heading}-${index}`}
-                                                style={{
-                                                    margin: 0,
-                                                    fontSize: 15,
-                                                    lineHeight: 1.7,
-                                                    color: "#4b5563",
-                                                }}
-                                            >
-                                                {paragraph}
-                                            </p>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
+                            <div
+                                {...{
+                                    name: "termly-embed",
+                                    "data-id": TERM_IDS[legalModal],
+                                }}
+                            />
                         </div>
                     </div>
                 </div>

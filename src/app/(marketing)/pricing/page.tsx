@@ -4,36 +4,37 @@ export default function PricingPage() {
     return (
         <section className="landingSection">
             <div className="sectionShell">
-                <h1 className="sectionTitle">Simple pricing for modern SaaS teams</h1>
+                <h1 className="sectionTitle">Simple pricing for retention teams</h1>
 
                 <p className="sectionText">
-                    Start lean, grow into more advanced retention workflows, and scale as your
-                    revenue operations mature.
+                    Start free, understand account risk, and upgrade when you need deeper AI
+                    insights and automated retention workflows.
                 </p>
 
                 <div
                     style={{
                         display: "grid",
                         gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                        gap: "20px",
-                        maxWidth: "860px",
-                        margin: "32px auto 0",
+                        gap: "18px",
+                        maxWidth: "780px",
+                        margin: "28px auto 0",
                     }}
                 >
+                    {/* STARTER */}
                     <div
                         className="card"
                         style={{
-                            padding: "28px 24px",
+                            padding: "24px 22px",
                             display: "flex",
                             flexDirection: "column",
-                            minHeight: "460px",
+                            minHeight: "430px",
                         }}
                     >
                         <div
                             style={{
                                 display: "inline-flex",
                                 alignSelf: "flex-start",
-                                padding: "6px 12px",
+                                padding: "6px 11px",
                                 borderRadius: "999px",
                                 background: "rgba(15, 23, 42, 0.05)",
                                 border: "1px solid rgba(15, 23, 42, 0.08)",
@@ -49,22 +50,23 @@ export default function PricingPage() {
                         <h3
                             className="cardTitle"
                             style={{
-                                fontSize: "1.5rem",
-                                marginBottom: "10px",
+                                fontSize: "1.25rem",
+                                fontWeight: 500,
+                                marginBottom: "12px",
                             }}
                         >
-                            Built for early-stage teams
+                            See every customer and spot early churn risk.
                         </h3>
 
                         <div
                             style={{
                                 marginBottom: "6px",
-                                fontSize: "0.95rem",
-                                fontWeight: 600,
-                                color: "#5f6b7a",
+                                fontSize: "1rem",
+                                fontWeight: 700,
+                                color: "#0f172a",
                             }}
                         >
-                            Get started free for 2 weeks
+                            Try free for 14 days
                         </div>
 
                         <div
@@ -77,35 +79,36 @@ export default function PricingPage() {
                         >
                             <span
                                 style={{
-                                    fontSize: "2.3rem",
-                                    fontWeight: 700,
+                                    fontSize: "1.55rem",
+                                    fontWeight: 500,
                                     lineHeight: 1,
                                     color: "#0f172a",
                                 }}
                             >
                                 £49
                             </span>
+
                             <span
                                 style={{
-                                    fontSize: "0.95rem",
+                                    fontSize: "0.86rem",
                                     color: "#7b8794",
-                                    fontWeight: 600,
+                                    fontWeight: 500,
                                 }}
                             >
-                                /month
+                                /month after trial
                             </span>
                         </div>
 
-                        <p className="cardText" style={{ marginBottom: "20px" }}>
-                            For early-stage SaaS teams that want clearer visibility into churn
-                            risk and account health.
+                        <p className="cardText" style={{ marginBottom: "18px" }}>
+                            For early-stage SaaS teams that need a clear customer list,
+                            health scores, and enough AI guidance to act faster.
                         </p>
 
                         <div
                             style={{
                                 height: "1px",
                                 background: "rgba(15, 23, 42, 0.08)",
-                                marginBottom: "18px",
+                                marginBottom: "16px",
                             }}
                         />
 
@@ -115,92 +118,84 @@ export default function PricingPage() {
                                 padding: 0,
                                 margin: 0,
                                 display: "grid",
-                                gap: "12px",
+                                gap: "10px",
                                 color: "#5f6b7a",
-                                fontSize: "0.95rem",
-                                lineHeight: 1.6,
+                                fontSize: "0.9rem",
+                                lineHeight: 1.5,
                             }}
                         >
-                            <li>• Accounts at risk view</li>
-                            <li>• Basic churn visibility</li>
-                            <li>• Core account health signals</li>
-                            <li>• Clean dashboard overview</li>
+                            <li>• Complete customer list</li>
+                            <li>• Customer health score</li>
+                            <li>• Limited MRR and churn drivers visibility</li>
+                            <li>• Limited AI insights</li>
+                            <li>• Dashboard overview</li>
+                            <li>• Manual account outreach</li>
                         </ul>
 
-                        <div style={{ marginTop: "auto", paddingTop: "24px" }}>
+                        <div style={{ marginTop: "auto", paddingTop: "22px" }}>
                             <Link
                                 href="/signup"
                                 className="secondaryBtn"
                                 style={{
                                     width: "100%",
-                                    minHeight: "52px",
+                                    minHeight: "48px",
                                     fontWeight: 600,
-                                    fontSize: "0.95rem",
+                                    fontSize: "0.92rem",
                                 }}
                             >
-                                Get Started
+                                Start Free
                             </Link>
                         </div>
                     </div>
 
+                    {/* PRO */}
                     <div
                         className="card"
                         style={{
-                            padding: "28px 24px",
+                            padding: "24px 22px",
                             display: "flex",
                             flexDirection: "column",
-                            minHeight: "460px",
-                            border: "1px solid rgba(15, 23, 42, 0.14)",
-                            background:
-                                "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.96) 100%)",
+                            minHeight: "430px",
+                            border: "1px solid rgba(15, 23, 42, 0.12)",
+                            background: "rgba(255,255,255,0.96)",
                         }}
                     >
                         <div
                             style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
+                                display: "inline-flex",
+                                alignSelf: "flex-start",
+                                padding: "6px 11px",
+                                borderRadius: "999px",
+                                background: "#02040a",
+                                color: "#ffffff",
+                                fontSize: "12px",
+                                fontWeight: 700,
                                 marginBottom: "16px",
-                                gap: "10px",
-                                flexWrap: "wrap",
                             }}
                         >
-                            <span
-                                style={{
-                                    display: "inline-flex",
-                                    padding: "6px 12px",
-                                    borderRadius: "999px",
-                                    background: "#02040a",
-                                    color: "#ffffff",
-                                    fontSize: "12px",
-                                    fontWeight: 700,
-                                }}
-                            >
-                                Pro
-                            </span>
-
-
+                            Pro
                         </div>
 
                         <h3
                             className="cardTitle"
                             style={{
-                                fontSize: "1.5rem",
-                                marginBottom: "10px",
+                                fontSize: "1.25rem",
+                                fontWeight: 500,
+                                marginBottom: "12px",
                             }}
                         >
-                            Built for growing SaaS teams
+                            Scale retention with deeper AI and automation.
                         </h3>
 
                         <div
                             style={{
                                 marginBottom: "6px",
-                                fontSize: "0.95rem",
-                                fontWeight: 600,
-                                color: "#5f6b7a",
+                                fontSize: "1rem",
+                                fontWeight: 700,
+                                color: "#0f172a",
                             }}
                         >
-                            Get started free for 2 weeks then
+                            Try free for 14 days
                         </div>
 
                         <div
@@ -213,35 +208,36 @@ export default function PricingPage() {
                         >
                             <span
                                 style={{
-                                    fontSize: "2.3rem",
-                                    fontWeight: 700,
+                                    fontSize: "1.55rem",
+                                    fontWeight: 500,
                                     lineHeight: 1,
                                     color: "#0f172a",
                                 }}
                             >
                                 £99
                             </span>
+
                             <span
                                 style={{
-                                    fontSize: "0.95rem",
+                                    fontSize: "0.86rem",
                                     color: "#7b8794",
-                                    fontWeight: 600,
+                                    fontWeight: 500,
                                 }}
                             >
-                                /month
+                                /month after trial
                             </span>
                         </div>
 
-                        <p className="cardText" style={{ marginBottom: "20px" }}>
-                            For growing teams that need deeper MRR insights, stronger
-                            prioritisation, and faster actioning.
+                        <p className="cardText" style={{ marginBottom: "18px" }}>
+                            For growing SaaS teams that want stronger prioritisation,
+                            unlimited AI support, and automated retention action.
                         </p>
 
                         <div
                             style={{
                                 height: "1px",
                                 background: "rgba(15, 23, 42, 0.08)",
-                                marginBottom: "18px",
+                                marginBottom: "16px",
                             }}
                         />
 
@@ -251,36 +247,36 @@ export default function PricingPage() {
                                 padding: 0,
                                 margin: 0,
                                 display: "grid",
-                                gap: "12px",
+                                gap: "10px",
                                 color: "#5f6b7a",
-                                fontSize: "0.95rem",
-                                lineHeight: 1.6,
+                                fontSize: "0.9rem",
+                                lineHeight: 1.5,
                             }}
                         >
                             <li>• Everything in Starter</li>
-                            <li>• Deeper MRR insights</li>
-                            <li>• Stronger customer prioritisation</li>
-                            <li>• Faster retention workflows</li>
-                            <li>• More advanced actioning</li>
+                            <li>• Unlimited AI insights</li>
+                            <li>• Retention progress tracking</li>
+                            <li>• Advanced AI forecasts</li>
+                            <li>• Critical accounts prioritisation</li>
+                            <li>• AI-assisted account outreach</li>
                         </ul>
 
-                        <div style={{ marginTop: "auto", paddingTop: "24px" }}>
+                        <div style={{ marginTop: "auto", paddingTop: "22px" }}>
                             <Link
                                 href="/signup"
                                 className="primaryBtn"
                                 style={{
                                     width: "100%",
-                                    minHeight: "52px",
+                                    minHeight: "48px",
                                     fontWeight: 600,
-                                    fontSize: "0.95rem",
+                                    fontSize: "0.92rem",
                                 }}
                             >
-                                Get Started
+                                Start Free
                             </Link>
                         </div>
                     </div>
                 </div>
-
             </div>
         </section>
     );
