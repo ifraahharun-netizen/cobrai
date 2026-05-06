@@ -19,7 +19,9 @@ export default function FirstRunModal() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [firstRunCompleted, setFirstRunCompleted] = useState(false);
     const [saving, setSaving] = useState(false);
+
     const [integrations, setIntegrations] = useState<IntegrationState>({
         stripeConnected: false,
         hubspotConnected: false,
@@ -39,25 +41,18 @@ export default function FirstRunModal() {
             }
 
             try {
-                const userRef = doc(db, "users", currentUser.uid);
-                const userSnap = await getDoc(userRef);
+                const userSnap = await getDoc(doc(db, "users", currentUser.uid));
 
-                const integrationRef = doc(
-                    db,
-                    "users",
-                    currentUser.uid,
-                    "integrations",
-                    "main"
+                const integrationSnap = await getDoc(
+                    doc(db, "users", currentUser.uid, "integrations", "main")
                 );
-                const integrationSnap = await getDoc(integrationRef);
 
                 const userData = userSnap.exists() ? userSnap.data() : {};
                 const integrationData = integrationSnap.exists()
                     ? integrationSnap.data()
                     : {};
 
-                const firstRunCompleted =
-                    userData?.onboarding?.firstRunCompleted === true;
+                const completed = userData?.onboarding?.firstRunCompleted === true;
 
                 const stripeConnected =
                     integrationData?.stripe?.connected === true ||
@@ -69,15 +64,16 @@ export default function FirstRunModal() {
                     integrationData?.hubspotConnected === true ||
                     Boolean(integrationData?.hubspotAccessToken);
 
+                setFirstRunCompleted(completed);
+
                 setIntegrations({
                     stripeConnected,
                     hubspotConnected,
                 });
 
-                setShowModal(!firstRunCompleted && !stripeConnected && !hubspotConnected);
+                setShowModal(!completed && !stripeConnected && !hubspotConnected);
             } catch (error) {
                 console.error("Failed to load onboarding state:", error);
-                setShowModal(false);
             } finally {
                 setLoading(false);
             }
@@ -100,6 +96,8 @@ export default function FirstRunModal() {
             },
             { merge: true }
         );
+
+        setFirstRunCompleted(true);
     }
 
     async function connectStripe() {
@@ -146,6 +144,7 @@ export default function FirstRunModal() {
                 { merge: true }
             );
 
+            setFirstRunCompleted(true);
             setShowModal(false);
             window.location.reload();
         } catch (error) {
@@ -173,84 +172,98 @@ export default function FirstRunModal() {
         }
     }
 
-    if (loading || !showModal || hasIntegration) return null;
+    if (loading || hasIntegration) return null;
 
     return (
-        <div className={styles.modalOverlay}>
-            <div className={styles.modalCard}>
-                <div className={styles.modalBadge}>Start here</div>
-
-                <h2 className={styles.modalTitle}>
-                    Find your highest-risk customers before they churn
-                </h2>
-
-                <p className={styles.modalText}>
-                    Connect your customer data now so Cobrai can instantly detect churn
-                    risk, failed payments, revenue leaks, and accounts that need action
-                    today.
-                </p>
-
-                <div className={styles.integrationGrid}>
-                    <button
-                        type="button"
-                        className={styles.integrationOption}
-                        onClick={connectStripe}
-                        disabled={saving}
-                    >
-                        <span className={styles.integrationIcon}>
-                            <SiStripe size={24} />
-                        </span>
-
-                        <span className={styles.integrationCopy}>
-                            <strong>Connect Stripe</strong>
-                            <small>Sync subscriptions, invoices, payments and MRR.</small>
-                        </span>
-
-                        <span className={styles.integrationCta}>Connect</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        className={styles.integrationOption}
-                        onClick={connectHubSpot}
-                        disabled={saving}
-                    >
-                        <span className={styles.integrationIcon}>
-                            <SiHubspot size={23} />
-                        </span>
-
-                        <span className={styles.integrationCopy}>
-                            <strong>Connect HubSpot</strong>
-                            <small>Sync customer activity, lifecycle data and CRM signals.</small>
-                        </span>
-
-                        <span className={styles.integrationCta}>Connect</span>
-                    </button>
-                </div>
-
-                <div className={styles.urgentNote}>
-                    The sooner you connect data, the faster Cobrai can surface accounts
-                    at risk of cancelling.
-                </div>
-
+        <>
+            {firstRunCompleted && !showModal ? (
                 <button
                     type="button"
-                    className={styles.demoButton}
-                    onClick={useDemoData}
-                    disabled={saving}
+                    className={styles.reopenOnboardingButton}
+                    onClick={() => setShowModal(true)}
                 >
-                    Preview with demo data first
+                    Connect your tools now to start protecting revenue
                 </button>
+            ) : null}
 
-                <button
-                    type="button"
-                    className={styles.skipButton}
-                    onClick={skipForNow}
-                    disabled={saving}
-                >
-                    Skip for now
-                </button>
-            </div>
-        </div>
+            {showModal ? (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalCard}>
+                        <div className={styles.modalBadge}>First step</div>
+
+                        <h2 className={styles.modalTitle}>
+                            Connect your tools now to start protecting revenue
+                        </h2>
+
+                        <p className={styles.modalText}>
+                            Cobrai needs your customer and payment data to identify churn
+                            risk, failed payments, revenue leaks, and the accounts that need
+                            action today.
+                        </p>
+
+                        <div className={styles.integrationGrid}>
+                            <button
+                                type="button"
+                                className={styles.integrationOption}
+                                onClick={connectStripe}
+                                disabled={saving}
+                            >
+                                <span className={styles.integrationIcon}>
+                                    <SiStripe size={25} />
+                                </span>
+
+                                <span className={styles.integrationCopy}>
+                                    <strong>Stripe</strong>
+                                    <small>Sync subscriptions, invoices, payments and MRR.</small>
+                                </span>
+
+                                <span className={styles.integrationCta}>Connect</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                className={styles.integrationOption}
+                                onClick={connectHubSpot}
+                                disabled={saving}
+                            >
+                                <span className={styles.integrationIcon}>
+                                    <SiHubspot size={24} />
+                                </span>
+
+                                <span className={styles.integrationCopy}>
+                                    <strong>HubSpot</strong>
+                                    <small>Sync customer activity, CRM signals and lifecycle data.</small>
+                                </span>
+
+                                <span className={styles.integrationCta}>Connect</span>
+                            </button>
+                        </div>
+
+                        <p className={styles.urgentNote}>
+                            The sooner you connect your tools, the faster Cobrai can show
+                            which customers are most likely to cancel.
+                        </p>
+
+                        <button
+                            type="button"
+                            className={styles.demoButton}
+                            onClick={useDemoData}
+                            disabled={saving}
+                        >
+                            Preview with demo data first
+                        </button>
+
+                        <button
+                            type="button"
+                            className={styles.skipButton}
+                            onClick={skipForNow}
+                            disabled={saving}
+                        >
+                            Skip for now
+                        </button>
+                    </div>
+                </div>
+            ) : null}
+        </>
     );
 }

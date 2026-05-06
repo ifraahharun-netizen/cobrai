@@ -114,3 +114,94 @@
     margin-top: 8px;
     color: #737373;
 }
+
+.integrationGrid {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.integrationOption {
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid #e5e5e5;
+    border-radius: 20px;
+    background: #ffffff;
+    color: #0a0a0a;
+    text-align: left;
+    cursor: pointer;
+    transition: 0.18s ease;
+}
+
+.integrationOption:hover {
+    transform: translateY(-1px);
+    border-color: #0a0a0a;
+    background: #fafafa;
+}
+
+.integrationIcon {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #e5e5e5;
+    border-radius: 16px;
+    background: #ffffff;
+}
+
+.integrationCopy {
+    display: grid;
+    gap: 4px;
+}
+
+.integrationCopy strong {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.integrationCopy small {
+    color: #666666;
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+
+.integrationCta {
+    padding: 8px 13px;
+    border: 1px solid #d4d4d4;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #0a0a0a;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.urgentNote {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid #eeeeee;
+    border-radius: 16px;
+    background: #fafafa;
+    color: #404040;
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+
+.reopenOnboardingButton {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 60;
+    padding: 13px 18px;
+    border: 1px solid #0a0a0a;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #0a0a0a;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.08);
+}
