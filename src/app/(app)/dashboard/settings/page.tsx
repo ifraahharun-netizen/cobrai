@@ -272,6 +272,7 @@ function SettingsPageContent() {
         useState<IntegrationState>(emptyIntegrationState);
 
     const [billing, setBilling] = useState<BillingSummary>(emptyBillingSummary);
+    const [isDemoMode, setIsDemoMode] = useState(false);
 
     const [emailSettings, setEmailSettings] =
         useState<EmailSettingsResponse>(emptyEmailSettings);
@@ -466,6 +467,7 @@ function SettingsPageContent() {
 
             if (!user) {
                 setFirebaseUser(null);
+                setIsDemoMode(false);
                 setForm({
                     name: "",
                     email: "",
@@ -492,6 +494,8 @@ function SettingsPageContent() {
                 const userRef = doc(db, "users", user.uid);
                 const userSnap = await getDoc(userRef);
                 const profile = userSnap.exists() ? userSnap.data() : null;
+
+                setIsDemoMode(profile?.mode === "demo");
 
                 const mergedName = profile?.name || user.displayName || "";
                 const mergedEmail = user.email || "";
@@ -1026,10 +1030,10 @@ function SettingsPageContent() {
         }
     }
 
-    const currentPlanName = formatPlanName(billing.plan);
-    const isFree = billing.plan === "free";
-    const isStarter = billing.plan === "starter";
-    const isPro = billing.plan === "pro";
+    const currentPlanName = isDemoMode ? "Demo" : formatPlanName(billing.plan);
+    const isFree = !isDemoMode && billing.plan === "free";
+    const isStarter = !isDemoMode && billing.plan === "starter";
+    const isPro = !isDemoMode && billing.plan === "pro";
     const trialActive = isTrialActive(billing.trialEndsAt);
     const trialDaysLeft = getTrialDaysLeft(billing.trialEndsAt);
     const domainVerified = isVerifiedStatus(emailSettings.sendingDomainStatus);
@@ -1462,7 +1466,9 @@ function SettingsPageContent() {
                                             <div>
                                                 <h3 className={styles.cardTitle}>Manage Plan</h3>
                                                 <p className={styles.cardSubtext}>
-                                                    View your current plan and billing details.
+                                                    {isDemoMode
+                                                        ? "Demo workspace with full feature access. Billing is only needed when you choose a live plan."
+                                                        : "View your current plan and billing details."}
                                                 </p>
                                             </div>
                                         </div>
@@ -1509,11 +1515,9 @@ function SettingsPageContent() {
 
                                                     <span
                                                         className={
-                                                            isFree && trialActive
+                                                            isDemoMode || (isFree && trialActive) || billing.hasBilling
                                                                 ? styles.statusConnected
-                                                                : billing.hasBilling
-                                                                    ? styles.statusConnected
-                                                                    : styles.statusDisconnected
+                                                                : styles.statusDisconnected
                                                         }
                                                         style={{
                                                             alignSelf: "flex-start",
@@ -1522,13 +1526,15 @@ function SettingsPageContent() {
                                                     >
                                                         {loadingBilling
                                                             ? "Checking..."
-                                                            : isFree && trialActive
-                                                                ? `Trial: ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left`
-                                                                : isFree
-                                                                    ? "Trial expired"
-                                                                    : billing.hasBilling && billing.billingStatus
-                                                                        ? formatBillingStatus(billing.billingStatus)
-                                                                        : "No active billing"}
+                                                            : isDemoMode
+                                                                ? "Demo access"
+                                                                : isFree && trialActive
+                                                                    ? `Trial: ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left`
+                                                                    : isFree
+                                                                        ? "Trial expired"
+                                                                        : billing.hasBilling && billing.billingStatus
+                                                                            ? formatBillingStatus(billing.billingStatus)
+                                                                            : "No active billing"}
                                                     </span>
                                                 </div>
 
@@ -1580,34 +1586,38 @@ function SettingsPageContent() {
                                                         <span className={styles.currentPlanMetaValue}>
                                                             {loadingBilling
                                                                 ? "Loading..."
-                                                                : isFree && trialActive
-                                                                    ? "Free trial active"
-                                                                    : isFree
-                                                                        ? "Trial expired"
-                                                                        : billing.hasBilling && billing.billingStatus
-                                                                            ? formatBillingStatus(billing.billingStatus)
-                                                                            : "—"}
+                                                                : isDemoMode
+                                                                    ? "Demo mode active"
+                                                                    : isFree && trialActive
+                                                                        ? "Free trial active"
+                                                                        : isFree
+                                                                            ? "Trial expired"
+                                                                            : billing.hasBilling && billing.billingStatus
+                                                                                ? formatBillingStatus(billing.billingStatus)
+                                                                                : "—"}
                                                         </span>
                                                     </div>
                                                 </div>
 
-                                                <div
-                                                    className={styles.currentPlanActions}
-                                                    style={{
-                                                        display: "flex",
-                                                        justifyContent: "flex-start",
-                                                        marginTop: 4,
-                                                    }}
-                                                >
-                                                    <button
-                                                        type="button"
-                                                        className={styles.pricingPrimaryBtn}
-                                                        onClick={handleManageBilling}
-                                                        disabled={openingPortal || loadingBilling || !billing.workspaceId}
+                                                {!isDemoMode && (
+                                                    <div
+                                                        className={styles.currentPlanActions}
+                                                        style={{
+                                                            display: "flex",
+                                                            justifyContent: "flex-start",
+                                                            marginTop: 4,
+                                                        }}
                                                     >
-                                                        {openingPortal ? "Opening..." : "Manage Billing"}
-                                                    </button>
-                                                </div>
+                                                        <button
+                                                            type="button"
+                                                            className={styles.pricingPrimaryBtn}
+                                                            onClick={handleManageBilling}
+                                                            disabled={openingPortal || loadingBilling || !billing.workspaceId}
+                                                        >
+                                                            {openingPortal ? "Opening..." : "Manage Billing"}
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <div className={styles.pricingGrid}>

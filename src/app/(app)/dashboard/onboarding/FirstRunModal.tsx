@@ -14,6 +14,7 @@ const db = getFirebaseDb();
 type IntegrationState = {
     stripeConnected: boolean;
     hubspotConnected: boolean;
+    resendConnected: boolean;
 };
 
 export default function FirstRunModal() {
@@ -27,10 +28,15 @@ export default function FirstRunModal() {
     const [integrations, setIntegrations] = useState<IntegrationState>({
         stripeConnected: false,
         hubspotConnected: false,
+        resendConnected: false,
     });
 
-    const hasIntegration = useMemo(() => {
-        return integrations.stripeConnected || integrations.hubspotConnected;
+    const allToolsConnected = useMemo(() => {
+        return (
+            integrations.stripeConnected &&
+            integrations.hubspotConnected &&
+            integrations.resendConnected
+        );
     }, [integrations]);
 
     useEffect(() => {
@@ -43,6 +49,12 @@ export default function FirstRunModal() {
             }
 
             try {
+                const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+
+                const userData = userSnap.exists() ? userSnap.data() : {};
+                const firstRunCompleted =
+                    userData?.onboarding?.firstRunCompleted === true;
+
                 const integrationSnap = await getDoc(
                     doc(db, "users", currentUser.uid, "integrations", "main")
                 );
@@ -61,10 +73,30 @@ export default function FirstRunModal() {
                     integrationData?.hubspotConnected === true ||
                     Boolean(integrationData?.hubspotAccessToken);
 
-                setIntegrations({
+                const resendConnected =
+                    integrationData?.resend?.connected === true ||
+                    integrationData?.resend?.verified === true ||
+                    integrationData?.resendConnected === true ||
+                    integrationData?.resendVerified === true ||
+                    integrationData?.sendingDomainStatus === "verified" ||
+                    integrationData?.resend?.sendingDomainStatus === "verified" ||
+                    Boolean(integrationData?.resendDomainId) ||
+                    Boolean(integrationData?.resend?.resendDomainId);
+
+                const nextIntegrations = {
                     stripeConnected,
                     hubspotConnected,
-                });
+                    resendConnected,
+                };
+
+                setIntegrations(nextIntegrations);
+
+                const completedAllTools =
+                    stripeConnected && hubspotConnected && resendConnected;
+
+                if (!firstRunCompleted && !completedAllTools) {
+                    setShowModal(true);
+                }
             } catch (error) {
                 console.error("Failed to load onboarding integrations:", error);
             } finally {
@@ -138,36 +170,40 @@ export default function FirstRunModal() {
         }
     }
 
-    if (loading || hasIntegration) return null;
+    if (loading || allToolsConnected) return null;
 
     return (
         <>
-            <button
-                type="button"
-                className={styles.floatingOnboardingCard}
-                onClick={() => setShowModal(true)}
-            >
-                <span className={styles.inlineIconGroup}>
-                    <span className={styles.inlineIcon}>
-                        <SiStripe size={16} color="#635BFF" />
+            {!showModal ? (
+                <button
+                    type="button"
+                    className={styles.floatingOnboardingCard}
+                    onClick={() => setShowModal(true)}
+                >
+                    <span className={styles.inlineIconGroup}>
+                        <span className={styles.inlineIcon}>
+                            <SiStripe size={16} color="#635BFF" />
+                        </span>
+
+                        <span className={styles.inlineIcon}>
+                            <SiHubspot size={15} color="#FF7A59" />
+                        </span>
+
+                        <span className={styles.inlineIcon}>
+                            <SiResend size={15} color="#000000" />
+                        </span>
                     </span>
 
-                    <span className={styles.inlineIcon}>
-                        <SiHubspot size={15} color="#FF7A59" />
+                    <span>
+                        <strong>Connect your tools</strong>
+                        <small>
+                            Unlock live churn risk, revenue protection and email actions.
+                        </small>
                     </span>
 
-                    <span className={styles.inlineIcon}>
-                        <SiResend size={15} color="#000000" />
-                    </span>
-                </span>
-
-                <span>
-                    <strong>Connect your tools</strong>
-                    <small>Unlock live churn risk, revenue protection and email actions.</small>
-                </span>
-
-                <b>Set up</b>
-            </button>
+                    <b>Set up</b>
+                </button>
+            ) : null}
 
             {showModal ? (
                 <div className={styles.modalOverlay}>
