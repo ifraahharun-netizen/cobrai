@@ -31,27 +31,6 @@ export async function POST(req: Request) {
             );
         }
 
-        const isTrialActive =
-            workspace.trialEndsAt instanceof Date &&
-            workspace.trialEndsAt.getTime() > Date.now();
-
-        const canUseAi =
-            workspace.tier === "starter" ||
-            workspace.tier === "pro" ||
-            workspace.tier === "scale" ||
-            workspace.demoMode === true ||
-            isTrialActive;
-
-        if (!canUseAi) {
-            return NextResponse.json(
-                {
-                    error: "AI insights require an active trial, Starter, Pro, or Scale plan",
-                    code: "AI_PLAN_REQUIRED",
-                },
-                { status: 403 }
-            );
-        }
-
         const result = await generateWorkspaceInsights({
             workspaceId,
             timeframe,
@@ -60,6 +39,8 @@ export async function POST(req: Request) {
 
         return NextResponse.json(result);
     } catch (err) {
+        console.error("AI insights route failed:", err);
+
         return NextResponse.json(
             {
                 error: "Failed to generate workspace insights",

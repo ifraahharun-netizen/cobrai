@@ -27,7 +27,7 @@ import styles from "./analytics.module.css";
 type DashboardSummary = {
     ok: boolean;
     error?: string;
-    tier?: "free" | "starter" | "pro" | "scale";
+    tier?: "free" | "starter" | "pro";
     demoMode?: boolean;
     trialEndsAt?: string | null;
     connectedIntegrations?: string[];
@@ -222,8 +222,8 @@ function normalizeConfidence(value?: string | null): ConfidenceLevel | undefined
     return undefined;
 }
 
-function normalizePlanTier(tier?: "free" | "starter" | "pro" | "scale"): PlanTier {
-    if (tier === "pro" || tier === "scale") return "pro";
+function normalizePlanTier(tier?: string | null): PlanTier {
+    if (tier === "pro") return "pro";
     if (tier === "starter") return "starter";
     return "free";
 }
@@ -1291,12 +1291,7 @@ export default function AnalyticsPage() {
             try {
                 if (!user) return;
 
-                const isPro = canAccessFeature({
-                    plan: normalizePlanTier(s?.tier),
-                    feature: "ai-insights",
-                    trialEndsAt: s?.trialEndsAt ?? null,
-                    isDemoMode: s?.demoMode === true,
-                });
+                const isPro = hasForecastAccess;
 
                 if (!isPro) {
                     setAutomation(null);
@@ -1646,7 +1641,21 @@ export default function AnalyticsPage() {
         };
     }, [attention, drawerInsights.mrr.topMovers, accountLookup]);
 
-    const isDemoPreview = summary?.demoMode === true || !mrrTimeseries?.insights;
+    const isDemoPreview = summary?.demoMode === true;
+
+    const hasForecastAccess = canAccessFeature({
+        plan: normalizePlanTier(summary?.tier),
+        feature: "forecasting",
+        trialEndsAt: summary?.trialEndsAt ?? null,
+        isDemoMode: isDemoPreview,
+    });
+
+    const hasAiInsightAccess = canAccessFeature({
+        plan: normalizePlanTier(summary?.tier),
+        feature: "ai-insights",
+        trialEndsAt: summary?.trialEndsAt ?? null,
+        isDemoMode: isDemoPreview,
+    });
 
     const mauLatestDeltaPct = useMemo(() => {
         const current =
@@ -2465,7 +2474,7 @@ export default function AnalyticsPage() {
                     drawerView={drawerView}
                     onClose={closeDrawer}
                     onSwitchView={setDrawerView}
-                    isDemoPreview={isDemoPreview}
+                    isDemoPreview={summary?.demoMode === true}
                     drawerInsights={drawerInsights}
                     riskAccountRows={riskAccountRows}
                     expansionRows={expansionRows}
@@ -2475,7 +2484,7 @@ export default function AnalyticsPage() {
                     aiMrr={aiMrr}
                     aiChurn={aiChurn}
                     aiActions={workspaceAi?.actions ?? []}
-                    tier={summary?.tier ?? "free"}
+                    tier={normalizePlanTier(summary?.tier)}
                     trialEndsAt={summary?.trialEndsAt ?? null}
                 />
             </>

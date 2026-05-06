@@ -121,14 +121,14 @@ type Props = {
     churnForecast: Forecast;
     aiChurn: AiSummary;
     aiMrr?: AiSummary;
-    tier: "free" | "starter" | "pro" | "scale";
+    tier: "free" | "starter" | "pro";
     trialEndsAt?: string | null;
 };
 
 const PAGE_SIZE = 3;
 
-function normalizePlanTier(tier?: "free" | "starter" | "pro" | "scale"): PlanTier {
-    if (tier === "pro" || tier === "scale") return "pro";
+function normalizePlanTier(tier?: "free" | "starter" | "pro"): PlanTier {
+    if (tier === "pro") return "pro";
     if (tier === "starter") return "starter";
     return "free";
 }
@@ -370,13 +370,17 @@ export default function InsightDrawer({
         };
     }, [open]);
 
-    const hasProAccess = canAccessFeature({
-        plan: normalizePlanTier(tier),
-        feature: "forecasting",
-        trialEndsAt: trialEndsAt ?? null,
-        isDemoMode: isDemoPreview,
-    });
+    const trialTime = trialEndsAt ? new Date(trialEndsAt).getTime() : 0;
 
+    const isTrialActive =
+        Number.isFinite(trialTime) && trialTime > Date.now();
+
+    const shouldLockForecast =
+        tier === "starter" &&
+        !isDemoPreview &&
+        !isTrialActive;
+
+    const hasProAccess = !shouldLockForecast;
     const keyDrivers = useMemo<KeyDriver[]>(() => {
         if (isMrr) {
             const liveRows = mrrDriverRows.map((row) => ({
@@ -1088,8 +1092,7 @@ function ForecastMrrContent({
 }) {
     return (
         <div style={{ position: "relative", overflow: "hidden" }}>
-            {!hasProAccess ? <ForecastLockOverlay router={router} /> : null}
-
+            {hasProAccess ? null : <ForecastLockOverlay router={router} />}
             <div style={{ display: "grid", gap: 10 }}>
                 <h3
                     style={{
@@ -1142,10 +1145,11 @@ function ForecastMrrContent({
                     </div>
                 </div>
 
+
                 <RiskTable
                     title="High-risk accounts to address immediately"
-                    buttonText="View full list"
-                    buttonHref="/dashboard/accounts-at-risk"
+                    buttonText="View all accounts at risk"
+                    buttonHref="/dashboard/accounts-at-risk?filter=critical"
                     columns={["Account", "Reason", "AI suggestion", "MRR"]}
                     rows={highRiskAccounts}
                     router={router}
@@ -1175,8 +1179,7 @@ function ForecastChurnContent({
 
     return (
         <div style={{ position: "relative", overflow: "hidden" }}>
-            {!hasProAccess ? <ForecastLockOverlay router={router} /> : null}
-
+            {hasProAccess ? null : <ForecastLockOverlay router={router} />}
             <div style={{ display: "grid", gap: 10 }}>
                 <h3
                     style={{
