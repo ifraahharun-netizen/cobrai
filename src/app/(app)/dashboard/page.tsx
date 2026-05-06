@@ -18,8 +18,6 @@ import {
     ChevronDown,
     type LucideIcon,
 } from "lucide-react";
-import FirstRunModal from "./onboarding/FirstRunModal";
-import DomainSetupCard from "./onboarding/DomainSetupCard";
 
 import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
 import { canAccessFeature } from "@/lib/permissions";
@@ -963,7 +961,7 @@ export default function DashboardPage() {
            
 
             <div className={styles.content}>
-                <DomainSetupCard />
+             
 
                 <div className={styles.topUtilityBar}>
                     <div />
@@ -1062,7 +1060,7 @@ export default function DashboardPage() {
                             Retention intelligence — clear actions that protect revenue.
                         </p>
 
-                        <FirstRunModal />
+              
                     </div>
                 </div>
 

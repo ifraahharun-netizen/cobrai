@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./dashboardLayout.module.css";
 import Sidebar from "./_components/Sidebar";
+import FirstRunModal from "./onboarding/FirstRunModal";
 
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { getFirebaseAuth } from "@/lib/firebase.client";
@@ -93,6 +94,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             </aside>
 
             <main className={styles.main}>{children}</main>
+
+            <FirstRunModal />
         </div>
     );
 }

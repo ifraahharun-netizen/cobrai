@@ -270,3 +270,451 @@
     font-size: 12px;
     font-weight: 500;
 }
+
+.inlineOnboardingCard {
+    width: 100%;
+    max-width: 520px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 12px;
+    margin: 14px 0 18px;
+    padding: 13px 14px;
+    border: 1px solid #e5e5e5;
+    border-radius: 18px;
+    background: #ffffff;
+    text-align: left;
+    cursor: pointer;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.04);
+    transition: 0.18s ease;
+}
+
+.inlineOnboardingCard:hover {
+    transform: translateY(-1px);
+    border-color: #0a0a0a;
+}
+
+.inlineIconGroup {
+    display: flex;
+    align-items: center;
+}
+
+.inlineIcon {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.inlineIcon+.inlineIcon {
+    margin-left: -8px;
+}
+
+.inlineOnboardingCard strong {
+    display: block;
+    color: #0a0a0a;
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.inlineOnboardingCard small {
+    display: block;
+    margin-top: 2px;
+    color: #666666;
+    font-size: 12px;
+}
+
+.inlineOnboardingCard b {
+    padding: 7px 11px;
+    border: 1px solid #d4d4d4;
+    border-radius: 999px;
+    color: #0a0a0a;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(10px);
+}
+
+.modalCard {
+    width: min(100%, 620px);
+    border: 1px solid #e5e5e5;
+    border-radius: 26px;
+    background: #ffffff;
+    padding: 30px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.08);
+}
+
+.modalBadge {
+    width: fit-content;
+    margin-bottom: 14px;
+    padding: 6px 10px;
+    border: 1px solid #e5e5e5;
+    border-radius: 999px;
+    color: #525252;
+    font-size: 12px;
+    font-weight: 500;
+    background: #fafafa;
+}
+
+.modalTitle {
+    margin: 0;
+    color: #0a0a0a;
+    font-size: 30px;
+    line-height: 1.08;
+    font-weight: 650;
+    letter-spacing: -0.055em;
+}
+
+.modalText {
+    max-width: 540px;
+    margin: 14px 0 22px;
+    color: #4b5563;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.integrationGrid {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.integrationOption {
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid #e5e5e5;
+    border-radius: 20px;
+    background: #ffffff;
+    color: #0a0a0a;
+    text-align: left;
+    cursor: pointer;
+    transition: 0.18s ease;
+}
+
+.integrationOption:hover {
+    transform: translateY(-1px);
+    border-color: #0a0a0a;
+    background: #fafafa;
+}
+
+.integrationIcon {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #e5e5e5;
+    border-radius: 16px;
+    background: #ffffff;
+}
+
+.integrationCopy {
+    display: grid;
+    gap: 4px;
+}
+
+.integrationCopy strong {
+    color: #0a0a0a;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.integrationCopy small {
+    color: #666666;
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+
+.integrationCta {
+    padding: 8px 13px;
+    border: 1px solid #d4d4d4;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #0a0a0a;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.urgentNote {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid #eeeeee;
+    border-radius: 16px;
+    background: #fafafa;
+    color: #404040;
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+
+.skipButton {
+    display: block;
+    width: fit-content;
+    margin: 16px auto 0;
+    border: 0;
+    background: transparent;
+    color: #737373;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.floatingOnboardingCard {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 70;
+    width: min(430px, calc(100vw - 32px));
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 14px;
+    border: 1px solid #d4d4d4;
+    border-radius: 18px;
+    background: #ffffff;
+    text-align: left;
+    cursor: pointer;
+    box-shadow: 0 16px 45px rgba(0, 0, 0, 0.08);
+    transition: 0.18s ease;
+}
+
+.floatingOnboardingCard:hover {
+    transform: translateY(-1px);
+    border-color: #0a0a0a;
+}
+
+.inlineIconGroup {
+    display: flex;
+    align-items: center;
+}
+
+.inlineIcon {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.inlineIcon+.inlineIcon {
+    margin-left: -8px;
+}
+
+.floatingOnboardingCard strong {
+    display: block;
+    color: #0a0a0a;
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.floatingOnboardingCard small {
+    display: block;
+    margin-top: 2px;
+    color: #666666;
+    font-size: 12px;
+}
+
+.floatingOnboardingCard b {
+    padding: 7px 11px;
+    border: 1px solid #d4d4d4;
+    border-radius: 999px;
+    color: #0a0a0a;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.modalOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(10px);
+}
+
+.modalCard {
+    position: relative;
+    width: min(100%, 620px);
+    border: 1px solid #e5e5e5;
+    border-radius: 26px;
+    background: #ffffff;
+    padding: 30px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.08);
+}
+
+.closeButton {
+    position: absolute;
+    top: 16px;
+    right: 18px;
+    width: 32px;
+    height: 32px;
+    border: 1px solid #e5e5e5;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #525252;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.modalBadge {
+    width: fit-content;
+    margin-bottom: 14px;
+    padding: 6px 10px;
+    border: 1px solid #e5e5e5;
+    border-radius: 999px;
+    color: #525252;
+    font-size: 12px;
+    font-weight: 500;
+    background: #fafafa;
+}
+
+.modalTitle {
+    max-width: 540px;
+    margin: 0;
+    color: #0a0a0a;
+    font-size: 30px;
+    line-height: 1.08;
+    font-weight: 650;
+    letter-spacing: -0.055em;
+}
+
+.modalText {
+    max-width: 540px;
+    margin: 14px 0 22px;
+    color: #4b5563;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.integrationGrid {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.integrationOption {
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid #e5e5e5;
+    border-radius: 20px;
+    background: #ffffff;
+    color: #0a0a0a;
+    text-align: left;
+    cursor: pointer;
+    transition: 0.18s ease;
+}
+
+.integrationOption:hover {
+    transform: translateY(-1px);
+    border-color: #0a0a0a;
+    background: #fafafa;
+}
+
+.integrationIcon {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #e5e5e5;
+    border-radius: 16px;
+    background: #ffffff;
+}
+
+.integrationCopy {
+    display: grid;
+    gap: 4px;
+}
+
+.integrationCopy strong {
+    color: #0a0a0a;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.integrationCopy small {
+    color: #666666;
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+
+.integrationCta {
+    padding: 8px 13px;
+    border: 1px solid #d4d4d4;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #0a0a0a;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.urgentNote {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid #eeeeee;
+    border-radius: 16px;
+    background: #fafafa;
+    color: #404040;
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+
+.skipButton {
+    display: block;
+    width: fit-content;
+    margin: 16px auto 0;
+    border: 0;
+    background: transparent;
+    color: #737373;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+@media (max-width: 720px) {
+    .floatingOnboardingCard {
+        right: 16px;
+        bottom: 16px;
+    }
+
+    .modalCard {
+        padding: 24px;
+    }
+
+    .modalTitle {
+        font-size: 24px;
+    }
+
+    .integrationOption {
+        grid-template-columns: auto 1fr;
+    }
+
+    .integrationCta {
+        grid-column: 1 / -1;
+        width: fit-content;
+        margin-left: 62px;
+    }
+}

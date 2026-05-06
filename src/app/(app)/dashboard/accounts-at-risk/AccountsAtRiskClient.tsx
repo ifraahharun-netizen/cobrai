@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { PlanTier } from "@/lib/permissions";
 import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
 
+
 type RiskLevel = "critical" | "high" | "medium" | "low";
 
 type RiskRow = {
@@ -630,6 +631,7 @@ export default function AccountsAtRiskClient() {
                     <p className={styles.subtitle}>
                         All accounts, ranked by churn risk and revenue impact.
                     </p>
+
                 </div>
 
                 <div className={styles.kpiRow}>
