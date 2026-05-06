@@ -18,6 +18,8 @@ import {
     ChevronDown,
     type LucideIcon,
 } from "lucide-react";
+import FirstRunModal from "./onboarding/FirstRunModal";
+import DomainSetupCard from "./onboarding/DomainSetupCard";
 
 import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
 import { canAccessFeature } from "@/lib/permissions";
@@ -956,8 +958,13 @@ export default function DashboardPage() {
         !hasLiveKpis;
 
     return (
+
         <div className={styles.page}>
+            <FirstRunModal />
+
             <div className={styles.content}>
+                <DomainSetupCard />
+
                 <div className={styles.topUtilityBar}>
                     <div />
 
