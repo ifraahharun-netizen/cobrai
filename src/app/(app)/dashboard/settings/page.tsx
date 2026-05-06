@@ -495,7 +495,35 @@ function SettingsPageContent() {
                 const userSnap = await getDoc(userRef);
                 const profile = userSnap.exists() ? userSnap.data() : null;
 
-                setIsDemoMode(profile?.mode === "demo");
+                const integrationSnap = await getDoc(
+                    doc(db, "users", user.uid, "integrations", "main")
+                );
+
+                const integrationData = integrationSnap.exists()
+                    ? integrationSnap.data()
+                    : {};
+
+                const stripeConnected =
+                    integrationData?.stripe?.connected === true ||
+                    integrationData?.stripeConnected === true ||
+                    Boolean(integrationData?.stripeAccountId);
+
+                const hubspotConnected =
+                    integrationData?.hubspot?.connected === true ||
+                    integrationData?.hubspotConnected === true ||
+                    Boolean(integrationData?.hubspotAccessToken);
+
+                const resendConnected =
+                    integrationData?.resend?.connected === true ||
+                    integrationData?.resend?.verified === true ||
+                    integrationData?.resendConnected === true ||
+                    integrationData?.resendVerified === true ||
+                    integrationData?.sendingDomainStatus === "verified" ||
+                    integrationData?.resend?.sendingDomainStatus === "verified" ||
+                    Boolean(integrationData?.resendDomainId) ||
+                    Boolean(integrationData?.resend?.resendDomainId);
+
+                setIsDemoMode(!(stripeConnected && hubspotConnected && resendConnected));
 
                 const mergedName = profile?.name || user.displayName || "";
                 const mergedEmail = user.email || "";
