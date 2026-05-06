@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import styles from "./settings.module.css";
-import { SiHubspot, SiStripe } from "react-icons/si";
+import { SiHubspot, SiStripe, SiResend } from "react-icons/si";
 import { onAuthStateChanged, updateProfile, type User } from "firebase/auth";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase.client";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
@@ -520,6 +520,7 @@ function SettingsPageContent() {
 
     useEffect(() => {
         const tab = searchParams.get("tab");
+        const section = searchParams.get("section");
         const hubspot = searchParams.get("hubspot");
         const stripe = searchParams.get("stripe");
         const error = searchParams.get("error");
@@ -528,6 +529,21 @@ function SettingsPageContent() {
 
         if (tab === "manage-plan") {
             setActiveTab("Manage Plan");
+        }
+
+        if (tab === "Integration") {
+            setActiveTab("Integration");
+        }
+
+        if (section === "resend") {
+            setActiveTab("Integration");
+
+            setTimeout(() => {
+                document.getElementById("resend")?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                });
+            }, 250);
         }
 
         if (hubspot === "connected") {
@@ -1207,6 +1223,7 @@ function SettingsPageContent() {
                                         </div>
 
                                         <div
+                                            id="resend"
                                             style={{
                                                 marginTop: 24,
                                                 paddingTop: 20,
@@ -1214,10 +1231,19 @@ function SettingsPageContent() {
                                                 display: "flex",
                                                 flexDirection: "column",
                                                 gap: 16,
+                                                scrollMarginTop: 120,
                                             }}
                                         >
                                             <div>
-                                                <h3 className={styles.cardTitle}>Automated Emails</h3>
+                                                <h3 className={styles.cardTitle}>
+                                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                                                        <SiResend color="#000000" />
+                                                        Connect Resend
+                                                    </span>
+                                                </h3>
+
+
+
                                                 <p className={styles.cardSubtext}>
                                                     Connect your domain so Cobrai can send emails from your company email address to your clients.
                                                 </p>

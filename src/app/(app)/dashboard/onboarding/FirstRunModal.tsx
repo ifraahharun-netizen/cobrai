@@ -114,8 +114,7 @@ export default function FirstRunModal() {
     async function connectResend() {
         await markFirstRunCompleted({ selectedSetupStep: "resend" });
         setShowModal(false);
-
-        router.push("/dashboard/settings?tab=Support%20%26%20Compliance&section=automated-emails");
+        router.push("/dashboard/settings?tab=Integration&section=resend");
     }
 
     async function skipForNow() {
@@ -241,11 +240,11 @@ export default function FirstRunModal() {
                                 </span>
 
                                 <span className={styles.integrationCopy}>
-                                    <strong>Resend domain</strong>
+                                    <strong>Connect Resend</strong>
                                     <small>Verify your domain to send retention emails.</small>
                                 </span>
 
-                                <span className={styles.integrationCta}>Set up</span>
+                                <span className={styles.integrationCta}>Connect</span>
                             </button>
                         </div>
 
