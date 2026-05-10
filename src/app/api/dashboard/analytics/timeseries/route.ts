@@ -4,6 +4,7 @@ import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 10;
 
 type RangeKey = "auto" | "12m" | "ytd" | "24m";
 
@@ -52,42 +53,6 @@ type ChurnedAccountRow = {
     lastEventAt?: string | null;
 };
 
-
-function getExpansionReason(label?: string, upsideMinor?: number) {
-    const l = (label || "").toLowerCase();
-    const upside = Number(upsideMinor || 0);
-
-    if (l.includes("upgrade")) {
-        return "Recent upgrade activity suggests more expansion potential";
-    }
-
-    if (l.includes("new subscription")) {
-        return "Strong recent activation suggests room to expand usage";
-    }
-
-    if (l.includes("payment")) {
-        return "Recovered revenue suggests a good conversion window";
-    }
-
-    if (upside >= 20000) {
-        return "Strong expansion signal from recent billing activity";
-    }
-
-    if (upside >= 8000) {
-        return "Consistent growth or engagement detected";
-    }
-
-    return "Early expansion signal";
-}
-
-function getExpansionConfidence(upsideMinor?: number): "High" | "Medium" | "Low" {
-    const upside = Number(upsideMinor || 0);
-
-    if (upside >= 20000) return "High";
-    if (upside >= 8000) return "Medium";
-    return "Low";
-}
-
 function getBearerToken(req: Request) {
     const h = req.headers.get("authorization") || "";
     const m = h.match(/^Bearer\s+(.+)$/i);
@@ -98,16 +63,16 @@ function monthKey(date: Date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function endOfMonth(date: Date) {
-    return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
-}
-
 function startOfMonth(date: Date) {
     return new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
 }
 
+function endOfMonth(date: Date) {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+}
+
 function resolveRange(input: string | null): RangeKey {
-    if (input === "12m" || input === "ytd" || input === "24m") return input;
+    if (input === "ytd" || input === "24m") return input;
     return "12m";
 }
 
@@ -160,6 +125,27 @@ function pickExpansionAction(label?: string) {
     return "Send expansion email";
 }
 
+function getExpansionReason(label?: string, upsideMinor?: number) {
+    const l = (label || "").toLowerCase();
+    const upside = Number(upsideMinor || 0);
+
+    if (l.includes("upgrade")) return "Recent upgrade activity suggests more expansion potential";
+    if (l.includes("new subscription")) return "Strong recent activation suggests room to expand usage";
+    if (l.includes("payment")) return "Recovered revenue suggests a good conversion window";
+    if (upside >= 20000) return "Strong expansion signal from recent billing activity";
+    if (upside >= 8000) return "Consistent growth or engagement detected";
+
+    return "Early expansion signal";
+}
+
+function getExpansionConfidence(upsideMinor?: number): "High" | "Medium" | "Low" {
+    const upside = Number(upsideMinor || 0);
+
+    if (upside >= 20000) return "High";
+    if (upside >= 8000) return "Medium";
+    return "Low";
+}
+
 function buildDemoSeries(keys: string[]) {
     const count = keys.length;
 
@@ -171,6 +157,36 @@ function buildDemoSeries(keys: string[]) {
 
     const mauStart = count >= 12 ? 12 : 18;
     const mauEnd = count >= 12 ? 34 : 31;
+
+    const mrr = keys.map((key, idx) => {
+        const t = count === 1 ? 1 : idx / (count - 1);
+        const eased = Math.pow(t, 0.92);
+        return {
+            month: key,
+            valueMinor: Math.round(mrrStart + (mrrEnd - mrrStart) * eased),
+        };
+    });
+
+    const churn = keys.map((key, idx) => {
+        const t = count === 1 ? 1 : idx / (count - 1);
+        const eased = Math.pow(t, 1.08);
+        const raw = churnStart + (churnEnd - churnStart) * eased;
+
+        return {
+            month: key,
+            valuePct: Math.round(raw * 10) / 10,
+        };
+    });
+
+    const mau = keys.map((key, idx) => {
+        const t = count === 1 ? 1 : idx / (count - 1);
+        const eased = Math.pow(t, 0.95);
+
+        return {
+            month: key,
+            activeUsers: Math.round(mauStart + (mauEnd - mauStart) * eased),
+        };
+    });
 
     const activityByMonth: ActivityByMonthRow[] = keys.map((key, idx) => {
         const activeUsers = mau[idx]?.activeUsers ?? 0;
@@ -184,29 +200,9 @@ function buildDemoSeries(keys: string[]) {
         };
     });
 
-    const mrr = keys.map((key, idx) => {
-        const t = count === 1 ? 1 : idx / (count - 1);
-        const eased = Math.pow(t, 0.92);
-        const valueMinor = Math.round(mrrStart + (mrrEnd - mrrStart) * eased);
-        return { month: key, valueMinor };
-    });
-
-    const churn = keys.map((key, idx) => {
-        const t = count === 1 ? 1 : idx / (count - 1);
-        const eased = Math.pow(t, 1.08);
-        const raw = churnStart + (churnEnd - churnStart) * eased;
-        return { month: key, valuePct: Math.round(raw * 10) / 10 };
-    });
-
-    const mau = keys.map((key, idx) => {
-        const t = count === 1 ? 1 : idx / (count - 1);
-        const eased = Math.pow(t, 0.95);
-        const activeUsers = Math.round(mauStart + (mauEnd - mauStart) * eased);
-        return { month: key, activeUsers };
-    });
-
     const currentMrr = mrr[mrr.length - 1]?.valueMinor ?? 0;
     const prevMrr = mrr.length > 1 ? mrr[mrr.length - 2]?.valueMinor ?? null : null;
+
     const deltaMinor = typeof prevMrr === "number" ? currentMrr - prevMrr : null;
     const deltaPct =
         typeof prevMrr === "number" && prevMrr > 0
@@ -215,10 +211,13 @@ function buildDemoSeries(keys: string[]) {
 
     const currentChurn = churn[churn.length - 1]?.valuePct ?? null;
     const prevChurn = churn.length > 1 ? churn[churn.length - 2]?.valuePct ?? null : null;
+
     const deltaPp =
         typeof currentChurn === "number" && typeof prevChurn === "number"
             ? Math.round((currentChurn - prevChurn) * 10) / 10
             : null;
+
+    const currentMonth = keys[keys.length - 1];
 
     const driverAccounts: DriverAccountRow[] = [
         {
@@ -228,7 +227,7 @@ function buildDemoSeries(keys: string[]) {
             label: "Annual plan upgrade",
             valueMinor: 13300,
             tone: "positive",
-            lastEventAt: new Date(`${keys[keys.length - 1]}-18T10:20:00.000Z`).toISOString(),
+            lastEventAt: new Date(`${currentMonth}-18T10:20:00.000Z`).toISOString(),
         },
         {
             id: "kitecrm",
@@ -237,7 +236,7 @@ function buildDemoSeries(keys: string[]) {
             label: "New subscription started",
             valueMinor: 12400,
             tone: "positive",
-            lastEventAt: new Date(`${keys[keys.length - 1]}-12T09:10:00.000Z`).toISOString(),
+            lastEventAt: new Date(`${currentMonth}-12T09:10:00.000Z`).toISOString(),
         },
         {
             id: "cedarworks",
@@ -246,7 +245,7 @@ function buildDemoSeries(keys: string[]) {
             label: "Recovered failed payment",
             valueMinor: 6800,
             tone: "positive",
-            lastEventAt: new Date(`${keys[keys.length - 1]}-22T14:35:00.000Z`).toISOString(),
+            lastEventAt: new Date(`${currentMonth}-22T14:35:00.000Z`).toISOString(),
         },
     ];
 
@@ -287,21 +286,21 @@ function buildDemoSeries(keys: string[]) {
             name: "OrbitalHR",
             email: "team@orbitalhr.com",
             mrrMinor: 8990,
-            lastEventAt: new Date(`${keys[keys.length - 1]}-24T11:00:00.000Z`).toISOString(),
+            lastEventAt: new Date(`${currentMonth}-24T11:00:00.000Z`).toISOString(),
         },
         {
             id: "atlasworks",
             name: "AtlasWorks",
             email: "hello@atlasworks.io",
             mrrMinor: 4500,
-            lastEventAt: new Date(`${keys[keys.length - 1]}-19T15:25:00.000Z`).toISOString(),
+            lastEventAt: new Date(`${currentMonth}-19T15:25:00.000Z`).toISOString(),
         },
         {
             id: "novainbox",
             name: "NovaInbox",
             email: "support@novainbox.com",
             mrrMinor: 2800,
-            lastEventAt: new Date(`${keys[keys.length - 1]}-15T08:45:00.000Z`).toISOString(),
+            lastEventAt: new Date(`${currentMonth}-15T08:45:00.000Z`).toISOString(),
         },
     ];
 
@@ -312,7 +311,7 @@ function buildDemoSeries(keys: string[]) {
             email: "ops@brightops.com",
             upsideMinor: 13300,
             action: "Upsell premium plan",
-            lastEventAt: new Date(`${keys[keys.length - 1]}-18T10:20:00.000Z`).toISOString(),
+            lastEventAt: new Date(`${currentMonth}-18T10:20:00.000Z`).toISOString(),
             reason: "Recent upgrade activity suggests more expansion potential",
             confidence: "Medium",
         },
@@ -322,7 +321,7 @@ function buildDemoSeries(keys: string[]) {
             email: "finance@kitecrm.com",
             upsideMinor: 9800,
             action: "Expand usage / upsell",
-            lastEventAt: new Date(`${keys[keys.length - 1]}-12T09:10:00.000Z`).toISOString(),
+            lastEventAt: new Date(`${currentMonth}-12T09:10:00.000Z`).toISOString(),
             reason: "Strong recent activation suggests room to expand usage",
             confidence: "Medium",
         },
@@ -332,7 +331,7 @@ function buildDemoSeries(keys: string[]) {
             email: "hello@cedarworks.io",
             upsideMinor: 6400,
             action: "Convert to annual plan",
-            lastEventAt: new Date(`${keys[keys.length - 1]}-22T14:35:00.000Z`).toISOString(),
+            lastEventAt: new Date(`${currentMonth}-22T14:35:00.000Z`).toISOString(),
             reason: "Recovered revenue suggests a good conversion window",
             confidence: "Low",
         },
@@ -373,6 +372,7 @@ function buildDemoSeries(keys: string[]) {
 export async function GET(req: Request) {
     try {
         const token = getBearerToken(req);
+
         if (!token) {
             return NextResponse.json(
                 { ok: false, error: "Missing Authorization Bearer token" },
@@ -383,9 +383,30 @@ export async function GET(req: Request) {
         const decoded = await verifyFirebaseIdToken(token);
         const firebaseUid = decoded.uid;
 
+        const url = new URL(req.url);
+        const rangeUsed = resolveRange(url.searchParams.get("range"));
+        const keys = buildMonthKeys(rangeUsed);
+
+        const firstKey = keys[0];
+        const lastKey = keys[keys.length - 1];
+
+        const [firstYear, firstMonth] = firstKey.split("-").map(Number);
+        const [lastYear, lastMonth] = lastKey.split("-").map(Number);
+
+        const firstMonthStart = startOfMonth(new Date(firstYear, firstMonth - 1, 1));
+        const currentMonthStart = startOfMonth(new Date());
+        const lastMonthEnd = endOfMonth(new Date(lastYear, lastMonth - 1, 1));
+
         const user = await prisma.user.findUnique({
             where: { firebaseUid },
-            select: { workspaceId: true },
+            select: {
+                workspaceId: true,
+                workspace: {
+                    select: {
+                        demoMode: true,
+                    },
+                },
+            },
         });
 
         if (!user?.workspaceId) {
@@ -397,16 +418,7 @@ export async function GET(req: Request) {
 
         const workspaceId = user.workspaceId;
 
-        const workspace = await prisma.workspace.findUnique({
-            where: { id: workspaceId },
-            select: { demoMode: true },
-        });
-
-        const url = new URL(req.url);
-        const rangeUsed = resolveRange(url.searchParams.get("range"));
-        const keys = buildMonthKeys(rangeUsed);
-
-        if (workspace?.demoMode) {
+        if (user.workspace?.demoMode) {
             const demo = buildDemoSeries(keys);
 
             return NextResponse.json({
@@ -422,103 +434,113 @@ export async function GET(req: Request) {
             });
         }
 
-        const customers = await prisma.customer.findMany({
-            where: { workspaceId },
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                createdAt: true,
-                mrr: true,
-                status: true,
-                canceledAt: true,
-                lastActiveAt: true,
-                churnRisk: true,
-            },
-        });
-
-        const riskRows = await prisma.accountRisk.findMany({
-            where: { workspaceId },
-            select: {
-                id: true,
-                customerId: true,
-                companyName: true,
-                mrr: true,
-                riskScore: true,
-                reasonLabel: true,
-                updatedAt: true,
-                customer: {
-                    select: {
-                        email: true,
+        const [customers, riskRows, events, invoices, snapshotRows] = await Promise.all([
+            prisma.customer.findMany({
+                where: {
+                    workspaceId,
+                    createdAt: {
+                        lte: lastMonthEnd,
                     },
                 },
-            },
-            orderBy: [{ riskScore: "desc" }, { updatedAt: "desc" }],
-            take: 20,
-        });
-
-        const events = await prisma.event.findMany({
-            where: {
-                workspaceId,
-                occurredAt: {
-                    gte: startOfMonth(new Date()),
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    createdAt: true,
+                    mrr: true,
+                    status: true,
+                    canceledAt: true,
+                    lastActiveAt: true,
+                    churnRisk: true,
                 },
-            },
-            select: {
-                id: true,
-                customerId: true,
-                type: true,
-                value: true,
-                occurredAt: true,
-                customer: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                        mrr: true,
+            }),
+
+            prisma.accountRisk.findMany({
+                where: { workspaceId },
+                select: {
+                    id: true,
+                    customerId: true,
+                    companyName: true,
+                    mrr: true,
+                    riskScore: true,
+                    reasonLabel: true,
+                    updatedAt: true,
+                    customer: {
+                        select: {
+                            email: true,
+                        },
                     },
                 },
-            },
-            orderBy: { occurredAt: "desc" },
-        });
+                orderBy: [{ riskScore: "desc" }, { updatedAt: "desc" }],
+                take: 20,
+            }),
 
-        const invoices = await prisma.invoice.findMany({
-            where: {
-                workspaceId,
-                paidAt: {
-                    gte: startOfMonth(new Date()),
-                },
-                status: "paid",
-            },
-            select: {
-                id: true,
-                amount: true,
-                paidAt: true,
-                customer: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                        mrr: true,
+            prisma.event.findMany({
+                where: {
+                    workspaceId,
+                    occurredAt: {
+                        gte: currentMonthStart,
                     },
                 },
-            },
-            orderBy: { paidAt: "desc" },
-        });
+                select: {
+                    id: true,
+                    customerId: true,
+                    type: true,
+                    value: true,
+                    occurredAt: true,
+                    customer: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            mrr: true,
+                        },
+                    },
+                },
+                orderBy: { occurredAt: "desc" },
+                take: 100,
+            }),
 
-        const snapshotRows = await prisma.mrrSnapshot.findMany({
-            where: {
-                workspaceId,
-                month: { in: keys },
-                active: true,
-            },
-            select: {
-                month: true,
-                mrrMinor: true,
-            },
-        });
+            prisma.invoice.findMany({
+                where: {
+                    workspaceId,
+                    paidAt: {
+                        gte: currentMonthStart,
+                    },
+                    status: "paid",
+                },
+                select: {
+                    id: true,
+                    amount: true,
+                    paidAt: true,
+                    customer: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            mrr: true,
+                        },
+                    },
+                },
+                orderBy: { paidAt: "desc" },
+                take: 100,
+            }),
+
+            prisma.mrrSnapshot.findMany({
+                where: {
+                    workspaceId,
+                    month: { in: keys },
+                    active: true,
+                },
+                select: {
+                    month: true,
+                    mrrMinor: true,
+                },
+            }),
+        ]);
 
         const snapshotSumByMonth = new Map<string, number>();
+
         for (const row of snapshotRows) {
             snapshotSumByMonth.set(
                 row.month,
@@ -531,26 +553,36 @@ export async function GET(req: Request) {
             valueMinor: snapshotSumByMonth.get(key) || 0,
         }));
 
-        const churn = keys.map((key, idx) => {
+        const monthBounds = keys.map((key) => {
+            const [year, month] = key.split("-").map(Number);
+            const start = startOfMonth(new Date(year, month - 1, 1));
+            const end = endOfMonth(start);
+
+            return {
+                key,
+                start,
+                end,
+            };
+        });
+
+        const churn = monthBounds.map((bound, idx) => {
             if (idx === 0) {
-                return { month: key, valuePct: null };
+                return {
+                    month: bound.key,
+                    valuePct: null,
+                };
             }
 
-            const [year, month] = key.split("-").map(Number);
-            const monthEnd = endOfMonth(new Date(year, month - 1, 1));
-
-            const prevKey = keys[idx - 1];
-            const [prevYear, prevMonth] = prevKey.split("-").map(Number);
-            const prevMonthEnd = endOfMonth(new Date(prevYear, prevMonth - 1, 1));
+            const prev = monthBounds[idx - 1];
 
             const prevActiveBase = customers.filter((c) => {
-                const createdOk = c.createdAt <= prevMonthEnd;
-                const activeAtPrevEnd = !c.canceledAt || c.canceledAt > prevMonthEnd;
+                const createdOk = c.createdAt <= prev.end;
+                const activeAtPrevEnd = !c.canceledAt || c.canceledAt > prev.end;
                 return createdOk && activeAtPrevEnd;
             });
 
             const churnedThisMonth = prevActiveBase.filter((c) => {
-                return !!c.canceledAt && c.canceledAt > prevMonthEnd && c.canceledAt <= monthEnd;
+                return !!c.canceledAt && c.canceledAt > prev.end && c.canceledAt <= bound.end;
             });
 
             const valuePct =
@@ -558,35 +590,33 @@ export async function GET(req: Request) {
                     ? Math.round((churnedThisMonth.length / prevActiveBase.length) * 1000) / 10
                     : null;
 
-            return { month: key, valuePct };
+            return {
+                month: bound.key,
+                valuePct,
+            };
         });
 
-        const mau = keys.map((key) => {
-            const [year, month] = key.split("-").map(Number);
-            const monthStart = new Date(year, month - 1, 1);
-            const monthEnd = endOfMonth(monthStart);
-
+        const mau = monthBounds.map((bound) => {
             const activeUsers = customers.filter((c) => {
                 if (!c.lastActiveAt) return false;
-                return c.lastActiveAt >= monthStart && c.lastActiveAt <= monthEnd;
+                return c.lastActiveAt >= bound.start && c.lastActiveAt <= bound.end;
             }).length;
 
-            return { month: key, activeUsers };
+            return {
+                month: bound.key,
+                activeUsers,
+            };
         });
 
-        const activityByMonth: ActivityByMonthRow[] = keys.map((key) => {
-            const [year, month] = key.split("-").map(Number);
-            const monthStart = startOfMonth(new Date(year, month - 1, 1));
-            const monthEnd = endOfMonth(monthStart);
-
+        const activityByMonth: ActivityByMonthRow[] = monthBounds.map((bound) => {
             const totalSubscribers = customers.filter((c) => {
-                const createdOk = c.createdAt <= monthEnd;
-                const notCancelledBeforeMonthEnd = !c.canceledAt || c.canceledAt > monthEnd;
+                const createdOk = c.createdAt <= bound.end;
+                const notCancelledBeforeMonthEnd = !c.canceledAt || c.canceledAt > bound.end;
                 return createdOk && notCancelledBeforeMonthEnd;
             }).length;
 
             const newCustomersThisMonth = customers.filter((c) => {
-                return c.createdAt >= monthStart && c.createdAt <= monthEnd;
+                return c.createdAt >= bound.start && c.createdAt <= bound.end;
             });
 
             const newTrials = newCustomersThisMonth.filter((c) => {
@@ -594,17 +624,14 @@ export async function GET(req: Request) {
                 return status.includes("trial");
             }).length;
 
-            const newSubscriptions = newCustomersThisMonth.filter((c) => {
-                const status = String(c.status || "").toLowerCase();
-                return !status.includes("trial");
-            }).length;
+            const newSubscriptions = newCustomersThisMonth.length - newTrials;
 
             const unsubscribes = customers.filter((c) => {
-                return !!c.canceledAt && c.canceledAt >= monthStart && c.canceledAt <= monthEnd;
+                return !!c.canceledAt && c.canceledAt >= bound.start && c.canceledAt <= bound.end;
             }).length;
 
             return {
-                month: key,
+                month: bound.key,
                 totalSubscribers,
                 newSubscriptions,
                 newTrials,
@@ -614,6 +641,7 @@ export async function GET(req: Request) {
 
         const currentMrr = mrr[mrr.length - 1]?.valueMinor ?? 0;
         const prevMrr = mrr.length > 1 ? mrr[mrr.length - 2]?.valueMinor ?? null : null;
+
         const deltaMinor = typeof prevMrr === "number" ? currentMrr - prevMrr : null;
         const deltaPct =
             typeof prevMrr === "number" && prevMrr > 0
@@ -622,6 +650,7 @@ export async function GET(req: Request) {
 
         const currentChurn = churn[churn.length - 1]?.valuePct ?? null;
         const prevChurn = churn.length > 1 ? churn[churn.length - 2]?.valuePct ?? null : null;
+
         const deltaPp =
             typeof currentChurn === "number" && typeof prevChurn === "number"
                 ? Math.round((currentChurn - prevChurn) * 10) / 10
@@ -634,6 +663,7 @@ export async function GET(req: Request) {
             if (!customer) continue;
 
             const type = String(event.type || "").toLowerCase();
+
             const amountMinor =
                 typeof event.value === "number" && Number.isFinite(event.value)
                     ? Math.round(event.value * 100)
@@ -661,26 +691,25 @@ export async function GET(req: Request) {
             if (!label) continue;
 
             const existing = driverAccountsMap.get(customer.id);
-            const nextValue = (existing?.valueMinor || 0) + amountMinor;
+            const existingValue = existing?.valueMinor || 0;
 
-            let nextLastEventAt = event.occurredAt ? event.occurredAt.toISOString() : null;
-            if (existing?.lastEventAt && nextLastEventAt) {
-                nextLastEventAt =
-                    new Date(existing.lastEventAt) > new Date(nextLastEventAt)
+            const eventTime = event.occurredAt ? event.occurredAt.toISOString() : null;
+
+            const lastEventAt =
+                existing?.lastEventAt && eventTime
+                    ? new Date(existing.lastEventAt) > new Date(eventTime)
                         ? existing.lastEventAt
-                        : nextLastEventAt;
-            } else if (existing?.lastEventAt) {
-                nextLastEventAt = existing.lastEventAt;
-            }
+                        : eventTime
+                    : existing?.lastEventAt || eventTime;
 
             driverAccountsMap.set(customer.id, {
                 id: customer.id,
                 accountName: customer.name || "Unnamed account",
                 email: customer.email || null,
                 label,
-                valueMinor: nextValue,
+                valueMinor: existingValue + amountMinor,
                 tone: "positive",
-                lastEventAt: nextLastEventAt,
+                lastEventAt,
             });
         }
 
@@ -694,15 +723,14 @@ export async function GET(req: Request) {
             const existing = driverAccountsMap.get(customer.id);
             const existingValue = existing?.valueMinor || 0;
 
-            let nextLastEventAt = invoice.paidAt ? invoice.paidAt.toISOString() : null;
-            if (existing?.lastEventAt && nextLastEventAt) {
-                nextLastEventAt =
-                    new Date(existing.lastEventAt) > new Date(nextLastEventAt)
+            const paidTime = invoice.paidAt ? invoice.paidAt.toISOString() : null;
+
+            const lastEventAt =
+                existing?.lastEventAt && paidTime
+                    ? new Date(existing.lastEventAt) > new Date(paidTime)
                         ? existing.lastEventAt
-                        : nextLastEventAt;
-            } else if (existing?.lastEventAt) {
-                nextLastEventAt = existing.lastEventAt;
-            }
+                        : paidTime
+                    : existing?.lastEventAt || paidTime;
 
             driverAccountsMap.set(customer.id, {
                 id: customer.id,
@@ -711,7 +739,7 @@ export async function GET(req: Request) {
                 label: existing?.label || "Recovered successful payment",
                 valueMinor: existingValue + recoveredMinor,
                 tone: "positive",
-                lastEventAt: nextLastEventAt,
+                lastEventAt,
             });
         }
 
@@ -792,7 +820,7 @@ export async function GET(req: Request) {
             const isActive = inactiveDays <= 14;
             const notHighRisk = riskScore < 70;
             const notCanceled = !c.canceledAt;
-            const notPastDue = (c.status || "").toLowerCase() !== "past_due";
+            const notPastDue = String(c.status || "").toLowerCase() !== "past_due";
 
             if (!isActive || !notHighRisk || !notCanceled || !notPastDue) continue;
             if (expansionRows.find((e) => e.id === c.id)) continue;
@@ -850,8 +878,12 @@ export async function GET(req: Request) {
         });
     } catch (e: any) {
         console.error("dashboard/analytics/timeseries GET failed:", e);
+
         return NextResponse.json(
-            { ok: false, error: e?.message ?? "Failed to load analytics timeseries" },
+            {
+                ok: false,
+                error: e?.message ?? "Failed to load analytics timeseries",
+            },
             { status: 500 }
         );
     }
