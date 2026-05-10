@@ -4,11 +4,12 @@ export default function PricingPage() {
     return (
         <section className="landingSection">
             <div className="sectionShell">
-                <h1 className="sectionTitle">Simple pricing for retention teams</h1>
+                <h1 className="sectionTitle">Start free 
+                     <br />
+                     Scale retention as you grow</h1>
 
                 <p className="sectionText">
-                    Start free, understand account risk, and upgrade when you need deeper AI
-                    insights and automated retention workflows.
+               Built for subscription businesses that want clearler customer visibility and smarter retention decisions.
                 </p>
 
                 <div
@@ -55,7 +56,7 @@ export default function PricingPage() {
                                 marginBottom: "12px",
                             }}
                         >
-                            See every customer and spot early churn risk.
+                            Identify churn risk early.
                         </h3>
 
                         <div
@@ -100,8 +101,7 @@ export default function PricingPage() {
                         </div>
 
                         <p className="cardText" style={{ marginBottom: "18px" }}>
-                            For early-stage SaaS teams that need a clear customer list,
-                            health scores, and enough AI guidance to act faster.
+                            Monitor customer health, identify churn signals, and take action before revenue is impacted.
                         </p>
 
                         <div
@@ -184,7 +184,7 @@ export default function PricingPage() {
                                 marginBottom: "12px",
                             }}
                         >
-                            Scale retention with deeper AI and automation.
+                            Advanced AI retention intelligence 
                         </h3>
 
                         <div
@@ -229,8 +229,7 @@ export default function PricingPage() {
                         </div>
 
                         <p className="cardText" style={{ marginBottom: "18px" }}>
-                            For growing SaaS teams that want stronger prioritisation,
-                            unlimited AI support, and automated retention action.
+                            Scale retention with deeper insights, prioritisation, and automated workflows.
                         </p>
 
                         <div

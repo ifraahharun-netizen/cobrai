@@ -18,10 +18,11 @@ export default function MarketingHeader() {
                 <Link href="/" aria-label="Cobrai home" className="logoWrap">
                     <Image
                         src="/branding/cobrai.logo.jpg.PNG"
-                        alt="Cobrai"
-                        width={140}
-                        height={89}
+                        alt="cobrai"
+                        width={160}
+                        height={54}
                         priority
+                        unoptimized
                     />
 
                 </Link>
@@ -44,12 +45,7 @@ export default function MarketingHeader() {
                         Pricing
                     </Link>
 
-                    <Link
-                        href="/demo"
-                        className={`navLink ${isActive("/demo") ? "active" : ""}`}
-                    >
-                        View Demo
-                    </Link>
+                  
                 </nav>
 
                 <div className="headerActions">

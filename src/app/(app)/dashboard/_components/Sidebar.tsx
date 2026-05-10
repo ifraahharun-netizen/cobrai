@@ -36,7 +36,7 @@ export default function Sidebar() {
                     <Link href="/dashboard" aria-label="Cobrai" className={styles.brandLink}>
                         <Image
                             src="/branding/cobrai.logo.jpg.PNG"
-                            alt="COBRAI"
+                            alt="cobrai"
                             width={120}
                             height={34}
                             priority

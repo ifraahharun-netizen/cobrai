@@ -144,8 +144,7 @@ export default function SignupPage() {
                             <div className="signupReferenceInner">
                                 <h1 className="signupRefTitle">Sign up</h1>
                                 <p className="signupRefSubtitle">
-                                    Let&apos;s get you all set up so you can access your Cobrai
-                                    account.
+                                    Create your workspace 
                                 </p>
 
                                 <form onSubmit={onSubmit} className="signupRefForm">
@@ -241,19 +240,20 @@ export default function SignupPage() {
                                 </p>
                             </div>
                         </div>
-
                         <div className="signupReferenceRight">
                             <div className="signupRefVisual">
-                                <div className="signupRefShape signupRefShapeOne" />
                                 <div className="signupRefShape signupRefShapeTwo" />
-                                <div className="signupRefShape signupRefShapeThree" />
 
                                 <div className="signupRefVisualContent">
                                     <h2 className="signupRefVisualTitle">
                                         Protect revenue
                                         <br />
-                                        with Cobrai
+                                        before it's too late
                                     </h2>
+
+                                    <p className="signupRefVisualText">
+                                        Find at-risk customers, prioritise what matters, and take action faster.
+                                    </p>
                                 </div>
                             </div>
                         </div>

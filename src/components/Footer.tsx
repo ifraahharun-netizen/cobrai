@@ -61,12 +61,7 @@ export default function Footer() {
                                 Start Free
                             </Link>
 
-                            <Link
-                                href="/demo"
-                                className="footerSecondaryBtn"
-                            >
-                                View Demo
-                            </Link>
+                          
                         </div>
                     </div>
 
