@@ -229,7 +229,7 @@ export default function PricingPage() {
                         </div>
 
                         <p className="cardText" style={{ marginBottom: "18px" }}>
-                            Scale retention with deeper insights, prioritisation, and automated workflows.
+                            Scale retention with deeper insights and prioritisation.
                         </p>
 
                         <div
