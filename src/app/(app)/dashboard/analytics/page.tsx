@@ -270,7 +270,7 @@ function riskBand(score: number) {
 }
 
 async function authedGet(url: string, user: User) {
-    const token = await user.getIdToken(true);
+    const token = await user.getIdToken();
 
     const res = await fetch(url, {
         method: "GET",
@@ -289,7 +289,7 @@ async function authedGet(url: string, user: User) {
 }
 
 async function authedPost(url: string, user: User, body?: unknown) {
-    const token = await user.getIdToken(true);
+    const token = await user.getIdToken();
 
     const res = await fetch(url, {
         method: "POST",
@@ -1224,10 +1224,12 @@ export default function AnalyticsPage() {
                 setLoading(true);
                 setError(null);
 
-                const summaryRes = (await authedGet("/api/dashboard/summary", user)) as DashboardSummary;
-                if (!summaryRes.ok) throw new Error(summaryRes.error || "Summary failed");
+                const [summaryRes, mrrRes] = await Promise.all([
+                    authedGet("/api/dashboard/summary", user) as Promise<DashboardSummary>,
+                    authedGet("/api/dashboard/metrics/mrr-protected", user) as Promise<MrrProtectedRes>,
+                ]);
 
-                const mrrRes = (await authedGet("/api/dashboard/metrics/mrr-protected", user)) as MrrProtectedRes;
+                if (!summaryRes.ok) throw new Error(summaryRes.error || "Summary failed");
                 if (!mrrRes.ok) throw new Error(mrrRes.error || "MRR protected failed");
 
                 if (cancelled) return;
