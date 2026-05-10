@@ -3,13 +3,13 @@
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import styles from "./dashboardLayout.module.css";
+import { Plus_Jakarta_Sans } from "next/font/google";
+import { onAuthStateChanged, type User } from "firebase/auth";
+
+import { getFirebaseAuth } from "@/lib/firebase.client";
 import Sidebar from "./_components/Sidebar";
 import FirstRunModal from "./onboarding/FirstRunModal";
-
-import { Plus_Jakarta_Sans } from "next/font/google";
-import { getFirebaseAuth } from "@/lib/firebase.client";
-import { onAuthStateChanged, type User } from "firebase/auth";
+import styles from "./dashboardLayout.module.css";
 
 const jakarta = Plus_Jakarta_Sans({
     subsets: ["latin"],
@@ -27,7 +27,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     useEffect(() => {
         const auth = getFirebaseAuth();
 
-        const unsub = onAuthStateChanged(auth, async (u) => {
+        const unsub = onAuthStateChanged(auth, (u) => {
             setAuthChecked(true);
 
             if (logoutTimer.current) {
@@ -41,30 +41,32 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                         setUser(null);
                         router.replace("/login");
                     }
-                }, 2000);
+                }, 1200);
 
                 return;
             }
 
             setUser(u);
 
-            try {
-                const token = await u.getIdToken();
-
-                await fetch("/api/onboard", {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
+            void u
+                .getIdToken()
+                .then((token) =>
+                    fetch("/api/onboard", {
+                        method: "POST",
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    })
+                )
+                .catch((e) => {
+                    console.error("Onboarding failed:", e);
                 });
-            } catch (e) {
-                console.error("Onboarding failed:", e);
-            }
         });
 
         return () => {
             if (logoutTimer.current) {
                 clearTimeout(logoutTimer.current);
+                logoutTimer.current = null;
             }
 
             unsub();
