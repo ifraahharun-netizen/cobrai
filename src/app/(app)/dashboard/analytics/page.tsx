@@ -9,7 +9,7 @@ import {
     type SetStateAction,
 } from "react";
 import { useRouter } from "next/navigation";
-import EChart from "@/components/charts/EChart";
+import dynamic from "next/dynamic";
 import type { EChartsOption } from "echarts";
 
 import InsightDrawer from "./InsightDrawer";
@@ -21,7 +21,10 @@ import { getFirebaseAuth } from "@/lib/firebase.client";
 import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
 
 import styles from "./analytics.module.css";
-
+const EChart = dynamic(() => import("@/components/charts/EChart"), {
+    ssr: false,
+    loading: () => <div style={{ height: 260 }}>Loading chart...</div>,
+});
 /* ================= TYPES ================= */
 
 type DashboardSummary = {

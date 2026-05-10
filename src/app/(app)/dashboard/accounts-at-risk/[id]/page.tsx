@@ -641,7 +641,7 @@ export default function CustomerDetailPage() {
         }
     }, [id]);
 
-  
+
 
     async function authedFetch(url: string, init?: RequestInit) {
         const token = user ? await user.getIdToken() : null;
@@ -724,32 +724,42 @@ export default function CustomerDetailPage() {
 
         let cancelled = false;
 
+        async function loadAiLater() {
+            try {
+                const aiRes = await authedPost("/api/dashboard/ai/insights", {
+                    timeframe: "week",
+                });
+
+                if (!aiRes.ok) {
+                    if (!cancelled) setWorkspaceAi(null);
+                    return;
+                }
+
+                const aiJson = (await aiRes.json()) as AiWorkspaceRes;
+
+                if (!cancelled) {
+                    setWorkspaceAi(aiJson);
+                }
+            } catch {
+                if (!cancelled) setWorkspaceAi(null);
+            }
+        }
+
         async function load() {
             setLoading(true);
             setErr(null);
             setAccount(null);
             setDetails(null);
+            setWorkspaceAi(null);
 
             try {
-                const [detailsRes, aiRes] = await Promise.allSettled([
-                    authedFetch(`/api/dashboard/accounts-at-risk/${encodeURIComponent(id)}`),
-                    authedPost("/api/dashboard/ai/insights", { timeframe: "week" }),
-                ]);
+                const detailsRes = await authedFetch(
+                    `/api/dashboard/accounts-at-risk/${encodeURIComponent(id)}`
+                );
 
-                if (aiRes.status === "fulfilled" && aiRes.value.ok) {
-                    const aiJson = (await aiRes.value.json()) as AiWorkspaceRes;
-                    if (!cancelled) setWorkspaceAi(aiJson);
-                } else if (!cancelled) {
-                    setWorkspaceAi(null);
-                }
+                const detailsJson = (await detailsRes.json()) as RiskDetails;
 
-                if (detailsRes.status !== "fulfilled") {
-                    throw new Error("Failed to load account");
-                }
-
-                const detailsJson = (await detailsRes.value.json()) as RiskDetails;
-
-                if (!detailsRes.value.ok || !detailsJson?.ok) {
+                if (!detailsRes.ok || !detailsJson?.ok) {
                     throw new Error(detailsJson?.error || "Failed to load account");
                 }
 
@@ -784,18 +794,26 @@ export default function CustomerDetailPage() {
 
                 if (!cancelled) {
                     setAccount(enrichedAccount || buildAccountFromDetails(id, detailsJson));
+                    setLoading(false);
                 }
+
+                const aiTimer = setTimeout(() => {
+                    if (!cancelled) {
+                        void loadAiLater();
+                    }
+                }, 800);
+
+                return () => clearTimeout(aiTimer);
             } catch (e: any) {
                 if (!cancelled) {
                     setWorkspaceAi(null);
                     setErr(e?.message || "Something went wrong");
+                    setLoading(false);
                 }
-            } finally {
-                if (!cancelled) setLoading(false);
             }
         }
 
-        load();
+        void load();
 
         return () => {
             cancelled = true;

@@ -331,12 +331,17 @@ export default function ProgressPage() {
                 if (!cancelled) setLoading(false);
             }
         }
-
         void loadProgress();
-        void loadWorkspaceAi(currentUser);
+
+        const aiTimer = setTimeout(() => {
+            if (!cancelled) {
+                void loadWorkspaceAi(currentUser);
+            }
+        }, 800);
 
         return () => {
             cancelled = true;
+            clearTimeout(aiTimer);
         };
     }, [status, user]);
 
