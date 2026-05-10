@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import EChart from "@/components/charts/EChart";
+import dynamic from "next/dynamic";
 import { churnTrendOption, mrrProtectedOption } from "@/components/charts/options";
 import { getFirebaseAuth } from "@/lib/firebase.client";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
@@ -23,6 +23,11 @@ import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
 import { canAccessFeature } from "@/lib/permissions";
 
 import styles from "./dashboardshell.module.css";
+const EChart = dynamic(() => import("@/components/charts/EChart"), {
+    ssr: false,
+    loading: () => <div style={{ height: 260 }}>Loading chart...</div>,
+});
+
 
 type RiskAccount = {
     id: string;
@@ -958,10 +963,10 @@ export default function DashboardPage() {
     return (
 
         <div className={styles.page}>
-           
+
 
             <div className={styles.content}>
-             
+
 
                 <div className={styles.topUtilityBar}>
                     <div />
@@ -1060,7 +1065,7 @@ export default function DashboardPage() {
                             Retention intelligence — clear actions that protect revenue.
                         </p>
 
-              
+
                     </div>
                 </div>
 
