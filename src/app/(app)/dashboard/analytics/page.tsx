@@ -1258,36 +1258,39 @@ export default function AnalyticsPage() {
     useEffect(() => {
         let cancelled = false;
 
-        async function loadOne(
-            selectedRange: RangeKey,
-            setter: Dispatch<SetStateAction<TimeseriesRes | null>>
-        ) {
+        async function loadTimeseries() {
             try {
                 if (!user) return;
 
                 const res = (await authedGet(
-                    `/api/dashboard/analytics/timeseries?range=${selectedRange}`,
+                    `/api/dashboard/analytics/timeseries?range=${mrrRange}`,
                     user
                 )) as TimeseriesRes;
 
                 if (!res.ok) throw new Error(res.error || "Timeseries failed");
 
-                if (!cancelled) setter(res);
+                if (!cancelled) {
+                    setMrrTimeseries(res);
+                    setChurnTimeseries(res);
+                    setMauTimeseries(res);
+                }
             } catch {
-                if (!cancelled) setter(null);
+                if (!cancelled) {
+                    setMrrTimeseries(null);
+                    setChurnTimeseries(null);
+                    setMauTimeseries(null);
+                }
             }
         }
 
         if (status === "authed" && user) {
-            loadOne(mrrRange, setMrrTimeseries);
-            loadOne(churnRange, setChurnTimeseries);
-            loadOne(mauRange, setMauTimeseries);
+            void loadTimeseries();
         }
 
         return () => {
             cancelled = true;
         };
-    }, [status, user, mrrRange, churnRange, mauRange]);
+    }, [status, user, mrrRange]);
 
     useEffect(() => {
         let cancelled = false;
@@ -2197,7 +2200,7 @@ export default function AnalyticsPage() {
                                     <button
                                         type="button"
                                         className={churnRange === "auto" ? styles.segmentBtnActive : styles.segmentBtn}
-                                        onClick={() => setChurnRange("auto")}
+                                        onClick={() => setMrrRange("auto")}
                                     >
                                         Auto
                                     </button>
@@ -2205,7 +2208,7 @@ export default function AnalyticsPage() {
                                     <button
                                         type="button"
                                         className={churnRange === "ytd" ? styles.segmentBtnActive : styles.segmentBtn}
-                                        onClick={() => setChurnRange("ytd")}
+                                        onClick={() => setMrrRange("ytd")}
                                     >
                                         YTD
                                     </button>
@@ -2257,7 +2260,7 @@ export default function AnalyticsPage() {
                                     <button
                                         type="button"
                                         className={mauRange === "auto" ? styles.segmentBtnActive : styles.segmentBtn}
-                                        onClick={() => setMauRange("auto")}
+                                        onClick={() => setMrrRange("auto")}
                                     >
                                         Auto
                                     </button>
@@ -2265,7 +2268,7 @@ export default function AnalyticsPage() {
                                     <button
                                         type="button"
                                         className={mauRange === "ytd" ? styles.segmentBtnActive : styles.segmentBtn}
-                                        onClick={() => setMauRange("ytd")}
+                                        onClick={() => setMrrRange("ytd")}
                                     >
                                         YTD
                                     </button>
