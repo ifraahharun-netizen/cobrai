@@ -20,7 +20,10 @@ export const metadata: Metadata = {
     description: "AI-powered retention intelligence for subscription businesses.",
 
     icons: {
-        icon: "/icon.svg",
+        icon: [
+            { url: "/icon.svg", type: "image/svg+xml" },
+            { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+        ],
         shortcut: "/icon.svg",
         apple: "/apple-touch-icon.png",
     },
@@ -59,12 +62,10 @@ export default function RootLayout({
                     rel="stylesheet"
                     href="https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css"
                 />
-
                 <link
                     rel="stylesheet"
                     href="https://cdn-uicons.flaticon.com/uicons-solid-rounded/css/uicons-solid-rounded.css"
                 />
-
                 <link
                     rel="stylesheet"
                     href="https://cdn-uicons.flaticon.com/uicons-thin-rounded/css/uicons-thin-rounded.css"
