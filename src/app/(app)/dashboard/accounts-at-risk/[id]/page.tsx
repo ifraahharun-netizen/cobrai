@@ -600,7 +600,8 @@ export default function CustomerDetailPage() {
 
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState<string | null>(null);
-
+    const [retryingPayment, setRetryingPayment] = useState(false);
+    const [retryPaymentErr, setRetryPaymentErr] = useState<string | null>(null);
     const [tier, setTier] = useState<PlanTier>("starter");
     const [emailUsageLimit, setEmailUsageLimit] = useState<number | null>(null);
     const [emailUsageRemaining, setEmailUsageRemaining] = useState<number | null>(null);
@@ -1036,6 +1037,42 @@ export default function CustomerDetailPage() {
         setNoteText("");
     }
 
+    async function handleRetryPayment() {
+        if (!account) return;
+
+        setRetryingPayment(true);
+        setRetryPaymentErr(null);
+
+        try {
+            const res = await authedPost("/api/automation/retry-payment", {
+                customerId: details?.customerId || undefined,
+                accountId: account.id,
+            });
+
+            const json = await res.json();
+
+            if (!res.ok || !json?.ok) {
+                if (json?.code === "PRO_FEATURE_REQUIRED") {
+                    setShowUpgradeModal(true);
+                    return;
+                }
+
+                throw new Error(json?.error || "Failed to create retry payment link");
+            }
+
+            if (json?.url) {
+                window.location.href = json.url;
+                return;
+            }
+
+            throw new Error("No Stripe payment link returned.");
+        } catch (e: any) {
+            setRetryPaymentErr(e?.message || "Couldn’t start payment retry.");
+        } finally {
+            setRetryingPayment(false);
+        }
+    }
+
     function openEmailModal(kind: "billing" | "inactive" | "checkin") {
         if (!account) return;
 
@@ -1331,17 +1368,32 @@ export default function CustomerDetailPage() {
                                 <strong>Automation</strong>
 
                                 <div className={styles.cleanActionButtons}>
-                                    {recommendedActions.map((action) => (
-                                        <button
-                                            key={action.key}
-                                            type="button"
-                                            className={styles.cleanActionBtn}
-                                            onClick={() => openEmailModal(action.key)}
-                                        >
-                                            {action.automationLabel}
-                                        </button>
-                                    ))}
+                                    {recommendedActions.map((action) => {
+                                        const isBilling = action.key === "billing";
+
+                                        return (
+                                            <button
+                                                key={action.key}
+                                                type="button"
+                                                className={styles.cleanActionBtn}
+                                                onClick={() =>
+                                                    isBilling ? handleRetryPayment() : openEmailModal(action.key)
+                                                }
+                                                disabled={isBilling && retryingPayment}
+                                            >
+                                                {isBilling
+                                                    ? retryingPayment
+                                                        ? "Opening Stripe..."
+                                                        : "Retry payment"
+                                                    : action.automationLabel}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
+
+                                {retryPaymentErr ? (
+                                    <p className={styles.cleanEmailLimitText}>{retryPaymentErr}</p>
+                                ) : null}
                             </div>
 
                             {!emailSender?.verified ? (

@@ -353,7 +353,8 @@ export default function InsightDrawer({
     const [driverPage, setDriverPage] = useState(0);
     const [insightTab, setInsightTab] = useState<InsightTab>("drivers");
     const [emailDraft, setEmailDraft] = useState<EmailDraft | null>(null);
-
+    const [retryingPaymentId, setRetryingPaymentId] = useState<string | null>(null);
+    const [retryPaymentErr, setRetryPaymentErr] = useState<string | null>(null);
     const isMrr = drawerView === "mrr";
     const forecast = isMrr ? mrrForecast : churnForecast;
 
@@ -369,6 +370,45 @@ export default function InsightDrawer({
             document.body.style.overflow = "";
         };
     }, [open]);
+
+    async function handleRetryPayment(acc: RiskAccountRow) {
+        setRetryingPaymentId(acc.id);
+        setRetryPaymentErr(null);
+
+        try {
+            const res = await fetch("/api/automation/retry-payment", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    accountId: acc.id,
+                }),
+            });
+
+            const json = await res.json();
+
+            if (!res.ok || !json?.ok) {
+                if (json?.code === "PRO_FEATURE_REQUIRED") {
+                    router.push("/dashboard/settings?tab=manage-plan");
+                    return;
+                }
+
+                throw new Error(json?.error || "Failed to create retry payment link.");
+            }
+
+            if (json?.url) {
+                window.location.href = json.url;
+                return;
+            }
+
+            throw new Error("No Stripe payment link returned.");
+        } catch (error: any) {
+            setRetryPaymentErr(error?.message || "Couldn’t start payment retry.");
+        } finally {
+            setRetryingPaymentId(null);
+        }
+    }
 
     const trialTime = trialEndsAt ? new Date(trialEndsAt).getTime() : 0;
 
@@ -1050,6 +1090,8 @@ export default function InsightDrawer({
                                 actionFirstAccounts.length ? actionFirstAccounts : highRiskAccounts
                             }
                             onEmailClick={(acc) => setEmailDraft(buildEmailDraft(acc, "risk"))}
+                            onRetryPayment={handleRetryPayment}
+                            retryingPaymentId={retryingPaymentId}
                         />
                     ) : (
                         <ForecastChurnContent
@@ -1059,8 +1101,15 @@ export default function InsightDrawer({
                                 actionFirstAccounts.length ? actionFirstAccounts : highRiskAccounts
                             }
                             onEmailClick={(acc) => setEmailDraft(buildEmailDraft(acc, "retry"))}
+                            onRetryPayment={handleRetryPayment}
+                            retryingPaymentId={retryingPaymentId}
                         />
                     )}
+                    {retryPaymentErr ? (
+                        <p style={{ margin: "10px 0 0", fontSize: 12, color: "#b91c1c" }}>
+                            {retryPaymentErr}
+                        </p>
+                    ) : null}
                 </section>
             </aside>
 
@@ -1082,6 +1131,8 @@ function ForecastMrrContent({
     withoutChurnMinor,
     highRiskAccounts,
     onEmailClick,
+    onRetryPayment,
+    retryingPaymentId,
 }: {
     hasProAccess: boolean;
     router: ReturnType<typeof useRouter>;
@@ -1089,6 +1140,8 @@ function ForecastMrrContent({
     withoutChurnMinor: number;
     highRiskAccounts: RiskAccountRow[];
     onEmailClick: (acc: RiskAccountRow) => void;
+    onRetryPayment: (acc: RiskAccountRow) => void;
+    retryingPaymentId: string | null;
 }) {
     return (
         <div style={{ position: "relative", overflow: "hidden" }}>
@@ -1155,6 +1208,8 @@ function ForecastMrrContent({
                     router={router}
                     mode="risk"
                     onEmailClick={onEmailClick}
+                    onRetryPayment={onRetryPayment}
+                    retryingPaymentId={retryingPaymentId}
                 />
             </div>
         </div>
@@ -1166,11 +1221,15 @@ function ForecastChurnContent({
     router,
     highRiskAccounts,
     onEmailClick,
+    onRetryPayment,
+    retryingPaymentId,
 }: {
     hasProAccess: boolean;
     router: ReturnType<typeof useRouter>;
     highRiskAccounts: RiskAccountRow[];
     onEmailClick: (acc: RiskAccountRow) => void;
+    onRetryPayment: (acc: RiskAccountRow) => void;
+    retryingPaymentId: string | null;
 }) {
     const retentionImpactMinor = highRiskAccounts.reduce(
         (total, acc) => total + Math.max(0, acc.mrrMinor ?? 0),
@@ -1231,7 +1290,6 @@ function ForecastChurnContent({
                         Revenue still at risk from failed or unresolved retention actions.
                     </div>
                 </div>
-
                 <RiskTable
                     title="Failed progress breakdown to retry immediately"
                     buttonText="View progress"
@@ -1241,6 +1299,8 @@ function ForecastChurnContent({
                     router={router}
                     mode="retry"
                     onEmailClick={onEmailClick}
+                    onRetryPayment={onRetryPayment}
+                    retryingPaymentId={retryingPaymentId}
                 />
             </div>
         </div>
@@ -1318,6 +1378,8 @@ function RiskTable({
     router,
     mode,
     onEmailClick,
+    onRetryPayment,
+    retryingPaymentId,
 }: {
     title: string;
     buttonText: string;
@@ -1327,6 +1389,8 @@ function RiskTable({
     router: ReturnType<typeof useRouter>;
     mode: "risk" | "retry";
     onEmailClick: (acc: RiskAccountRow) => void;
+    onRetryPayment: (acc: RiskAccountRow) => void;
+    retryingPaymentId: string | null;
 }) {
     const uniqueRows = Array.from(new Map(rows.map((row) => [row.id, row])).values());
 
@@ -1470,26 +1534,51 @@ function RiskTable({
                                     {acc.automation || suggestedAction(acc.reason, acc.automation)}
                                 </span>
 
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onEmailClick(acc);
-                                    }}
-                                    style={{
-                                        width: "fit-content",
-                                        border: "1px solid #e5e7eb",
-                                        background: "#ffffff",
-                                        color: "#111827",
-                                        borderRadius: 999,
-                                        padding: "5px 9px",
-                                        fontSize: 10.8,
-                                        fontWeight: 550,
-                                        cursor: "pointer",
-                                    }}
-                                >
-                                    Send email
-                                </button>
+                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onEmailClick(acc);
+                                        }}
+                                        style={{
+                                            width: "fit-content",
+                                            border: "1px solid #e5e7eb",
+                                            background: "#ffffff",
+                                            color: "#111827",
+                                            borderRadius: 999,
+                                            padding: "5px 9px",
+                                            fontSize: 10.8,
+                                            fontWeight: 550,
+                                            cursor: "pointer",
+                                        }}
+                                    >
+                                        Send email
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onRetryPayment(acc);
+                                        }}
+                                        disabled={retryingPaymentId === acc.id}
+                                        style={{
+                                            width: "fit-content",
+                                            border: "1px solid #111827",
+                                            background: "#111827",
+                                            color: "#ffffff",
+                                            borderRadius: 999,
+                                            padding: "5px 9px",
+                                            fontSize: 10.8,
+                                            fontWeight: 550,
+                                            cursor: retryingPaymentId === acc.id ? "not-allowed" : "pointer",
+                                            opacity: retryingPaymentId === acc.id ? 0.7 : 1,
+                                        }}
+                                    >
+                                        {retryingPaymentId === acc.id ? "Opening..." : "Retry payment"}
+                                    </button>
+                                </div>
                             </div>
 
                             <div

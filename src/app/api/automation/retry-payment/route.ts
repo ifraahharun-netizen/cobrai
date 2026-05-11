@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { AuthError, getWorkspaceFromRequest } from "@/lib/auth/getWorkspaceFromRequest";
+import { getStripeClient } from "@/lib/stripe";
+import {
+    AuthError,
+    getWorkspaceFromRequest,
+} from "@/lib/auth/getWorkspaceFromRequest";
 
 export const runtime = "nodejs";
 
@@ -13,6 +17,14 @@ function jsonError(message: string, status = 400, code?: string) {
 
 function normalizeText(value: unknown) {
     return typeof value === "string" ? value.trim() : "";
+}
+
+function getAppUrl() {
+    return (
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        "http://localhost:3000"
+    ).replace(/\/$/, "");
 }
 
 export async function POST(req: Request) {
@@ -40,6 +52,7 @@ export async function POST(req: Request) {
         }
 
         const raw = await req.json().catch(() => null);
+
         if (!raw || typeof raw !== "object") {
             return jsonError("Invalid request body", 400);
         }
@@ -93,6 +106,7 @@ export async function POST(req: Request) {
                 email: true,
                 mrr: true,
                 status: true,
+                stripeCustomerId: true,
             },
         });
 
@@ -100,21 +114,50 @@ export async function POST(req: Request) {
             return jsonError("Customer not found", 404);
         }
 
+        if (!customer.stripeCustomerId) {
+            return jsonError(
+                "This customer is not linked to Stripe.",
+                400,
+                "MISSING_STRIPE_CUSTOMER"
+            );
+        }
+
+        const stripe = getStripeClient();
+        const appUrl = getAppUrl();
+
+        const portalSession = await stripe.billingPortal.sessions.create({
+            customer: customer.stripeCustomerId,
+            return_url: `${appUrl}/dashboard/accounts-at-risk`,
+            flow_data: {
+                type: "payment_method_update",
+                after_completion: {
+                    type: "redirect",
+                    redirect: {
+                        return_url: `${appUrl}/dashboard/accounts-at-risk`,
+                    },
+                },
+            },
+        });
+
         await prisma.actionExecution.create({
             data: {
                 workspaceId,
                 customerId: customer.id,
                 accountRiskId: accountId || null,
                 actionType: "retry_payment",
-                channel: "manual",
-                title: companyName ? `${companyName} payment retry` : "Payment retry",
+                channel: "stripe",
+                title: companyName
+                    ? `${companyName} payment retry`
+                    : `${customer.name || "Customer"} payment retry`,
                 subject: "Retry payment",
-                body: "Manual retry payment action requested.",
+                body: "Stripe payment update link created.",
                 status: "pending",
                 metadata: {
                     customerEmail: customer.email,
                     customerStatus: customer.status,
                     mrr: customer.mrr,
+                    stripeCustomerId: customer.stripeCustomerId,
+                    portalSessionId: portalSession.id,
                     source: "dashboard",
                 } as any,
             },
@@ -122,7 +165,8 @@ export async function POST(req: Request) {
 
         return NextResponse.json({
             ok: true,
-            message: "Retry payment action created.",
+            message: "Stripe retry payment link created.",
+            url: portalSession.url,
         });
     } catch (e: any) {
         if (e instanceof AuthError) {

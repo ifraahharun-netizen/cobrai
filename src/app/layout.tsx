@@ -19,8 +19,8 @@ export const metadata: Metadata = {
     title: "Cobrai",
     description: "AI-powered retention intelligence for subscription businesses.",
     icons: {
-        icon: "/icon.svg",
-        shortcut: "/icon.svg",
+        icon: "/icon.png",
+        shortcut: "/icon.png",
         apple: "/apple-touch-icon.png",
     },
     openGraph: {

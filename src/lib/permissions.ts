@@ -35,7 +35,7 @@ const STARTER_FEATURES: FeatureKey[] = [
 
 const PRO_FEATURES: FeatureKey[] = [
     ...STARTER_FEATURES,
-    "ai-insights",
+   
     "full-risk-list",
     "forecasting",
     "revenue-drivers",

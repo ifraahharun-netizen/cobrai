@@ -337,6 +337,13 @@ async function handleInvoiceEvent(
                 isDemo: false,
             },
         });
+    } else {
+        await prisma.accountRisk.deleteMany({
+            where: {
+                customerId,
+                reasonKey: "billing_risk",
+            },
+        });
     }
 }
 
