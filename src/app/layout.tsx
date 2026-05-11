@@ -20,12 +20,7 @@ export const metadata: Metadata = {
     description: "AI-powered retention intelligence for subscription businesses.",
 
     icons: {
-        icon: [
-            {
-                url: "/icon.svg",
-                type: "image/svg+xml",
-            },
-        ],
+        icon: "/icon.svg",
         shortcut: "/icon.svg",
         apple: "/apple-touch-icon.png",
     },
