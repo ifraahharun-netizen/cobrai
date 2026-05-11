@@ -26,16 +26,8 @@ export const metadata: Metadata = {
     openGraph: {
         title: "Cobrai",
         description: "AI-powered retention intelligence for subscription businesses.",
-        url: "https://cobria.uk",
+        url: "https://cobrai.uk",
         siteName: "Cobrai",
-        images: [
-            {
-                url: "/og-image.png",
-                width: 1200,
-                height: 630,
-                alt: "Cobrai",
-            },
-        ],
         type: "website",
     },
 };
