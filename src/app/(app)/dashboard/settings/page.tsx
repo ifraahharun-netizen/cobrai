@@ -1724,11 +1724,12 @@ function SettingsPageContent() {
 
                                                     <ul className={styles.pricingFeatures}>
                                                         <li>Everything in Starter</li>
+                                                        <li>Unlimited automation </li>
                                                         <li>Unlimited AI insights</li>
                                                         <li>Retention progress tracking</li>
                                                         <li>Advanced AI forecasts</li>
                                                         <li>Critical accounts prioritisation</li>
-                                                        <li>Unlimited automations</li>
+                                                       
                                                     </ul>
 
                                                     <button

@@ -4,12 +4,12 @@ export default function PricingPage() {
     return (
         <section className="landingSection">
             <div className="sectionShell">
-                <h1 className="sectionTitle">Start free 
-                     <br />
-                     Scale retention as you grow</h1>
+                <h1 className="sectionTitle">Start free
+                    <br />
+                    Scale retention as you grow</h1>
 
                 <p className="sectionText">
-               Built for subscription businesses that want clearler customer visibility and smarter retention decisions.
+                    Built for subscription businesses that want clearler customer visibility and smarter retention decisions.
                 </p>
 
                 <div
@@ -184,7 +184,7 @@ export default function PricingPage() {
                                 marginBottom: "12px",
                             }}
                         >
-                            Advanced AI retention intelligence 
+                            Advanced AI retention intelligence
                         </h3>
 
                         <div
@@ -253,6 +253,7 @@ export default function PricingPage() {
                             }}
                         >
                             <li>• Everything in Starter</li>
+                            <li>• Unlimited automation </li>
                             <li>• Unlimited AI insights</li>
                             <li>• Retention progress tracking</li>
                             <li>• Advanced AI forecasts</li>
