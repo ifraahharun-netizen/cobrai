@@ -24,7 +24,7 @@ export const metadata: Metadata = {
             { url: "/icon.svg", type: "image/svg+xml" },
             { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
         ],
-        shortcut: "/icon.svg",
+        shortcut: "/apple-touch-icon.png",
         apple: "/apple-touch-icon.png",
     },
 
@@ -58,6 +58,10 @@ export default function RootLayout({
             className={`${headingFont.variable} ${bodyFont.variable}`}
         >
             <head>
+                <link rel="icon" href="/apple-touch-icon.png" type="image/png" />
+                <link rel="shortcut icon" href="/apple-touch-icon.png" />
+                <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
                 <link
                     rel="stylesheet"
                     href="https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css"
