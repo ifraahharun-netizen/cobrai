@@ -459,6 +459,9 @@ model AccountRiskSnapshot {
 
   predictedRisk7d    Float?
   predictedRisk14d   Float?
+  predictedRisk30d   Float?
+
+  escalationDetected Boolean?
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
