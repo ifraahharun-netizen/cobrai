@@ -7,7 +7,7 @@ import { getFirebaseAuth } from "@/lib/firebase.client";
 import styles from "./actionImpact.module.css";
 
 type OutcomeFilter = "all" | "success" | "pending" | "failed";
-type ProgressKind = "email" | "notification" | "retry_payment";
+type ProgressKind = "email" | "retry_payment";
 type ConfidenceLevel = "High" | "Medium" | "Low";
 
 type ActionFirstRecommendation = {
@@ -177,7 +177,6 @@ function outcomeLabel(outcome: ProgressRow["outcome"] | OutcomeFilter) {
 
 function kindLabel(kind?: ProgressKind) {
     if (kind === "retry_payment") return "Retry payment";
-    if (kind === "notification") return "Notification";
     return "Email";
 }
 
@@ -348,15 +347,33 @@ export default function ProgressPage() {
     const kpis = data?.kpis;
 
     const progressRows = useMemo(() => {
-        const rows = Array.isArray(data?.progressBreakdown) ? data.progressBreakdown : [];
+        const rows = Array.isArray(data?.progressBreakdown)
+            ? data.progressBreakdown
+            : [];
 
-        if (outcomeFilter === "all") return rows;
+        if (outcomeFilter === "all") {
+            return rows;
+        }
 
-        return rows.filter((row) => row.outcome === outcomeFilter);
+        return rows.filter(
+            (row) => row.outcome === outcomeFilter
+        );
     }, [data?.progressBreakdown, outcomeFilter]);
 
-    const visibleRows = progressRows.slice((page - 1) * rowsPerPage, page * rowsPerPage);
-    const totalPages = Math.max(1, Math.ceil(progressRows.length / rowsPerPage));
+    const totalPages = Math.max(
+        1,
+        Math.ceil(progressRows.length / rowsPerPage)
+    );
+
+    const safePage = Math.min(page, totalPages);
+
+    const visibleRows =
+        progressRows.length > 0
+            ? progressRows.slice(
+                (safePage - 1) * rowsPerPage,
+                safePage * rowsPerPage
+            )
+            : [];
 
     const priorityAccounts = useMemo<PriorityAccount[]>(() => {
         const seen = new Set<string>();
@@ -506,198 +523,164 @@ export default function ProgressPage() {
         <main className={styles.page}>
             <div className={styles.container}>
                 <div className={styles.topHeaderRow}>
+
                     <section className={styles.hero}>
                         <h1>Retention activity</h1>
-                        <p>Revenue saved, completed workflows, and the next accounts that need attention.</p>
+
+                        <p>
+                            Revenue saved, completed workflows,
+                            and the next accounts that need attention.
+                        </p>
                     </section>
 
-                    <section className={styles.demoProgressBox}>
-                        <div>
-                            <span>{data?.mode === "live" ? "Live progress" : "Demo progress"}</span>
-                            <strong>This month’s activity</strong>
-                            <p>Last updated: {formatUpdatedAt(lastUpdatedAt)}</p>
-                        </div>
-
-                        <button
-                            type="button"
-                            className={styles.downloadBtn}
-                            onClick={() => downloadCsv("progress-breakdown.csv", progressRows)}
-                        >
-                            Download CSV
-                        </button>
-                    </section>
                 </div>
 
                 <section className={styles.kpiGrid}>
+
                     <article className={styles.kpiCard}>
-                        <div className={`${styles.kpiIcon} ${styles.greenIcon}`}>£</div>
+                        <div className={`${styles.kpiIcon} ${styles.greenIcon}`}>
+                            £
+                        </div>
+
                         <div>
                             <span>MRR protected</span>
-                            <strong>{formatMoney(kpis?.mrrProtectedMinor)}</strong>
-                            <small className={mrrTrend.isPositive ? styles.trendUp : styles.trendDown}>
+
+                            <strong>
+                                {formatMoney(kpis?.mrrProtectedMinor)}
+                            </strong>
+
+                            <small
+                                className={
+                                    mrrTrend.isPositive
+                                        ? styles.trendUp
+                                        : styles.trendDown
+                                }
+                            >
                                 {mrrTrend.text}
                             </small>
                         </div>
                     </article>
 
                     <article className={styles.kpiCard}>
-                        <div className={`${styles.kpiIcon} ${styles.blueIcon}`}>♙</div>
+                        <div className={`${styles.kpiIcon} ${styles.blueIcon}`}>
+                            ♙
+                        </div>
+
                         <div>
                             <span>Accounts saved</span>
-                            <strong>{Number(kpis?.accountsSaved || 0)}</strong>
-                            <small className={accountsTrend.isPositive ? styles.trendUp : styles.trendDown}>
+
+                            <strong>
+                                {Number(kpis?.accountsSaved || 0)}
+                            </strong>
+
+                            <small
+                                className={
+                                    accountsTrend.isPositive
+                                        ? styles.trendUp
+                                        : styles.trendDown
+                                }
+                            >
                                 {accountsTrend.text}
                             </small>
                         </div>
                     </article>
 
                     <article className={styles.kpiCard}>
-                        <div className={`${styles.kpiIcon} ${styles.purpleIcon}`}>↯</div>
+                        <div className={`${styles.kpiIcon} ${styles.purpleIcon}`}>
+                            ↯
+                        </div>
+
                         <div>
                             <span>Actions executed</span>
-                            <strong>{Number(kpis?.actionsExecuted || 0)}</strong>
-                            <small className={actionsTrend.isPositive ? styles.trendUp : styles.trendDown}>
+
+                            <strong>
+                                {Number(kpis?.actionsExecuted || 0)}
+                            </strong>
+
+                            <small
+                                className={
+                                    actionsTrend.isPositive
+                                        ? styles.trendUp
+                                        : styles.trendDown
+                                }
+                            >
                                 {actionsTrend.text}
                             </small>
                         </div>
                     </article>
 
                     <article className={styles.kpiCard}>
-                        <div className={`${styles.kpiIcon} ${styles.orangeIcon}`}>↗</div>
+                        <div className={`${styles.kpiIcon} ${styles.orangeIcon}`}>
+                            ↗
+                        </div>
+
                         <div>
                             <span>Success rate</span>
-                            <strong>{Number(kpis?.successRate || 0)}%</strong>
-                            <small className={successTrend.isPositive ? styles.trendUp : styles.trendDown}>
+
+                            <strong>
+                                {Number(kpis?.successRate || 0)}%
+                            </strong>
+
+                            <small
+                                className={
+                                    successTrend.isPositive
+                                        ? styles.trendUp
+                                        : styles.trendDown
+                                }
+                            >
                                 {successTrend.text}
                             </small>
                         </div>
                     </article>
+
                 </section>
 
-                <section className={styles.singleInsightCard}>
-                    <div className={styles.insightTop}>
-                        <span className={styles.insightLabel}>✧ AI Insight</span>
-
-                        <span className={`${styles.confidencePill} ${confidenceClass(aiConfidence)}`}>
-                            <i />
-                            {aiConfidence} confidence
-                        </span>
-                    </div>
-
-                    <h2 className={styles.insightHeadline}>{aiHeadline}</h2>
-
-                    <p className={styles.insightSummary}>{aiSummary}</p>
-
-                    <div className={styles.primaryAction}>
-                        <strong>{aiPrimaryAction}</strong>
-                        <p>{aiPrimaryDescription}</p>
-                    </div>
-                </section>
 
                 <section className={styles.contentGrid}>
-                    <article className={styles.panel}>
-                        <div className={styles.panelHeader}>
-                            <div>
-                                <h2>Next priority accounts</h2>
-                                <p>AI-prioritised accounts that need attention first.</p>
-                            </div>
 
-                            <button
-                                type="button"
-                                className={styles.downloadBtn}
-                                onClick={() => user && void loadWorkspaceAi(user)}
-                                disabled={aiLoading}
-                            >
-                                {aiLoading ? "Refreshing..." : "Refresh"}
-                            </button>
-                        </div>
-
-                        <div className={styles.priorityList}>
-                            {priorityAccounts.length ? (
-                                priorityAccounts.map((item, index) => (
-                                    <button
-                                        type="button"
-                                        key={`${item.id}-${index}`}
-                                        className={styles.priorityItem}
-                                        onClick={() => goToAccount(item.id)}
-                                    >
-                                        <span className={styles.avatar}>
-                                            {item.account?.charAt(0) || "A"}
-                                        </span>
-
-                                        <span className={styles.priorityCopy}>
-                                            <span className={styles.priorityTop}>
-                                                <strong>{item.account}</strong>
-                                                <b>{item.riskScore}% risk</b>
-                                            </span>
-
-                                            <small className={styles.aiReason}>
-                                                {cleanText(item.aiReason)}
-                                            </small>
-
-                                            <small className={styles.aiAction}>
-                                                <strong>AI action:</strong>{" "}
-                                                {cleanText(
-                                                    item.aiAction ||
-                                                    "Send a personalised retention check-in with a usage recap."
-                                                )}
-                                            </small>
-
-                                            <small className={styles.mrrHint}>
-                                                <span>Revenue at risk</span>
-                                                <b>{formatMoney(item.mrrMinor)}</b>
-                                            </small>
-                                        </span>
-                                    </button>
-                                ))
-                            ) : (
-                                <div className={styles.emptyState}>
-                                    <strong>No priority accounts yet</strong>
-                                    <p>Cobrai will show AI-led actions once enough risk signals exist.</p>
-                                </div>
-                            )}
-                        </div>
-
-                        <button
-                            type="button"
-                            className={styles.viewAllBtn}
-                            onClick={() => router.push("/dashboard/accounts-at-risk?filter=critical")}
-                        >
-                            View all accounts <span>›</span>
-                        </button>
-
-                        {aiRefreshedAt ? (
-                            <p style={{ marginTop: 10, fontSize: 12, color: "#777" }}>
-                                Last refreshed {formatUpdatedAt(aiRefreshedAt)}
-                            </p>
-                        ) : null}
-                    </article>
+                    {/* =========================================================
+        PROGRESS BREAKDOWN
+    ========================================================= */}
 
                     <article className={styles.panel}>
+
                         <div className={styles.panelHeader}>
+
                             <div>
                                 <h2>Progress breakdown</h2>
-                                <p>Every retention action tracked across your accounts.</p>
+
+                                <p>
+                                    Every retention action tracked across your accounts.
+                                </p>
                             </div>
 
                             <div className={styles.pagination}>
-                                {(["all", "success", "pending", "failed"] as OutcomeFilter[]).map((filter) => (
+                                {(
+                                    ["all", "success", "pending", "failed"] as OutcomeFilter[]
+                                ).map((filter) => (
                                     <button
                                         key={filter}
                                         type="button"
-                                        className={outcomeFilter === filter ? styles.currentPage : ""}
+                                        className={
+                                            outcomeFilter === filter
+                                                ? styles.currentPage
+                                                : ""
+                                        }
                                         onClick={() => setOutcomeFilter(filter)}
                                     >
                                         {outcomeLabel(filter)}
                                     </button>
                                 ))}
                             </div>
+
                         </div>
 
-                        {visibleRows.length ? (
+                        {progressRows.length > 0 ? (
                             <>
                                 <div className={styles.progressTableWrap}>
+
                                     <table className={styles.progressTable}>
+
                                         <thead>
                                             <tr>
                                                 <th>Account</th>
@@ -705,7 +688,6 @@ export default function ProgressPage() {
                                                 <th>Action</th>
                                                 <th>Outcome</th>
                                                 <th>MRR</th>
-                                                <th>Risk</th>
                                                 <th>Date</th>
                                             </tr>
                                         </thead>
@@ -714,63 +696,113 @@ export default function ProgressPage() {
                                             {visibleRows.map((row, index) => (
                                                 <tr
                                                     key={`${row.id}-${index}`}
-                                                    onClick={() => goToAccount(row.customerId || row.accountId)}
+                                                    onClick={() =>
+                                                        goToAccount(
+                                                            row.customerId || row.accountId
+                                                        )
+                                                    }
                                                 >
+
                                                     <td>
                                                         <strong>{row.account}</strong>
-                                                        <span>{row.email || fallbackEmail(row.account)}</span>
+
+                                                        <span>
+                                                            {row.email ||
+                                                                fallbackEmail(row.account)}
+                                                        </span>
                                                     </td>
 
-                                                    <td>{cleanText(row.aiReason)}</td>
-                                                    <td>{cleanText(row.action || kindLabel(row.kind))}</td>
+                                                    <td>
+                                                        {cleanText(row.aiReason)}
+                                                    </td>
+
+                                                    <td>
+                                                        <div className={styles.actionCell}>
+                                                            <strong>
+                                                                {cleanText(
+                                                                    row.action ||
+                                                                    kindLabel(row.kind)
+                                                                )}
+                                                            </strong>
+                                                        </div>
+                                                    </td>
 
                                                     <td>
                                                         <span
-                                                            className={`${styles.outcomePill} ${row.outcome === "success"
-                                                                ? styles.outcomeSuccess
-                                                                : row.outcome === "failed"
-                                                                    ? styles.outcomeFailed
-                                                                    : styles.outcomePending
-                                                                }`}
+                                                            className={`
+                                                ${styles.outcomePill}
+                                                ${row.outcome === "success"
+                                                                    ? styles.outcomeSuccess
+                                                                    : row.outcome === "failed"
+                                                                        ? styles.outcomeFailed
+                                                                        : styles.outcomePending
+                                                                }
+                                            `}
                                                         >
                                                             {outcomeLabel(row.outcome)}
                                                         </span>
                                                     </td>
 
-                                                    <td>{formatMoney(row.mrrSavedMinor)}</td>
-                                                    <td>{row.riskScore}%</td>
-                                                    <td>{formatDate(row.date)}</td>
+                                                    <td>
+                                                        {formatMoney(
+                                                            row.mrrSavedMinor
+                                                        )}
+                                                    </td>
+
+                                                    <td>
+                                                        {formatDate(row.date)}
+                                                    </td>
+
                                                 </tr>
                                             ))}
                                         </tbody>
+
                                     </table>
+
                                 </div>
 
                                 <div className={styles.tableFooter}>
+
                                     <span>
                                         Showing {(page - 1) * rowsPerPage + 1} to{" "}
-                                        {Math.min(page * rowsPerPage, progressRows.length)} of{" "}
-                                        {progressRows.length} results
+                                        {Math.min(
+                                            page * rowsPerPage,
+                                            progressRows.length
+                                        )}{" "}
+                                        of {progressRows.length} results
                                     </span>
 
                                     <div className={styles.pagination}>
+
                                         <button
                                             type="button"
                                             disabled={page === 1}
-                                            onClick={() => setPage((current) => Math.max(1, current - 1))}
+                                            onClick={() =>
+                                                setPage((current) =>
+                                                    Math.max(1, current - 1)
+                                                )
+                                            }
                                         >
                                             ‹
                                         </button>
 
-                                        {Array.from({ length: totalPages }).map((_, index) => {
+                                        {Array.from({
+                                            length: totalPages,
+                                        }).map((_, index) => {
                                             const pageNumber = index + 1;
 
                                             return (
                                                 <button
                                                     key={pageNumber}
                                                     type="button"
-                                                    onClick={() => setPage(pageNumber)}
-                                                    className={page === pageNumber ? styles.currentPage : ""}
+                                                    onClick={() =>
+                                                        setPage(pageNumber)
+                                                    }
+                                                    className={
+                                                        page === pageNumber
+                                                            ? styles.currentPage
+                                                            : ""
+                                                    }
                                                 >
                                                     {pageNumber}
                                                 </button>
@@ -781,21 +813,207 @@ export default function ProgressPage() {
                                             type="button"
                                             disabled={page === totalPages}
                                             onClick={() =>
-                                                setPage((current) => Math.min(totalPages, current + 1))
+                                                setPage((current) =>
+                                                    Math.min(
+                                                        totalPages,
+                                                        current + 1
+                                                    )
+                                                )
                                             }
                                         >
                                             ›
                                         </button>
+
                                     </div>
+
                                 </div>
                             </>
                         ) : (
                             <div className={styles.emptyState}>
                                 <strong>No progress rows yet</strong>
-                                <p>Your API loaded, but no progress breakdown rows were returned.</p>
+
+                                <p>
+                                    Your API loaded, but no progress breakdown
+                                    rows were returned.
+                                </p>
                             </div>
                         )}
+
                     </article>
+
+                    {/* =========================================================
+        BOTTOM CARDS
+    ========================================================= */}
+
+                    <div className={styles.bottomCardsGrid}>
+
+                        {/* =========================================================
+            AI INSIGHT CARD
+        ========================================================= */}
+
+                        <section className={styles.singleInsightCard}>
+
+                            <div className={styles.insightTop}>
+
+                                <span className={styles.insightLabel}>
+                                    ✧ AI Retention Intelligence
+                                </span>
+
+                                <span
+                                    className={`
+                        ${styles.confidencePill}
+                        ${confidenceClass(aiConfidence)}
+                    `}
+                                >
+                                    <i />
+                                    {aiConfidence} confidence
+                                </span>
+
+                            </div>
+
+                            <h2 className={styles.insightHeadline}>
+                                {aiHeadline}
+                            </h2>
+
+                            <p className={styles.insightSummary}>
+                                {aiSummary}
+                            </p>
+
+                            <div className={styles.primaryAction}>
+
+                                <strong>AI recommendation</strong>
+
+                                <p>
+                                    {aiPrimaryAction}
+                                </p>
+
+                            </div>
+
+                        </section>
+
+                        {/* =========================================================
+            NEXT PRIORITY ACCOUNTS
+        ========================================================= */}
+
+                        <article className={styles.panel}>
+
+                            <div className={styles.panelHeader}>
+
+                                <div>
+                                    <h2>Next priority accounts</h2>
+
+                                    <p>
+                                        AI-prioritised accounts that need attention first.
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    className={styles.downloadBtn}
+                                    onClick={() => user && void loadWorkspaceAi(user)}
+                                    disabled={aiLoading}
+                                >
+                                    {aiLoading ? "Refreshing..." : "Refresh"}
+                                </button>
+
+                            </div>
+
+                            <div className={styles.priorityList}>
+
+                                {priorityAccounts.length ? (
+                                    priorityAccounts.map((item, index) => (
+
+                                        <button
+                                            type="button"
+                                            key={`${item.id}-${index}`}
+                                            className={styles.priorityItem}
+                                            onClick={() => goToAccount(item.id)}
+                                        >
+
+                                            <span className={styles.avatar}>
+                                                {item.account?.charAt(0) || "A"}
+                                            </span>
+
+                                            <span className={styles.priorityCopy}>
+
+                                                <span className={styles.priorityTop}>
+
+                                                    <strong>
+                                                        {item.account}
+                                                    </strong>
+
+                                                    <b>
+                                                        {item.riskScore}% risk
+                                                    </b>
+
+                                                </span>
+
+                                                <small className={styles.aiReason}>
+                                                    {cleanText(item.aiReason)}
+                                                </small>
+
+                                                <small className={styles.aiAction}>
+
+                                                    <strong>
+                                                        AI action:
+                                                    </strong>{" "}
+
+                                                    {cleanText(
+                                                        item.aiAction ||
+                                                        "Send a personalised retention check-in with a usage recap."
+                                                    )}
+
+                                                </small>
+
+                                                <small className={styles.mrrHint}>
+
+                                                    <span>
+                                                        Revenue at risk
+                                                    </span>
+
+                                                    <b>
+                                                        {formatMoney(item.mrrMinor)}
+                                                    </b>
+
+                                                </small>
+
+                                            </span>
+
+                                        </button>
+                                    ))
+                                ) : (
+                                    <div className={styles.emptyState}>
+
+                                        <strong>
+                                            No priority accounts yet
+                                        </strong>
+
+                                        <p>
+                                            Cobrai will show AI-led actions
+                                            once enough risk signals exist.
+                                        </p>
+
+                                    </div>
+                                )}
+
+                            </div>
+
+                            <button
+                                type="button"
+                                className={styles.viewAllBtn}
+                                onClick={() =>
+                                    router.push(
+                                        "/dashboard/accounts-at-risk?filter=critical"
+                                    )
+                                }
+                            >
+                                View all accounts <span>›</span>
+                            </button>
+
+                        </article>
+
+                    </div>
+
                 </section>
             </div>
         </main>

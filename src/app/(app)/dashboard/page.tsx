@@ -19,6 +19,8 @@ import {
     type LucideIcon,
 } from "lucide-react";
 
+import * as echarts from "echarts";
+
 import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
 import { canAccessFeature } from "@/lib/permissions";
 
@@ -243,11 +245,21 @@ export default function DashboardPage() {
     const [kpiMrrProtectedCurrent, setKpiMrrProtectedCurrent] = useState<number | null>(null);
     const [kpiMrrProtectedPrevious, setKpiMrrProtectedPrevious] = useState<number | null>(null);
 
-    const demoChurnMonths = ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
-    const demoChurnPct = [5.8, 5.1, 4.7, 4.3, 3.9, 3.4];
+    const dynamicMonths = Array.from({ length: 6 }, (_, i) => {
+        const date = new Date();
 
-    const demoMrrMonths = ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
-    const demoMrrVals = [690, 520, 420, 330, 200, 95];
+        date.setMonth(date.getMonth() - (5 - i));
+
+        return date.toLocaleString("en-GB", {
+            month: "short",
+        });
+    });
+
+    const demoChurnMonths = dynamicMonths;
+    const demoChurnPct = [5.8, 6.1, 5.2, 4.7, 5.0, 4.1];
+
+    const demoMrrMonths = dynamicMonths;
+    const demoMrrVals = [320, 540, 460, 710, 590, 860];
 
     const demoRiskAccounts: RiskAccount[] = [
         {
@@ -355,17 +367,34 @@ export default function DashboardPage() {
         mrrProtectedPrevious: 1200,
     };
 
-    const isDemoMode = apiDemoMode === true;
-    const isLiveOnlyMode = apiDemoMode === false;
+    const isDemoMode =
+        apiDemoMode === true || apiDemoMode === null;
+
+    const effectivePlan = isDemoMode
+        ? "pro"
+        : billing.plan;
+
+    const isLiveOnlyMode =
+        apiDemoMode === false;
 
     const trialDaysLeft = getTrialDaysLeft(billing.trialEndsAt);
     const showTrialPill =
-        billing.plan === "free" && typeof trialDaysLeft === "number" && trialDaysLeft > 0;
+        effectivePlan === "free" && typeof trialDaysLeft === "number" && trialDaysLeft > 0;
+
+    const isTrialActive =
+        effectivePlan === "free" &&
+        typeof trialDaysLeft === "number" &&
+        trialDaysLeft > 0;
 
     const hasUnlimitedLiveInsights =
-        isPro || (billing.plan === "free" && typeof trialDaysLeft === "number" && trialDaysLeft > 0);
+        isDemoMode
+            ? true
+            : isTrialActive || isPro;
 
-    const liveInsightLimit = hasUnlimitedLiveInsights ? 999 : 4;
+    const liveInsightLimit =
+        effectivePlan === "starter" && !hasUnlimitedLiveInsights
+            ? 4
+            : 999;
 
     const formatGBP = (value: number) => `£${Math.round(value).toLocaleString()}`;
 
@@ -552,9 +581,21 @@ export default function DashboardPage() {
         },
     ];
 
-    const topRiskAccounts = [...activeRiskAccounts]
-        .sort((a, b) => b.risk - a.risk)
-        .slice(0, 3);
+    const filteredRiskAccounts = useMemo(() => {
+        // DEMO MODE → showcase demo accounts
+        if (isDemoMode) {
+            return demoRiskAccounts
+                .filter((account) => account.risk >= 60)
+                .sort((a, b) => b.risk - a.risk);
+        }
+
+        // LIVE MODE → only genuinely risky live accounts
+        return activeRiskAccounts
+            .filter((account) => Number(account.risk ?? 0) >= 60)
+            .sort((a, b) => b.risk - a.risk);
+    }, [activeRiskAccounts, isDemoMode]);
+
+    const topRiskAccounts = filteredRiskAccounts.slice(0, 5);
 
     const getSuggestedAction = (account: RiskAccount) => {
         const reason = account.reason.toLowerCase();
@@ -592,6 +633,63 @@ export default function DashboardPage() {
     };
 
     const aiInsightFeed = useMemo<InsightFeedItem[]>(() => {
+        if (isDemoMode) {
+            const demoVariations = [
+                {
+                    customer: "CedarWorks",
+                    title: "Recover declining product usage",
+                    summary: "CedarWorks has been inactive for 54 days. Send a reactivation sequence.",
+                    amount: "£21,900",
+                },
+                {
+                    customer: "Northwind",
+                    title: "Resolve billing friction",
+                    summary: "Northwind had 2 failed invoices this week. Trigger payment recovery.",
+                    amount: "£14,200",
+                },
+                {
+                    customer: "Acme Ltd",
+                    title: "Prevent onboarding churn",
+                    summary: "New users are dropping during setup. Launch onboarding guidance.",
+                    amount: "£8,900",
+                },
+                {
+                    customer: "Beta Systems",
+                    title: "Reduce support dissatisfaction",
+                    summary: "Support sentiment dropped sharply after unresolved tickets.",
+                    amount: "£11,300",
+                },
+                {
+                    customer: "BrightOps",
+                    title: "Expand high-engagement account",
+                    summary: "Usage increased 42% this month. Recommend annual upgrade outreach.",
+                    amount: "£6,500",
+                },
+                {
+                    customer: "KiteCRM",
+                    title: "Protect expansion revenue",
+                    summary: "Team activity declined after seat expansion. Schedule account review.",
+                    amount: "£18,700",
+                },
+            ];
+
+            const shuffled = [...demoVariations]
+                .sort(() => Math.random() - 0.5)
+                .slice(0, 4);
+
+            return shuffled.map((item, index) => ({
+                id: `demo-ai-${index}-${Date.now()}`,
+                type: "risk",
+                title: item.title,
+                summary: item.summary,
+                meta: `${item.customer} • high priority`,
+                amountLabel: item.amount,
+                amountTone: "risk",
+                href: "/dashboard/accounts-at-risk",
+                sortTime: Date.now() - index,
+            }));
+        }
+
         const actions = workspaceAi?.actions ?? [];
 
         if (!actions.length) return [];
@@ -612,7 +710,11 @@ export default function DashboardPage() {
                 href: `/dashboard/accounts-at-risk/${action.customerId}`,
                 sortTime: Date.now() - index,
             }));
-    }, [workspaceAi?.actions, liveInsightLimit]);
+    }, [
+        workspaceAi,
+        isDemoMode,
+        liveInsightLimit,
+    ]);
 
     const insightFeed = useMemo<InsightFeedItem[]>(() => {
         if (aiInsightFeed.length) return aiInsightFeed;
@@ -684,7 +786,7 @@ export default function DashboardPage() {
     async function loadWorkspaceAi(user: User) {
         try {
             const token = await user.getIdToken();
-
+            setInsightsRefreshedAt(new Date().toISOString());
             const res = await fetch("/api/dashboard/ai/insights", {
                 method: "POST",
                 cache: "no-store",
@@ -696,7 +798,7 @@ export default function DashboardPage() {
             });
 
             if (!res.ok) {
-                setWorkspaceAi(null);
+                console.error("AI insights request failed")
                 return;
             }
 
@@ -705,7 +807,7 @@ export default function DashboardPage() {
             setInsightsRefreshedAt(new Date().toISOString());
         } catch (err) {
             console.error("AI LOAD ERROR:", err);
-            setWorkspaceAi(null);
+            console.error("AI LOAD ERROR:", err);
         }
     }
 
@@ -960,6 +1062,7 @@ export default function DashboardPage() {
         !hasLiveProgress &&
         !hasLiveKpis;
 
+
     return (
 
         <div className={styles.page}>
@@ -1152,10 +1255,13 @@ export default function DashboardPage() {
                 </div>
 
                 <div className={styles.bottomGrid}>
+
+                    {/* ACCOUNTS AT RISK */}
                     <div className={styles.card}>
                         <div className={styles.cardTop}>
                             <div>
                                 <h4>Accounts at Risk</h4>
+
                                 <p>
                                     {topRiskAccounts.length === 0
                                         ? "No urgent churn risk right now"
@@ -1171,6 +1277,7 @@ export default function DashboardPage() {
                                         setUpgradeOpen(true);
                                         return;
                                     }
+
                                     router.push("/dashboard/accounts-at-risk?filter=critical");
                                 }}
                             >
@@ -1179,141 +1286,169 @@ export default function DashboardPage() {
                         </div>
 
                         <div className={styles.riskList}>
-                            {topRiskAccounts.length > 0 ? (
-                                topRiskAccounts.map((a) => (
+                            {topRiskAccounts.map((account) => {
+                                const riskClass =
+                                    account.risk >= 80
+                                        ? styles.riskCritical
+                                        : styles.riskMedium;
+
+                                return (
                                     <button
-                                        key={a.id}
-                                        type="button"
-                                        onClick={() => router.push(`/dashboard/accounts-at-risk/${a.id}`)}
+                                        key={account.id}
                                         className={styles.riskRow}
                                     >
-                                        <div>
-                                            <strong>{a.company}</strong>
-                                            <span>{a.reason}</span>
-                                            <small>Suggested action: {getSuggestedAction(a)}</small>
+                                        <div className={styles.riskRowLeft}>
+                                            <strong>{account.company}</strong>
+
+                                            <span>{account.reason}</span>
+
+                                            <small>
+                                                Suggested action: {getSuggestedAction(account)}
+                                            </small>
                                         </div>
 
                                         <div className={styles.riskRowRight}>
-                                            <span
-                                                className={`${styles.badge} ${a.risk >= 80
-                                                    ? styles.riskCritical
-                                                    : a.risk >= 65
-                                                        ? styles.riskMedium
-                                                        : styles.riskLow
-                                                    }`}
-                                            >
-                                                {a.risk}
-                                            </span>
-                                            <span className={styles.mrr}>{formatGBP(a.mrr)}</span>
+                                            <div className={`${styles.badge} ${riskClass}`}>
+                                                {account.risk}
+                                            </div>
+
+                                            <div className={styles.mrr}>
+                                                £{account.mrr}
+                                            </div>
                                         </div>
                                     </button>
-                                ))
-                            ) : (
-                                <div className={styles.emptyText}>No at-risk accounts yet.</div>
-                            )}
+                                );
+                            })}
                         </div>
                     </div>
 
-                    <div className={styles.card}>
-                        <div className={styles.cardTop}>
-                            <div className={styles.insightsHeaderLeft}>
-                                <h4 className={styles.insightsTitle}>AI Insights</h4>
+                  
 
-                                <p className={styles.insightsSubheading}>
-                                    Priority actions based on revenue risk, billing, and customer activity.
-                                </p>
+                <div className={styles.card}>
+                    <div className={styles.cardTop}>
+                        <div className={styles.insightsHeaderLeft}>
+                            <h4 className={styles.insightsTitle}>  ✧ AI Insights</h4>
 
-                                <div className={styles.insightsMeta}>
-                                    <Clock3 size={13} strokeWidth={1.8} />
-                                    <span>{formatRefreshTime(insightsRefreshedAt)}</span>
-                                </div>
+                            <p className={styles.insightsSubheading}>
+                                Priority actions based on revenue risk, billing, and customer activity.
+                            </p>
+
+                            <div className={styles.insightsMeta}>
+                                <Clock3 size={13} strokeWidth={1.8} />
+                                <span>{formatRefreshTime(insightsRefreshedAt)}</span>
                             </div>
+                        </div>
 
-                            <button
-                                type="button"
-                                className={styles.softButton}
-                                onClick={() => {
-                                    if (!hasUnlimitedLiveInsights) {
-                                        setUpgradeOpen(true);
-                                        return;
-                                    }
-
+                        <button
+                            type="button"
+                            className={styles.softButton}
+                            onClick={() => {
+                                // DEMO MODE ALWAYS WINS
+                                if (isDemoMode) {
                                     if (currentUser) {
                                         void loadWorkspaceAi(currentUser);
                                     }
-                                }}
-                            >
-                                Refresh
-                            </button>
-                        </div>
+                                    return;
+                                }
 
-                        <div className={styles.insightsList}>
-                            {insightFeed.length > 0 ? (
-                                insightFeed.map((item) => (
-                                    <button
-                                        key={item.id}
-                                        type="button"
-                                        className={styles.insightCard}
-                                        onClick={() => {
-                                            if (item.href) router.push(item.href);
-                                        }}
-                                    >
-                                        <div>
-                                            <strong>{item.title}</strong>
-                                            <span>{item.summary}</span>
-                                            {item.meta ? <small>{item.meta}</small> : null}
-                                        </div>
+                                const isTrialActive =
+                                    effectivePlan === "free" &&
+                                    typeof trialDaysLeft === "number" &&
+                                    trialDaysLeft > 0;
 
-                                        {item.amountLabel ? (
-                                            <b
-                                                className={
-                                                    item.amountTone === "risk"
-                                                        ? styles.amountRisk
-                                                        : item.amountTone === "opportunity"
-                                                            ? styles.amountOpportunity
-                                                            : styles.amountNeutral
-                                                }
-                                            >
-                                                {item.amountLabel}
-                                            </b>
-                                        ) : null}
-                                    </button>
-                                ))
-                            ) : (
-                                <div className={styles.emptyText}>No recent insight activity yet.</div>
-                            )}
-                        </div>
+                                const canRefresh =
+                                    isTrialActive ||
+                                    isPro ||
+                                    effectivePlan === "starter";
+
+                                if (!canRefresh) {
+                                    setUpgradeOpen(true);
+                                    return;
+                                }
+
+                                if (currentUser) {
+                                    void loadWorkspaceAi(currentUser);
+                                }
+                            }}
+                        >
+                            {isDemoMode
+                                ? "Refresh insights"
+                                : hasUnlimitedLiveInsights
+                                    ? "Refresh insights"
+                                    : "Refresh insights"}
+                        </button>
+                    </div>
+
+                    <div className={styles.insightsList}>
+                        {insightFeed.length > 0 ? (
+                            insightFeed.map((item) => (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    className={styles.insightCard}
+                                    onClick={() => {
+                                        if (item.href) router.push(item.href);
+                                    }}
+                                >
+                                    <div>
+                                        <strong>{item.title}</strong>
+                                        <span>{item.summary}</span>
+                                        {item.meta ? <small>{item.meta}</small> : null}
+                                    </div>
+
+                                    {item.amountLabel ? (
+                                        <b
+                                            className={
+                                                item.amountTone === "risk"
+                                                    ? styles.amountRisk
+                                                    : item.amountTone === "opportunity"
+                                                        ? styles.amountOpportunity
+                                                        : styles.amountNeutral
+                                            }
+                                        >
+                                            {item.amountLabel}
+                                        </b>
+                                    ) : null}
+                                </button>
+                            ))
+                        ) : (
+                            <div className={styles.emptyText}>No recent insight activity yet.</div>
+                        )}
                     </div>
                 </div>
             </div>
+        </div>
 
-            {upgradeOpen ? (
-                <div className={styles.upgradeOverlay}>
-                    <div className={styles.upgradeModal}>
-                        <h3>Upgrade to Pro</h3>
-                        <p>
-                            Upgrade to Pro for unlimited live insights, deeper customer behaviour signals,
-                            and priority retention actions.
-                        </p>
+                {
+        upgradeOpen ? (
+            <div className={styles.upgradeOverlay}>
+                <div className={styles.upgradeModal}>
+                    <h3>Upgrade to Pro</h3>
+                    <p>
+                        Upgrade to Pro for unlimited live insights, deeper customer behaviour signals,
+                        and priority retention actions.
+                    </p>
 
-                        <div className={styles.modalActions}>
-                            <button type="button" onClick={() => setUpgradeOpen(false)}>
-                                Not now
-                            </button>
+                    <div className={styles.modalActions}>
+                        <button type="button" onClick={() => setUpgradeOpen(false)}>
+                            Not now
+                        </button>
 
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setUpgradeOpen(false);
-                                    router.push("/dashboard/settings?tab=manage-plan");
-                                }}
-                            >
-                                Upgrade to Pro
-                            </button>
-                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setUpgradeOpen(false);
+                                router.push("/dashboard/settings?tab=manage-plan");
+                            }}
+                        >
+                            Upgrade to Pro
+                        </button>
                     </div>
                 </div>
-            ) : null}
-        </div>
-    );
+            </div>
+        ) : null
+    }
+            </div >
+            
+            );
 }

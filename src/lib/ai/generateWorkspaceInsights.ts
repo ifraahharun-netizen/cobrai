@@ -25,7 +25,7 @@ const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
-const CACHE_MINUTES = 0;
+const CACHE_MINUTES = 30;
 
 const allowedKinds = [
     "billing_failed",
@@ -88,22 +88,33 @@ function buildOperationalSummary(args: {
         headline: topAction
             ? `${topAction.customerName} needs action now`
             : "No urgent retention action needed",
+
         summary: topAction
             ? `${actions.length} priority action${actions.length === 1 ? "" : "s"} found. ${highRiskCount} high-risk account${highRiskCount === 1 ? "" : "s"} and ${failedBillingCount} failed billing signal${failedBillingCount === 1 ? "" : "s"} need attention.`
             : "Cobrai did not find a high-confidence account requiring immediate action.",
+
         confidence: confidenceLabel(avgConfidence),
+
         revenueAtRiskMinor,
+
         revenueProtectedMinor: 0,
+
         failedActionsCount: failedBillingCount,
+
         pendingActionsCount: actions.length,
+
         successActionsCount: 0,
+
         primaryAction: {
             title: topAction?.actionTitle || "Monitor account health",
+
             description:
                 topAction?.actionDescription ||
                 "Keep monitoring churn risk, billing status, and customer activity.",
+
             type: topAction?.actionType || "monitor_account",
         },
+
         actionButtons: topAction
             ? [
                 {
@@ -111,7 +122,8 @@ function buildOperationalSummary(args: {
                     type: topAction.actionType,
                     href: `/dashboard/accounts-at-risk/${topAction.customerId}`,
                     tone:
-                        topAction.severity === "critical" || topAction.severity === "high"
+                        topAction.severity === "critical" ||
+                            topAction.severity === "high"
                             ? "danger"
                             : topAction.severity === "medium"
                                 ? "warning"
@@ -144,16 +156,49 @@ export async function generateWorkspaceInsights(args: {
     const sourceMode = args.source ?? "demo";
     const runType = buildRunType(timeframe);
 
-    const cachedSince = new Date(Date.now() - CACHE_MINUTES * 60 * 1000);
+    // =========================================================
+    // WORKSPACE
+    // =========================================================
 
-    const cached = await prisma.insightRun.findFirst({
-        where: {
-            workspaceId: args.workspaceId,
-            type: runType,
-            createdAt: { gte: cachedSince },
+    const workspace = await prisma.workspace.findUnique({
+        where: { id: args.workspaceId },
+        select: {
+            id: true,
+            tier: true,
+            trialEndsAt: true,
+            demoMode: true,
         },
-        orderBy: { createdAt: "desc" },
     });
+
+    const isTrialActive =
+        !!workspace?.trialEndsAt &&
+        new Date(workspace.trialEndsAt).getTime() > Date.now();
+
+    const shouldBypassCache =
+        workspace?.demoMode ||
+        isTrialActive ||
+        workspace?.tier === "pro";
+
+    // =========================================================
+    // CACHE
+    // =========================================================
+
+    let cached: any = null;
+
+    if (!shouldBypassCache && !workspace?.demoMode) {
+        const cachedSince = new Date(
+            Date.now() - CACHE_MINUTES * 60 * 1000
+        );
+
+        cached = await prisma.insightRun.findFirst({
+            where: {
+                workspaceId: args.workspaceId,
+                type: runType,
+                createdAt: { gte: cachedSince },
+            },
+            orderBy: { createdAt: "desc" },
+        });
+    }
 
     if (cached?.result) {
         const cachedResult = cached.result as {
@@ -185,20 +230,17 @@ export async function generateWorkspaceInsights(args: {
         };
     }
 
-    const workspace = await prisma.workspace.findUnique({
-        where: { id: args.workspaceId },
-        select: {
-            id: true,
-            tier: true,
-            trialEndsAt: true,
-            demoMode: true,
-        },
-    });
+    // =========================================================
+    // CUSTOMERS
+    // =========================================================
 
-    const topCustomers = await prisma.customer.findMany({
+    let topCustomers = await prisma.customer.findMany({
         where: { workspaceId: args.workspaceId },
+
         orderBy: { churnRisk: "desc" },
-        take: 8,
+
+        take: 12,
+
         select: {
             id: true,
             name: true,
@@ -209,13 +251,25 @@ export async function generateWorkspaceInsights(args: {
         },
     });
 
+    // Demo + Trial = rotating insights
+    if (workspace?.demoMode || isTrialActive) {
+        topCustomers = topCustomers
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 8);
+    } else {
+        topCustomers = topCustomers.slice(0, 8);
+    }
+
     const failedInvoices = await prisma.invoice.findMany({
         where: {
             workspaceId: args.workspaceId,
             status: "failed",
         },
+
         orderBy: { dueAt: "desc" },
+
         take: 10,
+
         select: {
             customer: {
                 select: {
@@ -237,40 +291,58 @@ export async function generateWorkspaceInsights(args: {
     const payload = {
         timeframe,
         promptVersion: PROMPT_VERSION,
+
         customerFacts,
+
         rules: {
             maxInsights: 4,
+
             allowedKinds,
+
             allowedActionTypes,
-            allowedFocusIds: customerFacts.map((customer) => customer.id),
+
+            allowedFocusIds: customerFacts.map(
+                (customer) => customer.id
+            ),
+
             grounding:
                 "Use only facts explicitly present in customerFacts. Do not infer email opens, clicks, sentiment, payment recovery, product usage events, upgrade intent, downgrade intent, or customer emotions unless provided.",
+
             wording:
-                "Keep every insight concise, clear, and suitable for a minimal SaaS dashboard. Prefer decisive action-first language, for example: 'Send billing recovery email today' instead of vague wording like 'Consider reaching out'.",
+                "Keep every insight concise, clear, and suitable for a minimal SaaS dashboard. Prefer decisive action-first language.",
         },
     };
 
-    const fallbackInsights = buildFallbackInsights(customerFacts);
+    const fallbackInsights =
+        buildFallbackInsights(customerFacts);
+
+    if (workspace?.demoMode || isTrialActive) {
+        customerFacts.sort(() => Math.random() - 0.5);
+    }
 
     const buildAndSaveFallback = async (
         source: InsightSource,
         extra?: Record<string, unknown>
     ): Promise<WorkspaceInsightResult> => {
-        const actions = buildActionFirstRecommendations({
-            insights: fallbackInsights,
-            customerFacts,
-        });
+        const actions =
+            buildActionFirstRecommendations({
+                insights: fallbackInsights,
+                customerFacts,
+            });
 
-        const operationalSummary = buildOperationalSummary({
-            insights: fallbackInsights,
-            actions,
-            customerFacts,
-        });
+        const operationalSummary =
+            buildOperationalSummary({
+                insights: fallbackInsights,
+                actions,
+                customerFacts,
+            });
 
         await prisma.insightRun.create({
             data: {
                 workspaceId: args.workspaceId,
+
                 type: runType,
+
                 result: {
                     promptVersion: PROMPT_VERSION,
                     timeframe,
@@ -287,7 +359,12 @@ export async function generateWorkspaceInsights(args: {
 
         await recordAiUsageRun({
             workspaceId: args.workspaceId,
-            source: source === "fallback_after_error" ? "fallback_after_error" : "fallback",
+
+            source:
+                source === "fallback_after_error"
+                    ? "fallback_after_error"
+                    : "fallback",
+
             timeframe,
         }).catch(() => null);
 
@@ -302,20 +379,39 @@ export async function generateWorkspaceInsights(args: {
         };
     };
 
+    // =========================================================
+    // API KEY
+    // =========================================================
+
     if (!process.env.OPENAI_API_KEY) {
         return buildAndSaveFallback("fallback", {
             reason: "OPENAI_API_KEY missing",
         });
     }
 
+    // =========================================================
+    // USAGE LIMITS
+    // =========================================================
+
     const usageDecision = await checkAiUsageLimit({
         workspaceId: args.workspaceId,
+
         tier: workspace?.tier ?? "free",
-        trialEndsAt: workspace?.trialEndsAt ?? null,
-        demoMode: workspace?.demoMode ?? false,
+
+        trialEndsAt:
+            workspace?.trialEndsAt ?? null,
+
+        demoMode:
+            workspace?.demoMode ?? false,
     });
 
     if (!usageDecision.allowed) {
+        await recordAiUsageRun({
+            workspaceId: args.workspaceId,
+            source: "blocked_limit",
+            timeframe,
+        }).catch(() => null);
+
         return buildAndSaveFallback("fallback", {
             aiLimit: {
                 limit: usageDecision.limit,
@@ -326,166 +422,64 @@ export async function generateWorkspaceInsights(args: {
         });
     }
 
-    try {
-        const completion = await client.chat.completions.create({
-            model: "gpt-4o-mini",
-            temperature: 0.2,
-            messages: [
-                {
-                    role: "developer",
-                    content:
-                        "You generate retention actions for a SaaS dashboard. Return only structured data matching the required schema. Use only facts explicitly present in the input. Do not invent ids, metrics, customer behaviour, emotions, intent, email opens, email clicks, payment recovery, or product events. Keep wording short, decisive, useful, and action-focused. Use direct next actions like 'Send billing recovery email today' or 'Trigger re-engagement email now'. Avoid vague wording like 'consider', 'maybe', 'could', or 'might'. Every insight should support a clear recommended action. If evidence is weak, use general_summary or no_action.",
-                },
-                {
-                    role: "user",
-                    content: JSON.stringify(payload),
-                },
-            ],
-            response_format: {
-                type: "json_schema",
-                json_schema: {
-                    name: "saas_retention_insights",
-                    strict: true,
-                    schema: {
-                        type: "object",
-                        additionalProperties: false,
-                        properties: {
-                            insights: {
-                                type: "array",
-                                maxItems: 4,
-                                items: {
-                                    type: "object",
-                                    additionalProperties: false,
-                                    properties: {
-                                        kind: {
-                                            type: "string",
-                                            enum: [...allowedKinds],
-                                        },
-                                        title: { type: "string" },
-                                        text: { type: "string" },
-                                        severity: {
-                                            type: "string",
-                                            enum: ["low", "medium", "high", "critical"],
-                                        },
-                                        focusId: {
-                                            type: ["string", "null"],
-                                        },
-                                        confidence: {
-                                            type: "number",
-                                            minimum: 0,
-                                            maximum: 1,
-                                        },
-                                        evidence: {
-                                            type: "array",
-                                            items: { type: "string" },
-                                            maxItems: 4,
-                                        },
-                                        action: {
-                                            type: "object",
-                                            additionalProperties: false,
-                                            properties: {
-                                                type: {
-                                                    type: "string",
-                                                    enum: [...allowedActionTypes],
-                                                },
-                                                title: { type: "string" },
-                                                description: { type: "string" },
-                                                priority: {
-                                                    type: "string",
-                                                    enum: ["low", "medium", "high"],
-                                                },
-                                            },
-                                            required: [
-                                                "type",
-                                                "title",
-                                                "description",
-                                                "priority",
-                                            ],
-                                        },
-                                    },
-                                    required: [
-                                        "kind",
-                                        "title",
-                                        "text",
-                                        "severity",
-                                        "focusId",
-                                        "confidence",
-                                        "evidence",
-                                        "action",
-                                    ],
-                                },
-                            },
-                            operationalSummary: {
-                                type: "object",
-                                additionalProperties: false,
-                                properties: {
-                                    headline: { type: "string" },
-                                    summary: { type: "string" },
-                                    confidence: {
-                                        type: "string",
-                                        enum: ["Low", "Medium", "High"],
-                                    },
-                                    revenueAtRiskMinor: { type: "number" },
-                                    revenueProtectedMinor: { type: "number" },
-                                    failedActionsCount: { type: "number" },
-                                    pendingActionsCount: { type: "number" },
-                                    successActionsCount: { type: "number" },
-                                    primaryAction: {
-                                        type: "object",
-                                        additionalProperties: false,
-                                        properties: {
-                                            title: { type: "string" },
-                                            description: { type: "string" },
-                                            type: {
-                                                type: "string",
-                                                enum: [...allowedActionTypes],
-                                            },
-                                        },
-                                        required: ["title", "description", "type"],
-                                    },
-                                    actionButtons: {
-                                        type: "array",
-                                        maxItems: 3,
-                                        items: {
-                                            type: "object",
-                                            additionalProperties: false,
-                                            properties: {
-                                                label: { type: "string" },
-                                                type: {
-                                                    type: "string",
-                                                    enum: [...allowedActionTypes],
-                                                },
-                                                href: { type: "string" },
-                                                tone: {
-                                                    type: "string",
-                                                    enum: ["danger", "warning", "neutral", "success"],
-                                                },
-                                            },
-                                            required: ["label", "type", "href", "tone"],
-                                        },
-                                    },
-                                },
-                                required: [
-                                    "headline",
-                                    "summary",
-                                    "confidence",
-                                    "revenueAtRiskMinor",
-                                    "revenueProtectedMinor",
-                                    "failedActionsCount",
-                                    "pendingActionsCount",
-                                    "successActionsCount",
-                                    "primaryAction",
-                                    "actionButtons",
-                                ],
-                            },
-                        },
-                        required: ["insights", "operationalSummary"],
-                    },
-                },
-            },
-        });
+    // =========================================================
+    // OPENAI
+    // =========================================================
 
-        const content = completion.choices[0]?.message?.content ?? "{}";
+    try {
+        const completion =
+            await client.chat.completions.create({
+                model: "gpt-4o-mini",
+
+                temperature: 0.7,
+
+                messages: [
+                    {
+                        role: "developer",
+                        content: `
+You are Cobrai, an AI retention intelligence system for B2B SaaS teams.
+
+Generate realistic, highly varied retention insights.
+
+CRITICAL RULES:
+- Never repeat the same account more than once
+- Never repeat the same title
+- Never repeat the same action recommendation
+- Mix billing, onboarding, churn, adoption, expansion, and recovery insights
+- Some insights should be positive opportunities
+- Some should be warnings
+- Some should be progress updates
+- Output should feel dynamic and alive like a real SaaS dashboard
+
+Avoid repetitive wording like:
+"Recover declining product usage"
+
+Use varied titles such as:
+- Expansion opportunity detected
+- Billing recovery in progress
+- Trial activation slowing
+- Revenue protected this week
+- Product engagement recovering
+- High-risk renewal approaching
+- Adoption improving after outreach
+- Payment retry succeeded
+- Usage drop accelerating
+`,
+                    },
+                    {
+                        role: "user",
+                        content: JSON.stringify(payload),
+                    },
+                ],
+
+                response_format: {
+                    type: "json_object",
+                },
+            });
+
+        const content =
+            completion.choices[0]?.message?.content ??
+            "{}";
 
         let parsed: AiResponse | null = null;
 
@@ -495,18 +489,55 @@ export async function generateWorkspaceInsights(args: {
             parsed = null;
         }
 
-        let insights = cleanAndValidateInsights(parsed, customerFacts);
+        let insights = cleanAndValidateInsights(
+            parsed,
+            customerFacts
+        );
+
         let source: InsightSource = "ai";
 
         if (!insights.length) {
-            insights = fallbackInsights;
-            source = "fallback";
+            throw new Error(
+                "OpenAI returned empty insights"
+            );
         }
 
-        const actions = buildActionFirstRecommendations({
-            insights,
-            customerFacts,
+        // =========================================================
+        // DEDUPE SAME ACCOUNTS
+        // =========================================================
+
+        const seen = new Set<string>();
+
+        const seenCustomers = new Set<string>();
+        const seenTitles = new Set<string>();
+
+        insights = insights.filter((item) => {
+            const focusId = item.focusId || "";
+            const title = item.title?.trim().toLowerCase();
+
+            if (focusId && seenCustomers.has(focusId)) {
+                return false;
+            }
+
+            if (title && seenTitles.has(title)) {
+                return false;
+            }
+
+            if (focusId) {
+                seenCustomers.add(focusId);
+            }
+
+            if (title) {
+                seenTitles.add(title);
+            }
+
+            return true;
         });
+        const actions =
+            buildActionFirstRecommendations({
+                insights,
+                customerFacts,
+            });
 
         const operationalSummary =
             parsed?.operationalSummary ??
@@ -519,20 +550,32 @@ export async function generateWorkspaceInsights(args: {
         await prisma.insightRun.create({
             data: {
                 workspaceId: args.workspaceId,
+
                 type: runType,
+
                 result: {
                     promptVersion: PROMPT_VERSION,
+
                     timeframe,
+
                     source,
+
                     input: payload,
+
                     rawModelOutput: content,
+
                     insights,
+
                     actions,
+
                     operationalSummary,
+
                     aiUsage: {
                         limit: usageDecision.limit,
-                        usedBeforeRun: usageDecision.used,
-                        remainingBeforeRun: usageDecision.remaining,
+                        usedBeforeRun:
+                            usageDecision.used,
+                        remainingBeforeRun:
+                            usageDecision.remaining,
                     },
                 } as Prisma.InputJsonValue,
             },
@@ -540,10 +583,20 @@ export async function generateWorkspaceInsights(args: {
 
         await recordAiUsageRun({
             workspaceId: args.workspaceId,
-            source: source === "ai" ? "openai" : "fallback",
+
+            source:
+                source === "ai"
+                    ? "openai"
+                    : "fallback",
+
             timeframe,
-            tokensIn: completion.usage?.prompt_tokens ?? 0,
-            tokensOut: completion.usage?.completion_tokens ?? 0,
+
+            tokensIn:
+                completion.usage?.prompt_tokens ?? 0,
+
+            tokensOut:
+                completion.usage?.completion_tokens ??
+                0,
         }).catch(() => null);
 
         return {
@@ -556,8 +609,14 @@ export async function generateWorkspaceInsights(args: {
             promptVersion: PROMPT_VERSION,
         };
     } catch (err) {
-        return buildAndSaveFallback("fallback_after_error", {
-            error: err instanceof Error ? err.message : String(err),
-        });
+        return buildAndSaveFallback(
+            "fallback_after_error",
+            {
+                error:
+                    err instanceof Error
+                        ? err.message
+                        : String(err),
+            }
+        );
     }
 }

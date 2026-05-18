@@ -47,19 +47,43 @@ export type Insight = {
     confidence: number;
     evidence: string[];
 };
-
 export type CustomerFact = {
     id: string;
+
     name: string;
+
     mrr: number;
+
     churnRisk: number;
+
     healthScore: number | null;
+
     lastActiveAt: string | null;
+
     daysInactive: number | null;
+
     riskBand: RiskBand;
+
     recentBillingFailure: boolean;
+
     recentBillingFailureAmount: number;
+
     reasonFlags: string[];
+
+    usageTrend?: "up" | "down" | "flat";
+
+    engagementScore?: number;
+
+    recentLoginCount?: number;
+
+    supportTicketCount?: number;
+
+    lastPaymentStatus?: string;
+
+    teamSeats?: number;
+
+    plan?: string | null;
+
     source?: DataSource;
 };
 

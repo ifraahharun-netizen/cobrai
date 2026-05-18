@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 const STARTER_RETENTION_ACTIVITY_LIMIT = 10;
 
-type ProgressKind = "email" | "notification" | "retry_payment";
+type ProgressKind = "email" | "retry_payment";
 type ConfidenceLevel = "High" | "Medium" | "Low";
 
 type ProgressRow = {
@@ -122,14 +122,6 @@ function inferProgressKind(action: string): ProgressKind {
         return "retry_payment";
     }
 
-    if (
-        value.includes("notification") ||
-        value.includes("alert") ||
-        value.includes("reminder") ||
-        value.includes("in-app")
-    ) {
-        return "notification";
-    }
 
     return "email";
 }
@@ -193,7 +185,7 @@ function normalizeProgressBreakdown(rows: unknown): ProgressRow[] {
             date: String(item.date || new Date().toISOString()),
             kind:
                 item.kind === "email" ||
-                    item.kind === "notification" ||
+                   
                     item.kind === "retry_payment"
                     ? item.kind
                     : inferProgressKind(action),
@@ -321,66 +313,137 @@ function buildNextBestAction(
     return `Scale ${topDriver} across the highest-risk accounts to protect more revenue.`;
 }
 
-function buildProgressAiInsight(data: ProgressResponseShape): ProgressAiInsight {
-    const mrrProtectedMinor = Number(data.kpis?.mrrProtectedMinor || 0);
-    const mrrProtectedPct = Number(data.kpis?.mrrProtectedPct || 0);
-    const actionsExecuted = Number(data.kpis?.actionsExecuted || 0);
-    const successRate = Number(data.kpis?.successRate || 0);
+function buildProgressAiInsight(
+    data: ProgressResponseShape
+): ProgressAiInsight {
+    const mrrProtectedMinor =
+        Number(data.kpis?.mrrProtectedMinor || 0);
 
-    const actionPerformance = [...(data.actionPerformance || [])].sort((a, b) => {
-        if (b.mrrSavedMinor !== a.mrrSavedMinor) return b.mrrSavedMinor - a.mrrSavedMinor;
-        if (b.executions !== a.executions) return b.executions - a.executions;
-        return b.avgRiskDecreasePct - a.avgRiskDecreasePct;
-    });
+    const actionsExecuted =
+        Number(data.kpis?.actionsExecuted || 0);
 
-    const progressBreakdown = data.progressBreakdown || [];
-    const nextPriorityAccounts = data.nextPriorityAccounts || [];
+    const successRate =
+        Number(data.kpis?.successRate || 0);
 
-    const topAction = actionPerformance[0];
-    const topDriver = humanizeActionLabel(topAction?.action);
+    const accountsSaved =
+        Number(data.kpis?.accountsSaved || 0);
 
-    const failedCount = progressBreakdown.filter((row) => row.outcome === "failed").length;
-    const pendingCount = progressBreakdown.filter((row) => row.outcome === "pending").length;
-    const successCount = progressBreakdown.filter((row) => row.outcome === "success").length;
+    const progressRows =
+        data.progressBreakdown || [];
 
-    const topPriorityReason = nextPriorityAccounts[0]?.aiReason?.trim();
+    const successCount =
+        progressRows.filter(
+            (r) => r.outcome === "success"
+        ).length;
 
-    const headline =
-        mrrProtectedMinor > 0
-            ? `${formatGBPFromMinor(mrrProtectedMinor)} protected this month`
-            : "No retained revenue recorded yet";
+    const failedCount =
+        progressRows.filter(
+            (r) => r.outcome === "failed"
+        ).length;
+
+    const pendingCount =
+        progressRows.filter(
+            (r) => r.outcome === "pending"
+        ).length;
+
+    const total =
+        progressRows.length;
+
+    const failureRate =
+        total > 0
+            ? Math.round(
+                (failedCount / total) * 100
+            )
+            : 0;
+
+    let health: string =
+        "Stable";
+
+    if (
+        successRate >= 65 &&
+        failureRate <= 15
+    ) {
+        health = "Strong";
+    } else if (
+        successRate >= 40
+    ) {
+        health = "Stable";
+    } else if (
+        failureRate >= 40
+    ) {
+        health = "At risk";
+    } else {
+        health = "Needs attention";
+    }
+
+    let headline = "";
+
+    if (health === "Strong") {
+        headline =
+            "Retention performance is strong";
+    } else if (
+        health === "Stable"
+    ) {
+        headline =
+            "Retention performance is stable";
+    } else if (
+        health === "At risk"
+    ) {
+        headline =
+            "Retention performance is declining";
+    } else {
+        headline =
+            "Retention workflows need attention";
+    }
 
     let summary = "";
 
-    if (mrrProtectedMinor <= 0 && actionsExecuted <= 0) {
+    if (actionsExecuted <= 0) {
         summary =
-            "No workflow activity has been recorded yet. Connect activity and billing signals to generate retention insights.";
-    } else if (mrrProtectedPct >= 0) {
-        summary = `Performance improved vs last month, driven by ${topDriver}. ${successCount} workflow${successCount === 1 ? "" : "s"
-            } completed successfully${topPriorityReason
-                ? `, while the main remaining risk is ${topPriorityReason.toLowerCase()}.`
-                : "."
-            }`;
+            "No retention workflows have been executed yet. Connect billing and customer activity signals to start tracking churn prevention performance.";
     } else {
-        summary = `Performance softened vs last month. ${topDriver} is still the strongest driver, but ${failedCount} failed workflow${failedCount === 1 ? "" : "s"
-            } and ${pendingCount} pending workflow${pendingCount === 1 ? "" : "s"
-            } are limiting protected revenue${topPriorityReason
-                ? `, especially in accounts showing ${topPriorityReason.toLowerCase()}.`
-                : "."
-            }`;
+        summary =
+            `${accountsSaved} account${accountsSaved === 1 ? "" : "s"
+            } recovered, ${successCount} successful workflow${successCount === 1 ? "" : "s"
+            }, ${failedCount} failed, and ${pendingCount} still pending. ${formatGBPFromMinor(
+                mrrProtectedMinor
+            )} in revenue has been protected so far.`;
+    }
+
+    let nextBestAction = "";
+
+    if (failureRate >= 40) {
+        nextBestAction =
+            "Review failed retention workflows and prioritise accounts with accelerating churn risk.";
+    } else if (
+        pendingCount >= 5
+    ) {
+        nextBestAction =
+            "Follow up on pending retention workflows before risk escalates further.";
+    } else if (
+        successRate >= 65
+    ) {
+        nextBestAction =
+            "Scale the highest-performing retention workflows across more at-risk accounts.";
+    } else {
+        nextBestAction =
+            "Focus on improving customer engagement and reducing unresolved billing risk.";
     }
 
     return {
         headline,
+
         summary,
-        confidence: pickConfidence(actionsExecuted, successRate),
-        nextBestAction: buildNextBestAction(
-            topDriver,
-            failedCount,
-            pendingCount,
-            topPriorityReason
-        ),
-        topDriver: topAction?.action || undefined,
+
+        confidence:
+            pickConfidence(
+                actionsExecuted,
+                successRate
+            ),
+
+        nextBestAction,
+
+        topDriver: health,
     };
 }
 
@@ -441,82 +504,161 @@ export async function GET(req: Request) {
     try {
         const workspaceAuth = await getWorkspaceAuthFromRequest(req);
 
+        // -------------------------------------------------
+        // NO AUTH → FULL DEMO
+        // -------------------------------------------------
+
         if (!workspaceAuth?.workspaceId) {
-            return NextResponse.json(buildDemoResponse(), { status: 200 });
+            return NextResponse.json(
+                buildDemoResponse(),
+                { status: 200 }
+            );
         }
 
         const { workspaceId, trialEndsAt } = workspaceAuth;
 
-        const modeInfo = await getWorkspaceDataMode(workspaceId);
-        const workspaceTier = String(modeInfo.workspaceTier || "starter");
+        // -------------------------------------------------
+        // WORKSPACE MODE
+        // -------------------------------------------------
 
-        const connectedIntegrations = Array.isArray(modeInfo.connectedIntegrations)
+        const modeInfo = await getWorkspaceDataMode(workspaceId);
+
+        const workspaceTier = String(
+            modeInfo.workspaceTier || "starter"
+        );
+
+        const connectedIntegrations = Array.isArray(
+            modeInfo.connectedIntegrations
+        )
             ? modeInfo.connectedIntegrations
             : [];
 
-        const trialEndsAtMs = trialEndsAt ? new Date(trialEndsAt).getTime() : 0;
+        // -------------------------------------------------
+        // FREE TRIAL CHECK
+        // -------------------------------------------------
+
+        const trialEndsAtMs = trialEndsAt
+            ? new Date(trialEndsAt).getTime()
+            : 0;
 
         const isTrialActive =
             Boolean(trialEndsAtMs) &&
             Number.isFinite(trialEndsAtMs) &&
             trialEndsAtMs > Date.now();
 
+        // -------------------------------------------------
+        // FREE TRIAL = ALWAYS DEMO EXPERIENCE
+        // -------------------------------------------------
+
         if (isTrialActive) {
             return NextResponse.json(
-                buildDemoResponse({
+                buildFinalResponse({
+                    data: getDemoProgress() as ProgressResponseShape,
+                    mode: "demo",
                     workspaceTier,
                     trialEndsAt,
                     connectedIntegrations,
+                    applyStarterLimit: false,
                 }),
                 { status: 200 }
             );
         }
 
-        if (modeInfo.mode === "live") {
-            await refreshRecentActionOutcomes(workspaceId);
+        // -------------------------------------------------
+        // DEMO MODE
+        // -------------------------------------------------
 
-            const liveData = (await getLiveProgress(
-                workspaceId,
-                workspaceTier,
-                connectedIntegrations
-            )) as ProgressResponseShape;
-
-            const normalizedLiveData = normalizeProgressResponse(liveData);
-
-            if (hasNoProgressContent(normalizedLiveData)) {
-                return NextResponse.json(
-                    buildDemoResponse({
-                        workspaceTier,
-                        trialEndsAt,
-                        connectedIntegrations,
-                    }),
-                    { status: 200 }
-                );
-            }
-
+        if (modeInfo.mode !== "live") {
             return NextResponse.json(
                 buildFinalResponse({
-                    data: normalizedLiveData,
-                    mode: "live",
+                    data: getDemoProgress() as ProgressResponseShape,
+                    mode: "demo",
                     workspaceTier,
                     trialEndsAt,
                     connectedIntegrations,
-                    applyStarterLimit: workspaceTier.toLowerCase() === "starter",
+                    applyStarterLimit: false,
                 }),
                 { status: 200 }
             );
         }
 
+        // -------------------------------------------------
+        // LIVE MODE
+        // -------------------------------------------------
+
+        await refreshRecentActionOutcomes(workspaceId);
+
+        const liveData = (await getLiveProgress(
+            workspaceId,
+            workspaceTier,
+            connectedIntegrations
+        )) as ProgressResponseShape;
+
+        const normalizedLiveData =
+            normalizeProgressResponse(liveData);
+
+        // -------------------------------------------------
+        // CRITICAL LIVE DATA CHECK
+        // -------------------------------------------------
+
+        const hasLiveProgressBreakdown =
+            Array.isArray(
+                normalizedLiveData.progressBreakdown
+            ) &&
+            normalizedLiveData.progressBreakdown.length > 0;
+
+        // -------------------------------------------------
+        // NO LIVE RETENTION ACTIVITY YET
+        // SHOW DEMO CONTENT INSTEAD
+        // -------------------------------------------------
+
+        if (!hasLiveProgressBreakdown) {
+            return NextResponse.json(
+                buildFinalResponse({
+                    data: getDemoProgress() as ProgressResponseShape,
+                    mode: "demo",
+                    workspaceTier,
+                    trialEndsAt,
+                    connectedIntegrations,
+                    applyStarterLimit: false,
+                }),
+                { status: 200 }
+            );
+        }
+
+        // -------------------------------------------------
+        // LIVE RESPONSE
+        // -------------------------------------------------
+
         return NextResponse.json(
-            buildDemoResponse({
+            buildFinalResponse({
+                data: normalizedLiveData,
+                mode: "live",
                 workspaceTier,
                 trialEndsAt,
                 connectedIntegrations,
+                applyStarterLimit:
+                    workspaceTier.toLowerCase() === "starter",
             }),
             { status: 200 }
         );
     } catch (error) {
         console.error("GET /api/progress failed", error);
-        return NextResponse.json(buildDemoResponse(), { status: 200 });
+
+        // -------------------------------------------------
+        // FAIL SAFE
+        // -------------------------------------------------
+
+        return NextResponse.json(
+            buildFinalResponse({
+                data: getDemoProgress() as ProgressResponseShape,
+                mode: "demo",
+                workspaceTier: "starter",
+                trialEndsAt: null,
+                connectedIntegrations: [],
+                applyStarterLimit: false,
+            }),
+            { status: 200 }
+        );
     }
 }

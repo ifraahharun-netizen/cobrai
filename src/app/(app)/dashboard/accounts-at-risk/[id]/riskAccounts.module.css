@@ -1,647 +1,951 @@
+/* ========================================
+   PAGE
+======================================== */
+
 .page {
-  min-height: 100vh !important;
-  padding: 20px !important;
-  background: #ffffff !important;
-  color: #111 !important;
-  font-family: inherit !important;
+  min-height: 100vh;
+  padding: 20px;
+  background: #ffffff;
+  color: #111827;
+  font-family: inherit;
 }
 
+.mainGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 16px;
+  align-items: start;
+}
+
+.sideStack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ========================================
+   TOP BAR
+======================================== */
+
 .topBar {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  margin-bottom: 16px !important;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
 }
 
 .topRightActions {
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .backBtn,
 .downloadBtn {
-  border: 1px solid #eaeaea !important;
-  background: #fff !important;
-  color: #000000 !important;
-  border-radius: 10px !important;
-  padding: 9px 13px !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
-  cursor: pointer !important;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid #ececf1;
+  background: #ffffff;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s ease;
 }
 
-.downloadBtn {
-  background: #ffffff !important;
-  color: #080808 !important;
-  border: 1px solid #eaeaea !important;
+.backBtn:hover,
+.downloadBtn:hover {
+  background: #fafafa;
 }
 
-.mainGrid {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  grid-template-areas:
-    "overview overview"
-    "activity ai"
-    "activity notes" !important;
-  gap: 14px !important;
-  align-items: start !important;
-}
+/* ========================================
+   GENERIC CARD
+======================================== */
 
 .card {
-  background: #fff !important;
-  border: 1px solid #eaeaea !important;
-  border-radius: 18px !important;
-  box-shadow: none !important;
-  padding: 18px !important;
+  background: #ffffff;
+  border: 1px solid #efeff1;
+  border-radius: 24px;
+  padding: 18px;
+}
+
+/* ========================================
+   PAGE HEADING
+======================================== */
+
+.pageHeadingWrap {
+  margin-bottom: 14px;
 }
 
 .sectionLabel {
-  margin-bottom: 8px !important;
-  font-size: 10px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.08em !important;
-  text-transform: uppercase !important;
-  color: #777 !important;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  margin-bottom: 6px;
 }
 
-.cleanOverviewCard {
-  grid-area: overview !important;
-  min-height: unset !important;
+.pageTitle {
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 650;
+  letter-spacing: -0.05em;
+  color: #111827;
+  margin: 0;
 }
 
-.cleanProfileHeader {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: flex-start !important;
-  gap: 20px !important;
-  padding-bottom: 16px !important;
-  margin-bottom: 16px !important;
-  border-bottom: 1px solid #e5e5e5 !important;
+/* ========================================
+   KPI GRID
+======================================== */
+
+.modernKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.cleanProfileName {
-  margin: 0 0 5px !important;
-  font-size: 26px !important;
-  line-height: 1.05 !important;
-  font-weight: 600 !important;
+.modernKpiCard {
+  min-height: 100px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid #ececf1;
+  background: #ffffff;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.kpiTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.kpiTop span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.kpiIcon {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  border: 1px solid #ececf1;
+  background: #fafafa;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: #6b7280;
+}
+
+.kpiIcon svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* MAIN VALUES */
+
+.modernKpiCard strong {
+  font-size: 15px;
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: #111827;
+}
+
+/* BIG VALUES ONLY */
+
+.kpiLarge {
+  font-size: 18px !important;
+  font-weight: 650 !important;
   letter-spacing: -0.04em !important;
-  color: #111 !important;
 }
 
-.cleanProfileEmail {
-  margin: 0 !important;
-  font-size: 13px !important;
-  color: #666 !important;
-}
+/* DATE + STATUS */
 
-.cleanRiskBadge {
-  white-space: nowrap !important;
-  border-radius: 10px !important;
-  padding: 8px 10px !important;
-  font-size: 12px !important;
-  font-weight: 600 !important;
-  border: 1px solid #eaeaea !important;
-  background: #ffffff !important;
-}
-
-.cleanRiskDanger,
-.cleanRiskWarning,
-.cleanRiskMedium,
-.cleanRiskGood {
-  color: #111 !important;
-  background: #ffffff !important;
-  border: 1px solid #eaeaea !important;
-}
-
-.cleanProfileGrid {
-  display: grid !important;
-  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
-  gap: 10px !important;
-}
-
-.cleanProfileItem {
-  border: 1px solid #ececec !important;
-  border-radius: 14px !important;
-  padding: 13px !important;
-  background: #ffffff !important;
-}
-
-.cleanProfileItem span {
-  display: block !important;
-  margin-bottom: 6px !important;
-  font-size: 10px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.07em !important;
-  text-transform: uppercase !important;
-  color: #777 !important;
-}
-
-.cleanProfileItem strong {
-  display: block !important;
+.kpiSmall {
   font-size: 14px !important;
-  line-height: 1.25 !important;
-  font-weight: 500 !important;
-  color: #111 !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
 }
 
-.sideStack {
-  display: contents !important;
+.inlineTrend {
+  margin-top: 8px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
+
+.trendUp,
+.trendDown {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.trendUp {
+  color: #16a34a;
+}
+
+.trendDown {
+  color: #dc2626;
+}
+
+.inlineTrendText {
+  font-size: 9px;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: #a1a1aa;
+}
+
+.trendUp,
+.trendDown {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.trendUp {
+  color: #16a34a;
+}
+
+.trendDown {
+  color: #dc2626;
+}
+
+.inlineTrendText {
+  font-size: 9px;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: #a1a1aa;
+}
+
+/* ========================================
+   AI CARD
+======================================== */
 
 .cleanAiCard {
-  grid-area: ai !important;
-  min-height: unset !important;
-}
-
-.notesCard {
-  grid-area: notes !important;
-  min-height: unset !important;
-}
-
-.accountLogCard {
-  grid-area: activity !important;
-  min-height: 420px !important;
-}
-
-.accountLogTitle {
-  margin-top: 4px !important;
-  font-size: 19px !important;
-  line-height: 1.15 !important;
-  font-weight: 600 !important;
-  letter-spacing: -0.03em !important;
-  color: #111 !important;
-}
-
-.accountLogSub {
-  margin-top: 5px !important;
-  font-size: 13px !important;
-  color: #666 !important;
-}
-
-.cleanAiContent {
-  margin-top: 13px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .cleanAiContent strong {
-  display: block !important;
-  margin-bottom: 6px !important;
-  font-size: 14px !important;
-  font-weight: 600 !important;
-  color: #111 !important;
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #111827;
 }
 
 .cleanAiContent p {
-  margin: 0 !important;
-  font-size: 13px !important;
-  line-height: 1.45 !important;
-  color: #555 !important;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #4b5563;
 }
 
 .cleanActionButtons {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 8px !important;
-  margin-top: 10px !important;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .cleanActionBtn {
-  border: 1px solid #111 !important;
-  background: #111 !important;
-  color: #fff !important;
-  border-radius: 10px !important;
-  padding: 9px 11px !important;
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  cursor: pointer !important;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 11px;
+  border: 1px solid #ececf1;
+  background: #ffffff;
+  color: #111827;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.cleanActionBtn:hover {
+  background: #fafafa;
 }
 
 .cleanEmailLimitText {
-  margin: 12px 0 0 !important;
-  font-size: 12px !important;
-  line-height: 1.4 !important;
-  color: #777 !important;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #9ca3af;
 }
 
-.cleanActivityList {
-  margin-top: 14px !important;
-  border: 1px solid #ececec !important;
-  border-radius: 14px !important;
-  overflow: hidden !important;
-  background: #fff !important;
+/* ========================================
+   NOTES CARD
+======================================== */
+
+.notesCard {
+  padding: 18px;
+
+  border: 1px solid #efeff1;
+  border-radius: 24px;
+
+  background: #ffffff;
+
+  display: flex;
+  flex-direction: column;
 }
 
-.cleanActivityRow {
-  padding: 14px !important;
-  border-bottom: 1px solid #ececec !important;
+.accountLogTitle {
+  margin-top: 2px;
+
+  font-size: 16px;
+  line-height: 1.1;
+
+  font-weight: 600;
+  letter-spacing: -0.03em;
+
+  color: #111827;
 }
 
-.cleanActivityRow:last-child {
-  border-bottom: none !important;
-}
+.accountLogSub {
+  margin-top: 4px;
+  margin-bottom: 16px;
 
-.activityRowTop {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: flex-start !important;
-  gap: 12px !important;
-}
+  font-size: 12px;
+  line-height: 1.5;
 
-.cleanActivityRow strong {
-  display: block !important;
-  font-size: 13px !important;
-  line-height: 1.35 !important;
-  font-weight: 500 !important;
-  color: #111 !important;
-}
-
-.cleanActivityRow span {
-  display: block !important;
-  margin-top: 5px !important;
-  font-size: 12px !important;
-  color: #666 !important;
-}
-
-.activityRowTop em {
-  flex-shrink: 0 !important;
-  border: 1px solid #ddd !important;
-  border-radius: 999px !important;
-  padding: 4px 8px !important;
-  background: #fafafa !important;
-  color: #555 !important;
-  font-size: 11px !important;
-  font-style: normal !important;
-  font-weight: 500 !important;
-}
-
-.accountLogEmpty {
-  padding: 14px !important;
-  font-size: 13px !important;
-  color: #666 !important;
+  color: #6b7280;
 }
 
 .notesTextarea {
-  width: 100% !important;
-  min-height: 74px !important;
-  resize: vertical !important;
-  margin-top: 12px !important;
-  border: 1px solid #ddd !important;
-  border-radius: 14px !important;
-  padding: 12px !important;
-  background: #fff !important;
-  color: #111 !important;
-  font: inherit !important;
-  font-size: 13px !important;
-  outline: none !important;
+  width: 100%;
+
+  min-height: 100px;
+
+  padding: 14px 15px;
+
+  border-radius: 18px;
+  border: 1px solid #ececf1;
+
+  background: #ffffff;
+
+  font-size: 13px;
+  line-height: 1.6;
+
+  color: #111827;
+
+  resize: none;
+  outline: none;
+
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .notesTextarea:focus {
-  border-color: #111 !important;
+  border-color: #dbe3ee;
+  background: #fcfcfd;
+}
+
+.notesTextarea::placeholder {
+  color: #a1a1aa;
 }
 
 .notesActions {
-  display: flex !important;
-  justify-content: flex-end !important;
-  gap: 8px !important;
-  margin-top: 9px !important;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+
+  gap: 8px;
+
+  margin-top: 12px;
 }
+
+/* ========================================
+   NOTE BUTTONS
+======================================== */
 
 .notePrimaryBtn,
 .noteSecondaryBtn {
-  border: 1px solid #111 !important;
-  border-radius: 10px !important;
-  padding: 8px 12px !important;
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  cursor: pointer !important;
+  height: 36px;
+
+  padding: 0 14px;
+
+  border-radius: 12px;
+  border: 1px solid #ececf1;
+
+  background: #ffffff;
+
+  font-size: 12px;
+  font-weight: 500;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .notePrimaryBtn {
-  background: #111 !important;
-  color: #fff !important;
+  color: #111827;
 }
 
 .noteSecondaryBtn {
-  background: #fff !important;
-  color: #111 !important;
+  color: #6b7280;
 }
 
+.notePrimaryBtn:hover,
+.noteSecondaryBtn:hover {
+  background: #fafafa;
+  border-color: #dbe3ee;
+}
+
+/* ========================================
+   NOTES LIST
+======================================== */
+
 .notesList {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 8px !important;
-  margin-top: 12px !important;
+  display: flex;
+  flex-direction: column;
+
+  gap: 12px;
+
+  margin-top: 18px;
 }
 
 .noteItem {
-  border: 1px solid #ececec !important;
-  border-radius: 14px !important;
-  padding: 12px !important;
-  background: #fbfbfb !important;
+  padding: 14px 14px 12px;
+
+  border: 1px solid #ececf1;
+  border-radius: 18px;
+
+  background: #ffffff;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 10px;
 }
 
 .noteItem p {
-  margin: 0 0 7px !important;
-  font-size: 13px !important;
-  line-height: 1.4 !important;
-  color: #111 !important;
+  margin: 0;
+
+  font-size: 13px;
+  line-height: 1.7;
+
+  color: #111827;
+
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .noteItem span {
-  display: block !important;
-  font-size: 12px !important;
-  color: #666 !important;
+  font-size: 11px;
+  line-height: 1;
+
+  color: #9ca3af;
 }
 
 .noteItemActions {
-  display: flex !important;
-  gap: 7px !important;
-  margin-top: 9px !important;
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  margin-top: 2px;
 }
 
 .noteItemActions button {
-  border: 1px solid #ddd !important;
-  background: #fff !important;
-  color: #111 !important;
-  border-radius: 999px !important;
-  padding: 6px 10px !important;
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  cursor: pointer !important;
+  height: 28px;
+
+  padding: 0 10px;
+
+  border-radius: 10px;
+  border: 1px solid #ececf1;
+
+  background: #ffffff;
+
+  font-size: 11px;
+  font-weight: 500;
+
+  color: #52525b;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
+.noteItemActions button:hover {
+  background: #fafafa;
+  border-color: #dbe3ee;
+}
+
+/* ========================================
+   TIMELINE
+======================================== */
+
+/* THIS FIXES THE HUGE EMPTY SPACE */
+
+.accountLogCard {
+  margin-top: -2px;
+  min-height: unset;
+  padding-top: 18px;
+}
+
+/* PULL TIMELINE UP */
+
+.timelineSection {
+  margin-top: -4px;
+}
+
+.activityHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.activityTitle {
+  margin: 4px 0 2px;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  color: #111827;
+}
+
+.activitySub {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.activityCount {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #fafafa;
+  border: 1px solid #ececf1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #52525b;
+}
+
+.modernTimeline {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* TIGHTER ITEMS */
+
+.timelineItem {
+  display: flex;
+  gap: 12px;
+}
+
+.timelineLeft {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.timelineDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #60a5fa;
+  margin-top: 5px;
+}
+
+.timelineLine {
+  width: 1px;
+  flex: 1;
+  background: #ececf1;
+  margin-top: 6px;
+}
+
+.timelineContent {
+  flex: 1;
+  padding-bottom: 6px;
+}
+
+.timelineTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.timelineTop strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.timelineDescription {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #6b7280;
+}
+
+.timelineDate {
+  display: block;
+  margin-top: 8px;
+  font-size: 10px;
+  color: #a1a1aa;
+}
+
+/* ========================================
+   TIMELINE BADGES
+======================================== */
+
+.timelineBadge {
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.badgeDanger {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.badgeSuccess {
+  background: #ecfdf5;
+  color: #16a34a;
+}
+
+.badgeInfo {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.badgeEngaged {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.badgeNeutral {
+  background: #f5f5f5;
+  color: #52525b;
+}
+
+/* ========================================
+   PAGINATION
+======================================== */
+
 .pagination {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 12px !important;
-  margin-top: 14px !important;
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
 }
 
 .pagination button {
-  border: 1px solid #ddd !important;
-  background: #fff !important;
-  color: #111 !important;
-  border-radius: 999px !important;
-  padding: 7px 12px !important;
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  cursor: pointer !important;
-}
-
-.pagination button:disabled {
-  opacity: 0.45 !important;
-  cursor: not-allowed !important;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #ececf1;
+  background: #ffffff;
+  color: #52525b;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .pagination span {
-  font-size: 12px !important;
-  color: #666 !important;
+  font-size: 11px;
+  color: #71717a;
 }
 
-.empty {
-  padding: 32px !important;
-  color: #666 !important;
-  font-size: 14px !important;
+/* ========================================
+   EMPTY STATES
+======================================== */
+
+.empty,
+.accountLogEmpty {
+  padding: 24px 0;
+  text-align: center;
+  font-size: 12px;
+  color: #9ca3af;
 }
 
-/* Modal */
+/* ========================================
+   RESPONSIVE
+======================================== */
 
-.modalOverlay {
-  position: fixed !important;
-  inset: 0 !important;
-  z-index: 1000 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 22px !important;
-  background: rgba(0, 0, 0, 0.28) !important;
-  backdrop-filter: blur(8px) !important;
+@media (max-width: 1200px) {
+  .modernKpiGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
-.emailModal {
-  width: min(620px, 100%) !important;
-  max-height: 86vh !important;
-  overflow: hidden !important;
-  border-radius: 20px !important;
-  background: #fff !important;
-  border: 1px solid #ddd !important;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22) !important;
+@media (max-width: 980px) {
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sideStack {
+    order: 2;
+  }
+
+  .accountLogCard {
+    order: 3;
+  }
 }
 
-.emailModalHeader {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: flex-start !important;
-  gap: 16px !important;
-  padding: 22px 24px 12px !important;
+@media (max-width: 700px) {
+  .page {
+    padding: 14px;
+  }
+
+  .modernKpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pageTitle {
+    font-size: 26px;
+  }
+
+  .activityHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .timelineTop {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
-.emailEyebrow {
-  font-size: 10px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.08em !important;
-  text-transform: uppercase !important;
-  color: #777 !important;
+.leftColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
+
+.kpiSmall {
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  line-height: 1.1 !important;
+}
+
+.accountHeading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.accountEmail {
+  margin: 0;
+
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+
+  color: #6b7280;
+
+  letter-spacing: -0.01em;
+}
+
+/* FIX MODAL TITLE + SUBTEXT */
 
 .emailModalTitle {
-  margin-top: 5px !important;
-  font-size: 22px !important;
-  line-height: 1.1 !important;
-  font-weight: 600 !important;
-  letter-spacing: -0.03em !important;
-  color: #111 !important;
+  font-size: 26px !important;
+  line-height: 1 !important;
+
+  font-weight: 700 !important;
+  letter-spacing: -0.05em !important;
+
+  color: #111827 !important;
+
+  margin: 0 !important;
 }
 
 .emailModalSub {
-  margin-top: 6px !important;
+  margin-top: 10px !important;
+
   font-size: 13px !important;
-  color: #666 !important;
+  line-height: 1.6 !important;
+
+  color: #6b7280 !important;
 }
 
-.emailCloseBtn {
-  width: 33px !important;
-  height: 33px !important;
-  border-radius: 999px !important;
-  border: 1px solid #ddd !important;
-  background: #fff !important;
-  color: #111 !important;
-  font-size: 19px !important;
-  cursor: pointer !important;
+/* FIX HEADER SPACING */
+
+.emailModalHeader {
+  padding: 24px 24px 20px !important;
+
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+
+  gap: 18px !important;
+
+  border-bottom: 1px solid #f3f4f6 !important;
 }
 
-.emailShell {
-  padding: 0 24px 24px !important;
+/* WHITE BUTTONS */
+
+.emailCancelBtn,
+.emailSendBtn {
+  height: 42px !important;
+
+  padding: 0 18px !important;
+
+  border-radius: 12px !important;
+
+  border: 1px solid #ececf1 !important;
+
+  background: #ffffff !important;
+
+  color: #111827 !important;
+
+  font-size: 13px !important;
+  font-weight: 600 !important;
+
+  transition: all 0.15s ease !important;
+}
+
+.emailCancelBtn:hover,
+.emailSendBtn:hover {
+  background: #fafafa !important;
+}
+
+
+/* FINAL MODAL FIX */
+
+.modalOverlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+
+  width: 100vw !important;
+  height: 100vh !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  padding: 24px !important;
+
+  background: rgba(17, 24, 39, 0.45) !important;
+
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+
+  z-index: 999999 !important;
+}
+
+.emailModal {
+  position: relative !important;
+
+  width: 100% !important;
+  max-width: 680px !important;
+
+  background: #ffffff !important;
+
+  border-radius: 28px !important;
+  border: 1px solid #ececf1 !important;
+
+  overflow: hidden !important;
+
+  margin: 0 auto !important;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+/* FORCE MODAL FORM STYLES */
+
+.emailModal input,
+.emailModal textarea,
+.emailModal button {
+  font-family: inherit !important;
+}
+
+.emailInput {
+  width: 100% !important;
+
+  height: 52px !important;
+
+  padding: 0 16px !important;
+
+  border-radius: 16px !important;
+  border: 1px solid #e5e7eb !important;
+
+  background: #ffffff !important;
+
+  font-size: 14px !important;
+  line-height: 1 !important;
+
+  color: #111827 !important;
+
+  outline: none !important;
+
+  display: block !important;
+}
+
+.emailTextarea {
+  width: 100% !important;
+
+  min-height: 220px !important;
+
+  padding: 16px !important;
+
+  border-radius: 16px !important;
+  border: 1px solid #e5e7eb !important;
+
+  background: #ffffff !important;
+
+  font-size: 14px !important;
+  line-height: 1.7 !important;
+
+  color: #111827 !important;
+
+  resize: vertical !important;
+
+  outline: none !important;
+
+  display: block !important;
 }
 
 .emailField {
-  margin-top: 13px !important;
+  margin-bottom: 18px !important;
+}
+
+.emailShell {
+  padding: 24px !important;
 }
 
 .emailLabel {
   display: block !important;
-  margin-bottom: 6px !important;
+
+  margin-bottom: 8px !important;
+
   font-size: 12px !important;
   font-weight: 600 !important;
-  color: #666 !important;
+
+  color: #6b7280 !important;
 }
 
-.emailInput,
-.emailTextarea {
-  width: 100% !important;
-  border: 1px solid #ddd !important;
-  background: #fff !important;
-  color: #111 !important;
-  border-radius: 14px !important;
-  padding: 12px !important;
-  font: inherit !important;
-  font-size: 14px !important;
-  outline: none !important;
-}
+.badgeWarning {
+  background: #fff7ed;
+  color: #c2410c;
 
-.emailInput:focus,
-.emailTextarea:focus {
-  border-color: #111 !important;
-}
-
-.emailTextarea {
-  min-height: 210px !important;
-  resize: vertical !important;
-  line-height: 1.55 !important;
-}
-
-.emailError {
-  margin-top: 12px !important;
-  border: 1px solid #fecaca !important;
-  border-radius: 14px !important;
-  background: #fef2f2 !important;
-  color: #991b1b !important;
-  padding: 10px 12px !important;
-  font-size: 13px !important;
-}
-
-.emailModalActions {
-  display: flex !important;
-  justify-content: flex-end !important;
-  gap: 9px !important;
-  margin-top: 16px !important;
-}
-
-.emailCancelBtn,
-.emailSendBtn {
-  border-radius: 999px !important;
-  padding: 10px 16px !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  cursor: pointer !important;
-}
-
-.emailCancelBtn {
-  border: 1px solid #ddd !important;
-  background: #fff !important;
-  color: #111 !important;
-}
-
-.emailSendBtn {
-  border: 1px solid #111 !important;
-  background: #111 !important;
-  color: #fff !important;
-}
-
-.emailSendBtn:disabled {
-  opacity: 0.6 !important;
-  cursor: not-allowed !important;
-}
-
-/* Hide old unused styles */
-
-.profileHero,
-.profileInfoGrid,
-.actionBox,
-.accountLogTable,
-.accountLogHead,
-.accountLogRow {
-  display: none !important;
-}
-
-.kpiSub {
-  color: #666 !important;
-  font-size: 12px !important;
-  line-height: 1.45 !important;
-}
-
-/* Responsive */
-
-@media (max-width: 1100px) {
-  .mainGrid {
-    grid-template-columns: 1fr !important;
-    grid-template-areas:
-      "overview"
-      "ai"
-      "activity"
-      "notes" !important;
-  }
-
-  .sideStack {
-    display: contents !important;
-  }
-
-  .cleanProfileGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  }
-}
-
-@media (max-width: 760px) {
-  .page {
-    padding: 15px !important;
-  }
-
-  .topBar {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-  }
-
-  .cleanProfileHeader {
-    flex-direction: column !important;
-  }
-
-  .cleanRiskBadge {
-    width: fit-content !important;
-  }
-
-  .cleanProfileGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
-  .activityRowTop {
-    flex-direction: column !important;
-    gap: 7px !important;
-  }
-
-  .activityRowTop em {
-    width: fit-content !important;
-  }
-}
-
-@media (max-width: 520px) {
-  .cleanProfileGrid {
-    grid-template-columns: 1fr !important;
-  }
-
-  .cleanProfileName {
-    font-size: 21px !important;
-  }
-
-  .emailModalHeader,
-  .emailShell {
-    padding-left: 18px !important;
-    padding-right: 18px !important;
-  }
-
-  .emailModalActions,
-  .pagination {
-    flex-direction: column !important;
-    align-items: stretch !important;
-  }
 }

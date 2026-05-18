@@ -1,4 +1,5 @@
 import type { EChartsOption } from "echarts";
+import * as echarts from "echarts";
 
 function formatCurrency(value: number) {
     return `£${value.toLocaleString()}`;
@@ -12,10 +13,6 @@ function getDeltaMeta(delta: number, lowerIsBetter = false) {
     if (delta === 0) {
         return {
             arrow: "•",
-            text: "in line with previous month",
-            description: lowerIsBetter
-                ? "retention trend is holding steady"
-                : "performance is holding steady",
             color: "#6b7280",
         };
     }
@@ -23,23 +20,8 @@ function getDeltaMeta(delta: number, lowerIsBetter = false) {
     const isUp = delta > 0;
     const isGood = lowerIsBetter ? delta < 0 : delta > 0;
 
-    if (lowerIsBetter) {
-        return {
-            arrow: isUp ? "↑" : "↓",
-            text: isUp ? "above previous month" : "below previous month",
-            description: isUp
-                ? "churn pressure increased month over month"
-                : "retention trend improved month over month",
-            color: isGood ? "#16a34a" : "#dc2626",
-        };
-    }
-
     return {
         arrow: isUp ? "↑" : "↓",
-        text: isUp ? "above previous month" : "below previous month",
-        description: isUp
-            ? "performance improved month over month"
-            : "performance softened month over month",
         color: isGood ? "#16a34a" : "#dc2626",
     };
 }
@@ -48,19 +30,12 @@ function getMrrDeltaMeta(delta: number) {
     if (delta === 0) {
         return {
             arrow: "•",
-            text: "in line with previous month",
-            description: "revenue protection is holding steady",
             color: "#6b7280",
         };
     }
 
     return {
         arrow: delta > 0 ? "↑" : "↓",
-        text: delta > 0 ? "above previous month" : "below previous month",
-        description:
-            delta > 0
-                ? "revenue protection improved month over month"
-                : "revenue protection softened month over month",
         color: delta > 0 ? "#16a34a" : "#dc2626",
     };
 }
@@ -85,138 +60,215 @@ export function churnTrendOption(
     const interval = Number((range / 4).toFixed(1));
 
     return {
-        animationDuration: 500,
+        animationDuration: 700,
+        animationEasing: "cubicOut",
+
         grid: {
             top: 20,
-            right: 16,
-            bottom: 28,
-            left: 44,
+            right: 18,
+            bottom: 22,
+            left: 8,
             containLabel: true,
         },
+
         tooltip: {
             trigger: "axis",
+
             axisPointer: {
-                type: "none",
-                shadowStyle: {
-                    color: "rgba(15, 23, 42, 0.06)",
+                type: "line",
+                lineStyle: {
+                    color: "rgba(95, 143, 220, 0.25)",
+                    width: 1,
                 },
             },
+
             backgroundColor: "#ffffff",
-            borderColor: "#e5e7eb",
+            borderColor: "#edf1f5",
             borderWidth: 1,
+
             textStyle: {
                 color: "#111827",
                 fontFamily: "inherit",
             },
-            padding: 8,
+
+            padding: 10,
+
             extraCssText:
-                "border-radius: 8px; box-shadow: 0 6px 15px rgba(0,0,0,0.08);",
+                "border-radius:16px; box-shadow:0 10px 30px rgba(15,23,42,0.08);",
+
             formatter: (params: any) => {
                 const point = Array.isArray(params) ? params[0] : params;
+
                 const index = point?.dataIndex ?? 0;
                 const month = safeMonths[index] ?? "";
                 const value = Number(point?.value ?? 0);
 
                 if (index === 0) {
                     return `
-          <div style="min-width: 0; display: flex; flex-direction: column; gap: 4px;">
-            <div style="font-size: 12px; font-weight: 600; color: #6b7280;">
-              ${month}
-            </div>
+<div style="display:flex;flex-direction:column;gap:6px;">
+<div style="font-size:12px;color:#6b7280;font-weight:600;">
+${month}
+</div>
 
-            <div style="font-size: 13px; font-weight: 700; color: #111827;">
-              ${formatPercent(value)} churn
-            </div>
+<div style="font-size:14px;font-weight:700;color:#111827;">
+${formatPercent(value)} churn
+</div>
 
-            <div style="font-size: 12px; font-weight: 600; color: #6b7280;">
-              • No previous month value
-            </div>
-          </div>
-        `;
+<div style="font-size:12px;color:#6b7280;font-weight:600;">
+• No previous month value
+</div>
+</div>
+`;
                 }
 
                 const previousMonth = safeMonths[index - 1] ?? "";
                 const previous = Number(safeValues[index - 1] ?? value);
+
                 const delta = Number((value - previous).toFixed(1));
+
                 const meta = getDeltaMeta(delta, true);
 
                 return `
-          <div style="min-width: 0; display: flex; flex-direction: column; gap: 4px;">
-            <div style="font-size: 12px; font-weight: 600; color: #6b7280;">
-              ${month}
-            </div>
+<div style="display:flex;flex-direction:column;gap:6px;">
+<div style="font-size:12px;color:#6b7280;font-weight:600;">
+${month}
+</div>
 
-            <div style="font-size: 13px; font-weight: 700; color: #111827;">
-              ${formatPercent(value)} churn
-            </div>
+<div style="font-size:14px;font-weight:700;color:#111827;">
+${formatPercent(value)} churn
+</div>
 
-            <div style="font-size: 12px; font-weight: 600; color: ${meta.color};">
-              ${meta.arrow} ${formatPercent(Math.abs(delta))} vs ${previousMonth} (${formatPercent(previous)})
-            </div>
-          </div>
-        `;
+<div style="font-size:12px;font-weight:700;color:${meta.color};">
+${meta.arrow} ${formatPercent(Math.abs(delta))} vs ${previousMonth} (${formatPercent(previous)})
+</div>
+</div>
+`;
             },
         },
+
         xAxis: {
             type: "category",
+
             data: safeMonths,
-            boundaryGap: true,
+
+            boundaryGap: false,
+
             axisTick: {
                 show: false,
             },
+
             axisLine: {
                 lineStyle: {
-                    color: "#e5e7eb",
+                    color: "#eef2f7",
                 },
             },
+
             axisLabel: {
-                color: "#6b7280",
+                color: "#7b8494",
                 fontSize: 12,
-                margin: 12,
+                margin: 8,
             },
         },
+
         yAxis: {
             type: "value",
+
             min: yMinBase,
             max: yMaxBase,
             interval,
+
             axisLine: {
                 show: false,
             },
+
             axisTick: {
                 show: false,
             },
+
             axisLabel: {
-                color: "#6b7280",
+                color: "#7b8494",
                 fontSize: 12,
-                formatter: (value: number) => `${value}%`,
-                margin: 10,
+                margin: 8,
+
+                formatter: (value: number) => {
+                    const roundedMax = Number(yMaxBase.toFixed(1));
+
+                    if (Number(value.toFixed(1)) >= roundedMax) {
+                        return "";
+                    }
+
+                    return `${value}%`;
+                },
             },
+
             splitLine: {
                 lineStyle: {
-                    color: "#f1f5f9",
+                    color: "rgba(148, 163, 184, 0.08)",
                 },
             },
         },
+
         series: [
             {
-                type: "bar",
+                type: "line",
+
+                smooth: true,
+
                 data: safeValues,
-                barWidth: 28,
-                itemStyle: {
-                    borderRadius: [10, 10, 0, 0],
-                    color: "#5f8fdcff",
+
+                showSymbol: false,
+
+                symbol: "circle",
+
+                symbolSize: 8,
+
+                lineStyle: {
+                    width: 3,
+                    color: "#5f8fdc",
                 },
+
+                itemStyle: {
+                    color: "#5f8fdc",
+                    borderColor: "#ffffff",
+                    borderWidth: 3,
+                },
+
                 emphasis: {
+                    focus: "series",
+
+                    scale: true,
+
                     itemStyle: {
-                        color: "#5f8fdcff",
+                        color: "#5f8fdc",
+                        borderColor: "#ffffff",
+                        borderWidth: 4,
                     },
+                },
+
+                areaStyle: {
+                    opacity: 1,
+
+                    color: new echarts.graphic.LinearGradient(
+                        0,
+                        0,
+                        0,
+                        1,
+                        [
+                            {
+                                offset: 0,
+                                color: "rgba(95,143,220,0.30)",
+                            },
+                            {
+                                offset: 1,
+                                color: "rgba(95,143,220,0.02)",
+                            },
+                        ]
+                    ),
                 },
             },
         ],
     };
 }
-
 export function mrrProtectedOption(
     months: string[],
     values: number[],
@@ -231,142 +283,228 @@ export function mrrProtectedOption(
     const roundedMin = Math.floor(minValue / 100) * 100;
     const roundedMax = Math.ceil(maxValue / 100) * 100;
 
-    let yMin = Math.max(0, roundedMin - 100);
-    let yMax = roundedMax + 100;
+    /* tighter chart range */
 
-    if (yMax - yMin < 300) {
-        yMax = yMin + 300;
+    let yMin = Math.max(0, roundedMin - 60);
+
+    /* reduce empty top space */
+    let yMax = roundedMax + 10;
+
+    if (yMax - yMin < 180) {
+        yMax = yMin + 180;
     }
 
-    const interval = Math.max(100, Math.round((yMax - yMin) / 4 / 100) * 100);
+    const interval = Math.max(
+        50,
+        Math.round((yMax - yMin) / 4 / 50) * 50
+    );
 
     return {
-        animationDuration: 500,
+        animationDuration: 700,
+        animationEasing: "cubicOut",
+
         grid: {
-            top: 20,
-            right: 16,
-            bottom: 28,
-            left: 52,
+            top: 0,
+            right: 18,
+            bottom: 14,
+            left: 8,
             containLabel: true,
         },
+
         tooltip: {
             trigger: "axis",
+
             axisPointer: {
-                type: "none",
-                shadowStyle: {
-                    color: "rgba(15, 23, 42, 0.06)",
+                type: "line",
+
+                lineStyle: {
+                    color: "rgba(95, 143, 220, 0.25)",
+                    width: 1,
                 },
             },
+
             backgroundColor: "#ffffff",
-            borderColor: "#e5e7eb",
+            borderColor: "#edf1f5",
             borderWidth: 1,
+
             textStyle: {
                 color: "#111827",
                 fontFamily: "inherit",
             },
-            padding: 8,
+
+            padding: 10,
+
             extraCssText:
-                "border-radius: 8px; box-shadow: 0 6px 15px rgba(0,0,0,0.08);",
+                "border-radius:16px; box-shadow:0 10px 30px rgba(15,23,42,0.08);",
+
             formatter: (params: any) => {
                 const point = Array.isArray(params) ? params[0] : params;
+
                 const index = point?.dataIndex ?? 0;
                 const month = safeMonths[index] ?? "";
                 const value = Number(point?.value ?? 0);
 
                 if (index === 0) {
                     return `
-          <div style="min-width: 0; display: flex; flex-direction: column; gap: 4px;">
-            <div style="font-size: 12px; font-weight: 600; color: #6b7280;">
-              ${month}
-            </div>
+<div style="display:flex;flex-direction:column;gap:6px;">
+<div style="font-size:12px;color:#6b7280;font-weight:600;">
+${month}
+</div>
 
-            <div style="font-size: 13px; font-weight: 700; color: #111827;">
-              ${formatCurrency(value)} protected
-            </div>
+<div style="font-size:14px;font-weight:700;color:#111827;">
+${formatCurrency(value)} protected
+</div>
 
-            <div style="font-size: 12px; font-weight: 600; color: #6b7280;">
-              • No previous month value
-            </div>
-          </div>
-        `;
+<div style="font-size:12px;color:#6b7280;font-weight:600;">
+• No previous month value
+</div>
+</div>
+`;
                 }
 
                 const previousMonth = safeMonths[index - 1] ?? "";
                 const previous = Number(safeValues[index - 1] ?? value);
+
                 const delta = value - previous;
+
                 const meta = getMrrDeltaMeta(delta);
 
                 return `
-          <div style="min-width: 0; display: flex; flex-direction: column; gap: 4px;">
-            <div style="font-size: 12px; font-weight: 600; color: #6b7280;">
-              ${month}
-            </div>
+<div style="display:flex;flex-direction:column;gap:6px;">
+<div style="font-size:12px;color:#6b7280;font-weight:600;">
+${month}
+</div>
 
-            <div style="font-size: 13px; font-weight: 700; color: #111827;">
-              ${formatCurrency(value)} protected
-            </div>
+<div style="font-size:14px;font-weight:700;color:#111827;">
+${formatCurrency(value)} protected
+</div>
 
-            <div style="font-size: 12px; font-weight: 600; color: ${meta.color};">
-              ${meta.arrow} ${formatCurrency(Math.abs(delta))} vs ${previousMonth} (${formatCurrency(previous)})
-            </div>
-          </div>
-        `;
+<div style="font-size:12px;font-weight:700;color:${meta.color};">
+${meta.arrow} ${formatCurrency(Math.abs(delta))} vs ${previousMonth} (${formatCurrency(previous)})
+</div>
+</div>
+`;
             },
         },
+
         xAxis: {
             type: "category",
+
             data: safeMonths,
-            boundaryGap: true,
+
+            boundaryGap: false,
+
             axisTick: {
                 show: false,
             },
+
             axisLine: {
                 lineStyle: {
-                    color: "#e5e7eb",
+                    color: "#eef2f7",
                 },
             },
+
             axisLabel: {
-                color: "#6b7280",
+                color: "#7b8494",
                 fontSize: 12,
-                margin: 12,
+                margin: 8,
             },
         },
+
         yAxis: {
             type: "value",
+
             min: yMin,
             max: yMax,
             interval,
+
             axisLine: {
                 show: false,
             },
+
             axisTick: {
                 show: false,
             },
+
             axisLabel: {
-                color: "#6b7280",
+                color: "#7b8494",
                 fontSize: 12,
-                formatter: (value: number) => `£${value}`,
-                margin: 10,
+                margin: 8,
+
+                formatter: (value: number) => {
+                    const roundedMax = yMax;
+
+                    if (value >= roundedMax) {
+                        return "";
+                    }
+
+                    return `£${value}`;
+                },
             },
+
             splitLine: {
                 lineStyle: {
-                    color: "#f1f5f9",
+                    color: "rgba(148, 163, 184, 0.08)",
                 },
             },
         },
+
         series: [
             {
-                type: "bar",
+                type: "line",
+
+                smooth: true,
+
                 data: safeValues,
-                barWidth: 28,
-                itemStyle: {
-                    borderRadius: [10, 10, 0, 0],
-                    color: "#5f8fdcff",
+
+                showSymbol: false,
+
+                symbol: "circle",
+
+                symbolSize: 8,
+
+                lineStyle: {
+                    width: 3,
+                    color: "#5f8fdc",
                 },
+
+                itemStyle: {
+                    color: "#5f8fdc",
+                    borderColor: "#ffffff",
+                    borderWidth: 3,
+                },
+
                 emphasis: {
+                    focus: "series",
+
+                    scale: true,
+
                     itemStyle: {
-                        color: "#5f8fdcff",
+                        color: "#5f8fdc",
+                        borderColor: "#ffffff",
+                        borderWidth: 4,
                     },
+                },
+
+                areaStyle: {
+                    opacity: 1,
+
+                    color: new echarts.graphic.LinearGradient(
+                        0,
+                        0,
+                        0,
+                        1,
+                        [
+                            {
+                                offset: 0,
+                                color: "rgba(95,143,220,0.26)",
+                            },
+                            {
+                                offset: 1,
+                                color: "rgba(95,143,220,0.02)",
+                            },
+                        ]
+                    ),
                 },
             },
         ],

@@ -10,7 +10,7 @@ export type AiUsageDecision = {
 
 const STARTER_MONTHLY_AI_LIMIT = 20;
 const FREE_MONTHLY_AI_LIMIT = 10;
-const PRO_MONTHLY_AI_LIMIT = 500;
+const PRO_MONTHLY_AI_LIMIT = 150;
 
 function startOfMonth() {
     const now = new Date();

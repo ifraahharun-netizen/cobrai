@@ -122,9 +122,9 @@
 }
 
 .kpiValue {
-  font-size: 23px;
+  font-size: 17px;
   line-height: 1.1;
-  font-weight: 650;
+  font-weight: 550;
   letter-spacing: -0.035em;
   color: #16182f;
 }
@@ -174,14 +174,14 @@
 }
 
 .riskFilterBtn:hover {
-  border-color: #111827;
-  color: #111827;
+  border-color: #dfdfe0;
+  color: #100e0e;
 }
 
 .riskFilterBtnActive {
-  border: 1px solid #111827;
-  background: #111827;
-  color: #ffffff;
+  border: 1px solid #e7e7e8;
+  background: #ffffff;
+  color: #2a2828;
   box-shadow: 0 8px 18px rgba(17, 24, 39, 0.12);
 }
 
@@ -386,7 +386,7 @@
   border: 1px solid #e5e7eb;
   border-radius: 14px;
   background: #ffffff;
-  color: #111827;
+  color: #131212;
   font-size: 12.5px;
   font-weight: 750;
   cursor: pointer;
@@ -394,9 +394,9 @@
 }
 
 .viewBtn:hover:not(:disabled) {
-  border-color: #111827;
-  background: #111827;
-  color: #ffffff;
+  border-color: #e4e1e1;
+  background: #ffffff;
+  color: #090909;
 }
 
 .viewBtn:disabled {

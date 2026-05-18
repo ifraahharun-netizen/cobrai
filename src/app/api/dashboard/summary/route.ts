@@ -542,8 +542,12 @@ export async function GET(req: Request) {
       connectedIntegrations.length > 0 &&
       (mrrSnapshotCount > 0 || accountRiskCount > 0);
 
-    const effectiveDemoMode = ws?.demoMode === true;
-    const isDemo = effectiveDemoMode;
+      const effectiveDemoMode =
+      ws?.demoMode === true ||
+      process.env.NODE_ENV === "development";
+
+
+    const isDemo = effectiveDemoMode === true;
 
     if (!isDemo && hasEnoughLiveData) {
       await writeDailyAccountRiskSnapshotsForWorkspace(workspaceId);

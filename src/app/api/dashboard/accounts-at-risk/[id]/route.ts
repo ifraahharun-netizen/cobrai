@@ -90,97 +90,267 @@ function makeDemoResponse(id: string) {
     if (!customer) return null;
 
     const riskScore = Number(customer.riskScore ?? customer.churnRisk ?? 0);
-    const previousRiskScore = Math.max(0, riskScore - 6);
+
+    const previousRiskScore =
+        riskScore >= 80
+            ? riskScore - 12
+            : riskScore >= 60
+                ? riskScore - 7
+                : Math.max(10, riskScore - 3);
+
     const riskDelta = riskScore - previousRiskScore;
-    const reasonLabel = reasonFromScore(riskScore, customer.status);
-    const nextAction = actionFromScore(riskScore, reasonLabel);
+
+    const reasonLabel = reasonFromScore(
+        riskScore,
+        customer.status
+    );
+
+    const nextAction = actionFromScore(
+        riskScore,
+        reasonLabel
+    );
 
     const now = new Date();
+    const nowMs = now.getTime();
+
+    const scenarios: Record<
+        string,
+        {
+            type: string;
+            label: string;
+            offsetHours: number;
+        }[]
+    > = {
+        "demo-cedarworks": [
+            {
+                type: "usage_dropped",
+                label: "Weekly product usage dropped by 42%",
+                offsetHours: 6,
+            },
+            {
+                type: "reengagement_email_sent",
+                label: "Re-engagement email sent to customer",
+                offsetHours: 4,
+            },
+            {
+                type: "reengagement_email_opened",
+                label: "Customer opened re-engagement email",
+                offsetHours: 2,
+            },
+            {
+                type: "risk_increased",
+                label: `Risk score increased to ${riskScore}`,
+                offsetHours: 12,
+            },
+        ],
+
+        "demo-kitelabs": [
+            {
+                type: "payment_failed",
+                label: "Subscription payment failed",
+                offsetHours: 8,
+            },
+            {
+                type: "billing_issue_detected",
+                label: "Billing issue detected by Cobrai",
+                offsetHours: 7,
+            },
+            {
+                type: "billing_recovery_email_sent",
+                label: "Billing recovery email sent",
+                offsetHours: 5,
+            },
+            {
+                type: "billing_recovery_email_opened",
+                label: "Customer opened billing recovery email",
+                offsetHours: 3,
+            },
+        ],
+
+        "demo-novasync": [
+            {
+                type: "plan_upgraded",
+                label: "Customer upgraded to Pro",
+                offsetHours: 20,
+            },
+            {
+                type: "payment_successful",
+                label: "Annual invoice paid successfully",
+                offsetHours: 18,
+            },
+            {
+                type: "risk_decreased",
+                label: "Risk score decreased to 28",
+                offsetHours: 10,
+            },
+            {
+                type: "account_reviewed",
+                label: "Customer health reviewed by Cobrai",
+                offsetHours: 2,
+            },
+        ],
+
+        "demo-orbitflow": [
+            {
+                type: "inactivity_detected",
+                label: "No activity detected for 14 days",
+                offsetHours: 15,
+            },
+            {
+                type: "checkin_email_sent",
+                label: "Customer success follow-up sent",
+                offsetHours: 10,
+            },
+            {
+                type: "reengagement_email_opened",
+                label: "Customer reopened onboarding resources",
+                offsetHours: 3,
+            },
+        ],
+    };
+
+    const scenario =
+        scenarios[id] || scenarios["demo-cedarworks"];
 
     const demoActivity = [
         {
             id: "demo-review",
             type: "account_reviewed",
             label: "Customer health reviewed by Cobrai",
-            date: now.toISOString(),
+            date: new Date(
+                nowMs - 1000 * 60 * 25
+            ).toISOString(),
         },
-        {
-            id: "demo-payment",
-            type: reasonLabel.toLowerCase().includes("billing")
-                ? "payment_failed"
-                : "payment_successful",
-            label: reasonLabel.toLowerCase().includes("billing")
-                ? `Payment failed for ${formatMoney(customer.mrr ?? 0)}`
-                : `Payment successful for ${formatMoney(customer.mrr ?? 0)}`,
-            date: "2026-04-15T11:00:00.000Z",
-        },
-        {
-            id: "demo-risk",
-            type: reasonLabel.toLowerCase().includes("billing")
-                ? "billing_issue_detected"
-                : "usage_dropped",
-            label: reasonLabel,
-            date: "2026-04-14T10:00:00.000Z",
-        },
-    ];
+
+        ...scenario.map((item, index) => ({
+            id: `demo-${index}`,
+            type: item.type,
+            label: item.label,
+            date: new Date(
+                nowMs - 1000 * 60 * 60 * item.offsetHours
+            ).toISOString(),
+        })),
+    ].sort(
+        (a, b) =>
+            new Date(b.date).getTime() -
+            new Date(a.date).getTime()
+    );
 
     return {
         ok: true,
+
         row: {
             id: customer.id,
             customerId: customer.id,
             companyName: customer.name,
             email: customer.email || undefined,
+
             riskScore,
+
             previousRiskScore,
+
             riskLevel: riskLevelFromScore(riskScore),
+
             riskDelta,
-            riskTrend: riskDelta > 0 ? "up" : riskDelta < 0 ? "down" : "flat",
-            reasonKey: reasonLabel.toLowerCase().replaceAll(" ", "_"),
+
+            riskTrend:
+                riskDelta > 0
+                    ? "up"
+                    : riskDelta < 0
+                        ? "down"
+                        : "flat",
+
+            reasonKey: reasonLabel
+                .toLowerCase()
+                .replaceAll(" ", "_"),
+
             reasonLabel,
+
             status: customer.status || "Active",
+
             lastActiveAt: customer.lastActiveAt,
+
             nextAction,
+
             mrr: customer.mrr ?? 0,
+
             updatedAt: now.toISOString(),
+
             isDemo: true,
         },
+
         customerId: customer.id,
+
         profile: {
             companyName: customer.name,
+
             email: customer.email || undefined,
+
             plan: customer.plan || "—",
+
             createdAt: customer.createdAt,
+
             startDate: customer.createdAt,
-            nextBillingAt: "2026-05-15T10:00:00.000Z",
+
+            nextBillingAt: new Date(
+                nowMs + 1000 * 60 * 60 * 24 * 12
+            ).toISOString(),
+
             paymentHistory: [
                 {
-                    label: reasonLabel.toLowerCase().includes("billing")
-                        ? "Payment needs attention"
-                        : "Latest subscription payment",
-                    at: "2026-04-15T10:00:00.000Z",
+                    label:
+                        reasonLabel
+                            .toLowerCase()
+                            .includes("billing")
+                            ? "Payment needs attention"
+                            : "Latest subscription payment",
+
+                    at: new Date(
+                        nowMs - 1000 * 60 * 60 * 24
+                    ).toISOString(),
+
                     amount: customer.mrr ?? 0,
-                    status: reasonLabel.toLowerCase().includes("billing") ? "failed" : "paid",
+
+                    status:
+                        reasonLabel
+                            .toLowerCase()
+                            .includes("billing")
+                            ? "failed"
+                            : "paid",
                 },
             ],
+
             supportHistory: [
                 {
-                    label: "Customer health reviewed by Cobrai",
+                    label:
+                        "Customer health reviewed by Cobrai",
+
                     at: now.toISOString(),
+
                     channel: "system",
+
                     status: "completed",
                 },
             ],
         },
+
         activity: demoActivity,
+
         ai: {
             headline: `${customer.name} needs attention`,
+
             summary: reasonLabel,
+
             confidence: riskScore,
+
             drivers: [reasonLabel],
+
             whyAtRisk: [reasonLabel],
+
             recommendation: nextAction,
+
             nextBestAction: nextAction,
+
             automationSuggestion: nextAction,
         },
     };

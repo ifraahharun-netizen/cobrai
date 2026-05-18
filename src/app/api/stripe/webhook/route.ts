@@ -2,53 +2,91 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
 
 type PlanTier = "free" | "starter" | "pro";
 
 function toDate(value?: number | null): Date | null {
-    return typeof value === "number" ? new Date(value * 1000) : null;
+    return typeof value === "number"
+        ? new Date(value * 1000)
+        : null;
 }
 
 function isActiveSubscriptionStatus(status: string): boolean {
-    return status === "trialing" || status === "active" || status === "past_due";
+    return (
+        status === "trialing" ||
+        status === "active" ||
+        status === "past_due"
+    );
 }
 
 function tierFromSubscription(
     status: string,
     requestedTier: string | null | undefined
 ): PlanTier {
-    if (!isActiveSubscriptionStatus(status)) return "free";
-    if (requestedTier === "pro") return "pro";
+    if (!isActiveSubscriptionStatus(status)) {
+        return "free";
+    }
+
+    if (requestedTier === "pro") {
+        return "pro";
+    }
+
     return "starter";
 }
 
 function getStripeCustomerId(
-    customer: string | Stripe.Customer | Stripe.DeletedCustomer | null
-): string | null {
+    customer:
+        | string
+        | Stripe.Customer
+        | Stripe.DeletedCustomer
+        | null
+) {
     if (!customer) return null;
-    return typeof customer === "string" ? customer : customer.id;
+
+    return typeof customer === "string"
+        ? customer
+        : customer.id;
 }
 
-function getSubscriptionPeriod(subscription: Stripe.Subscription) {
+function getSubscriptionPeriod(
+    subscription: Stripe.Subscription
+) {
     const firstItem = subscription.items.data[0] as any;
 
     return {
-        currentPeriodStart: toDate(firstItem?.current_period_start ?? null),
-        currentPeriodEnd: toDate(firstItem?.current_period_end ?? null),
+        currentPeriodStart: toDate(
+            firstItem?.current_period_start ?? null
+        ),
+
+        currentPeriodEnd: toDate(
+            firstItem?.current_period_end ?? null
+        ),
     };
 }
 
 function amountFromInvoice(invoice: Stripe.Invoice) {
     const i = invoice as any;
 
-    return Number(i.amount_paid ?? i.amount_due ?? i.total ?? i.subtotal ?? 0);
+    return Number(
+        i.amount_paid ??
+        i.amount_due ??
+        i.total ??
+        i.subtotal ??
+        0
+    );
 }
 
 function invoiceDueDate(invoice: Stripe.Invoice) {
     const i = invoice as any;
-    return toDate(i.due_date) || toDate(i.created) || new Date();
+
+    return (
+        toDate(i.due_date) ||
+        toDate(i.created) ||
+        new Date()
+    );
 }
 
 function invoicePaidDate(invoice: Stripe.Invoice) {
@@ -61,9 +99,15 @@ function invoicePaidDate(invoice: Stripe.Invoice) {
     );
 }
 
-async function updateWorkspacePlan(workspaceId: string, tier: PlanTier) {
+async function updateWorkspacePlan(
+    workspaceId: string,
+    tier: PlanTier
+) {
     await prisma.workspace.update({
-        where: { id: workspaceId },
+        where: {
+            id: workspaceId,
+        },
+
         data: {
             tier,
             demoMode: false,
@@ -92,31 +136,56 @@ async function saveStripeEventOnce(event: Stripe.Event) {
     }
 }
 
-async function updateSavedStripeEventWorkspace(eventId: string, workspaceId: string) {
+async function updateSavedStripeEventWorkspace(
+    eventId: string,
+    workspaceId: string
+) {
     await prisma.stripeEvent.updateMany({
-        where: { id: eventId },
-        data: { workspaceId },
+        where: {
+            id: eventId,
+        },
+
+        data: {
+            workspaceId,
+        },
     });
 }
 
-async function resolveWorkspaceIdFromSubscription(subscription: Stripe.Subscription) {
-    const metadataWorkspaceId = subscription.metadata?.workspaceId;
+async function resolveWorkspaceIdFromSubscription(
+    subscription: Stripe.Subscription
+) {
+    const metadataWorkspaceId =
+        subscription.metadata?.workspaceId;
 
-    if (metadataWorkspaceId) return metadataWorkspaceId;
+    if (metadataWorkspaceId) {
+        return metadataWorkspaceId;
+    }
 
-    const stripeCustomerId = getStripeCustomerId(subscription.customer);
+    const stripeCustomerId =
+        getStripeCustomerId(subscription.customer);
 
-    if (!stripeCustomerId) return null;
+    if (!stripeCustomerId) {
+        return null;
+    }
 
-    const storedCustomer = await prisma.stripeCustomer.findUnique({
-        where: { stripeId: stripeCustomerId },
-        select: { workspaceId: true },
-    });
+    const storedCustomer =
+        await prisma.stripeCustomer.findUnique({
+            where: {
+                stripeId: stripeCustomerId,
+            },
+
+            select: {
+                workspaceId: true,
+            },
+        });
 
     return storedCustomer?.workspaceId || null;
 }
 
-async function resolveWorkspaceIdFromInvoice(stripe: Stripe, invoice: Stripe.Invoice) {
+async function resolveWorkspaceIdFromInvoice(
+    stripe: Stripe,
+    invoice: Stripe.Invoice
+) {
     const i = invoice as any;
 
     if (invoice.metadata?.workspaceId) {
@@ -129,21 +198,39 @@ async function resolveWorkspaceIdFromInvoice(stripe: Stripe, invoice: Stripe.Inv
             : i.subscription?.id || null;
 
     if (subscriptionId) {
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        const workspaceId = await resolveWorkspaceIdFromSubscription(subscription);
+        const subscription =
+            await stripe.subscriptions.retrieve(
+                subscriptionId
+            );
 
-        if (workspaceId) return workspaceId;
+        const workspaceId =
+            await resolveWorkspaceIdFromSubscription(
+                subscription
+            );
+
+        if (workspaceId) {
+            return workspaceId;
+        }
     }
 
-    const stripeCustomerId = getStripeCustomerId(invoice.customer as any);
+    const stripeCustomerId =
+        getStripeCustomerId(invoice.customer as any);
 
     if (stripeCustomerId) {
-        const storedCustomer = await prisma.stripeCustomer.findUnique({
-            where: { stripeId: stripeCustomerId },
-            select: { workspaceId: true },
-        });
+        const storedCustomer =
+            await prisma.stripeCustomer.findUnique({
+                where: {
+                    stripeId: stripeCustomerId,
+                },
 
-        if (storedCustomer?.workspaceId) return storedCustomer.workspaceId;
+                select: {
+                    workspaceId: true,
+                },
+            });
+
+        if (storedCustomer?.workspaceId) {
+            return storedCustomer.workspaceId;
+        }
     }
 
     return null;
@@ -154,17 +241,26 @@ async function upsertStripeCustomerForWorkspace(
     workspaceId: string,
     stripeCustomerId: string
 ) {
-    const customer = await stripe.customers.retrieve(stripeCustomerId);
+    const customer =
+        await stripe.customers.retrieve(
+            stripeCustomerId
+        );
 
-    if ("deleted" in customer) return null;
+    if ("deleted" in customer) {
+        return null;
+    }
 
     await prisma.stripeCustomer.upsert({
-        where: { stripeId: customer.id },
+        where: {
+            stripeId: customer.id,
+        },
+
         update: {
             workspaceId,
             email: customer.email ?? null,
             name: customer.name ?? null,
         },
+
         create: {
             stripeId: customer.id,
             workspaceId,
@@ -183,42 +279,77 @@ async function findOrCreateCobraiCustomer(args: {
     amount: number;
     status: string;
 }) {
-    const existing = await prisma.customer.findFirst({
-        where: {
-            workspaceId: args.workspaceId,
-            stripeCustomerId: args.stripeCustomerId,
-        },
-        select: { id: true },
-    });
+    const existing =
+        await prisma.customer.findFirst({
+            where: {
+                workspaceId: args.workspaceId,
+                stripeCustomerId:
+                    args.stripeCustomerId,
+            },
+
+            select: {
+                id: true,
+            },
+        });
 
     if (existing) {
         await prisma.customer.update({
-            where: { id: existing.id },
+            where: {
+                id: existing.id,
+            },
+
             data: {
                 mrr: args.amount || 0,
-                status: args.status === "paid" ? "active" : args.status,
+
+                status:
+                    args.status === "paid"
+                        ? "active"
+                        : args.status,
             },
         });
 
         return existing.id;
     }
 
-    const customer = await prisma.customer.create({
-        data: {
-            workspaceId: args.workspaceId,
-            stripeCustomerId: args.stripeCustomerId,
-            name:
-                args.stripeCustomer?.name ||
-                args.stripeCustomer?.email ||
-                "Stripe customer",
-            email: args.stripeCustomer?.email || null,
-            mrr: args.amount || 0,
-            churnRisk: args.status === "paid" ? 0.25 : 0.78,
-            riskScore: args.status === "paid" ? 25 : 78,
-            status: args.status === "paid" ? "active" : args.status,
-        },
-        select: { id: true },
-    });
+    const customer =
+        await prisma.customer.create({
+            data: {
+                workspaceId: args.workspaceId,
+
+                stripeCustomerId:
+                    args.stripeCustomerId,
+
+                name:
+                    args.stripeCustomer?.name ||
+                    args.stripeCustomer?.email ||
+                    "Stripe customer",
+
+                email:
+                    args.stripeCustomer?.email ||
+                    null,
+
+                mrr: args.amount || 0,
+
+                churnRisk:
+                    args.status === "paid"
+                        ? 0.25
+                        : 0.78,
+
+                riskScore:
+                    args.status === "paid"
+                        ? 25
+                        : 78,
+
+                status:
+                    args.status === "paid"
+                        ? "active"
+                        : args.status,
+            },
+
+            select: {
+                id: true,
+            },
+        });
 
     return customer.id;
 }
@@ -234,9 +365,52 @@ async function createCustomerEvent(args: {
         data: {
             workspaceId: args.workspaceId,
             customerId: args.customerId,
+
             type: args.type,
             occurredAt: args.occurredAt,
-            value: typeof args.value === "number" ? args.value : null,
+
+            value:
+                typeof args.value === "number"
+                    ? args.value
+                    : null,
+        },
+    });
+}
+
+async function createTimelineEvent(args: {
+    workspaceId: string;
+    customerId: string;
+
+    type: string;
+    title: string;
+    description?: string;
+
+    severity?: string;
+    source?: string;
+
+    metadata?: any;
+}) {
+    await prisma.accountTimelineEvent.create({
+        data: {
+            workspaceId: args.workspaceId,
+            customerId: args.customerId,
+
+            type: args.type,
+            title: args.title,
+
+            description:
+                args.description || null,
+
+            severity:
+                args.severity || "info",
+
+            source:
+                args.source || "system",
+
+            metadata:
+                args.metadata || {},
+
+            createdAt: new Date(),
         },
     });
 }
@@ -244,53 +418,89 @@ async function createCustomerEvent(args: {
 async function handleInvoiceEvent(
     stripe: Stripe,
     event: Stripe.Event,
-    eventType: "payment_successful" | "payment_failed"
+    eventType:
+        | "payment_successful"
+        | "payment_failed"
 ) {
-    const invoice = event.data.object as Stripe.Invoice;
+    const invoice =
+        event.data.object as Stripe.Invoice;
 
-    const workspaceId = await resolveWorkspaceIdFromInvoice(stripe, invoice);
+    const workspaceId =
+        await resolveWorkspaceIdFromInvoice(
+            stripe,
+            invoice
+        );
 
     if (!workspaceId) {
-        console.error(`Missing workspaceId for ${event.type}`);
+        console.error(
+            `Missing workspaceId for ${event.type}`
+        );
+
         return;
     }
 
-    await updateSavedStripeEventWorkspace(event.id, workspaceId);
-
-    const stripeCustomerId = getStripeCustomerId(invoice.customer as any);
-
-    if (!stripeCustomerId) {
-        console.error(`Missing stripe customer id for ${event.type}`);
-        return;
-    }
-
-    const stripeCustomer = await upsertStripeCustomerForWorkspace(
-        stripe,
-        workspaceId,
-        stripeCustomerId
+    await updateSavedStripeEventWorkspace(
+        event.id,
+        workspaceId
     );
 
-    const status = eventType === "payment_successful" ? "paid" : "failed";
-    const amount = amountFromInvoice(invoice);
-    const dueAt = invoiceDueDate(invoice);
-    const paidAt = status === "paid" ? invoicePaidDate(invoice) || new Date() : null;
+    const stripeCustomerId =
+        getStripeCustomerId(
+            invoice.customer as any
+        );
 
-    const customerId = await findOrCreateCobraiCustomer({
-        workspaceId,
-        stripeCustomerId,
-        stripeCustomer,
-        amount,
-        status,
-    });
+    if (!stripeCustomerId) {
+        console.error(
+            `Missing stripe customer id for ${event.type}`
+        );
+
+        return;
+    }
+
+    const stripeCustomer =
+        await upsertStripeCustomerForWorkspace(
+            stripe,
+            workspaceId,
+            stripeCustomerId
+        );
+
+    const status =
+        eventType === "payment_successful"
+            ? "paid"
+            : "failed";
+
+    const amount =
+        amountFromInvoice(invoice);
+
+    const dueAt =
+        invoiceDueDate(invoice);
+
+    const paidAt =
+        status === "paid"
+            ? invoicePaidDate(invoice) ||
+            new Date()
+            : null;
+
+    const customerId =
+        await findOrCreateCobraiCustomer({
+            workspaceId,
+            stripeCustomerId,
+            stripeCustomer,
+            amount,
+            status,
+        });
 
     await prisma.invoice.create({
         data: {
             workspaceId,
             customerId,
+
             status,
             amount,
+
             dueAt,
             paidAt,
+
             isDemo: false,
         },
     });
@@ -298,41 +508,104 @@ async function handleInvoiceEvent(
     await createCustomerEvent({
         workspaceId,
         customerId,
+
         type: eventType,
-        occurredAt: paidAt || dueAt || new Date(),
+
+        occurredAt:
+            paidAt ||
+            dueAt ||
+            new Date(),
+
         value: amount,
     });
 
+    if (eventType === "payment_successful") {
+        await createTimelineEvent({
+            workspaceId,
+            customerId,
+
+            type: "payment_successful",
+
+            title: "Payment successful",
+
+            description:
+                "Invoice payment was successfully collected.",
+
+            severity: "success",
+            source: "stripe",
+
+            metadata: {
+                amount,
+                stripeInvoiceId:
+                    invoice.id,
+            },
+        });
+    }
+
     if (eventType === "payment_failed") {
+        await createTimelineEvent({
+            workspaceId,
+            customerId,
+
+            type: "payment_failed",
+
+            title: "Payment failed",
+
+            description:
+                "Stripe could not collect the invoice payment.",
+
+            severity: "danger",
+            source: "stripe",
+
+            metadata: {
+                amount,
+                stripeInvoiceId:
+                    invoice.id,
+            },
+        });
+
         await prisma.accountRisk.upsert({
             where: {
                 id: `stripe-risk-${customerId}`,
             },
+
             update: {
                 workspaceId,
                 customerId,
+
                 companyName:
                     stripeCustomer?.name ||
                     stripeCustomer?.email ||
                     "Stripe customer",
+
                 riskScore: 78,
                 previousRiskScore: 50,
+
                 reasonKey: "billing_risk",
-                reasonLabel: "Payment failed",
+                reasonLabel:
+                    "Payment failed",
+
                 mrr: amount,
             },
+
             create: {
                 id: `stripe-risk-${customerId}`,
+
                 workspaceId,
                 customerId,
+
                 companyName:
                     stripeCustomer?.name ||
                     stripeCustomer?.email ||
                     "Stripe customer",
+
                 riskScore: 78,
                 previousRiskScore: 50,
+
                 reasonKey: "billing_risk",
-                reasonLabel: "Payment failed",
+                reasonLabel:
+                    "Payment failed",
+
                 mrr: amount,
                 isDemo: false,
             },
@@ -341,78 +614,126 @@ async function handleInvoiceEvent(
         await prisma.accountRisk.deleteMany({
             where: {
                 customerId,
-                reasonKey: "billing_risk",
+                reasonKey:
+                    "billing_risk",
             },
         });
     }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(
+    req: NextRequest
+) {
     const stripe = getStripeClient();
+
     const body = await req.text();
-    const signature = req.headers.get("stripe-signature");
+
+    const signature =
+        req.headers.get(
+            "stripe-signature"
+        );
 
     if (!signature) {
-        return new NextResponse("Missing stripe-signature header", { status: 400 });
+        return new NextResponse(
+            "Missing stripe-signature header",
+            {
+                status: 400,
+            }
+        );
     }
 
-    if (!process.env.STRIPE_WEBHOOK_SECRET) {
-        console.error("Missing STRIPE_WEBHOOK_SECRET");
-        return new NextResponse("Webhook configuration error", { status: 500 });
+    if (
+        !process.env.STRIPE_WEBHOOK_SECRET
+    ) {
+        console.error(
+            "Missing STRIPE_WEBHOOK_SECRET"
+        );
+
+        return new NextResponse(
+            "Webhook configuration error",
+            {
+                status: 500,
+            }
+        );
     }
 
     let event: Stripe.Event;
 
     try {
-        event = stripe.webhooks.constructEvent(
-            body,
-            signature,
-            process.env.STRIPE_WEBHOOK_SECRET
-        );
+        event =
+            stripe.webhooks.constructEvent(
+                body,
+                signature,
+                process.env
+                    .STRIPE_WEBHOOK_SECRET
+            );
     } catch (error) {
-        console.error("Stripe webhook signature verification failed:", error);
-        return new NextResponse("Invalid signature", { status: 400 });
+        console.error(
+            "Stripe webhook signature verification failed:",
+            error
+        );
+
+        return new NextResponse(
+            "Invalid signature",
+            {
+                status: 400,
+            }
+        );
     }
 
     try {
-        const shouldContinue = await saveStripeEventOnce(event);
+        const shouldContinue =
+            await saveStripeEventOnce(
+                event
+            );
 
         if (!shouldContinue) {
-            return NextResponse.json({ received: true, duplicate: true });
+            return NextResponse.json({
+                received: true,
+                duplicate: true,
+            });
         }
 
         switch (event.type) {
             case "checkout.session.completed": {
-                const session = event.data.object as Stripe.Checkout.Session;
+                const session =
+                    event.data
+                        .object as Stripe.Checkout.Session;
 
-                const workspaceId = session.metadata?.workspaceId;
+                const workspaceId =
+                    session.metadata
+                        ?.workspaceId;
+
                 const requestedTier =
-                    session.metadata?.tier === "pro" ? "pro" : "starter";
+                    session.metadata
+                        ?.tier === "pro"
+                        ? "pro"
+                        : "starter";
 
                 const stripeCustomerId =
-                    typeof session.customer === "string" ? session.customer : null;
+                    typeof session.customer ===
+                        "string"
+                        ? session.customer
+                        : null;
 
                 const stripeSubscriptionId =
-                    typeof session.subscription === "string"
+                    typeof session.subscription ===
+                        "string"
                         ? session.subscription
                         : null;
 
                 if (!workspaceId) {
-                    console.error("Missing workspaceId in checkout.session.completed");
+                    console.error(
+                        "Missing workspaceId in checkout.session.completed"
+                    );
+
                     break;
                 }
 
-                const workspaceExists = await prisma.workspace.findUnique({
-                    where: { id: workspaceId },
-                    select: { id: true },
-                });
-
-                if (!workspaceExists) {
-                    console.error("Invalid workspaceId in checkout.session.completed");
-                    break;
-                }
-
-                await updateSavedStripeEventWorkspace(event.id, workspaceId);
+                await updateSavedStripeEventWorkspace(
+                    event.id,
+                    workspaceId
+                );
 
                 if (stripeCustomerId) {
                     await upsertStripeCustomerForWorkspace(
@@ -423,61 +744,124 @@ export async function POST(req: NextRequest) {
                 }
 
                 if (stripeSubscriptionId) {
-                    const subscription = await stripe.subscriptions.retrieve(
-                        stripeSubscriptionId,
-                        {
-                            expand: ["items.data"],
-                        }
-                    );
+                    const subscription =
+                        await stripe.subscriptions.retrieve(
+                            stripeSubscriptionId,
+                            {
+                                expand: [
+                                    "items.data",
+                                ],
+                            }
+                        );
 
-                    const subscriptionCustomerId = getStripeCustomerId(
-                        subscription.customer
-                    );
+                    const subscriptionCustomerId =
+                        getStripeCustomerId(
+                            subscription.customer
+                        );
 
-                    if (!subscriptionCustomerId) {
-                        console.error("Missing stripe customer id on checkout subscription");
+                    if (
+                        !subscriptionCustomerId
+                    ) {
                         break;
                     }
 
-                    const { currentPeriodStart, currentPeriodEnd } =
-                        getSubscriptionPeriod(subscription);
+                    const {
+                        currentPeriodStart,
+                        currentPeriodEnd,
+                    } =
+                        getSubscriptionPeriod(
+                            subscription
+                        );
 
-                    await prisma.stripeSubscription.upsert({
-                        where: { stripeId: subscription.id },
-                        update: {
-                            workspaceId,
-                            stripeCustomerId: subscriptionCustomerId,
-                            status: subscription.status,
-                            currency: subscription.currency ?? null,
-                            currentPeriodStart,
-                            currentPeriodEnd,
-                            cancelAtPeriodEnd: subscription.cancel_at_period_end,
-                            canceledAt: toDate(subscription.canceled_at),
-                            endedAt: toDate(subscription.ended_at),
-                        },
-                        create: {
-                            stripeId: subscription.id,
-                            workspaceId,
-                            stripeCustomerId: subscriptionCustomerId,
-                            status: subscription.status,
-                            currency: subscription.currency ?? null,
-                            currentPeriodStart,
-                            currentPeriodEnd,
-                            cancelAtPeriodEnd: subscription.cancel_at_period_end,
-                            canceledAt: toDate(subscription.canceled_at),
-                            endedAt: toDate(subscription.ended_at),
-                        },
-                    });
+                    await prisma.stripeSubscription.upsert(
+                        {
+                            where: {
+                                stripeId:
+                                    subscription.id,
+                            },
+
+                            update: {
+                                workspaceId,
+
+                                stripeCustomerId:
+                                    subscriptionCustomerId,
+
+                                status:
+                                    subscription.status,
+
+                                currency:
+                                    subscription.currency ??
+                                    null,
+
+                                currentPeriodStart,
+                                currentPeriodEnd,
+
+                                cancelAtPeriodEnd:
+                                    subscription.cancel_at_period_end,
+
+                                canceledAt:
+                                    toDate(
+                                        subscription.canceled_at
+                                    ),
+
+                                endedAt:
+                                    toDate(
+                                        subscription.ended_at
+                                    ),
+                            },
+
+                            create: {
+                                stripeId:
+                                    subscription.id,
+
+                                workspaceId,
+
+                                stripeCustomerId:
+                                    subscriptionCustomerId,
+
+                                status:
+                                    subscription.status,
+
+                                currency:
+                                    subscription.currency ??
+                                    null,
+
+                                currentPeriodStart,
+                                currentPeriodEnd,
+
+                                cancelAtPeriodEnd:
+                                    subscription.cancel_at_period_end,
+
+                                canceledAt:
+                                    toDate(
+                                        subscription.canceled_at
+                                    ),
+
+                                endedAt:
+                                    toDate(
+                                        subscription.ended_at
+                                    ),
+                            },
+                        }
+                    );
 
                     await updateWorkspacePlan(
                         workspaceId,
+
                         tierFromSubscription(
                             subscription.status,
-                            subscription.metadata?.tier ?? requestedTier
+
+                            subscription
+                                .metadata
+                                ?.tier ??
+                            requestedTier
                         )
                     );
                 } else {
-                    await updateWorkspacePlan(workspaceId, requestedTier);
+                    await updateWorkspacePlan(
+                        workspaceId,
+                        requestedTier
+                    );
                 }
 
                 break;
@@ -486,27 +870,44 @@ export async function POST(req: NextRequest) {
             case "customer.subscription.created":
             case "customer.subscription.updated":
             case "customer.subscription.deleted": {
-                const incomingSubscription = event.data.object as Stripe.Subscription;
+                const incomingSubscription =
+                    event.data
+                        .object as Stripe.Subscription;
 
-                const subscription = await stripe.subscriptions.retrieve(
-                    incomingSubscription.id,
-                    {
-                        expand: ["items.data"],
-                    }
-                );
+                const subscription =
+                    await stripe.subscriptions.retrieve(
+                        incomingSubscription.id,
+                        {
+                            expand: [
+                                "items.data",
+                            ],
+                        }
+                    );
 
-                const workspaceId = await resolveWorkspaceIdFromSubscription(subscription);
-                const stripeCustomerId = getStripeCustomerId(subscription.customer);
+                const workspaceId =
+                    await resolveWorkspaceIdFromSubscription(
+                        subscription
+                    );
+
+                const stripeCustomerId =
+                    getStripeCustomerId(
+                        subscription.customer
+                    );
 
                 if (!workspaceId) {
-                    console.error("Missing workspaceId in subscription metadata");
+                    console.error(
+                        "Missing workspaceId in subscription metadata"
+                    );
+
                     break;
                 }
 
-                await updateSavedStripeEventWorkspace(event.id, workspaceId);
+                await updateSavedStripeEventWorkspace(
+                    event.id,
+                    workspaceId
+                );
 
                 if (!stripeCustomerId) {
-                    console.error("Missing stripe customer id on subscription");
                     break;
                 }
 
@@ -516,41 +917,89 @@ export async function POST(req: NextRequest) {
                     stripeCustomerId
                 );
 
-                const { currentPeriodStart, currentPeriodEnd } =
-                    getSubscriptionPeriod(subscription);
+                const {
+                    currentPeriodStart,
+                    currentPeriodEnd,
+                } =
+                    getSubscriptionPeriod(
+                        subscription
+                    );
 
-                await prisma.stripeSubscription.upsert({
-                    where: { stripeId: subscription.id },
-                    update: {
-                        workspaceId,
-                        stripeCustomerId,
-                        status: subscription.status,
-                        currency: subscription.currency ?? null,
-                        currentPeriodStart,
-                        currentPeriodEnd,
-                        cancelAtPeriodEnd: subscription.cancel_at_period_end,
-                        canceledAt: toDate(subscription.canceled_at),
-                        endedAt: toDate(subscription.ended_at),
-                    },
-                    create: {
-                        stripeId: subscription.id,
-                        workspaceId,
-                        stripeCustomerId,
-                        status: subscription.status,
-                        currency: subscription.currency ?? null,
-                        currentPeriodStart,
-                        currentPeriodEnd,
-                        cancelAtPeriodEnd: subscription.cancel_at_period_end,
-                        canceledAt: toDate(subscription.canceled_at),
-                        endedAt: toDate(subscription.ended_at),
-                    },
-                });
+                await prisma.stripeSubscription.upsert(
+                    {
+                        where: {
+                            stripeId:
+                                subscription.id,
+                        },
+
+                        update: {
+                            workspaceId,
+                            stripeCustomerId,
+
+                            status:
+                                subscription.status,
+
+                            currency:
+                                subscription.currency ??
+                                null,
+
+                            currentPeriodStart,
+                            currentPeriodEnd,
+
+                            cancelAtPeriodEnd:
+                                subscription.cancel_at_period_end,
+
+                            canceledAt:
+                                toDate(
+                                    subscription.canceled_at
+                                ),
+
+                            endedAt:
+                                toDate(
+                                    subscription.ended_at
+                                ),
+                        },
+
+                        create: {
+                            stripeId:
+                                subscription.id,
+
+                            workspaceId,
+                            stripeCustomerId,
+
+                            status:
+                                subscription.status,
+
+                            currency:
+                                subscription.currency ??
+                                null,
+
+                            currentPeriodStart,
+                            currentPeriodEnd,
+
+                            cancelAtPeriodEnd:
+                                subscription.cancel_at_period_end,
+
+                            canceledAt:
+                                toDate(
+                                    subscription.canceled_at
+                                ),
+
+                            endedAt:
+                                toDate(
+                                    subscription.ended_at
+                                ),
+                        },
+                    }
+                );
 
                 await updateWorkspacePlan(
                     workspaceId,
+
                     tierFromSubscription(
                         subscription.status,
-                        subscription.metadata?.tier
+                        subscription.metadata
+                            ?.tier
                     )
                 );
 
@@ -558,12 +1007,22 @@ export async function POST(req: NextRequest) {
             }
 
             case "invoice.payment_succeeded": {
-                await handleInvoiceEvent(stripe, event, "payment_successful");
+                await handleInvoiceEvent(
+                    stripe,
+                    event,
+                    "payment_successful"
+                );
+
                 break;
             }
 
             case "invoice.payment_failed": {
-                await handleInvoiceEvent(stripe, event, "payment_failed");
+                await handleInvoiceEvent(
+                    stripe,
+                    event,
+                    "payment_failed"
+                );
+
                 break;
             }
 
@@ -571,9 +1030,20 @@ export async function POST(req: NextRequest) {
                 break;
         }
 
-        return NextResponse.json({ received: true });
+        return NextResponse.json({
+            received: true,
+        });
     } catch (error) {
-        console.error("Stripe webhook handling error:", error);
-        return new NextResponse("Webhook handler failed", { status: 500 });
+        console.error(
+            "Stripe webhook handling error:",
+            error
+        );
+
+        return new NextResponse(
+            "Webhook handler failed",
+            {
+                status: 500,
+            }
+        );
     }
 }

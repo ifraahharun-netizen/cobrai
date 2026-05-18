@@ -56,6 +56,44 @@ function isVerifiedStatus(status: string | null | undefined) {
     return typeof status === "string" && status.toLowerCase() === "verified";
 }
 
+async function createTimelineEvent(args: {
+    workspaceId: string;
+    customerId: string;
+
+    type: string;
+    title: string;
+    description?: string;
+
+    severity?: string;
+    source?: string;
+
+    metadata?: any;
+}) {
+    await prisma.accountTimelineEvent.create({
+        data: {
+            workspaceId: args.workspaceId,
+            customerId: args.customerId,
+
+            type: args.type,
+            title: args.title,
+
+            description:
+                args.description || null,
+
+            severity:
+                args.severity || "info",
+
+            source:
+                args.source || "automation",
+
+            metadata:
+                args.metadata || {},
+
+            createdAt: new Date(),
+        },
+    });
+}
+
 export async function POST(req: Request) {
     try {
         const { workspaceId } = await getWorkspaceFromRequest(req);
@@ -252,7 +290,42 @@ export async function POST(req: Request) {
             }
         }
 
+        if (replyTo && (!replyToDomain || !isValidEmail(replyTo))) {
+            return jsonError("Reply-to email is invalid", 400, "INVALID_REPLY_TO");
+        }
+
+        const recentDuplicate = await prisma.actionExecution.findFirst({
+            where: {
+                workspaceId,
+
+                customerId,
+
+                subject,
+
+                createdAt: {
+                    gte: new Date(
+                        Date.now() - 1000 * 60 * 10
+                    ),
+                },
+            },
+
+            select: {
+                id: true,
+                createdAt: true,
+            },
+        });
+
+        if (recentDuplicate) {
+            return jsonError(
+                "Similar email was already sent recently.",
+                429,
+                "DUPLICATE_EMAIL_BLOCKED"
+            );
+        }
+
         let providerId: string | null = null;
+
+        let result: any = null;
 
         if (deliveryEnabled) {
             const sendPayload: {
@@ -272,7 +345,7 @@ export async function POST(req: Request) {
                 sendPayload.replyTo = replyTo;
             }
 
-            const result = await resend.emails.send(sendPayload);
+            result = await resend.emails.send(sendPayload);
 
             if ((result as any)?.error) {
                 console.error("Resend send failed:", (result as any).error);
@@ -298,22 +371,63 @@ export async function POST(req: Request) {
             data: {
                 workspaceId,
                 customerId,
+
                 accountRiskId: accountId,
+
                 actionType: getActionType(subject),
-                channel: "email",
-                title: companyName ? `${companyName} outreach` : "Retention outreach",
-                subject,
-                body,
-                status: "sent",
-                sentAt: now,
-                metadata: {
-                    provider: deliveryEnabled ? "resend" : "dry_run",
+
+                provider:
+                    deliveryEnabled
+                        ? "resend"
+                        : "dry_run",
+
+                providerMessageId:
                     providerId,
+
+                channel: "email",
+
+                title:
+                    companyName
+                        ? `${companyName} outreach`
+                        : "Retention outreach",
+
+                subject,
+
+                body,
+
+                status: "sent",
+
+                sentAt: now,
+
+                metadata: {
+                    provider:
+                        deliveryEnabled
+                            ? "resend"
+                            : "dry_run",
+
+                    providerId,
+
+                    resendResponse:
+                        deliveryEnabled
+                            ? result
+                            : null,
+
                     to,
-                    from: senderEmail ? `${senderName} <${senderEmail}>` : null,
-                    replyTo: replyTo || null,
-                    sendingDomain: sendingDomain || null,
-                    dryRun: !deliveryEnabled,
+
+                    from:
+                        senderEmail
+                            ? `${senderName} <${senderEmail}>`
+                            : null,
+
+                    replyTo:
+                        replyTo || null,
+
+                    sendingDomain:
+                        sendingDomain || null,
+
+                    dryRun:
+                        !deliveryEnabled,
+
                     tier,
                 } as any,
             },
@@ -332,6 +446,69 @@ export async function POST(req: Request) {
                 } as any,
             },
         });
+        if (customerId) {
+            await createTimelineEvent({
+                workspaceId,
+                customerId,
+
+                type:
+                    getActionType(subject) === "billing_recovery_email"
+                        ? "billing_recovery_email_sent"
+                        : getActionType(subject) === "reengagement_email"
+                            ? "reengagement_email_sent"
+                            : "checkin_email_sent",
+
+                title:
+                    getActionType(subject) === "billing_recovery_email"
+                        ? "Billing recovery email sent"
+                        : getActionType(subject) === "reengagement_email"
+                            ? "Re-engagement email sent"
+                            : "Customer check-in email sent",
+
+                description:
+                    getActionType(subject) === "billing_recovery_email"
+                        ? "Automated billing recovery outreach was sent successfully."
+                        : getActionType(subject) === "reengagement_email"
+                            ? "Customer inactivity outreach was sent successfully."
+                            : "Retention check-in email was sent successfully.",
+
+                severity: "info",
+
+                source: "automation",
+
+                metadata: {
+                    actionExecutionId:
+                        actionExecution.id,
+
+                    provider:
+                        deliveryEnabled
+                            ? "resend"
+                            : "dry_run",
+
+                    providerId,
+
+                    to,
+
+                    subject,
+
+                    from:
+                        senderEmail
+                            ? `${senderName} <${senderEmail}>`
+                            : null,
+
+                    replyTo:
+                        replyTo || null,
+
+                    sendingDomain:
+                        sendingDomain || null,
+
+                    dryRun:
+                        !deliveryEnabled,
+
+                    tier,
+                },
+            });
+        }
 
         await prisma.workspace.update({
             where: { id: workspaceId },

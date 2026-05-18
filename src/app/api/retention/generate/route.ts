@@ -97,130 +97,401 @@ export async function POST(req: NextRequest) {
  * - Always returns valid JSON for your DB write
  * - Grounded on your actual customers slice (no fake customers)
  */
-async function generateWithOpenAI(input: { customers: any[]; tier: Tier }) {
+async function generateWithOpenAI(input: {
+    customers: any[];
+    tier: Tier;
+}) {
     if (!process.env.OPENAI_API_KEY) {
         throw new Error("Missing OPENAI_API_KEY");
     }
 
-    // Keep customer context small (avoid sending huge data / PII)
-    const compactCustomers = input.customers.slice(0, 25).map((c) => ({
-        id: c.id ?? null,
-        name: c.companyName ?? c.name ?? c.company ?? c.orgName ?? null,
-        riskScore: c.riskScore ?? c.churnRisk ?? c.risk ?? null,
-        healthScore: c.healthScore ?? null,
-        mrr: c.mrr ?? null,
-        updatedAt: c.updatedAt ?? null,
-        reason: c.reason ?? c.churnReason ?? null,
-    }));
+    // MUCH STRONGER CUSTOMER SIGNALS
+    const compactCustomers = input.customers
+        .slice(0, 25)
+        .map((c) => {
+            const riskScore =
+                c.riskScore ??
+                c.churnRisk ??
+                c.risk ??
+                0;
+
+            const lastActiveAt =
+                c.lastActiveAt ??
+                null;
+
+            const inactiveDays = lastActiveAt
+                ? Math.floor(
+                    (Date.now() -
+                        new Date(lastActiveAt).getTime()) /
+                    86400000
+                )
+                : null;
+
+            return {
+                customerId: c.id ?? null,
+
+                companyName:
+                    c.companyName ??
+                    c.name ??
+                    c.company ??
+                    c.orgName ??
+                    "Unknown account",
+
+                riskScore,
+
+                healthScore:
+                    c.healthScore ?? null,
+
+                mrr:
+                    c.mrr ?? null,
+
+                churnReason:
+                    c.reason ??
+                    c.churnReason ??
+                    null,
+
+                usageDropPct:
+                    c.usageDropPct ??
+                    null,
+
+                failedInvoices:
+                    c.failedInvoices ??
+                    0,
+
+                unresolvedTickets:
+                    c.unresolvedTickets ??
+                    0,
+
+                inactiveDays,
+
+                lastActiveAt,
+
+                updatedAt:
+                    c.updatedAt ?? null,
+            };
+        });
 
     const schema = {
-        name: "cobrai_retention_plan_v1",
+        name: "cobrai_retention_plan_v2",
         strict: true,
+
         schema: {
             type: "object",
+
             additionalProperties: false,
+
             properties: {
-                name: { type: "string" },
-                goal: { type: "string" },
-                steps: { type: "array", items: { type: "string" }, minItems: 3, maxItems: 8 },
-                reasoning: { type: "string" },
-                suggestedPlans: {
+                name: {
+                    type: "string",
+                },
+
+                goal: {
+                    type: "string",
+                },
+
+                steps: {
                     type: "array",
-                    minItems: 2,
-                    maxItems: 5,
+
+                    minItems: 3,
+                    maxItems: 8,
+
                     items: {
-                        type: "object",
-                        additionalProperties: false,
-                        properties: {
-                            name: { type: "string" },
-                            why: { type: "string" },
-                        },
-                        required: ["name", "why"],
+                        type: "string",
                     },
                 },
-                actions: {
+
+                reasoning: {
+                    type: "string",
+                },
+
+                suggestedPlans: {
                     type: "array",
+
                     minItems: 2,
-                    maxItems: 10,
+                    maxItems: 5,
+
                     items: {
                         type: "object",
+
                         additionalProperties: false,
+
                         properties: {
-                            customerId: { anyOf: [{ type: "string" }, { type: "null" }] },
-                            customerName: { anyOf: [{ type: "string" }, { type: "null" }] },
-                            title: { type: "string" },
-                            reason: { type: "string" },
-                            priority: { type: "string", enum: ["High", "Medium", "Low"] },
-                            type: { type: "string", enum: ["email", "inapp_nudge", "webhook", "hubspot_task", "stripe_retry"] },
-                            payload: { anyOf: [{ type: "object" }, { type: "null" }] },
+                            name: {
+                                type: "string",
+                            },
+
+                            why: {
+                                type: "string",
+                            },
                         },
-                        required: ["title", "reason", "priority", "type"],
+
+                        required: [
+                            "name",
+                            "why",
+                        ],
+                    },
+                },
+
+                actions: {
+                    type: "array",
+
+                    minItems: 2,
+                    maxItems: 10,
+
+                    items: {
+                        type: "object",
+
+                        additionalProperties: false,
+
+                        properties: {
+                            customerId: {
+                                anyOf: [
+                                    { type: "string" },
+                                    { type: "null" },
+                                ],
+                            },
+
+                            customerName: {
+                                anyOf: [
+                                    { type: "string" },
+                                    { type: "null" },
+                                ],
+                            },
+
+                            title: {
+                                type: "string",
+                            },
+
+                            reason: {
+                                type: "string",
+                            },
+
+                            priority: {
+                                type: "string",
+
+                                enum: [
+                                    "High",
+                                    "Medium",
+                                    "Low",
+                                ],
+                            },
+
+                            type: {
+                                type: "string",
+
+                                enum: [
+                                    "email",
+                                    "inapp_nudge",
+                                    "webhook",
+                                    "hubspot_task",
+                                    "stripe_retry",
+                                ],
+                            },
+
+                            payload: {
+                                anyOf: [
+                                    { type: "object" },
+                                    { type: "null" },
+                                ],
+                            },
+                        },
+
+                        required: [
+                            "customerId",
+                            "customerName",
+                            "title",
+                            "reason",
+                            "priority",
+                            "type",
+                        ],
                     },
                 },
             },
-            required: ["name", "goal", "steps", "reasoning", "suggestedPlans", "actions"],
+
+            required: [
+                "name",
+                "goal",
+                "steps",
+                "reasoning",
+                "suggestedPlans",
+                "actions",
+            ],
         },
     };
 
+    const prompt = `
+You are Cobrai, an AI retention intelligence platform for B2B SaaS companies.
+
+Your job:
+Analyze customer churn-risk signals and generate:
+
+1. concise churn-risk explanations
+2. concise recommended retention actions
+
+IMPORTANT RULES:
+- Sound operational and premium.
+- Be factual and specific.
+- Use measurable/contextual signals whenever possible.
+- Never sound generic.
+- Never invent metrics.
+- Never invent customers.
+- Do not say "may", "might", or "possibly".
+- Keep reasons concise.
+- Keep actions concise and actionable.
+
+GOOD REASONS:
+- "Workspace activity declined 41% over the last 14 days."
+- "Primary billing contact has not resolved the failed invoice."
+- "No core user activity detected in 25 days."
+- "Support tickets remain unresolved after recent usage decline."
+
+BAD REASONS:
+- "Usage dropped."
+- "Customer seems inactive."
+- "Customer may churn."
+
+GOOD ACTIONS:
+- "Send a billing recovery email and confirm payment details."
+- "Schedule a success check-in and highlight unused features."
+- "Follow up on unresolved onboarding blockers."
+
+BAD ACTIONS:
+- "Reach out."
+- "Follow up."
+- "Send email."
+
+Generate realistic retention operations output.
+
+CUSTOMERS:
+${JSON.stringify(compactCustomers, null, 2)}
+`;
+
     const resp = await openai.responses.create({
-        // Pick a general model. You can upgrade later.
         model: "gpt-4o-mini",
-        instructions:
-            "You are Cobrai's Retention Copilot. Generate a practical retention plan and actions grounded ONLY in the provided customer signals. Do not invent customers or metrics. If data is missing, choose actions that don't require missing fields (e.g., in-app nudge instead of email). Keep actions specific and customer-linked when possible.",
+
+        instructions: prompt,
+
         input: [
             {
                 role: "user",
-                content: `Tier: ${input.tier}\nCustomers (compact JSON):\n${JSON.stringify(compactCustomers)}`,
+
+                content:
+                    "Generate a structured retention plan grounded only in the provided customer data.",
             },
         ],
-        // Structured outputs via json_schema in Responses API :contentReference[oaicite:2]{index=2}
+
         text: {
             format: {
                 type: "json_schema",
                 json_schema: schema,
             } as any,
         },
-        // keep output bounded so it doesn't get truncated
-        max_output_tokens: 900,
+
+        max_output_tokens: 1200,
     });
 
-    // Responses API provides output_text (SDK flattens text output)
-    const raw = (resp as any).output_text as string | undefined;
-    if (!raw) throw new Error("OpenAI returned no output_text");
+    const raw =
+        (resp as any).output_text as
+        | string
+        | undefined;
+
+    if (!raw) {
+        throw new Error(
+            "OpenAI returned no output_text"
+        );
+    }
 
     let parsed: any;
+
     try {
         parsed = JSON.parse(raw);
     } catch {
-        throw new Error("OpenAI output was not valid JSON");
+        throw new Error(
+            "OpenAI output was not valid JSON"
+        );
     }
 
-    // Normalise + safety fallbacks
     const plan = {
-        name: String(parsed.name ?? "Retention Plan"),
-        goal: String(parsed.goal ?? "Reduce churn risk"),
-        steps: Array.isArray(parsed.steps) ? parsed.steps.map((s: any) => String(s)).slice(0, 8) : [],
-        reasoning: String(parsed.reasoning ?? ""),
-        suggestedPlans: Array.isArray(parsed.suggestedPlans) ? parsed.suggestedPlans : [],
-        actions: Array.isArray(parsed.actions) ? parsed.actions : [],
+        name: String(
+            parsed.name ??
+            "Retention Plan"
+        ),
+
+        goal: String(
+            parsed.goal ??
+            "Reduce churn risk"
+        ),
+
+        steps: Array.isArray(parsed.steps)
+            ? parsed.steps
+                .map((s: any) => String(s))
+                .slice(0, 8)
+            : [],
+
+        reasoning: String(
+            parsed.reasoning ?? ""
+        ),
+
+        suggestedPlans: Array.isArray(
+            parsed.suggestedPlans
+        )
+            ? parsed.suggestedPlans
+            : [],
+
+        actions: Array.isArray(
+            parsed.actions
+        )
+            ? parsed.actions
+            : [],
     };
 
-    if (!plan.steps.length) throw new Error("AI did not return steps");
-    if (plan.actions.length < 1) throw new Error("AI did not return actions");
+    if (!plan.steps.length) {
+        throw new Error(
+            "AI did not return steps"
+        );
+    }
+
+    if (!plan.actions.length) {
+        throw new Error(
+            "AI did not return actions"
+        );
+    }
 
     return plan as {
         name: string;
+
         goal: string;
+
         steps: string[];
+
         reasoning: string;
-        suggestedPlans: Array<{ name: string; why: string }>;
+
+        suggestedPlans: Array<{
+            name: string;
+            why: string;
+        }>;
+
         actions: Array<{
             customerId?: string | null;
+
             customerName?: string | null;
+
             title: string;
+
             reason: string;
-            priority: "High" | "Medium" | "Low";
-            type: "email" | "inapp_nudge" | "webhook" | "hubspot_task" | "stripe_retry";
+
+            priority:
+            | "High"
+            | "Medium"
+            | "Low";
+
+            type:
+            | "email"
+            | "inapp_nudge"
+            | "webhook"
+            | "hubspot_task"
+            | "stripe_retry";
+
             payload?: any | null;
         }>;
     };

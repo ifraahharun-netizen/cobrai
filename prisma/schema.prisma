@@ -6,10 +6,11 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
 model Workspace {
-  id                       String                  @id @default(cuid())
+  id                       String    @id @default(cuid())
   name                     String
-  createdAt                DateTime                @default(now())
+  createdAt                DateTime  @default(now())
   stripeLastSyncedAt       DateTime?
   stripeSecretKeyEnc       String?
   stripeAccessTokenEnc     String?
@@ -18,26 +19,25 @@ model Workspace {
   stripeRefreshTokenEnc    String?
   stripeScope              String?
   ownerEmail               String
-  tier                     String                  @default("free")
-  emailActionsUsedThisWeek Int                     @default(0)
+  tier                     String    @default("free")
+  emailActionsUsedThisWeek Int       @default(0)
   emailResetAt             DateTime?
   demoClearedAt            DateTime?
-  demoMode                 Boolean                 @default(false)
+  demoMode                 Boolean   @default(false)
   demoSeededAt             DateTime?
   trialEndsAt              DateTime?
-   
 
-  resendDomainId          String?
-  sendingDomain           String?
-  sendingDomainStatus     String?
-  sendingDomainRecords    Json?
-  senderName              String?
-  senderEmail             String?
-  senderReplyTo           String?
-  senderVerifiedAt        DateTime?
+  resendDomainId       String?
+  sendingDomain        String?
+  sendingDomainStatus  String?
+  sendingDomainRecords Json?
+  senderName           String?
+  senderEmail          String?
+  senderReplyTo        String?
+  senderVerifiedAt     DateTime?
 
-  aiActionsUsedThisWeek   Int  @default(0)
-  aiResetAt                DateTime?
+  aiActionsUsedThisWeek  Int                     @default(0)
+  aiResetAt              DateTime?
   aiUsageRuns            AiUsageRun[]
   accountRisks           AccountRisk[]
   accountRisksSnapshots  AccountRiskSnapshot[]
@@ -54,31 +54,34 @@ model Workspace {
   customers              Customer[]
   integrations           Integration[]
 
+  timelineEvents AccountTimelineEvent[]
+
   @@index([ownerEmail])
   @@index([sendingDomain])
   @@index([resendDomainId])
   @@map("workspace")
 }
+
 model Customer {
-  id               String            @id @default(uuid())
-  createdAt        DateTime          @default(now())
+  id               String    @id @default(uuid())
+  createdAt        DateTime  @default(now())
   name             String
   email            String?
-  mrr              Int               @default(0)
-  churnRisk        Float             @default(0)
-  healthScore      Int               @default(50)
+  mrr              Int       @default(0)
+  churnRisk        Float     @default(0)
+  healthScore      Int       @default(50)
   lastActiveAt     DateTime?
   canceledAt       DateTime?
   plan             String?
   website          String?
-  seats            Int               @default(1)
+  seats            Int       @default(1)
   workspaceId      String
   hubspotCompanyId String?
   stripeCustomerId String?
-  riskScore        Int               @default(0)
-  status           String            @default("active")
-  updatedAt        DateTime          @updatedAt
-  isDemo           Boolean           @default(false)
+  riskScore        Int       @default(0)
+  status           String    @default("active")
+  updatedAt        DateTime  @updatedAt
+  isDemo           Boolean   @default(false)
 
   actions          Action[]
   events           Event[]
@@ -86,7 +89,7 @@ model Customer {
   accountRisks     AccountRisk[]
   actionExecutions ActionExecution[]
 
-  workspace        Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, hubspotCompanyId])
   @@unique([workspaceId, stripeCustomerId])
@@ -143,13 +146,13 @@ model Action {
 }
 
 model InsightRun {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   workspaceId String
   type        String
   result      Json
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime @default(now())
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, type, createdAt])
 }
@@ -180,8 +183,8 @@ model AccountRisk {
   previousRiskScore Int?
   previousUpdatedAt DateTime?
 
-  workspace         Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  customer          Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customer  Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId])
   @@index([customerId])
@@ -367,42 +370,46 @@ model PlanEvent {
 }
 
 model ActionExecution {
-  id                  String                  @id @default(cuid())
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @default(now()) @updatedAt
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   // legacy fields kept temporarily so existing rows are preserved
-  actionId            String?
-  isDemo              Boolean?
-  provider            String?
-  request             Json?
-  response            Json?
+  actionId String?
+  isDemo   Boolean?
+  provider String?
+  request  Json?
+  response Json?
 
   // new fields
-  workspaceId         String?
-  customerId          String?
-  retentionActionId   String?
-  accountRiskId       String?
+  workspaceId       String?
+  customerId        String?
+  retentionActionId String?
+  accountRiskId     String?
 
-  actionType          String                  @default("checkin_email")
-  channel             String?                 // email, manual, task, call
-  title               String?
-  subject             String?
-  body                String?
-  reason              String?
-  aiHeadline          String?
-  aiConfidence        Int?
+  actionType   String  @default("checkin_email")
+  channel      String? // email, manual, task, call
+  title        String?
+  subject      String?
+  body         String?
+  reason       String?
+  aiHeadline   String?
+  aiConfidence Int?
 
-  status              String                  @default("pending")
-  sentAt              DateTime?
-  outcomeAt           DateTime?
+  status    String    @default("pending")
+  sentAt    DateTime?
+  outcomeAt DateTime?
+  providerMessageId String?
+  openedAt          DateTime?
+  clickedAt         DateTime?
+  repliedAt         DateTime?
 
-  metadata            Json?
+  metadata Json?
 
-  workspace           Workspace?              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  customer            Customer?               @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  retentionAction     RetentionAction?        @relation(fields: [retentionActionId], references: [id], onDelete: Cascade)
-  outcomeSnapshots    ActionOutcomeSnapshot[]
+  workspace        Workspace?              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customer         Customer?               @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  retentionAction  RetentionAction?        @relation(fields: [retentionActionId], references: [id], onDelete: Cascade)
+  outcomeSnapshots ActionOutcomeSnapshot[]
 
   @@index([workspaceId, createdAt])
   @@index([customerId, createdAt])
@@ -447,6 +454,10 @@ model AccountRiskSnapshot {
   snapshotDate  DateTime
   createdAt     DateTime @default(now())
 
+  velocityScore      Float?
+  accelerationScore  Float?
+  momentumScore      Int?
+
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, snapshotDate])
@@ -454,32 +465,31 @@ model AccountRiskSnapshot {
   @@index([workspaceId, accountRiskId, snapshotDate])
 }
 
-
 model ActionOutcomeSnapshot {
-  id                    String            @id @default(cuid())
-  createdAt             DateTime          @default(now())
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
 
-  workspaceId           String
-  actionExecutionId     String
+  workspaceId       String
+  actionExecutionId String
 
-  riskScoreBefore       Int?
-  riskScoreAfter        Int?
-  mrrBefore             Int?
-  mrrAfter              Int?
-  churnRiskBefore       Int?
-  churnRiskAfter        Int?
+  riskScoreBefore Int?
+  riskScoreAfter  Int?
+  mrrBefore       Int?
+  mrrAfter        Int?
+  churnRiskBefore Int?
+  churnRiskAfter  Int?
 
-  wasOpened             Boolean?
-  wasClicked            Boolean?
-  wasReplied            Boolean?
-  paymentRecovered      Boolean?
-  retainedRevenueMinor  Int?
-  outcomeLabel          String?
+  wasOpened            Boolean?
+  wasClicked           Boolean?
+  wasReplied           Boolean?
+  paymentRecovered     Boolean?
+  retainedRevenueMinor Int?
+  outcomeLabel         String?
 
-  metadata              Json?
+  metadata Json?
 
-  workspace             Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  actionExecution       ActionExecution   @relation(fields: [actionExecutionId], references: [id], onDelete: Cascade)
+  workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actionExecution ActionExecution @relation(fields: [actionExecutionId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])
   @@index([actionExecutionId])
@@ -523,9 +533,55 @@ model AiUsageRun {
   costMinor   Int      @default(0)
   createdAt   DateTime @default(now())
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])
   @@index([workspaceId, source, createdAt])
   @@map("ai_usage_runs")
+}
+
+model AccountTimelineEvent {
+  id String @id @default(cuid())
+
+  workspaceId String
+  customerId  String
+
+  type        String
+  title       String
+  description String?
+  providerEventId String?
+
+  severity String?
+  source   String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([customerId])
+  @@index([createdAt])
+}
+
+
+model ProviderEvent {
+  id            String   @id @default(cuid())
+  provider      String
+  externalId    String   @unique
+  workspaceId   String?
+
+  type          String
+  payload       Json
+
+  receivedAt    DateTime @default(now())
+  processedAt   DateTime?
+  failedAt      DateTime?
+
+  processingError String?
+
+  @@index([provider])
+  @@index([workspaceId])
+  @@index([type])
 }

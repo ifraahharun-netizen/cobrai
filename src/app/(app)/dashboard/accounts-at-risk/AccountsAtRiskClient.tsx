@@ -523,17 +523,108 @@ export default function AccountsAtRiskClient() {
 
         return sourceRows.map((row) => {
             const profileId = getProfileId(row);
-            const aiAction = aiActionsByCustomerId.get(profileId) || aiActionsByCustomerId.get(row.id);
 
-            if (!aiAction) return row;
+            const aiAction =
+                aiActionsByCustomerId.get(profileId) ||
+                aiActionsByCustomerId.get(row.id);
+
+            // NO AI AVAILABLE
+            if (!aiAction) {
+                return {
+                    ...row,
+                    reasonLabel:
+                        row.reasonLabel ||
+                        "Customer risk signals detected.",
+                    nextAction:
+                        row.nextAction ||
+                        "Review customer health and engagement.",
+                };
+            }
+
+            // CLEAN AI REASON
+            const aiReason =
+                typeof aiAction.reason === "string"
+                    ? aiAction.reason.trim()
+                    : "";
+
+            // CLEAN AI ACTION
+            const aiTitle =
+                typeof aiAction.actionTitle === "string"
+                    ? aiAction.actionTitle.trim()
+                    : "";
+
+            // STRONGER FALLBACK REASONS
+            let fallbackReason = row.reasonLabel;
+
+            if (
+                row.reasonLabel.toLowerCase().includes("usage")
+            ) {
+                fallbackReason =
+                    "Workspace activity has declined compared to previous weeks.";
+            }
+
+            if (
+                row.reasonLabel.toLowerCase().includes("billing")
+            ) {
+                fallbackReason =
+                    "Billing activity suggests increased churn risk.";
+            }
+
+            if (
+                row.reasonLabel.toLowerCase().includes("inactive")
+            ) {
+                fallbackReason =
+                    "Customer engagement has significantly decreased recently.";
+            }
+
+            // STRONGER FALLBACK ACTIONS
+            let fallbackAction =
+                row.nextAction || "Review customer account.";
+
+            if (
+                row.reasonLabel.toLowerCase().includes("billing")
+            ) {
+                fallbackAction =
+                    "Resolve billing issue and confirm payment status.";
+            }
+
+            if (
+                row.reasonLabel.toLowerCase().includes("usage")
+            ) {
+                fallbackAction =
+                    "Send a re-engagement email and offer support.";
+            }
+
+            if (
+                row.reasonLabel.toLowerCase().includes("inactive")
+            ) {
+                fallbackAction =
+                    "Reach out personally and schedule a quick check-in.";
+            }
 
             return {
                 ...row,
-                nextAction: aiAction.actionTitle,
-                reasonLabel: aiAction.reason || row.reasonLabel,
+
+                // OPENAI-FIRST REASONING
+                reasonLabel:
+                    aiReason.length > 0
+                        ? aiReason
+                        : fallbackReason,
+
+                // OPENAI-FIRST ACTION
+                nextAction:
+                    aiTitle.length > 0
+                        ? aiTitle
+                        : fallbackAction,
             };
         });
-    }, [demoFilteredRows, hasLiveData, page, rows, aiActionsByCustomerId]);
+    }, [
+        demoFilteredRows,
+        hasLiveData,
+        page,
+        rows,
+        aiActionsByCustomerId,
+    ]);
 
     const effectiveTotal = hasLiveData ? total : demoFilteredRows.length;
     const totalPages = Math.max(1, Math.ceil(effectiveTotal / PAGE_SIZE));

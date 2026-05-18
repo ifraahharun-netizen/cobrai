@@ -45,8 +45,8 @@ export default function HomePage() {
                         </p>
 
                         <div className="heroActions">
-                            <Link href="/signup" className="primaryBtn">
-                                Start Free
+                            <Link href="/features" className="primaryBtn">
+                                Cobrai in Action 
                             </Link>
                         </div>
 

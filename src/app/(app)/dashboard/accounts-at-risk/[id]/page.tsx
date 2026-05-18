@@ -4,12 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import styles from "./riskAccounts.module.css";
-
+import { getTimelinePresentation } from "@/lib/timeline/presenters";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase.client";
 import type { PlanTier } from "@/lib/permissions";
 import { getEmailRecommendation } from "@/lib/emailRecommendations";
 import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
+import {
+    Crown,
+    CreditCard,
+    Calendar,
+    ReceiptText,
+    Activity,
+    ShieldAlert,
+} from "lucide-react";
 
 type RiskLevel = "critical" | "high" | "medium" | "low";
 
@@ -159,7 +167,7 @@ type AccountNote = {
 };
 
 const STARTER_EMAIL_LIMIT = 5;
-const ACTIVITY_PAGE_SIZE = 3;
+const ACTIVITY_PAGE_SIZE = 12;
 
 function formatMoney(value: number) {
     return `£${Number(value || 0).toLocaleString(undefined, {
@@ -169,9 +177,53 @@ function formatMoney(value: number) {
 
 function niceDateTime(iso?: string | null) {
     if (!iso) return "—";
+
     const d = new Date(iso);
+
     if (Number.isNaN(d.getTime())) return "—";
 
+    const now = new Date();
+
+    const diffMs = now.getTime() - d.getTime();
+
+    const minutes = Math.floor(diffMs / 60000);
+    const hours = Math.floor(diffMs / 3600000);
+
+    // FUTURE SAFE
+    if (diffMs < 0) {
+        return d.toLocaleString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    }
+
+    // UNDER 1 MIN
+    if (minutes < 1) {
+        return "Just now";
+    }
+
+    // UNDER 60 MINS
+    if (minutes < 60) {
+        return `${minutes} min${minutes === 1 ? "" : "s"} ago`;
+    }
+
+    // UNDER 24 HOURS
+    if (hours < 24) {
+        return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+    }
+
+    // YESTERDAY
+    if (hours < 48) {
+        return `Yesterday at ${d.toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+        })}`;
+    }
+
+    // DEFAULT FULL DATE
     return d.toLocaleString("en-GB", {
         day: "2-digit",
         month: "short",
@@ -236,89 +288,8 @@ function createId() {
         `${Date.now()}-${Math.random().toString(36).slice(2)}`
     );
 }
-
 function eventToLabel(event: AccountTimelineEvent) {
-    switch (event.type) {
-        case "payment_failed":
-            return event.meta?.amount
-                ? `Payment failed for ${formatMoney(event.meta.amount)}`
-                : event.meta?.rawLabel || "Payment failed";
-
-        case "payment_successful":
-            return event.meta?.amount
-                ? `Payment successful for ${formatMoney(event.meta.amount)}`
-                : event.meta?.rawLabel || "Payment successful";
-
-        case "billing_issue_detected":
-            return event.meta?.rawLabel || "Billing issue detected";
-
-        case "billing_recovery_email_sent":
-            return event.meta?.rawLabel || "Billing recovery email sent";
-
-        case "billing_recovery_email_opened":
-            return event.meta?.rawLabel || "Billing recovery email opened";
-
-        case "reengagement_email_sent":
-            return event.meta?.rawLabel || "Re-engagement email sent";
-
-        case "reengagement_email_opened":
-            return event.meta?.rawLabel || "Re-engagement email opened";
-
-        case "checkin_email_sent":
-            return event.meta?.rawLabel || "Customer check-in email sent";
-
-        case "plan_upgraded":
-            return event.meta?.planName
-                ? `Plan upgraded to ${event.meta.planName}`
-                : event.meta?.rawLabel || "Plan upgraded";
-
-        case "risk_increased":
-            return event.meta?.riskScore
-                ? `Risk score increased to ${event.meta.riskScore}`
-                : event.meta?.rawLabel || "Risk score increased";
-
-        case "risk_decreased":
-            return event.meta?.riskScore
-                ? `Risk score decreased to ${event.meta.riskScore}`
-                : event.meta?.rawLabel || "Risk score decreased";
-
-        case "inactivity_detected":
-            return event.meta?.inactiveDays
-                ? `No activity for ${event.meta.inactiveDays} days`
-                : event.meta?.rawLabel || "Account inactivity detected";
-
-        case "usage_dropped":
-            return event.meta?.rawLabel || "Usage dropped";
-
-        case "account_reviewed":
-            return event.meta?.rawLabel || "Customer health reviewed by Cobrai";
-
-        default:
-            return event.meta?.rawLabel || "Account activity updated";
-    }
-}
-
-function eventTone(event: AccountTimelineEvent) {
-    const type = String(event.type).toLowerCase();
-    const label = String(event.meta?.rawLabel || "").toLowerCase();
-
-    if (type.includes("failed") || label.includes("failed") || label.includes("past due")) {
-        return "Needs attention";
-    }
-
-    if (type.includes("payment_successful") || label.includes("successful") || label.includes("paid")) {
-        return "Positive";
-    }
-
-    if (type.includes("email") || label.includes("email")) {
-        return "Action sent";
-    }
-
-    if (type.includes("risk") || label.includes("risk")) {
-        return "Risk update";
-    }
-
-    return "Activity";
+    return getTimelinePresentation(event.type, event.meta).title;
 }
 
 function buildAiSummaryFromTimeline(account: RiskRow, timeline: AccountTimelineEvent[]) {
@@ -361,62 +332,163 @@ function dedupeEvents(events: AccountTimelineEvent[]) {
         );
     });
 }
-
 function buildDemoTimeline(account: RiskRow | null): AccountTimelineEvent[] {
     if (!account) return [];
 
     const now = Date.now();
     const reason = (account.reasonLabel || "").toLowerCase();
 
-    const items: AccountTimelineEvent[] = [
-        {
-            id: createId(),
-            type: "account_reviewed",
-            date: new Date(now - 1000 * 60 * 60 * 3).toISOString(),
-        },
-    ];
+    const items: AccountTimelineEvent[] = [];
 
-    if (reason.includes("billing")) {
+    // Always begin with AI review
+    items.push({
+        id: createId(),
+        type: "account_reviewed",
+        date: new Date(now - 1000 * 60 * 20).toISOString(),
+        meta: {
+            rawLabel: `Customer health reviewed by Cobrai`,
+        },
+    });
+
+    // BILLING RISK FLOW
+    if (
+        reason.includes("billing") ||
+        reason.includes("invoice") ||
+        reason.includes("payment")
+    ) {
         items.push(
             {
                 id: createId(),
-                type: "billing_issue_detected",
-                date: new Date(now - 1000 * 60 * 60 * 22).toISOString(),
-                meta: { amount: account.mrr },
+                type: "payment_failed",
+                date: new Date(now - 1000 * 60 * 60 * 30).toISOString(),
+                meta: {
+                    amount: account.mrr,
+                },
             },
+
+            {
+                id: createId(),
+                type: "billing_issue_detected",
+                date: new Date(now - 1000 * 60 * 60 * 26).toISOString(),
+                meta: {
+                    amount: account.mrr,
+                },
+            },
+
+            {
+                id: createId(),
+                type: "risk_increased",
+                date: new Date(now - 1000 * 60 * 60 * 22).toISOString(),
+                meta: {
+                    riskScore: account.riskScore,
+                },
+            },
+
             {
                 id: createId(),
                 type: "billing_recovery_email_sent",
-                date: new Date(now - 1000 * 60 * 60 * 5).toISOString(),
-                meta: { amount: account.mrr },
+                date: new Date(now - 1000 * 60 * 60 * 18).toISOString(),
+            },
+
+            {
+                id: createId(),
+                type: "billing_recovery_email_opened",
+                date: new Date(now - 1000 * 60 * 60 * 12).toISOString(),
             }
         );
-    } else if (reason.includes("inactive") || reason.includes("usage")) {
+    }
+
+    // INACTIVE / LOW USAGE FLOW
+    else if (
+        reason.includes("inactive") ||
+        reason.includes("usage") ||
+        reason.includes("engagement") ||
+        reason.includes("activity")
+    ) {
         items.push(
             {
                 id: createId(),
                 type: "usage_dropped",
-                date: new Date(now - 1000 * 60 * 60 * 24 * 5).toISOString(),
+                date: new Date(now - 1000 * 60 * 60 * 24 * 8).toISOString(),
             },
+
+            {
+                id: createId(),
+                type: "inactivity_detected",
+                date: new Date(now - 1000 * 60 * 60 * 24 * 6).toISOString(),
+                meta: {
+                    inactiveDays: 14,
+                },
+            },
+
+            {
+                id: createId(),
+                type: "risk_increased",
+                date: new Date(now - 1000 * 60 * 60 * 24 * 5).toISOString(),
+                meta: {
+                    riskScore: account.riskScore,
+                },
+            },
+
             {
                 id: createId(),
                 type: "reengagement_email_sent",
-                date: new Date(now - 1000 * 60 * 60 * 6).toISOString(),
-                meta: { amount: account.mrr },
+                date: new Date(now - 1000 * 60 * 60 * 24 * 2).toISOString(),
+            },
+
+            {
+                id: createId(),
+                type: "reengagement_email_opened",
+                date: new Date(now - 1000 * 60 * 60 * 12).toISOString(),
             }
         );
-    } else {
-        items.push({
-            id: createId(),
-            type: "checkin_email_sent",
-            date: new Date(now - 1000 * 60 * 60 * 8).toISOString(),
-            meta: { amount: account.mrr },
-        });
     }
 
-    return dedupeEvents(items).sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+    // HEALTHY / EXPANSION FLOW
+    else {
+        items.push(
+            {
+                id: createId(),
+                type: "payment_successful",
+                date: new Date(now - 1000 * 60 * 60 * 48).toISOString(),
+                meta: {
+                    amount: account.mrr,
+                },
+            },
+
+            {
+                id: createId(),
+                type: "risk_decreased",
+                date: new Date(now - 1000 * 60 * 60 * 30).toISOString(),
+                meta: {
+                    riskScore: Math.max(18, account.riskScore - 22),
+                },
+            },
+
+            {
+                id: createId(),
+                type: "checkin_email_sent",
+                date: new Date(now - 1000 * 60 * 60 * 18).toISOString(),
+            },
+
+            {
+                id: createId(),
+                type: "plan_upgraded",
+                date: new Date(now - 1000 * 60 * 60 * 10).toISOString(),
+                meta: {
+                    planName: "Pro",
+                },
+            }
+        );
+    }
+
+    return dedupeEvents(items)
+        .sort(
+            (a, b) =>
+                new Date(b.date).getTime() -
+                new Date(a.date).getTime()
+        )
+        .slice(0, 12);
 }
 
 function buildAccountFromDetails(id: string, details: RiskDetails): RiskRow {
@@ -1297,63 +1369,245 @@ export default function CustomerDetailPage() {
                 </div>
 
                 <div className={styles.mainGrid}>
-                    <section className={`${styles.card} ${styles.cleanOverviewCard}`}>
-                        <div className={styles.sectionLabel}>Account overview</div>
+                    <div className={styles.leftColumn}>
 
-                        <div className={styles.cleanProfileHeader}>
-                            <div>
-                                <h1 className={styles.cleanProfileName}>{account.companyName}</h1>
-                                {account.email ? (
-                                    <p className={styles.cleanProfileEmail}>{account.email}</p>
-                                ) : null}
+                        <section className={`${styles.card} ${styles.cleanOverviewCard}`}>
+                            <div className={styles.pageHeadingWrap}>
+                                <div className={styles.sectionLabel}>
+                                    Account overview
+                                </div>
+                                <div className={styles.accountHeading}>
+                                    <h1 className={styles.pageTitle}>
+                                        {account.companyName}
+                                    </h1>
+
+                                    {account.email ? (
+                                        <p className={styles.accountEmail}>
+                                            {account.email}
+                                        </p>
+                                    ) : null}
+                                </div>
+
+
                             </div>
 
-                            <span
-                                className={`${styles.cleanRiskBadge} ${account.riskScore >= 85
-                                    ? styles.cleanRiskDanger
-                                    : account.riskScore >= 70
-                                        ? styles.cleanRiskWarning
-                                        : account.riskScore >= 50
-                                            ? styles.cleanRiskMedium
-                                            : styles.cleanRiskGood
-                                    }`}
-                            >
-                                {riskLabelFromScore(account.riskScore)} · {account.riskScore}/100
-                            </span>
-                        </div>
+                            <div className={styles.modernKpiGrid}>
+                                <div className={styles.modernKpiCard}>
+                                    <div className={styles.kpiTop}>
+                                        <div className={styles.kpiIcon}>
+                                            <Crown size={14} strokeWidth={2} />
+                                        </div>
 
-                        <div className={styles.cleanProfileGrid}>
-                            <div className={styles.cleanProfileItem}>
-                                <span>Plan</span>
-                                <strong>{plan}</strong>
+                                        <span>Plan</span>
+                                    </div>
+
+                                    <strong className={styles.kpiSmall}>{plan}</strong>
+                                </div>
+
+                                <div className={styles.modernKpiCard}>
+                                    <div className={styles.kpiTop}>
+                                        <div className={styles.kpiIcon}>
+                                            <CreditCard size={14} strokeWidth={2} />
+                                        </div>
+
+                                        <span>MRR</span>
+                                    </div>
+
+                                    <strong>{formatMoney(account.mrr)}</strong>
+                                </div>
+
+                                <div className={styles.modernKpiCard}>
+                                    <div className={styles.kpiTop}>
+                                        <div className={styles.kpiIcon}>
+                                            <Calendar size={14} strokeWidth={2} />
+                                        </div>
+
+                                        <span>Created</span>
+                                    </div>
+
+                                    <strong className={styles.kpiSmall}>
+                                        {niceDate(createdAt)}
+                                    </strong>
+                                </div>
+
+                                <div className={styles.modernKpiCard}>
+                                    <div className={styles.kpiTop}>
+                                        <div className={styles.kpiIcon}>
+                                            <ReceiptText size={14} strokeWidth={2} />
+                                        </div>
+
+                                        <span>Next billing</span>
+                                    </div>
+
+                                    <strong className={styles.kpiSmall}>
+                                        {niceDate(nextBilling)}
+                                    </strong>
+                                </div>
+                                <div className={styles.modernKpiCard}>
+                                    <div className={styles.kpiTop}>
+                                        <div className={styles.kpiIcon}>
+                                            <ShieldAlert size={14} strokeWidth={2} />
+                                        </div>
+
+                                        <span>Risk proxy</span>
+                                    </div>
+
+                                    <strong>{account.riskScore}%</strong>
+
+                                    <div className={styles.inlineTrend}>
+                                        <span
+                                            className={
+                                                (account.riskDelta ?? 0) > 0
+                                                    ? styles.trendUp
+                                                    : styles.trendDown
+                                            }
+                                        >
+                                            {(account.riskDelta ?? 0) > 0 ? "+" : "-"}{" "}
+                                            {Math.abs(account.riskDelta ?? 0)}%
+                                        </span>
+
+                                        <span className={styles.inlineTrendText}>
+                                            vs{" "}
+                                            {Math.max(
+                                                0,
+                                                account.riskScore - (account.riskDelta ?? 0)
+                                            )}
+                                            % previous month
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className={styles.modernKpiCard}>
+                                    <div className={styles.kpiTop}>
+                                        <div className={styles.kpiIcon}>
+                                            <Activity size={14} strokeWidth={2} />
+                                        </div>
+
+                                        <span>Status</span>
+                                    </div>
+
+                                    <strong className={styles.kpiSmall}>
+                                        {account.status?.toLowerCase().includes("risk")
+                                            ? "Declining"
+                                            : "Healthy"}
+                                    </strong>
+
+                                    <div className={styles.inlineTrend}>
+                                        <span
+                                            className={
+                                                account.status?.toLowerCase().includes("risk")
+                                                    ? styles.trendDown
+                                                    : styles.trendUp
+                                            }
+                                        >
+                                            {account.status?.toLowerCase().includes("risk")
+                                                ? "↓ 12%"
+                                                : "↑ 8%"}
+                                        </span>
+
+                                        <span className={styles.inlineTrendText}>
+                                            engagement vs previous month
+                                        </span>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </section>
+
+                        <section className={`${styles.card} ${styles.accountLogCard}`}>
+                            <div className={styles.activityHeader}>
+                                <div>
+                                    <span className={styles.sectionLabel}>Recent activity</span>
+
+                                    <h3 className={styles.activityTitle}>
+                                        Live customer timeline
+                                    </h3>
+
+                                    <p className={styles.activitySub}>
+                                        Real-time billing, engagement and retention signals.
+                                    </p>
+                                </div>
+
+                                <div className={styles.activityCount}>
+                                    {timeline.length} events
+                                </div>
                             </div>
 
-                            <div className={styles.cleanProfileItem}>
-                                <span>MRR</span>
-                                <strong>{formatMoney(account.mrr)}</strong>
+                            <div className={styles.modernTimeline}>
+                                {paginatedTimeline.length ? (
+                                    paginatedTimeline.map((event, index) => (
+                                        <div key={event.id} className={styles.timelineItem}>
+                                            <div className={styles.timelineLeft}>
+                                                <div className={styles.timelineDot} />
+
+                                                {index !== paginatedTimeline.length - 1 && (
+                                                    <div className={styles.timelineLine} />
+                                                )}
+                                            </div>
+
+                                            <div className={styles.timelineContent}>
+                                                {(() => {
+                                                    const presentation = getTimelinePresentation(
+                                                        event.type,
+                                                        event.meta
+                                                    );
+
+                                                    return (
+                                                        <>
+                                                            <div className={styles.timelineTop}>
+                                                                <strong>{presentation.title}</strong>
+                                                            </div>
+
+                                                            <p className={styles.timelineDescription}>
+                                                                {presentation.description}
+                                                            </p>
+
+                                                            <span className={styles.timelineDate}>
+                                                                {niceDateTime(event.date)}
+                                                            </span>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className={styles.accountLogEmpty}>
+                                        No recent activity detected.
+                                    </div>
+                                )}
                             </div>
 
-                            <div className={styles.cleanProfileItem}>
-                                <span>Created at</span>
-                                <strong>{niceDate(createdAt)}</strong>
-                            </div>
+                            {timeline.length > ACTIVITY_PAGE_SIZE ? (
+                                <div className={styles.pagination}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
+                                        disabled={activityPage === 1}
+                                    >
+                                        Previous
+                                    </button>
 
-                            <div className={styles.cleanProfileItem}>
-                                <span>Next billing</span>
-                                <strong>{niceDate(nextBilling)}</strong>
-                            </div>
+                                    <span>
+                                        {activityPage} / {totalActivityPages}
+                                    </span>
 
-                            <div className={styles.cleanProfileItem}>
-                                <span>Status</span>
-                                <strong>{account.status || "Active"}</strong>
-                            </div>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setActivityPage((p) =>
+                                                Math.min(totalActivityPages, p + 1)
+                                            )
+                                        }
+                                        disabled={activityPage === totalActivityPages}
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            ) : null}
+                        </section>
 
-                            <div className={styles.cleanProfileItem}>
-                                <span>Last active</span>
-                                <strong>{lastActive}</strong>
-                            </div>
-                        </div>
-                    </section>
+                    </div>
 
                     <div className={styles.sideStack}>
                         <section className={`${styles.card} ${styles.cleanAiCard}`}>
@@ -1460,57 +1714,7 @@ export default function CustomerDetailPage() {
                         </section>
                     </div>
 
-                    <section className={`${styles.card} ${styles.accountLogCard}`}>
-                        <div className={styles.sectionLabel}>Account Log</div>
-                        <div className={styles.accountLogTitle}>Activity Timeline</div>
-                        <div className={styles.accountLogSub}>
-                            Payments, emails, and risk events.
-                        </div>
 
-                        <div className={styles.cleanActivityList}>
-                            {paginatedTimeline.length ? (
-                                paginatedTimeline.map((event) => (
-                                    <div key={event.id} className={styles.cleanActivityRow}>
-                                        <div className={styles.activityRowTop}>
-                                            <strong>{eventToLabel(event)}</strong>
-                                            <em>{eventTone(event)}</em>
-                                        </div>
-                                        <span>{niceDateTime(event.date)}</span>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className={styles.accountLogEmpty}>
-                                    No activity has been recorded this month.
-                                </div>
-                            )}
-                        </div>
-
-                        {timeline.length > ACTIVITY_PAGE_SIZE ? (
-                            <div className={styles.pagination}>
-                                <button
-                                    type="button"
-                                    onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
-                                    disabled={activityPage === 1}
-                                >
-                                    Previous
-                                </button>
-
-                                <span>
-                                    Page {activityPage} of {totalActivityPages}
-                                </span>
-
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setActivityPage((p) => Math.min(totalActivityPages, p + 1))
-                                    }
-                                    disabled={activityPage === totalActivityPages}
-                                >
-                                    Next
-                                </button>
-                            </div>
-                        ) : null}
-                    </section>
                 </div>
             </div>
 
@@ -1519,15 +1723,9 @@ export default function CustomerDetailPage() {
                     <div className={styles.emailModal} onClick={(e) => e.stopPropagation()}>
                         <div className={styles.emailModalHeader}>
                             <div>
-                                <div className={styles.emailEyebrow}>Email automation</div>
-                                <div className={styles.emailModalTitle}>Compose email</div>
-                                <div className={styles.emailModalSub}>
-                                    From{" "}
-                                    {emailSender?.senderEmail
-                                        ? `${emailSender.senderName} <${emailSender.senderEmail}>`
-                                        : emailSender?.senderName || "Team"}
-                                    {account.email ? ` → ${account.email}` : ""}
-                                </div>
+
+                                <div className={styles.emailModalTitle}>Retention Outreach</div>
+
                             </div>
 
                             <button className={styles.emailCloseBtn} onClick={closeEmailModal} type="button">

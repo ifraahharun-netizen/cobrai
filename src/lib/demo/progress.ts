@@ -1,4 +1,4 @@
-export type ProgressKind = "email" | "notification" | "retry_payment";
+export type ProgressKind = "email" | "retry_payment";
 
 export type ProgressApiResponse = {
     mode: "demo" | "live";
@@ -161,32 +161,8 @@ export function getDemoProgress(): ProgressApiResponse {
                 riskScore: 52,
                 date: new Date(now - 1000 * 60 * 60 * 72).toISOString(),
             },
-            {
-                id: "futura-health-progress-1",
-                customerId: "futura-health",
-                accountId: "futura-health-risk",
-                account: "Futura Health",
-                kind: "notification",
-                action: "Renewal reminder notification",
-                aiReason: "Renewal window approaching with weak engagement",
-                outcome: "pending",
-                mrrSavedMinor: 11000,
-                riskScore: 73,
-                date: new Date(now - 1000 * 60 * 60 * 48).toISOString(),
-            },
-            {
-                id: "global-tech-progress-1",
-                customerId: "global-tech",
-                accountId: "global-tech-risk",
-                account: "Global Tech",
-                kind: "notification",
-                action: "In-app usage alert",
-                aiReason: "Usage dropped below healthy threshold",
-                outcome: "success",
-                mrrSavedMinor: 15000,
-                riskScore: 58,
-                date: new Date(now - 1000 * 60 * 60 * 96).toISOString(),
-            },
+           
+           
             {
                 id: "clearpath-labs-progress-1",
                 customerId: "clearpath-labs",
@@ -213,19 +189,7 @@ export function getDemoProgress(): ProgressApiResponse {
                 riskScore: 88,
                 date: new Date(now - 1000 * 60 * 60 * 144).toISOString(),
             },
-            {
-                id: "lumen-ops-progress-1",
-                customerId: "lumen-ops",
-                accountId: "lumen-ops-risk",
-                account: "Lumen Ops",
-                kind: "notification",
-                action: "Customer health alert",
-                aiReason: "High-risk account crossed intervention threshold",
-                outcome: "success",
-                mrrSavedMinor: 14000,
-                riskScore: 57,
-                date: new Date(now - 1000 * 60 * 60 * 168).toISOString(),
-            },
+           
             {
                 id: "nova-works-progress-1",
                 customerId: "nova-works",
@@ -239,19 +203,7 @@ export function getDemoProgress(): ProgressApiResponse {
                 riskScore: 75,
                 date: new Date(now - 1000 * 60 * 60 * 192).toISOString(),
             },
-            {
-                id: "brightpath-progress-1",
-                customerId: "brightpath",
-                accountId: "brightpath-risk",
-                account: "Brightpath",
-                kind: "notification",
-                action: "Billing warning notification",
-                aiReason: "Upcoming invoice risk detected",
-                outcome: "success",
-                mrrSavedMinor: 13000,
-                riskScore: 54,
-                date: new Date(now - 1000 * 60 * 60 * 216).toISOString(),
-            },
+         
             {
                 id: "echo-finance-progress-1",
                 customerId: "echo-finance",
