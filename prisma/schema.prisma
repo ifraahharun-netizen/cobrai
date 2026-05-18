@@ -441,7 +441,6 @@ model StripeEvent {
 
   @@index([workspaceId])
 }
-
 model AccountRiskSnapshot {
   id            String   @id @default(cuid())
   workspaceId   String
@@ -457,6 +456,9 @@ model AccountRiskSnapshot {
   velocityScore      Float?
   accelerationScore  Float?
   momentumScore      Int?
+
+  predictedRisk7d    Float?
+  predictedRisk14d   Float?
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
