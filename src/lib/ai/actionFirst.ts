@@ -105,9 +105,19 @@ function enrichAction(args: {
 
     const reasonFlags = fact?.reasonFlags ?? [];
 
-    let title = insight.action.title;
-    let description = insight.action.description;
-    let priority = insight.action.priority;
+    let title =
+        insight.action?.title ??
+        insight.title ??
+        "Recommended action";
+
+    let description =
+        insight.action?.description ??
+        insight.text ??
+        "Review this account and take the next best retention action.";
+
+    let priority =
+        insight.action?.priority ??
+        "medium";
 
     if (reasonFlags.includes("billing_failed_recent")) {
         title = "Recover failed payment immediately";
@@ -293,8 +303,8 @@ export function buildActionFirstRecommendations(args: {
         }
 
         return (
-            b.confidence -
-            a.confidence
+            (b.confidence ?? 0) -
+            (a.confidence ?? 0)
         );
     });
 }

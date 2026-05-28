@@ -330,9 +330,10 @@ export async function GET(req: Request) {
 
                         workspace: {
                             select: {
+                                id: true,
+                                tier: true,
                                 demoMode: true,
                                 trialEndsAt: true,
-                                currency: true,
                             },
                         },
                     },
@@ -359,8 +360,7 @@ export async function GET(req: Request) {
                 user.workspace.trialEndsAt
             ).getTime() > Date.now();
 
-        const workspaceCurrency =
-            user.workspace?.currency || "GBP";
+        const workspaceCurrency = "GBP";
 
         if (
             user.workspace?.demoMode
