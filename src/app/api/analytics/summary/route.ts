@@ -50,7 +50,6 @@ export async function GET(req: Request) {
                 id: true,
                 tier: true,
                 demoMode: true,
-                currency: true,
             },
         });
 
@@ -61,7 +60,7 @@ export async function GET(req: Request) {
             );
         }
 
-        const workspaceCurrency = workspace.currency || "GBP";
+        const workspaceCurrency = "GBP";
 
         const integrations = await prisma.integration.findMany({
             where: {
