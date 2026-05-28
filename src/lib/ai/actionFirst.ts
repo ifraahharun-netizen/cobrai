@@ -234,9 +234,8 @@ export function buildActionFirstRecommendations(args: {
 
                 severity:
                     insight.severity,
-
-                confidence:
-                    insight.confidence,
+confidence:
+    insight.confidence ?? 0,
 
                 riskScore:
                     normaliseRiskScore(
@@ -248,8 +247,8 @@ export function buildActionFirstRecommendations(args: {
                         fact?.mrr
                     ),
 
-                evidence:
-                    insight.evidence,
+             evidence:
+    insight.evidence ?? [],
             };
         });
 
