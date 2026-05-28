@@ -3,6 +3,8 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 
+import { runWorkspaceAnalyticsPipeline } from "@/lib/analytics/runWorkspaceAnalyticsPipeline";
+
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
 
@@ -619,7 +621,13 @@ async function handleInvoiceEvent(
             },
         });
     }
+
+    await runWorkspaceAnalyticsPipeline(
+        workspaceId
+    );
 }
+
+
 
 export async function POST(
     req: NextRequest
@@ -697,28 +705,23 @@ export async function POST(
         switch (event.type) {
             case "checkout.session.completed": {
                 const session =
-                    event.data
-                        .object as Stripe.Checkout.Session;
+                    event.data.object as Stripe.Checkout.Session;
 
                 const workspaceId =
-                    session.metadata
-                        ?.workspaceId;
+                    session.metadata?.workspaceId;
 
                 const requestedTier =
-                    session.metadata
-                        ?.tier === "pro"
+                    session.metadata?.tier === "pro"
                         ? "pro"
                         : "starter";
 
                 const stripeCustomerId =
-                    typeof session.customer ===
-                        "string"
+                    typeof session.customer === "string"
                         ? session.customer
                         : null;
 
                 const stripeSubscriptionId =
-                    typeof session.subscription ===
-                        "string"
+                    typeof session.subscription === "string"
                         ? session.subscription
                         : null;
 
@@ -730,15 +733,17 @@ export async function POST(
                     break;
                 }
 
+                const safeWorkspaceId = workspaceId;
+
                 await updateSavedStripeEventWorkspace(
                     event.id,
-                    workspaceId
+                    safeWorkspaceId
                 );
 
                 if (stripeCustomerId) {
                     await upsertStripeCustomerForWorkspace(
                         stripe,
-                        workspaceId,
+                        safeWorkspaceId,
                         stripeCustomerId
                     );
                 }
@@ -759,9 +764,7 @@ export async function POST(
                             subscription.customer
                         );
 
-                    if (
-                        !subscriptionCustomerId
-                    ) {
+                    if (!subscriptionCustomerId) {
                         break;
                     }
 
@@ -773,168 +776,18 @@ export async function POST(
                             subscription
                         );
 
-                    await prisma.stripeSubscription.upsert(
-                        {
-                            where: {
-                                stripeId:
-                                    subscription.id,
-                            },
-
-                            update: {
-                                workspaceId,
-
-                                stripeCustomerId:
-                                    subscriptionCustomerId,
-
-                                status:
-                                    subscription.status,
-
-                                currency:
-                                    subscription.currency ??
-                                    null,
-
-                                currentPeriodStart,
-                                currentPeriodEnd,
-
-                                cancelAtPeriodEnd:
-                                    subscription.cancel_at_period_end,
-
-                                canceledAt:
-                                    toDate(
-                                        subscription.canceled_at
-                                    ),
-
-                                endedAt:
-                                    toDate(
-                                        subscription.ended_at
-                                    ),
-                            },
-
-                            create: {
-                                stripeId:
-                                    subscription.id,
-
-                                workspaceId,
-
-                                stripeCustomerId:
-                                    subscriptionCustomerId,
-
-                                status:
-                                    subscription.status,
-
-                                currency:
-                                    subscription.currency ??
-                                    null,
-
-                                currentPeriodStart,
-                                currentPeriodEnd,
-
-                                cancelAtPeriodEnd:
-                                    subscription.cancel_at_period_end,
-
-                                canceledAt:
-                                    toDate(
-                                        subscription.canceled_at
-                                    ),
-
-                                endedAt:
-                                    toDate(
-                                        subscription.ended_at
-                                    ),
-                            },
-                        }
-                    );
-
-                    await updateWorkspacePlan(
-                        workspaceId,
-
-                        tierFromSubscription(
-                            subscription.status,
-
-                            subscription
-                                .metadata
-                                ?.tier ??
-                            requestedTier
-                        )
-                    );
-                } else {
-                    await updateWorkspacePlan(
-                        workspaceId,
-                        requestedTier
-                    );
-                }
-
-                break;
-            }
-
-            case "customer.subscription.created":
-            case "customer.subscription.updated":
-            case "customer.subscription.deleted": {
-                const incomingSubscription =
-                    event.data
-                        .object as Stripe.Subscription;
-
-                const subscription =
-                    await stripe.subscriptions.retrieve(
-                        incomingSubscription.id,
-                        {
-                            expand: [
-                                "items.data",
-                            ],
-                        }
-                    );
-
-                const workspaceId =
-                    await resolveWorkspaceIdFromSubscription(
-                        subscription
-                    );
-
-                const stripeCustomerId =
-                    getStripeCustomerId(
-                        subscription.customer
-                    );
-
-                if (!workspaceId) {
-                    console.error(
-                        "Missing workspaceId in subscription metadata"
-                    );
-
-                    break;
-                }
-
-                await updateSavedStripeEventWorkspace(
-                    event.id,
-                    workspaceId
-                );
-
-                if (!stripeCustomerId) {
-                    break;
-                }
-
-                await upsertStripeCustomerForWorkspace(
-                    stripe,
-                    workspaceId,
-                    stripeCustomerId
-                );
-
-                const {
-                    currentPeriodStart,
-                    currentPeriodEnd,
-                } =
-                    getSubscriptionPeriod(
-                        subscription
-                    );
-
-                await prisma.stripeSubscription.upsert(
-                    {
+                    await prisma.stripeSubscription.upsert({
                         where: {
                             stripeId:
                                 subscription.id,
                         },
 
                         update: {
-                            workspaceId,
-                            stripeCustomerId,
+                            workspaceId:
+                                safeWorkspaceId,
+
+                            stripeCustomerId:
+                                subscriptionCustomerId,
 
                             status:
                                 subscription.status,
@@ -964,8 +817,11 @@ export async function POST(
                             stripeId:
                                 subscription.id,
 
-                            workspaceId,
-                            stripeCustomerId,
+                            workspaceId:
+                                safeWorkspaceId,
+
+                            stripeCustomerId:
+                                subscriptionCustomerId,
 
                             status:
                                 subscription.status,
@@ -990,17 +846,172 @@ export async function POST(
                                     subscription.ended_at
                                 ),
                         },
-                    }
+                    });
+
+                    await updateWorkspacePlan(
+                        safeWorkspaceId,
+
+                        tierFromSubscription(
+                            subscription.status,
+
+                            subscription.metadata?.tier ??
+                            requestedTier
+                        )
+                    );
+                } else {
+                    await updateWorkspacePlan(
+                        safeWorkspaceId,
+                        requestedTier
+                    );
+                }
+
+                await runWorkspaceAnalyticsPipeline(
+                    safeWorkspaceId
                 );
 
+                break;
+            }
+
+            case "customer.subscription.created":
+            case "customer.subscription.updated":
+            case "customer.subscription.deleted": {
+                const incomingSubscription =
+                    event.data.object as Stripe.Subscription;
+
+                const subscription =
+                    await stripe.subscriptions.retrieve(
+                        incomingSubscription.id,
+                        {
+                            expand: [
+                                "items.data",
+                            ],
+                        }
+                    );
+
+                const workspaceId =
+                    await resolveWorkspaceIdFromSubscription(
+                        subscription
+                    );
+
+                const stripeCustomerId =
+                    getStripeCustomerId(
+                        subscription.customer
+                    );
+
+                if (!workspaceId) {
+                    console.error(
+                        "Missing workspaceId in subscription metadata"
+                    );
+
+                    break;
+                }
+
+                const safeWorkspaceId = workspaceId;
+
+                await updateSavedStripeEventWorkspace(
+                    event.id,
+                    safeWorkspaceId
+                );
+
+                if (!stripeCustomerId) {
+                    break;
+                }
+
+                await upsertStripeCustomerForWorkspace(
+                    stripe,
+                    safeWorkspaceId,
+                    stripeCustomerId
+                );
+
+                const {
+                    currentPeriodStart,
+                    currentPeriodEnd,
+                } =
+                    getSubscriptionPeriod(
+                        subscription
+                    );
+
+                await prisma.stripeSubscription.upsert({
+                    where: {
+                        stripeId:
+                            subscription.id,
+                    },
+
+                    update: {
+                        workspaceId:
+                            safeWorkspaceId,
+
+                        stripeCustomerId,
+
+                        status:
+                            subscription.status,
+
+                        currency:
+                            subscription.currency ??
+                            null,
+
+                        currentPeriodStart,
+                        currentPeriodEnd,
+
+                        cancelAtPeriodEnd:
+                            subscription.cancel_at_period_end,
+
+                        canceledAt:
+                            toDate(
+                                subscription.canceled_at
+                            ),
+
+                        endedAt:
+                            toDate(
+                                subscription.ended_at
+                            ),
+                    },
+
+                    create: {
+                        stripeId:
+                            subscription.id,
+
+                        workspaceId:
+                            safeWorkspaceId,
+
+                        stripeCustomerId,
+
+                        status:
+                            subscription.status,
+
+                        currency:
+                            subscription.currency ??
+                            null,
+
+                        currentPeriodStart,
+                        currentPeriodEnd,
+
+                        cancelAtPeriodEnd:
+                            subscription.cancel_at_period_end,
+
+                        canceledAt:
+                            toDate(
+                                subscription.canceled_at
+                            ),
+
+                        endedAt:
+                            toDate(
+                                subscription.ended_at
+                            ),
+                    },
+                });
+
                 await updateWorkspacePlan(
-                    workspaceId,
+                    safeWorkspaceId,
 
                     tierFromSubscription(
                         subscription.status,
-                        subscription.metadata
-                            ?.tier
+                        subscription.metadata?.tier
                     )
+                );
+
+                await runWorkspaceAnalyticsPipeline(
+                    safeWorkspaceId
                 );
 
                 break;

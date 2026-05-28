@@ -13,7 +13,7 @@ type NavItem = {
 
 const nav: NavItem[] = [
     { label: "Overview", href: "/dashboard", icon: "fi fi-rr-apps" },
-    { label: "Customers", href: "/dashboard/accounts-at-risk", icon: "fi fi-rr-users-alt" },
+    { label: "Subscribers", href: "/dashboard/accounts-at-risk", icon: "fi fi-rr-users-alt" },
     {
         label: "Retention Impact",
         href: "/dashboard/progress",

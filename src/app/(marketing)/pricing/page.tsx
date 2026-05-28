@@ -1,280 +1,455 @@
 import Link from "next/link";
+import { Check } from "lucide-react";
+
+const twitterBlue = "#1d9bf0";
 
 export default function PricingPage() {
+    const starterFeatures = [
+        "AI-powered churn insights",
+        "Complete customer list ranked by risk score and MRR",
+        "Customer health scoring",
+        "Limited AI-generated retention emails",
+        "MRR and churn trend charts",
+        "Limited visibility into MRR drivers",
+        "Limited visibility into churn drivers",
+    ];
+
+    const proFeatures = [
+        "Everything in Starter",
+        "Unlimited AI insights",
+        "Advanced MRR forecasting",
+        "Churn prediction and retention signals",
+        "Unlimited AI retention emails",
+        "Automated failed payment recovery",
+        "Retention execution monitoring",
+        "Full visibility into MRR and churn drivers",
+        "Critical account prioritisation",
+        "Advanced retention automations",
+    ];
+
     return (
         <section className="landingSection">
             <div className="sectionShell">
-                <h1 className="sectionTitle">Start free
-                    <br />
-                    Scale retention as you grow</h1>
-
-                <p className="sectionText">
-                    Built for subscription businesses that want clearler customer visibility and smarter retention decisions.
-                </p>
-
                 <div
                     style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                        gap: "18px",
-                        maxWidth: "780px",
-                        margin: "28px auto 0",
+                        maxWidth: "1080px",
+                        margin: "0 auto",
+                        border: "1px solid rgba(15, 23, 42, 0.06)",
+                        borderRadius: "34px",
+                        padding: "50px 34px 34px",
+                        background: "#ffffff",
                     }}
                 >
-                    {/* STARTER */}
-                    <div
-                        className="card"
+                    <h1
+                        className="sectionTitle"
                         style={{
-                            padding: "24px 22px",
-                            display: "flex",
-                            flexDirection: "column",
-                            minHeight: "430px",
+                            marginBottom: "14px",
+                            letterSpacing: "-0.08em",
+                            lineHeight: 0.95,
                         }}
                     >
+                        Start free
+                        <br />
+                        Scale retention as you grow
+                    </h1>
+
+                    <p
+                        className="sectionText"
+                        style={{
+                            maxWidth: "720px",
+                            margin: "0 auto",
+                            fontSize: "0.95rem",
+                            lineHeight: 1.6,
+                            color: "#64748b",
+                        }}
+                    >
+                        Built for subscription businesses that want clearer customer visibility,
+                        stronger retention decisions, and AI-powered revenue protection.
+                    </p>
+
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                            gap: "20px",
+                            maxWidth: "820px",
+                            margin: "30px auto 0",
+                        }}
+                    >
+                        {/* STARTER */}
                         <div
                             style={{
-                                display: "inline-flex",
-                                alignSelf: "flex-start",
-                                padding: "6px 11px",
-                                borderRadius: "999px",
-                                background: "rgba(15, 23, 42, 0.05)",
+                                position: "relative",
+                                borderRadius: "26px",
+                                padding: "22px",
+                                background: "#ffffff",
                                 border: "1px solid rgba(15, 23, 42, 0.08)",
-                                fontSize: "12px",
-                                fontWeight: 700,
-                                color: "#0f172a",
-                                marginBottom: "16px",
-                            }}
-                        >
-                            Starter
-                        </div>
-
-                        <h3
-                            className="cardTitle"
-                            style={{
-                                fontSize: "1.25rem",
-                                fontWeight: 500,
-                                marginBottom: "12px",
-                            }}
-                        >
-                            Identify churn risk early.
-                        </h3>
-
-                        <div
-                            style={{
-                                marginBottom: "6px",
-                                fontSize: "1rem",
-                                fontWeight: 700,
-                                color: "#0f172a",
-                            }}
-                        >
-                            Try free for 14 days
-                        </div>
-
-                        <div
-                            style={{
                                 display: "flex",
-                                alignItems: "baseline",
-                                gap: "6px",
-                                marginBottom: "14px",
+                                flexDirection: "column",
                             }}
                         >
-                            <span
+                            <div
                                 style={{
-                                    fontSize: "1.55rem",
-                                    fontWeight: 500,
-                                    lineHeight: 1,
+                                    display: "inline-flex",
+                                    alignSelf: "flex-start",
+                                    padding: "6px 12px",
+                                    borderRadius: "999px",
+                                    background: "rgba(29, 155, 240, 0.10)",
+                                    color: twitterBlue,
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    marginBottom: "10px",
+                                }}
+                            >
+                                Starter
+                            </div>
+
+                            <div
+                                style={{
+                                    display: "inline-flex",
+                                    alignSelf: "flex-start",
+                                    marginBottom: "16px",
+                                    fontSize: "0.82rem",
+                                    fontWeight: 650,
                                     color: "#0f172a",
                                 }}
                             >
-                                £49
-                            </span>
+                                Try free for 14 days
+                            </div>
 
-                            <span
+                            <h3
                                 style={{
-                                    fontSize: "0.86rem",
-                                    color: "#7b8794",
-                                    fontWeight: 500,
+                                    fontSize: "1.5rem",
+                                    lineHeight: 1.05,
+                                    letterSpacing: "-0.06em",
+                                    fontWeight: 560,
+                                    color: "#0f172a",
+                                    marginBottom: "14px",
                                 }}
                             >
-                                /month after trial
-                            </span>
+                                Spot churn risk early and prioritise the customers that matter most.
+                            </h3>
+
+                            <p
+                                style={{
+                                    fontSize: "0.88rem",
+                                    lineHeight: 1.5,
+                                    color: "#64748b",
+                                    marginBottom: "18px",
+                                }}
+                            >
+                                For SaaS teams that need clear customer visibility,
+                                churn detection, and guided retention action.
+                            </p>
+
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "flex-end",
+                                    gap: "7px",
+                                    marginBottom: "18px",
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        fontSize: "3rem",
+                                        lineHeight: 0.9,
+                                        letterSpacing: "-0.09em",
+                                        fontWeight: 630,
+                                        color: "#020617",
+                                    }}
+                                >
+                                    £99
+                                </span>
+
+                                <span
+                                    style={{
+                                        fontSize: "0.88rem",
+                                        color: "#64748b",
+                                        paddingBottom: "6px",
+                                    }}
+                                >
+                                    /month
+                                </span>
+                            </div>
+
+                            <div
+                                style={{
+                                    height: "1px",
+                                    background: "rgba(15,23,42,0.08)",
+                                    marginBottom: "18px",
+                                }}
+                            />
+
+                            <ul
+                                style={{
+                                    listStyle: "none",
+                                    padding: 0,
+                                    margin: 0,
+                                    display: "grid",
+                                    gap: "10px",
+                                }}
+                            >
+                                {starterFeatures.map((feature) => (
+                                    <li
+                                        key={feature}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "flex-start",
+                                            gap: "10px",
+                                            color: "#475569",
+                                            fontSize: "0.86rem",
+                                            lineHeight: 1.42,
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                width: "18px",
+                                                height: "18px",
+                                                minWidth: "18px",
+                                                borderRadius: "999px",
+                                                background: "rgba(29, 155, 240, 0.10)",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                marginTop: "1px",
+                                            }}
+                                        >
+                                            <Check size={11} strokeWidth={3} color={twitterBlue} />
+                                        </div>
+
+                                        <span>{feature}</span>
+                                    </li>
+                                ))}
+                            </ul>
+
+                            <div style={{ marginTop: "auto", paddingTop: "20px" }}>
+                                <Link
+                                    href="/signup"
+                                    style={{
+                                        width: "100%",
+                                        height: "48px",
+                                        borderRadius: "16px",
+                                        border: "1px solid rgba(29, 155, 240, 0.18)",
+                                        background: "#ffffff",
+                                        color: twitterBlue,
+                                        fontSize: "0.92rem",
+                                        fontWeight: 600,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        textDecoration: "none",
+                                    }}
+                                >
+                                    Start Free Trial
+                                </Link>
+                            </div>
                         </div>
 
-                        <p className="cardText" style={{ marginBottom: "18px" }}>
-                            Monitor customer health, identify churn signals, and take action before revenue is impacted.
-                        </p>
-
+                        {/* PRO */}
                         <div
                             style={{
-                                height: "1px",
-                                background: "rgba(15, 23, 42, 0.08)",
-                                marginBottom: "16px",
-                            }}
-                        />
-
-                        <ul
-                            style={{
-                                listStyle: "none",
-                                padding: 0,
-                                margin: 0,
-                                display: "grid",
-                                gap: "10px",
-                                color: "#5f6b7a",
-                                fontSize: "0.9rem",
-                                lineHeight: 1.5,
+                                position: "relative",
+                                borderRadius: "26px",
+                                padding: "22px",
+                                background:
+                                    "linear-gradient(to bottom, rgba(29,155,240,0.03), #ffffff)",
+                                border: "1px solid rgba(29, 155, 240, 0.16)",
+                                display: "flex",
+                                flexDirection: "column",
+                                boxShadow: "0 10px 30px rgba(29,155,240,0.06)",
                             }}
                         >
-                            <li>• Complete customer list</li>
-                            <li>• Customer health score</li>
-                            <li>• Limited MRR and churn drivers visibility</li>
-                            <li>• Limited AI insights</li>
-                            <li>• Dashboard overview</li>
-                            <li>• Manual account outreach</li>
-                        </ul>
-
-                        <div style={{ marginTop: "auto", paddingTop: "22px" }}>
-                            <Link
-                                href="/signup"
-                                className="secondaryBtn"
+                            <div
                                 style={{
-                                    width: "100%",
-                                    minHeight: "48px",
-                                    fontWeight: 600,
-                                    fontSize: "0.92rem",
+                                    position: "absolute",
+                                    top: "18px",
+                                    right: "18px",
+                                    padding: "6px 10px",
+                                    borderRadius: "999px",
+                                    background: twitterBlue,
+                                    color: "#ffffff",
+                                    fontSize: "10px",
+                                    fontWeight: 700,
+                                    letterSpacing: "0.03em",
                                 }}
                             >
-                                Start Free
-                            </Link>
+                                MOST POPULAR
+                            </div>
+
+                            <div
+                                style={{
+                                    display: "inline-flex",
+                                    alignSelf: "flex-start",
+                                    padding: "6px 12px",
+                                    borderRadius: "999px",
+                                    background: twitterBlue,
+                                    color: "#ffffff",
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    marginBottom: "10px",
+                                }}
+                            >
+                                Pro
+                            </div>
+
+                            <div
+                                style={{
+                                    display: "inline-flex",
+                                    alignSelf: "flex-start",
+                                    marginBottom: "16px",
+                                    fontSize: "0.82rem",
+                                    fontWeight: 650,
+                                    color: "#0f172a",
+                                }}
+                            >
+                                Try free for 14 days
+                            </div>
+
+                            <h3
+                                style={{
+                                    fontSize: "1.5rem",
+                                    lineHeight: 1.05,
+                                    letterSpacing: "-0.06em",
+                                    fontWeight: 560,
+                                    color: "#0f172a",
+                                    marginBottom: "14px",
+                                }}
+                            >
+                                Forecast revenue risk, automate recovery, and scale retention.
+                            </h3>
+
+                            <p
+                                style={{
+                                    fontSize: "0.88rem",
+                                    lineHeight: 1.5,
+                                    color: "#64748b",
+                                    marginBottom: "18px",
+                                }}
+                            >
+                                For growing SaaS teams that want deeper AI intelligence,
+                                automated recovery, and advanced retention workflows.
+                            </p>
+
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "flex-end",
+                                    gap: "7px",
+                                    marginBottom: "18px",
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        fontSize: "3rem",
+                                        lineHeight: 0.9,
+                                        letterSpacing: "-0.09em",
+                                        fontWeight: 630,
+                                        color: "#020617",
+                                    }}
+                                >
+                                    £299
+                                </span>
+
+                                <span
+                                    style={{
+                                        fontSize: "0.88rem",
+                                        color: "#64748b",
+                                        paddingBottom: "6px",
+                                    }}
+                                >
+                                    /month
+                                </span>
+                            </div>
+
+                            <div
+                                style={{
+                                    height: "1px",
+                                    background: "rgba(15,23,42,0.08)",
+                                    marginBottom: "18px",
+                                }}
+                            />
+
+                            <ul
+                                style={{
+                                    listStyle: "none",
+                                    padding: 0,
+                                    margin: 0,
+                                    display: "grid",
+                                    gap: "10px",
+                                }}
+                            >
+                                {proFeatures.map((feature) => (
+                                    <li
+                                        key={feature}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "flex-start",
+                                            gap: "10px",
+                                            color: "#475569",
+                                            fontSize: "0.86rem",
+                                            lineHeight: 1.42,
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                width: "18px",
+                                                height: "18px",
+                                                minWidth: "18px",
+                                                borderRadius: "999px",
+                                                background: "rgba(29, 155, 240, 0.10)",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                marginTop: "1px",
+                                            }}
+                                        >
+                                            <Check size={11} strokeWidth={3} color={twitterBlue} />
+                                        </div>
+
+                                        <span>{feature}</span>
+                                    </li>
+                                ))}
+                            </ul>
+
+                            <div style={{ marginTop: "auto", paddingTop: "20px" }}>
+                                <Link
+                                    href="/signup"
+                                    style={{
+                                        width: "100%",
+                                        height: "48px",
+                                        borderRadius: "16px",
+                                        background: twitterBlue,
+                                        color: "#ffffff",
+                                        fontSize: "0.92rem",
+                                        fontWeight: 600,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        textDecoration: "none",
+                                        boxShadow: "0 10px 24px rgba(29,155,240,0.18)",
+                                    }}
+                                >
+                                    Start Free Trial
+                                </Link>
+                            </div>
                         </div>
                     </div>
 
-                    {/* PRO */}
                     <div
-                        className="card"
                         style={{
-                            padding: "24px 22px",
                             display: "flex",
-                            flexDirection: "column",
-                            minHeight: "430px",
-                            border: "1px solid rgba(15, 23, 42, 0.12)",
-                            background: "rgba(255,255,255,0.96)",
+                            justifyContent: "center",
+                            gap: "10px",
+                            flexWrap: "wrap",
+                            marginTop: "18px",
+                            color: "#64748b",
+                            fontSize: "0.88rem",
                         }}
                     >
-                        <div
-                            style={{
-                                display: "inline-flex",
-                                alignSelf: "flex-start",
-                                padding: "6px 11px",
-                                borderRadius: "999px",
-                                background: "#02040a",
-                                color: "#ffffff",
-                                fontSize: "12px",
-                                fontWeight: 700,
-                                marginBottom: "16px",
-                            }}
-                        >
-                            Pro
-                        </div>
-
-                        <h3
-                            className="cardTitle"
-                            style={{
-                                fontSize: "1.25rem",
-                                fontWeight: 500,
-                                marginBottom: "12px",
-                            }}
-                        >
-                            Advanced AI retention intelligence
-                        </h3>
-
-                        <div
-                            style={{
-                                marginBottom: "6px",
-                                fontSize: "1rem",
-                                fontWeight: 700,
-                                color: "#0f172a",
-                            }}
-                        >
-                            Try free for 14 days
-                        </div>
-
-                        <div
-                            style={{
-                                display: "flex",
-                                alignItems: "baseline",
-                                gap: "6px",
-                                marginBottom: "14px",
-                            }}
-                        >
-                            <span
-                                style={{
-                                    fontSize: "1.55rem",
-                                    fontWeight: 500,
-                                    lineHeight: 1,
-                                    color: "#0f172a",
-                                }}
-                            >
-                                £99
-                            </span>
-
-                            <span
-                                style={{
-                                    fontSize: "0.86rem",
-                                    color: "#7b8794",
-                                    fontWeight: 500,
-                                }}
-                            >
-                                /month after trial
-                            </span>
-                        </div>
-
-                        <p className="cardText" style={{ marginBottom: "18px" }}>
-                            Scale retention with deeper insights and prioritisation.
-                        </p>
-
-                        <div
-                            style={{
-                                height: "1px",
-                                background: "rgba(15, 23, 42, 0.08)",
-                                marginBottom: "16px",
-                            }}
-                        />
-
-                        <ul
-                            style={{
-                                listStyle: "none",
-                                padding: 0,
-                                margin: 0,
-                                display: "grid",
-                                gap: "10px",
-                                color: "#5f6b7a",
-                                fontSize: "0.9rem",
-                                lineHeight: 1.5,
-                            }}
-                        >
-                            <li>• Everything in Starter</li>
-                            <li>• Unlimited automation </li>
-                            <li>• Unlimited AI insights</li>
-                            <li>• Retention progress tracking</li>
-                            <li>• Advanced AI forecasts</li>
-                            <li>• Critical accounts prioritisation</li>
-                            <li>• AI-assisted account outreach</li>
-                        </ul>
-
-                        <div style={{ marginTop: "auto", paddingTop: "22px" }}>
-                            <Link
-                                href="/signup"
-                                className="primaryBtn"
-                                style={{
-                                    width: "100%",
-                                    minHeight: "48px",
-                                    fontWeight: 600,
-                                    fontSize: "0.92rem",
-                                }}
-                            >
-                                Start Free
-                            </Link>
-                        </div>
+                        <span>14-day free trial</span>
+                        <span>•</span>
+                        <span>Cancel anytime</span>
                     </div>
                 </div>
             </div>

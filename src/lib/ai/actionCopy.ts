@@ -1,57 +1,74 @@
-// src/lib/ai/actionCopy.ts
+import type { RecommendedActionType } from "@/lib/ai/types";
 
-import type { RecommendedActionType } from "./types";
-
-export type ActionCopyItem = {
+type ActionCopyItem = {
     title: string;
     description: string;
 };
 
 export const actionCopy = {
     send_billing_recovery_email: {
-        title: "Recover payment",
+        title: "Send billing recovery email",
         description:
-            "Send a billing recovery email to resolve the failed payment and retain this customer.",
+            "Recover failed payments before subscriptions cancel or revenue is lost.",
     },
 
     send_reactivation_email: {
-        title: "Re-engage customer",
+        title: "Send reactivation email",
         description:
-            "Send a reactivation email to bring the customer back and restore engagement.",
+            "Reconnect with inactive customers showing churn or disengagement signals.",
     },
 
     assign_csm_outreach: {
-        title: "Manual outreach",
+        title: "Assign customer outreach",
         description:
-            "Reach out to this customer directly to prevent churn and understand concerns.",
+            "Create a high-priority outreach task for customer success follow-up.",
+    },
+
+    view_failed_accounts: {
+        title: "View failed accounts",
+        description:
+            "Open the failed accounts list to prioritise customers needing immediate action.",
+    },
+
+    trigger_winback_campaign: {
+        title: "Trigger win-back campaign",
+        description:
+            "Launch a win-back flow for customers showing churn or inactivity signals.",
+    },
+
+    offer_expansion: {
+        title: "Offer expansion",
+        description:
+            "Identify upsell or expansion opportunities based on engagement and growth signals.",
+    },
+
+    schedule_success_call: {
+        title: "Schedule success call",
+        description:
+            "Book a proactive customer success call to reduce churn risk and improve retention.",
     },
 
     review_health_blockers: {
-        title: "Review account issues",
+        title: "Review health blockers",
         description:
-            "Investigate what is causing low engagement or friction in this account.",
+            "Review engagement, support, and usage blockers impacting customer health.",
     },
 
     retry_failed_payment: {
         title: "Retry failed payment",
         description:
-            "Attempt to recover revenue by retrying a failed payment for this account.",
-    },
-
-    view_failed_accounts: {
-        title: "Review failed accounts",
-        description:
-            "Open the failed accounts list to prioritise customers that need immediate follow-up.",
+            "Attempt to recover failed subscription payments before revenue is lost.",
     },
 
     monitor_account: {
         title: "Monitor account",
         description:
-            "No immediate action required. Continue tracking this account for changes.",
+            "Continue monitoring this account for new churn or expansion signals.",
     },
 
     none: {
         title: "No action needed",
-        description: "This account is stable and requires no action.",
+        description:
+            "This account currently shows healthy retention and engagement signals.",
     },
 } satisfies Record<RecommendedActionType, ActionCopyItem>;

@@ -5,10 +5,16 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase.client";
 import styles from "./actionImpact.module.css";
+import { getUpgradeMessage } from "@/lib/permissions";
 
 type OutcomeFilter = "all" | "success" | "pending" | "failed";
 type ProgressKind = "email" | "retry_payment";
 type ConfidenceLevel = "High" | "Medium" | "Low";
+
+type RetentionSignal = {
+    label: string;
+    severity: "low" | "medium" | "high";
+};
 
 type ActionFirstRecommendation = {
     customerId: string;
@@ -46,12 +52,16 @@ type ProgressRow = {
     accountId?: string;
     customerId?: string;
     account: string;
-    email?: string;
+    email?: string | null;
     action: string;
     aiReason: string;
+    aiRecommendation?: string;
+    aiSignals?: RetentionSignal[];
     outcome: "success" | "pending" | "failed";
     mrrSavedMinor: number;
     riskScore: number;
+    effectivenessScore?: number;
+    confidence?: ConfidenceLevel;
     date: string;
     kind?: ProgressKind;
 };
@@ -61,6 +71,10 @@ type ApiResponse = {
     mode?: "demo" | "live";
     workspaceTier?: string;
     trialEndsAt?: string | null;
+    locked?: boolean;
+    requiredPlan?: string;
+    message?: string;
+    currency?: string;
     connectedIntegrations?: string[];
     kpis?: {
         mrrProtectedMinor: number;
@@ -99,10 +113,12 @@ type PriorityAccount = {
     riskScore: number;
 };
 
-function formatMoney(minor?: number | null) {
+function formatMoney(minor?: number | null, currency = "GBP") {
+    const safeCurrency = /^[A-Z]{3}$/.test(currency) ? currency : "GBP";
+
     return new Intl.NumberFormat("en-GB", {
         style: "currency",
-        currency: "GBP",
+        currency: safeCurrency,
         maximumFractionDigits: 0,
     }).format((Number(minor || 0) || 0) / 100);
 }
@@ -120,23 +136,8 @@ function formatDate(value?: string) {
     });
 }
 
-function formatUpdatedAt(value?: string | null) {
-    if (!value) return "Just now";
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "Just now";
-
-    return date.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
-}
-
-function fallbackEmail(account: string) {
-    const slug = account.toLowerCase().replace(/[^a-z0-9]+/g, "").trim();
-    return slug ? `team@${slug}.com` : "team@company.com";
+function fallbackEmail() {
+    return "No email available";
 }
 
 function cleanText(value?: string | null) {
@@ -146,7 +147,12 @@ function cleanText(value?: string | null) {
         .trim();
 }
 
-function trendLabel(current: number, pct: number, type: "money" | "number" | "rate") {
+function trendLabel(
+    current: number,
+    pct: number,
+    type: "money" | "number" | "rate",
+    currency = "GBP"
+) {
     const direction = pct >= 0 ? "↑" : "↓";
     const absolutePct = Math.abs(Number(pct || 0));
 
@@ -156,9 +162,10 @@ function trendLabel(current: number, pct: number, type: "money" | "number" | "ra
         previousValue = `${Math.max(0, Math.round(current - pct))}%`;
     } else {
         const previous = current / (1 + pct / 100);
+
         previousValue =
             type === "money"
-                ? formatMoney(previous)
+                ? formatMoney(previous, currency)
                 : String(Math.max(0, Math.round(previous)));
     }
 
@@ -175,50 +182,29 @@ function outcomeLabel(outcome: ProgressRow["outcome"] | OutcomeFilter) {
     return "All";
 }
 
-function kindLabel(kind?: ProgressKind) {
-    if (kind === "retry_payment") return "Retry payment";
-    return "Email";
+function getRiskColor(score: number) {
+    if (score >= 80) return "#ef4444";
+    if (score >= 65) return "#f97316";
+    return "#10b981";
 }
 
-function confidenceClass(confidence?: ConfidenceLevel) {
-    if (confidence === "High") return styles.highConfidence;
-    if (confidence === "Medium") return styles.mediumConfidence;
-    return styles.lowConfidence;
+function getEffectivenessScore(row: ProgressRow) {
+    if (typeof row.effectivenessScore === "number") {
+        return Math.max(0, Math.min(100, Math.round(row.effectivenessScore)));
+    }
+
+    if (row.outcome !== "success") return null;
+
+    const reducedRisk = Math.max(0, 100 - Number(row.riskScore || 0));
+    const revenueWeight = Math.min(20, Math.round(Number(row.mrrSavedMinor || 0) / 1000));
+
+    return Math.max(55, Math.min(98, reducedRisk + 45 + revenueWeight));
 }
 
-function csvEscape(value: string | number | undefined | null) {
-    const text = String(value ?? "");
-    return `"${text.replace(/"/g, '""')}"`;
-}
-
-function downloadCsv(filename: string, rows: ProgressRow[]) {
-    const headers = ["Account", "Email", "Reason", "Action", "Outcome", "MRR", "Risk", "Date"];
-
-    const csvRows = rows.map((row) => [
-        row.account,
-        row.email || fallbackEmail(row.account),
-        row.aiReason,
-        row.action || kindLabel(row.kind),
-        outcomeLabel(row.outcome),
-        formatMoney(row.mrrSavedMinor),
-        `${row.riskScore}%`,
-        formatDate(row.date),
-    ]);
-
-    const csv = [
-        headers.map(csvEscape).join(","),
-        ...csvRows.map((row) => row.map(csvEscape).join(",")),
-    ].join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.click();
-
-    URL.revokeObjectURL(url);
+function getActionIcon(row: ProgressRow) {
+    if (row.outcome === "success") return "✓";
+    if (row.kind === "retry_payment") return "▣";
+    return "✉";
 }
 
 export default function ProgressPage() {
@@ -230,13 +216,11 @@ export default function ProgressPage() {
     const [loading, setLoading] = useState(true);
     const [workspaceAi, setWorkspaceAi] = useState<AiWorkspaceRes | null>(null);
     const [aiLoading, setAiLoading] = useState(false);
-    const [aiRefreshedAt, setAiRefreshedAt] = useState<string | null>(null);
-    const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [outcomeFilter, setOutcomeFilter] = useState<OutcomeFilter>("all");
     const [page, setPage] = useState(1);
 
-    const rowsPerPage = 5;
+    const rowsPerPage = 10;
 
     async function loadWorkspaceAi(currentUser: User) {
         try {
@@ -260,9 +244,7 @@ export default function ProgressPage() {
             }
 
             const json = (await res.json()) as AiWorkspaceRes;
-
             setWorkspaceAi(json);
-            setAiRefreshedAt(new Date().toISOString());
         } catch (err) {
             console.error("AI LOAD ERROR:", err);
             setWorkspaceAi(null);
@@ -311,13 +293,25 @@ export default function ProgressPage() {
                     },
                 });
 
-                const json = (await res.json()) as ApiResponse;
+                const json = (await res.json()) as ApiResponse & { error?: string };
 
-                if (!res.ok) throw new Error("Progress API failed");
+                if (res.status === 403 || json.locked) {
+                    throw new Error(
+                        json.message ||
+                        getUpgradeMessage("retention-impact").description
+                    );
+                }
+
+                if (!res.ok || json.ok === false) {
+                    throw new Error(
+                        json.message ||
+                        json.error ||
+                        "Progress API failed"
+                    );
+                }
 
                 if (!cancelled) {
                     setData(json);
-                    setLastUpdatedAt(new Date().toISOString());
                 }
             } catch (err) {
                 console.error("Failed to load progress", err);
@@ -330,6 +324,7 @@ export default function ProgressPage() {
                 if (!cancelled) setLoading(false);
             }
         }
+
         void loadProgress();
 
         const aiTimer = setTimeout(() => {
@@ -345,34 +340,24 @@ export default function ProgressPage() {
     }, [status, user]);
 
     const kpis = data?.kpis;
+    const currency = data?.currency || "GBP";
 
     const progressRows = useMemo(() => {
         const rows = Array.isArray(data?.progressBreakdown)
             ? data.progressBreakdown
             : [];
 
-        if (outcomeFilter === "all") {
-            return rows;
-        }
+        if (outcomeFilter === "all") return rows;
 
-        return rows.filter(
-            (row) => row.outcome === outcomeFilter
-        );
+        return rows.filter((row) => row.outcome === outcomeFilter);
     }, [data?.progressBreakdown, outcomeFilter]);
 
-    const totalPages = Math.max(
-        1,
-        Math.ceil(progressRows.length / rowsPerPage)
-    );
-
+    const totalPages = Math.max(1, Math.ceil(progressRows.length / rowsPerPage));
     const safePage = Math.min(page, totalPages);
 
     const visibleRows =
         progressRows.length > 0
-            ? progressRows.slice(
-                (safePage - 1) * rowsPerPage,
-                safePage * rowsPerPage
-            )
+            ? progressRows.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage)
             : [];
 
     const priorityAccounts = useMemo<PriorityAccount[]>(() => {
@@ -416,7 +401,8 @@ export default function ProgressPage() {
     const mrrTrend = trendLabel(
         Number(kpis?.mrrProtectedMinor || 0),
         Number(kpis?.mrrProtectedPct || 0),
-        "money"
+        "money",
+        currency
     );
 
     const accountsTrend = trendLabel(
@@ -468,341 +454,265 @@ export default function ProgressPage() {
         );
     }
 
-    const aiHeadline =
-        workspaceAi?.operationalSummary?.headline ||
-        data?.aiInsight?.headline ||
-        `${formatMoney(kpis?.mrrProtectedMinor)} protected this month`;
-
-    const progressStats = (() => {
-        const rows = Array.isArray(data?.progressBreakdown) ? data.progressBreakdown : [];
-
-        const successCount = rows.filter((row) => row.outcome === "success").length;
-        const pendingCount = rows.filter((row) => row.outcome === "pending").length;
-        const failedCount = rows.filter((row) => row.outcome === "failed").length;
-
-        const totalActions = Number(kpis?.actionsExecuted || rows.length || 0);
-        const successRate = Number(kpis?.successRate || 0);
-        const mrrProtected = formatMoney(kpis?.mrrProtectedMinor);
-
-        const topRisk = priorityAccounts[0];
-
-        return {
-            successCount,
-            pendingCount,
-            failedCount,
-            totalActions,
-            successRate,
-            mrrProtected,
-            topRisk,
-        };
-    })();
-
-    const aiSummary =
-        progressStats.totalActions > 0
-            ? `${progressStats.mrrProtected} was protected this month across ${progressStats.totalActions} retention actions. Success rate is ${progressStats.successRate}%, with ${progressStats.pendingCount} pending and ${progressStats.failedCount} failed action${progressStats.failedCount === 1 ? "" : "s"} still needing attention. ${progressStats.topRisk
-                ? `Prioritise ${progressStats.topRisk.account} and similar high-risk accounts before starting new outreach.`
-                : "Prioritise unresolved recovery actions before starting new outreach."
-            }`
-            : workspaceAi?.operationalSummary?.summary ||
-            data?.aiInsight?.summary ||
-            "Cobrai is tracking retention activity and prioritising the accounts that need attention.";
-
-    const aiConfidence =
-        workspaceAi?.operationalSummary?.confidence || data?.aiInsight?.confidence || "Medium";
-
-    const aiPrimaryAction =
-        workspaceAi?.operationalSummary?.primaryAction?.title ||
-        data?.aiInsight?.nextBestAction ||
-        "Review the highest-risk accounts first.";
-
-    const aiPrimaryDescription =
-        workspaceAi?.operationalSummary?.primaryAction?.description ||
-        "Focus on accounts with billing issues, low health, or declining engagement.";
-
     return (
         <main className={styles.page}>
             <div className={styles.container}>
                 <div className={styles.topHeaderRow}>
-
                     <section className={styles.hero}>
                         <h1>Retention activity</h1>
-
                         <p>
-                            Revenue saved, completed workflows,
-                            and the next accounts that need attention.
+                            Revenue saved, completed workflows, and the next accounts that need attention.
                         </p>
                     </section>
-
                 </div>
 
                 <section className={styles.kpiGrid}>
-
                     <article className={styles.kpiCard}>
-                        <div className={`${styles.kpiIcon} ${styles.greenIcon}`}>
-                            £
-                        </div>
-
+                        <div className={`${styles.kpiIcon} ${styles.greenIcon}`}>£</div>
                         <div>
                             <span>MRR protected</span>
-
-                            <strong>
-                                {formatMoney(kpis?.mrrProtectedMinor)}
-                            </strong>
-
-                            <small
-                                className={
-                                    mrrTrend.isPositive
-                                        ? styles.trendUp
-                                        : styles.trendDown
-                                }
-                            >
+                            <strong>{formatMoney(kpis?.mrrProtectedMinor, currency)}</strong>
+                            <small className={mrrTrend.isPositive ? styles.trendUp : styles.trendDown}>
                                 {mrrTrend.text}
                             </small>
                         </div>
                     </article>
 
                     <article className={styles.kpiCard}>
-                        <div className={`${styles.kpiIcon} ${styles.blueIcon}`}>
-                            ♙
-                        </div>
-
+                        <div className={`${styles.kpiIcon} ${styles.blueIcon}`}>♙</div>
                         <div>
                             <span>Accounts saved</span>
-
-                            <strong>
-                                {Number(kpis?.accountsSaved || 0)}
-                            </strong>
-
-                            <small
-                                className={
-                                    accountsTrend.isPositive
-                                        ? styles.trendUp
-                                        : styles.trendDown
-                                }
-                            >
+                            <strong>{Number(kpis?.accountsSaved || 0)}</strong>
+                            <small className={accountsTrend.isPositive ? styles.trendUp : styles.trendDown}>
                                 {accountsTrend.text}
                             </small>
                         </div>
                     </article>
 
                     <article className={styles.kpiCard}>
-                        <div className={`${styles.kpiIcon} ${styles.purpleIcon}`}>
-                            ↯
-                        </div>
-
+                        <div className={`${styles.kpiIcon} ${styles.purpleIcon}`}>↯</div>
                         <div>
                             <span>Actions executed</span>
-
-                            <strong>
-                                {Number(kpis?.actionsExecuted || 0)}
-                            </strong>
-
-                            <small
-                                className={
-                                    actionsTrend.isPositive
-                                        ? styles.trendUp
-                                        : styles.trendDown
-                                }
-                            >
+                            <strong>{Number(kpis?.actionsExecuted || 0)}</strong>
+                            <small className={actionsTrend.isPositive ? styles.trendUp : styles.trendDown}>
                                 {actionsTrend.text}
                             </small>
                         </div>
                     </article>
 
                     <article className={styles.kpiCard}>
-                        <div className={`${styles.kpiIcon} ${styles.orangeIcon}`}>
-                            ↗
-                        </div>
-
+                        <div className={`${styles.kpiIcon} ${styles.orangeIcon}`}>↗</div>
                         <div>
                             <span>Success rate</span>
-
-                            <strong>
-                                {Number(kpis?.successRate || 0)}%
-                            </strong>
-
-                            <small
-                                className={
-                                    successTrend.isPositive
-                                        ? styles.trendUp
-                                        : styles.trendDown
-                                }
-                            >
+                            <strong>{Number(kpis?.successRate || 0)}%</strong>
+                            <small className={successTrend.isPositive ? styles.trendUp : styles.trendDown}>
                                 {successTrend.text}
                             </small>
                         </div>
                     </article>
-
                 </section>
 
-
                 <section className={styles.contentGrid}>
-
-                    {/* =========================================================
-        PROGRESS BREAKDOWN
-    ========================================================= */}
-
                     <article className={styles.panel}>
-
                         <div className={styles.panelHeader}>
-
                             <div>
                                 <h2>Progress breakdown</h2>
-
-                                <p>
-                                    Every retention action tracked across your accounts.
-                                </p>
+                                <p>Every retention action tracked across your accounts.</p>
                             </div>
 
-                            <div className={styles.pagination}>
-                                {(
-                                    ["all", "success", "pending", "failed"] as OutcomeFilter[]
-                                ).map((filter) => (
+                            <div className={styles.filterTabs}>
+                                {(["all", "success", "pending", "failed"] as OutcomeFilter[]).map((filter) => (
                                     <button
                                         key={filter}
                                         type="button"
-                                        className={
-                                            outcomeFilter === filter
-                                                ? styles.currentPage
-                                                : ""
-                                        }
+                                        className={outcomeFilter === filter ? styles.activeFilter : styles.filterBtn}
                                         onClick={() => setOutcomeFilter(filter)}
                                     >
                                         {outcomeLabel(filter)}
                                     </button>
                                 ))}
                             </div>
-
                         </div>
 
                         {progressRows.length > 0 ? (
                             <>
                                 <div className={styles.progressTableWrap}>
-
                                     <table className={styles.progressTable}>
-
                                         <thead>
                                             <tr>
                                                 <th>Account</th>
-                                                <th>Reason</th>
-                                                <th>Action</th>
+                                                <th>AI reasoning & signals</th>
+                                                <th>Action result</th>
                                                 <th>Outcome</th>
-                                                <th>MRR</th>
+                                                <th>MRR saved</th>
+                                                <th>Risk score</th>
                                                 <th>Date</th>
                                             </tr>
                                         </thead>
 
                                         <tbody>
-                                            {visibleRows.map((row, index) => (
-                                                <tr
-                                                    key={`${row.id}-${index}`}
-                                                    onClick={() =>
-                                                        goToAccount(
-                                                            row.customerId || row.accountId
-                                                        )
-                                                    }
-                                                >
+                                            {visibleRows.map((row, index) => {
+                                                const riskScore = Math.max(
+                                                    0,
+                                                    Math.min(100, Number(row.riskScore || 0))
+                                                );
 
-                                                    <td>
-                                                        <strong>{row.account}</strong>
+                                                const riskColor = getRiskColor(riskScore);
+                                                const effectivenessScore = getEffectivenessScore(row);
 
-                                                        <span>
-                                                            {row.email ||
-                                                                fallbackEmail(row.account)}
-                                                        </span>
-                                                    </td>
+                                                return (
+                                                    <tr
+                                                        key={`${row.id}-${index}`}
+                                                        onClick={() => goToAccount(row.customerId || row.accountId)}
+                                                    >
+                                                        <td>
+                                                            <div className={styles.accountCell}>
+                                                                <div className={styles.accountAvatar}>
+                                                                    {row.account?.charAt(0)}
+                                                                </div>
 
-                                                    <td>
-                                                        {cleanText(row.aiReason)}
-                                                    </td>
+                                                                <div className={styles.accountMeta}>
+                                                                    <strong>{row.account}</strong>
+                                                                    <span>{row.email || fallbackEmail()}</span>
+                                                                </div>
+                                                            </div>
+                                                        </td>
 
-                                                    <td>
-                                                        <div className={styles.actionCell}>
-                                                            <strong>
-                                                                {cleanText(
-                                                                    row.action ||
-                                                                    kindLabel(row.kind)
+                                                        <td>
+                                                            <div className={styles.reasoningCell}>
+                                                                <strong>{row.action}</strong>
+
+                                                                <p>{cleanText(row.aiReason)}</p>
+
+                                                                {!!row.aiSignals?.length && (
+                                                                    <div className={styles.signalRow}>
+                                                                        {row.aiSignals.map((signal, signalIndex) => (
+                                                                            <span
+                                                                                key={`${signal.label}-${signalIndex}`}
+                                                                                className={`
+                                                                                    ${styles.signalChip}
+                                                                                    ${signal.severity === "high"
+                                                                                        ? styles.highSignal
+                                                                                        : signal.severity === "medium"
+                                                                                            ? styles.mediumSignal
+                                                                                            : styles.lowSignal
+                                                                                    }
+                                                                                `}
+                                                                            >
+                                                                                {signal.label}
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
                                                                 )}
-                                                            </strong>
-                                                        </div>
-                                                    </td>
+                                                            </div>
+                                                        </td>
 
-                                                    <td>
-                                                        <span
-                                                            className={`
-                                                ${styles.outcomePill}
-                                                ${row.outcome === "success"
-                                                                    ? styles.outcomeSuccess
-                                                                    : row.outcome === "failed"
-                                                                        ? styles.outcomeFailed
-                                                                        : styles.outcomePending
+                                                        <td>
+                                                            {row.outcome === "success" ? (
+                                                                <div className={styles.effectivenessCard}>
+                                                                    <span className={styles.actionMiniIcon}>
+                                                                        {getActionIcon(row)}
+                                                                    </span>
+
+                                                                    <div>
+                                                                        <strong>
+                                                                            {effectivenessScore ?? 0}% effectiveness
+                                                                        </strong>
+
+                                                                        <p>
+                                                                            Action completed and revenue protection
+                                                                            confirmed.
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className={styles.recommendationCard}>
+                                                                    <span className={styles.actionMiniIcon}>
+                                                                        {getActionIcon(row)}
+                                                                    </span>
+
+                                                                    <div>
+                                                                        <strong>
+                                                                            {cleanText(
+                                                                                row.aiRecommendation ||
+                                                                                "Review this account and take the recommended retention action."
+                                                                            )}
+                                                                        </strong>
+                                                                    </div>
+
+                                                                    <span className={styles.sparkleIcon}>✦</span>
+                                                                </div>
+                                                            )}
+                                                        </td>
+
+                                                        <td>
+                                                            <span
+                                                                className={`
+                                                                    ${styles.outcomePill}
+                                                                    ${row.outcome === "success"
+                                                                        ? styles.outcomeSuccess
+                                                                        : row.outcome === "failed"
+                                                                            ? styles.outcomeFailed
+                                                                            : styles.outcomePending
+                                                                    }
+                                                                `}
+                                                            >
+                                                                <span className={styles.statusDot} />
+                                                                {outcomeLabel(row.outcome)}
+                                                            </span>
+                                                        </td>
+
+                                                        <td className={styles.mrrCell}>
+                                                            {formatMoney(row.mrrSavedMinor, currency)}
+                                                        </td>
+
+                                                        <td>
+                                                            <div
+                                                                className={styles.riskRing}
+                                                                style={
+                                                                    {
+                                                                        "--risk-color": riskColor,
+                                                                        "--risk-score": `${riskScore}%`,
+                                                                    } as React.CSSProperties
                                                                 }
-                                            `}
-                                                        >
-                                                            {outcomeLabel(row.outcome)}
-                                                        </span>
-                                                    </td>
+                                                            >
+                                                                <span>{riskScore}</span>
+                                                            </div>
+                                                        </td>
 
-                                                    <td>
-                                                        {formatMoney(
-                                                            row.mrrSavedMinor
-                                                        )}
-                                                    </td>
-
-                                                    <td>
-                                                        {formatDate(row.date)}
-                                                    </td>
-
-                                                </tr>
-                                            ))}
+                                                        <td className={styles.dateCell}>{formatDate(row.date)}</td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
-
                                     </table>
-
                                 </div>
 
                                 <div className={styles.tableFooter}>
-
                                     <span>
-                                        Showing {(page - 1) * rowsPerPage + 1} to{" "}
-                                        {Math.min(
-                                            page * rowsPerPage,
-                                            progressRows.length
-                                        )}{" "}
-                                        of {progressRows.length} results
+                                        Showing {(safePage - 1) * rowsPerPage + 1} to{" "}
+                                        {Math.min(safePage * rowsPerPage, progressRows.length)} of{" "}
+                                        {progressRows.length} results
                                     </span>
 
-                                    <div className={styles.pagination}>
-
+                                    <div className={styles.paginationModern}>
                                         <button
                                             type="button"
                                             disabled={page === 1}
-                                            onClick={() =>
-                                                setPage((current) =>
-                                                    Math.max(1, current - 1)
-                                                )
-                                            }
+                                            onClick={() => setPage((current) => Math.max(1, current - 1))}
                                         >
                                             ‹
                                         </button>
 
-                                        {Array.from({
-                                            length: totalPages,
-                                        }).map((_, index) => {
+                                        {Array.from({ length: totalPages }).map((_, index) => {
                                             const pageNumber = index + 1;
 
                                             return (
                                                 <button
                                                     key={pageNumber}
                                                     type="button"
-                                                    onClick={() =>
-                                                        setPage(pageNumber)
-                                                    }
-                                                    className={
-                                                        page === pageNumber
-                                                            ? styles.currentPage
-                                                            : ""
-                                                    }
+                                                    onClick={() => setPage(pageNumber)}
+                                                    className={page === pageNumber ? styles.currentModernPage : ""}
                                                 >
                                                     {pageNumber}
                                                 </button>
@@ -813,207 +723,21 @@ export default function ProgressPage() {
                                             type="button"
                                             disabled={page === totalPages}
                                             onClick={() =>
-                                                setPage((current) =>
-                                                    Math.min(
-                                                        totalPages,
-                                                        current + 1
-                                                    )
-                                                )
+                                                setPage((current) => Math.min(totalPages, current + 1))
                                             }
                                         >
                                             ›
                                         </button>
-
                                     </div>
-
                                 </div>
                             </>
                         ) : (
                             <div className={styles.emptyState}>
                                 <strong>No progress rows yet</strong>
-
-                                <p>
-                                    Your API loaded, but no progress breakdown
-                                    rows were returned.
-                                </p>
+                                <p>Your API loaded, but no progress breakdown rows were returned.</p>
                             </div>
                         )}
-
                     </article>
-
-                    {/* =========================================================
-        BOTTOM CARDS
-    ========================================================= */}
-
-                    <div className={styles.bottomCardsGrid}>
-
-                        {/* =========================================================
-            AI INSIGHT CARD
-        ========================================================= */}
-
-                        <section className={styles.singleInsightCard}>
-
-                            <div className={styles.insightTop}>
-
-                                <span className={styles.insightLabel}>
-                                    ✧ AI Retention Intelligence
-                                </span>
-
-                                <span
-                                    className={`
-                        ${styles.confidencePill}
-                        ${confidenceClass(aiConfidence)}
-                    `}
-                                >
-                                    <i />
-                                    {aiConfidence} confidence
-                                </span>
-
-                            </div>
-
-                            <h2 className={styles.insightHeadline}>
-                                {aiHeadline}
-                            </h2>
-
-                            <p className={styles.insightSummary}>
-                                {aiSummary}
-                            </p>
-
-                            <div className={styles.primaryAction}>
-
-                                <strong>AI recommendation</strong>
-
-                                <p>
-                                    {aiPrimaryAction}
-                                </p>
-
-                            </div>
-
-                        </section>
-
-                        {/* =========================================================
-            NEXT PRIORITY ACCOUNTS
-        ========================================================= */}
-
-                        <article className={styles.panel}>
-
-                            <div className={styles.panelHeader}>
-
-                                <div>
-                                    <h2>Next priority accounts</h2>
-
-                                    <p>
-                                        AI-prioritised accounts that need attention first.
-                                    </p>
-                                </div>
-
-                                <button
-                                    type="button"
-                                    className={styles.downloadBtn}
-                                    onClick={() => user && void loadWorkspaceAi(user)}
-                                    disabled={aiLoading}
-                                >
-                                    {aiLoading ? "Refreshing..." : "Refresh"}
-                                </button>
-
-                            </div>
-
-                            <div className={styles.priorityList}>
-
-                                {priorityAccounts.length ? (
-                                    priorityAccounts.map((item, index) => (
-
-                                        <button
-                                            type="button"
-                                            key={`${item.id}-${index}`}
-                                            className={styles.priorityItem}
-                                            onClick={() => goToAccount(item.id)}
-                                        >
-
-                                            <span className={styles.avatar}>
-                                                {item.account?.charAt(0) || "A"}
-                                            </span>
-
-                                            <span className={styles.priorityCopy}>
-
-                                                <span className={styles.priorityTop}>
-
-                                                    <strong>
-                                                        {item.account}
-                                                    </strong>
-
-                                                    <b>
-                                                        {item.riskScore}% risk
-                                                    </b>
-
-                                                </span>
-
-                                                <small className={styles.aiReason}>
-                                                    {cleanText(item.aiReason)}
-                                                </small>
-
-                                                <small className={styles.aiAction}>
-
-                                                    <strong>
-                                                        AI action:
-                                                    </strong>{" "}
-
-                                                    {cleanText(
-                                                        item.aiAction ||
-                                                        "Send a personalised retention check-in with a usage recap."
-                                                    )}
-
-                                                </small>
-
-                                                <small className={styles.mrrHint}>
-
-                                                    <span>
-                                                        Revenue at risk
-                                                    </span>
-
-                                                    <b>
-                                                        {formatMoney(item.mrrMinor)}
-                                                    </b>
-
-                                                </small>
-
-                                            </span>
-
-                                        </button>
-                                    ))
-                                ) : (
-                                    <div className={styles.emptyState}>
-
-                                        <strong>
-                                            No priority accounts yet
-                                        </strong>
-
-                                        <p>
-                                            Cobrai will show AI-led actions
-                                            once enough risk signals exist.
-                                        </p>
-
-                                    </div>
-                                )}
-
-                            </div>
-
-                            <button
-                                type="button"
-                                className={styles.viewAllBtn}
-                                onClick={() =>
-                                    router.push(
-                                        "/dashboard/accounts-at-risk?filter=critical"
-                                    )
-                                }
-                            >
-                                View all accounts <span>›</span>
-                            </button>
-
-                        </article>
-
-                    </div>
-
                 </section>
             </div>
         </main>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { generateWorkspaceInsights } from "@/lib/ai/generateWorkspaceInsights";
+import { getAiEffectivenessScore } from "@/lib/ai/aiEffectivenessScore";
 import { getWorkspaceFromRequest } from "@/lib/auth/getWorkspaceFromRequest";
 
 export const runtime = "nodejs";
@@ -11,11 +12,14 @@ export async function POST(req: Request) {
         const { workspaceId } = await getWorkspaceFromRequest(req);
 
         const body = await req.json().catch(() => ({}));
+
         const timeframe =
             typeof body?.timeframe === "string" ? body.timeframe : "week";
 
         const workspace = await prisma.workspace.findUnique({
-            where: { id: workspaceId },
+            where: {
+                id: workspaceId,
+            },
             select: {
                 id: true,
                 tier: true,
@@ -26,18 +30,28 @@ export async function POST(req: Request) {
 
         if (!workspace) {
             return NextResponse.json(
-                { error: "Workspace not found" },
-                { status: 404 }
+                {
+                    error: "Workspace not found",
+                },
+                {
+                    status: 404,
+                }
             );
         }
 
-        const result = await generateWorkspaceInsights({
-            workspaceId,
-            timeframe,
-            source: workspace.demoMode ? "demo" : "live",
-        });
+        const [result, aiEffectiveness] = await Promise.all([
+            generateWorkspaceInsights({
+                workspaceId,
+                timeframe,
+                source: workspace.demoMode ? "demo" : "live",
+            }),
+            getAiEffectivenessScore(workspaceId),
+        ]);
 
-        return NextResponse.json(result);
+        return NextResponse.json({
+            ...result,
+            aiEffectiveness,
+        });
     } catch (err) {
         console.error("AI insights route failed:", err);
 
@@ -46,7 +60,9 @@ export async function POST(req: Request) {
                 error: "Failed to generate workspace insights",
                 message: err instanceof Error ? err.message : String(err),
             },
-            { status: 500 }
+            {
+                status: 500,
+            }
         );
     }
 }

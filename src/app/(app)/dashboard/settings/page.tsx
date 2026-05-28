@@ -2,14 +2,18 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Check } from "lucide-react";
 import styles from "./settings.module.css";
 import { SiHubspot, SiStripe, SiResend } from "react-icons/si";
 import { onAuthStateChanged, updateProfile, type User } from "firebase/auth";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase.client";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 
+
 const auth = getFirebaseAuth();
 const db = getFirebaseDb();
+
+const twitterBlue = "#1d9bf0";
 
 const tabs = [
     "Profile",
@@ -1066,6 +1070,7 @@ function SettingsPageContent() {
     const trialDaysLeft = getTrialDaysLeft(billing.trialEndsAt);
     const domainVerified = isVerifiedStatus(emailSettings.sendingDomainStatus);
 
+
     return (
         <>
             <main className={styles.page}>
@@ -1280,6 +1285,7 @@ function SettingsPageContent() {
                                                         >
                                                             {busy ? "Please wait..." : connected ? "Disconnect" : "Connect"}
                                                         </button>
+
                                                     </div>
                                                 );
                                             })}
@@ -1648,36 +1654,99 @@ function SettingsPageContent() {
                                                 )}
                                             </div>
 
-                                            <div className={styles.pricingGrid}>
-                                                <div className={styles.pricingCard}>
+                                            <div
+                                                className={styles.pricingGrid}
+                                                style={{
+                                                    gap: 20,
+                                                }}
+                                            >
+                                                <div
+                                                    className={styles.pricingCard}
+                                                    style={{
+                                                        padding: 22,
+                                                        borderRadius: 26,
+                                                        border: "1px solid rgba(15, 23, 42, 0.08)",
+                                                        background: "#ffffff",
+                                                    }}
+                                                >
                                                     <div className={styles.planBadge}>Starter</div>
 
-                                                    <div className={styles.pricingCardTitle}>
-                                                        See every customer and spot early churn risk.
-                                                    </div>
-
-                                                    <div className={styles.pricingSmallText}>
+                                                    <div
+                                                        className={styles.pricingSmallText}
+                                                        style={{
+                                                            marginTop: 10,
+                                                            marginBottom: 14,
+                                                            color: "#0f172a",
+                                                            fontWeight: 650,
+                                                        }}
+                                                    >
                                                         Try free for 14 days
                                                     </div>
 
-                                                    <div className={styles.pricingRow}>
-                                                        <div className={styles.pricingAmount}>£49</div>
-                                                        <div className={styles.pricingInterval}>/month after trial</div>
+                                                    <div
+                                                        className={styles.pricingCardTitle}
+                                                        style={{
+                                                            fontSize: "1.5rem",
+                                                            lineHeight: 1.05,
+                                                            letterSpacing: "-0.06em",
+                                                        }}
+                                                    >
+                                                        Spot churn risk early and prioritise the customers that matter most.
                                                     </div>
 
-                                                    <div className={styles.pricingDescription}>
-                                                        For early-stage SaaS teams that need a clear customer list, health scores, and enough AI guidance to act faster.
+                                                    <div
+                                                        className={styles.pricingDescription}
+                                                        style={{
+                                                            fontSize: "0.88rem",
+                                                            lineHeight: 1.5,
+                                                        }}
+                                                    >
+                                                        For SaaS teams that need a clear customer list, risk scoring, revenue visibility, and guided retention actions.
+                                                    </div>
+
+                                                    <div className={styles.pricingRow}>
+                                                        <div className={styles.pricingAmount}>£99</div>
+                                                        <div className={styles.pricingInterval}>/month</div>
                                                     </div>
 
                                                     <div className={styles.pricingDivider} />
 
                                                     <ul className={styles.pricingFeatures}>
-                                                        <li>Complete customer list</li>
-                                                        <li>Customer health score</li>
-                                                        <li>Limited MRR and churn drivers visibility</li>
-                                                        <li>Limited AI insights</li>
-                                                        <li>Dashboard overview</li>
-                                                        <li>Manual customer outreach</li>
+                                                        {[
+                                                            "AI-powered churn insights",
+                                                            "Complete customer list ranked by risk score and MRR",
+                                                            "Customer health scoring",
+                                                            "Limited AI-generated retention emails",
+                                                            "MRR and churn trend charts",
+                                                            "Limited visibility into MRR drivers",
+                                                            "Limited visibility into churn drivers",
+                                                        ].map((feature) => (
+                                                            <li
+                                                                key={feature}
+                                                                style={{
+                                                                    display: "flex",
+                                                                    alignItems: "flex-start",
+                                                                    gap: 10,
+                                                                }}
+                                                            >
+                                                                <span
+                                                                    style={{
+                                                                        width: 18,
+                                                                        height: 18,
+                                                                        minWidth: 18,
+                                                                        borderRadius: 999,
+                                                                        background: "rgba(29, 155, 240, 0.10)",
+                                                                        display: "inline-flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        marginTop: 2,
+                                                                    }}
+                                                                >
+                                                                    <Check size={11} strokeWidth={3} color={twitterBlue} />
+                                                                </span>
+                                                                <span>{feature}</span>
+                                                            </li>
+                                                        ))}
                                                     </ul>
 
                                                     <button
@@ -1692,44 +1761,119 @@ function SettingsPageContent() {
                                                             isStarter
                                                         }
                                                     >
-                                                        {isStarter
-                                                            ? "Current Plan"
-                                                            : startingCheckout
-                                                                ? "Redirecting..."
-                                                                : "Choose Starter"}
+                                                        {isStarter ? "Current Plan" : startingCheckout ? "Redirecting..." : "Choose Starter"}
                                                     </button>
                                                 </div>
 
-                                                <div className={`${styles.pricingCard} ${styles.pricingCardFeatured}`}>
+                                                <div
+                                                    className={`${styles.pricingCard} ${styles.pricingCardFeatured}`}
+                                                    style={{
+                                                        position: "relative",
+                                                        padding: 22,
+                                                        borderRadius: 26,
+                                                        border: "1px solid rgba(29, 155, 240, 0.16)",
+                                                        background: "linear-gradient(to bottom, rgba(29,155,240,0.03), #ffffff)",
+                                                        boxShadow: "0 10px 30px rgba(29,155,240,0.06)",
+                                                    }}
+                                                >
+                                                    <span
+                                                        style={{
+                                                            position: "absolute",
+                                                            top: 18,
+                                                            right: 18,
+                                                            padding: "6px 10px",
+                                                            borderRadius: 999,
+                                                            background: twitterBlue,
+                                                            color: "#ffffff",
+                                                            fontSize: 10,
+                                                            fontWeight: 700,
+                                                            letterSpacing: "0.03em",
+                                                        }}
+                                                    >
+                                                        MOST POPULAR
+                                                    </span>
+
                                                     <div className={styles.planBadgeDark}>Pro</div>
 
-                                                    <div className={styles.pricingCardTitle}>
-                                                        Scale retention with deeper & unlimited AI
-                                                    </div>
-
-                                                    <div className={styles.pricingSmallText}>
+                                                    <div
+                                                        className={styles.pricingSmallText}
+                                                        style={{
+                                                            marginTop: 10,
+                                                            marginBottom: 14,
+                                                            color: "#0f172a",
+                                                            fontWeight: 650,
+                                                        }}
+                                                    >
                                                         Try free for 14 days
                                                     </div>
 
-                                                    <div className={styles.pricingRow}>
-                                                        <div className={styles.pricingAmount}>£99</div>
-                                                        <div className={styles.pricingInterval}>/month after trial</div>
+                                                    <div
+                                                        className={styles.pricingCardTitle}
+                                                        style={{
+                                                            fontSize: "1.5rem",
+                                                            lineHeight: 1.05,
+                                                            letterSpacing: "-0.06em",
+                                                        }}
+                                                    >
+                                                        Forecast revenue risk, automate recovery, and scale retention.
                                                     </div>
 
-                                                    <div className={styles.pricingDescription}>
-                                                        For growing SaaS teams that want stronger prioritisation, unlimited AI support, and automated retention action.
+                                                    <div
+                                                        className={styles.pricingDescription}
+                                                        style={{
+                                                            fontSize: "0.88rem",
+                                                            lineHeight: 1.5,
+                                                        }}
+                                                    >
+                                                        For growing SaaS teams that want deeper AI intelligence, full driver visibility, and automated revenue protection.
+                                                    </div>
+
+                                                    <div className={styles.pricingRow}>
+                                                        <div className={styles.pricingAmount}>£299</div>
+                                                        <div className={styles.pricingInterval}>/month</div>
                                                     </div>
 
                                                     <div className={styles.pricingDivider} />
 
                                                     <ul className={styles.pricingFeatures}>
-                                                        <li>Everything in Starter</li>
-                                                        <li>Unlimited automation </li>
-                                                        <li>Unlimited AI insights</li>
-                                                        <li>Retention progress tracking</li>
-                                                        <li>Advanced AI forecasts</li>
-                                                        <li>Critical accounts prioritisation</li>
-                                                       
+                                                        {[
+                                                            "Everything in Starter",
+                                                            "Unlimited AI insights",
+                                                            "Advanced MRR forecasting",
+                                                            "Churn prediction and retention signals",
+                                                            "Unlimited AI retention emails",
+                                                            "Automated failed payment recovery",
+                                                            "Retention execution monitoring",
+                                                            "Full visibility into MRR and churn drivers",
+                                                            "Critical account prioritisation",
+                                                            "Advanced retention automations",
+                                                        ].map((feature) => (
+                                                            <li
+                                                                key={feature}
+                                                                style={{
+                                                                    display: "flex",
+                                                                    alignItems: "flex-start",
+                                                                    gap: 10,
+                                                                }}
+                                                            >
+                                                                <span
+                                                                    style={{
+                                                                        width: 18,
+                                                                        height: 18,
+                                                                        minWidth: 18,
+                                                                        borderRadius: 999,
+                                                                        background: "rgba(29, 155, 240, 0.10)",
+                                                                        display: "inline-flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        marginTop: 2,
+                                                                    }}
+                                                                >
+                                                                    <Check size={11} strokeWidth={3} color={twitterBlue} />
+                                                                </span>
+                                                                <span>{feature}</span>
+                                                            </li>
+                                                        ))}
                                                     </ul>
 
                                                     <button
@@ -1744,11 +1888,7 @@ function SettingsPageContent() {
                                                             isPro
                                                         }
                                                     >
-                                                        {isPro
-                                                            ? "Current Plan"
-                                                            : startingCheckout
-                                                                ? "Redirecting..."
-                                                                : "Upgrade to Pro"}
+                                                        {isPro ? "Current Plan" : startingCheckout ? "Redirecting..." : "Upgrade to Pro"}
                                                     </button>
                                                 </div>
                                             </div>

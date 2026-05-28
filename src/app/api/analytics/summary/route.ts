@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 
-
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -17,14 +16,10 @@ function toMinorFromMajor(maybeMajor: number | null | undefined) {
     return Math.round(n * 100);
 }
 
-function isCanceledStatus(status: string | null | undefined) {
-    const s = (status || "").toLowerCase();
-    return s === "canceled" || s === "cancelled" || s === "churned";
-}
-
 export async function GET(req: Request) {
     try {
         const token = getBearerToken(req);
+
         if (!token) {
             return NextResponse.json(
                 { ok: false, error: "Missing Authorization Bearer token" },
@@ -55,6 +50,7 @@ export async function GET(req: Request) {
                 id: true,
                 tier: true,
                 demoMode: true,
+                currency: true,
             },
         });
 
@@ -64,6 +60,8 @@ export async function GET(req: Request) {
                 { status: 404 }
             );
         }
+
+        const workspaceCurrency = workspace.currency || "GBP";
 
         const integrations = await prisma.integration.findMany({
             where: {
@@ -76,8 +74,6 @@ export async function GET(req: Request) {
         });
 
         const connectedIntegrations = integrations.map((i) => i.provider);
-
-
 
         const customers = await prisma.customer.findMany({
             where: { workspaceId },
@@ -94,7 +90,10 @@ export async function GET(req: Request) {
         const activeCustomers = customers.filter((c) => !c.canceledAt);
         const canceledCustomers = customers.filter((c) => !!c.canceledAt);
 
-        const totalMrrMinor = activeCustomers.reduce((sum, c) => sum + Number(c.mrr || 0), 0);
+        const totalMrrMinor = activeCustomers.reduce(
+            (sum, c) => sum + Number(c.mrr || 0),
+            0
+        );
 
         const atRiskAccounts = await prisma.accountRisk.count({
             where: {
@@ -116,13 +115,16 @@ export async function GET(req: Request) {
         const mrrAtRiskMinor = toMinorFromMajor(mrrAtRiskAgg._sum.mrr);
 
         const churnBase = activeCustomers.length + canceledCustomers.length;
+
         const churnPct =
             churnBase > 0
                 ? Math.round((canceledCustomers.length / churnBase) * 1000) / 10
                 : null;
 
         const retentionPct =
-            churnPct == null ? null : Math.max(0, Math.round((100 - churnPct) * 10) / 10);
+            churnPct == null
+                ? null
+                : Math.max(0, Math.round((100 - churnPct) * 10) / 10);
 
         const riskAccounts = await prisma.accountRisk.findMany({
             where: { workspaceId },
@@ -140,7 +142,9 @@ export async function GET(req: Request) {
         const since = new Date();
         since.setDate(since.getDate() - 30);
 
-        const newSubscriptions = customers.filter((c) => c.createdAt >= since).length;
+        const newSubscriptions = customers.filter(
+            (c) => c.createdAt >= since
+        ).length;
 
         const failedSubscriptions = await prisma.accountRisk.count({
             where: {
@@ -157,6 +161,9 @@ export async function GET(req: Request) {
         return NextResponse.json({
             ok: true,
             tier: workspace.tier,
+            currency: workspaceCurrency,
+            workspaceCurrency,
+            billingCurrency: workspaceCurrency,
             demoMode: workspace.demoMode,
             connectedIntegrations,
             kpis: {
@@ -171,7 +178,7 @@ export async function GET(req: Request) {
                 company: r.companyName,
                 reason: r.reasonLabel,
                 risk: r.riskScore,
-                mrr: typeof r.mrr === "number" ? r.mrr : null, // pounds
+                mrr: typeof r.mrr === "number" ? r.mrr : null,
             })),
             activitySummary: {
                 windowLabel: "Last 30 days",
@@ -183,6 +190,7 @@ export async function GET(req: Request) {
         });
     } catch (e: any) {
         console.error("dashboard/summary GET failed:", e);
+
         return NextResponse.json(
             { ok: false, error: e?.message ?? "Analytics summary failed" },
             { status: 500 }

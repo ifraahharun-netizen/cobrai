@@ -3,6 +3,7 @@ import { getDemoProgress } from "@/lib/demo/progress";
 import { getLiveProgress } from "@/lib/live/progress";
 import { refreshRecentActionOutcomes } from "@/lib/live/refreshActionOutcomes";
 import { getWorkspaceDataMode } from "@/lib/workspace/getWorkspaceDataMode";
+import { canAccessFeature, type PlanTier } from "@/lib/permissions";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 import { prisma } from "@/lib/prisma";
 
@@ -14,6 +15,11 @@ const STARTER_RETENTION_ACTIVITY_LIMIT = 10;
 type ProgressKind = "email" | "retry_payment";
 type ConfidenceLevel = "High" | "Medium" | "Low";
 
+type RetentionSignal = {
+    label: string;
+    severity: "low" | "medium" | "high";
+}
+
 type ProgressRow = {
     id: string;
     accountId?: string;
@@ -22,6 +28,9 @@ type ProgressRow = {
     account: string;
     action: string;
     aiReason: string;
+    aiRecommendation?: string;
+    aiSignals?: RetentionSignal[];
+    effectivenessScore?: number;
     outcome: "success" | "pending" | "failed";
     mrrSavedMinor: number;
     riskScore: number;
@@ -59,6 +68,7 @@ type ProgressResponseShape = {
     mode?: "demo" | "live";
     workspaceTier?: string;
     trialEndsAt?: string | Date | null;
+    currency?: string;
     connectedIntegrations?: string[];
     kpis: {
         mrrProtectedMinor: number;
@@ -155,16 +165,32 @@ function buildAiAction(aiReason: string, riskScore: number) {
 
     return "Monitor engagement and send a value recap if activity keeps dropping.";
 }
-
 function normalizeProgressBreakdown(rows: unknown): ProgressRow[] {
     if (!Array.isArray(rows)) return [];
 
     return rows.map((row, index) => {
         const item = row as Partial<ProgressRow>;
         const action = String(item.action || "Unknown action");
+        const aiReason = String(item.aiReason || "");
+        const riskScore = Number(item.riskScore || 0);
+
         const id = String(
             item.id || item.accountId || item.customerId || `progress-${index + 1}`
         );
+
+        const aiSignals = Array.isArray(item.aiSignals)
+            ? item.aiSignals
+                .map((signal) => ({
+                    label: String(signal?.label || "").trim(),
+                    severity:
+                        signal?.severity === "high" ||
+                            signal?.severity === "medium" ||
+                            signal?.severity === "low"
+                            ? signal.severity
+                            : "medium",
+                }))
+                .filter((signal) => signal.label.length > 0)
+            : [];
 
         return {
             id,
@@ -173,7 +199,15 @@ function normalizeProgressBreakdown(rows: unknown): ProgressRow[] {
             customerId: item.customerId ? String(item.customerId) : id,
             account: String(item.account || "Unknown account"),
             action,
-            aiReason: String(item.aiReason || ""),
+            aiReason,
+            aiRecommendation: item.aiRecommendation
+                ? String(item.aiRecommendation)
+                : buildAiAction(aiReason, riskScore),
+            aiSignals,
+            effectivenessScore:
+                typeof item.effectivenessScore === "number"
+                    ? Number(item.effectivenessScore)
+                    : undefined,
             outcome:
                 item.outcome === "success" ||
                     item.outcome === "pending" ||
@@ -181,16 +215,22 @@ function normalizeProgressBreakdown(rows: unknown): ProgressRow[] {
                     ? item.outcome
                     : "pending",
             mrrSavedMinor: Number(item.mrrSavedMinor || 0),
-            riskScore: Number(item.riskScore || 0),
+            riskScore,
             date: String(item.date || new Date().toISOString()),
             kind:
-                item.kind === "email" ||
-                   
-                    item.kind === "retry_payment"
+                item.kind === "email" || item.kind === "retry_payment"
                     ? item.kind
                     : inferProgressKind(action),
         };
     });
+}
+
+function normalizeCurrency(value?: string | null) {
+    const currency = String(value || "GBP").trim().toUpperCase();
+
+    if (/^[A-Z]{3}$/.test(currency)) return currency;
+
+    return "GBP";
 }
 
 function normalizeNextPriorityAccounts(rows: unknown): NextPriorityAccount[] {
@@ -262,10 +302,10 @@ function hasNoProgressContent(data: ProgressResponseShape) {
     );
 }
 
-function formatGBPFromMinor(minor: number) {
+function formatMoneyFromMinor(minor: number, currency = "GBP") {
     return new Intl.NumberFormat("en-GB", {
         style: "currency",
-        currency: "GBP",
+        currency: normalizeCurrency(currency),
         maximumFractionDigits: 0,
     }).format((minor || 0) / 100);
 }
@@ -312,9 +352,9 @@ function buildNextBestAction(
 
     return `Scale ${topDriver} across the highest-risk accounts to protect more revenue.`;
 }
-
 function buildProgressAiInsight(
-    data: ProgressResponseShape
+    data: ProgressResponseShape,
+    currency = "GBP"
 ): ProgressAiInsight {
     const mrrProtectedMinor =
         Number(data.kpis?.mrrProtectedMinor || 0);
@@ -405,9 +445,8 @@ function buildProgressAiInsight(
         summary =
             `${accountsSaved} account${accountsSaved === 1 ? "" : "s"
             } recovered, ${successCount} successful workflow${successCount === 1 ? "" : "s"
-            }, ${failedCount} failed, and ${pendingCount} still pending. ${formatGBPFromMinor(
-                mrrProtectedMinor
-            )} in revenue has been protected so far.`;
+            }, ${failedCount} failed, and ${pendingCount} still pending. ${formatMoneyFromMinor(mrrProtectedMinor, currency)
+            } in revenue has been protected so far.`;
     }
 
     let nextBestAction = "";
@@ -454,6 +493,7 @@ function buildFinalResponse({
     trialEndsAt,
     connectedIntegrations,
     applyStarterLimit,
+    currency,
 }: {
     data: ProgressResponseShape;
     mode: "demo" | "live";
@@ -461,6 +501,7 @@ function buildFinalResponse({
     trialEndsAt: string | Date | null;
     connectedIntegrations: string[];
     applyStarterLimit: boolean;
+    currency?: string;
 }) {
     const normalizedData = normalizeProgressResponse(data);
 
@@ -471,11 +512,13 @@ function buildFinalResponse({
     return {
         ...finalData,
         ok: true,
-        aiInsight: buildProgressAiInsight(finalData),
+        currency: normalizeCurrency(currency || finalData.currency),
+        aiInsight: buildProgressAiInsight(finalData, currency || finalData.currency),
         mode,
         workspaceTier,
         trialEndsAt,
         connectedIntegrations,
+
     };
 }
 
@@ -527,16 +570,6 @@ export async function GET(req: Request) {
             modeInfo.workspaceTier || "starter"
         );
 
-        const connectedIntegrations = Array.isArray(
-            modeInfo.connectedIntegrations
-        )
-            ? modeInfo.connectedIntegrations
-            : [];
-
-        // -------------------------------------------------
-        // FREE TRIAL CHECK
-        // -------------------------------------------------
-
         const trialEndsAtMs = trialEndsAt
             ? new Date(trialEndsAt).getTime()
             : 0;
@@ -546,23 +579,34 @@ export async function GET(req: Request) {
             Number.isFinite(trialEndsAtMs) &&
             trialEndsAtMs > Date.now();
 
-        // -------------------------------------------------
-        // FREE TRIAL = ALWAYS DEMO EXPERIENCE
-        // -------------------------------------------------
+        const isDemoMode = modeInfo.mode !== "live";
 
-        if (isTrialActive) {
+        const canAccessRetentionImpact = canAccessFeature({
+            plan: workspaceTier as PlanTier,
+            feature: "retention-impact",
+            trialEndsAt,
+            isDemoMode,
+        });
+
+        if (!canAccessRetentionImpact) {
             return NextResponse.json(
-                buildFinalResponse({
-                    data: getDemoProgress() as ProgressResponseShape,
-                    mode: "demo",
-                    workspaceTier,
-                    trialEndsAt,
-                    connectedIntegrations,
-                    applyStarterLimit: false,
-                }),
-                { status: 200 }
+                {
+                    ok: false,
+                    locked: true,
+                    requiredPlan: "pro",
+                    message: "Retention impact is available on Pro or during the 14-day free trial.",
+                },
+                { status: 403 }
             );
         }
+
+        const connectedIntegrations = Array.isArray(
+            modeInfo.connectedIntegrations
+        )
+            ? modeInfo.connectedIntegrations
+            : [];
+
+
 
         // -------------------------------------------------
         // DEMO MODE
@@ -615,12 +659,27 @@ export async function GET(req: Request) {
         if (!hasLiveProgressBreakdown) {
             return NextResponse.json(
                 buildFinalResponse({
-                    data: getDemoProgress() as ProgressResponseShape,
-                    mode: "demo",
+                    data: {
+                        kpis: {
+                            mrrProtectedMinor: 0,
+                            accountsSaved: 0,
+                            actionsExecuted: 0,
+                            successRate: 0,
+                            mrrProtectedPct: 0,
+                            accountsSavedPct: 0,
+                            actionsExecutedPct: 0,
+                            successRatePct: 0,
+                        },
+                        recentMrrSaved: [],
+                        nextPriorityAccounts: [],
+                        progressBreakdown: [],
+                        actionPerformance: [],
+                    },
+                    mode: "live",
                     workspaceTier,
                     trialEndsAt,
                     connectedIntegrations,
-                    applyStarterLimit: false,
+                    applyStarterLimit: workspaceTier.toLowerCase() === "starter",
                 }),
                 { status: 200 }
             );
@@ -645,20 +704,12 @@ export async function GET(req: Request) {
     } catch (error) {
         console.error("GET /api/progress failed", error);
 
-        // -------------------------------------------------
-        // FAIL SAFE
-        // -------------------------------------------------
-
         return NextResponse.json(
-            buildFinalResponse({
-                data: getDemoProgress() as ProgressResponseShape,
-                mode: "demo",
-                workspaceTier: "starter",
-                trialEndsAt: null,
-                connectedIntegrations: [],
-                applyStarterLimit: false,
-            }),
-            { status: 200 }
+            {
+                ok: false,
+                error: "Failed to load progress data.",
+            },
+            { status: 500 }
         );
     }
 }

@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-type ModalType = "about" | "privacy" | "terms" | "cookie" | null;
+type ModalType =
+    | "about"
+    | "privacy"
+    | "terms"
+    | "cookie"
+    | null;
 
 const TERM_IDS = {
     privacy: "a777b328-38d8-4bef-8046-88844055517f",
@@ -12,7 +17,8 @@ const TERM_IDS = {
 };
 
 export default function Footer() {
-    const [modalType, setModalType] = useState<ModalType>(null);
+    const [modalType, setModalType] =
+        useState<ModalType>(null);
 
     useEffect(() => {
         if (
@@ -23,17 +29,21 @@ export default function Footer() {
             return;
         }
 
-        const existingScript = document.getElementById("termly-jssdk");
+        const existingScript =
+            document.getElementById("termly-jssdk");
 
         if (existingScript) {
             existingScript.remove();
         }
 
-        const script = document.createElement("script");
+        const script =
+            document.createElement("script");
 
         script.id = "termly-jssdk";
         script.type = "text/javascript";
-        script.src = "https://app.termly.io/embed-policy.min.js";
+        script.src =
+            "https://app.termly.io/embed-policy.min.js";
+
         script.async = true;
 
         document.body.appendChild(script);
@@ -43,27 +53,27 @@ export default function Footer() {
         <>
             <footer className="footer">
                 <div className="footerCenter">
-                    {/* ===== CTA ===== */}
-                    <div className="footerCTA">
-                        <h2 className="footerTitle">
-                            Ready to protect your revenue?
-                        </h2>
+                    {/* ===== TOP CTA ===== */}
+                    <section className="featureFinalCta footerTopCta">
+                        <div>
+                            <h2>
+                                Ready to protect your revenue?
+                            </h2>
 
-                        <p className="footerCopy">
-                            See at-risk customers, understand why, and take action before it’s too late.
-                        </p>
-
-                        <div className="footerButtons">
-                            <Link
-                                href="/signup"
-                                className="footerPrimaryBtn"
-                            >
-                                Start Free
-                            </Link>
-
-                          
+                            <p>
+                                Join subscription businesses
+                                using Cobrai to reduce churn
+                                and protect MRR.
+                            </p>
                         </div>
-                    </div>
+
+                        <Link
+                            href="/signup"
+                            className="footerWhiteBtn"
+                        >
+                            Get Started Free
+                        </Link>
+                    </section>
 
                     {/* ===== GRID ===== */}
                     <div className="footerGrid">
@@ -72,13 +82,19 @@ export default function Footer() {
                             <button
                                 type="button"
                                 className="footerBrand footerTextButton"
-                                onClick={() => setModalType("about")}
+                                onClick={() =>
+                                    setModalType("about")
+                                }
                             >
-                                Cobrai
+                                Cobrai 
                             </button>
 
                             <p className="footerCopy">
-                                Retention intelligence for modern SaaS teams.
+                                Retention intelligence for
+                                modern SaaS teams.
+
+
+
                             </p>
                         </div>
 
@@ -91,9 +107,11 @@ export default function Footer() {
                             <button
                                 type="button"
                                 className="footerLinkButton"
-                                onClick={() => setModalType("about")}
+                                onClick={() =>
+                                    setModalType("about")
+                                }
                             >
-                                Cobrai
+                                Cobrai 
                             </button>
 
                             <Link href="/features">
@@ -114,7 +132,9 @@ export default function Footer() {
                             <button
                                 type="button"
                                 className="footerLinkButton"
-                                onClick={() => setModalType("privacy")}
+                                onClick={() =>
+                                    setModalType("privacy")
+                                }
                             >
                                 Privacy Policy
                             </button>
@@ -122,7 +142,9 @@ export default function Footer() {
                             <button
                                 type="button"
                                 className="footerLinkButton"
-                                onClick={() => setModalType("terms")}
+                                onClick={() =>
+                                    setModalType("terms")
+                                }
                             >
                                 Terms & Conditions
                             </button>
@@ -130,43 +152,22 @@ export default function Footer() {
                             <button
                                 type="button"
                                 className="footerLinkButton"
-                                onClick={() => setModalType("cookie")}
+                                onClick={() =>
+                                    setModalType("cookie")
+                                }
                             >
                                 Cookie Policy
                             </button>
                         </div>
 
                         {/* Connect */}
-                        <div>
-                            <div className="footerHeading">
-                                Connect
-                            </div>
-
-                            <a href="mailto:cobrai@cobrai.uk">
-                                cobrai@cobrai.uk
-                            </a>
-
-                            <a
-                                href="https://linkedin.com"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                LinkedIn
-                            </a>
-
-                            <a
-                                href="https://twitter.com"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                X
-                            </a>
-                        </div>
+                      
                     </div>
 
                     {/* ===== BOTTOM ===== */}
                     <div className="footerBottom">
-                        © {new Date().getFullYear()} Cobrai. All rights reserved.
+                        © {new Date().getFullYear()} Cobrai LTD
+                        All rights reserved.
                     </div>
                 </div>
             </footer>
@@ -179,26 +180,35 @@ export default function Footer() {
                 >
                     <div
                         className="footerLegalModal"
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) =>
+                            e.stopPropagation()
+                        }
                     >
                         <button
                             type="button"
                             className="footerModalClose"
-                            onClick={() => setModalType(null)}
+                            onClick={() =>
+                                setModalType(null)
+                            }
                         >
                             ×
                         </button>
 
-                        {/* About Modal */}
+                        {/* ABOUT */}
                         {modalType === "about" && (
                             <>
                                 <h2>About Cobrai</h2>
 
                                 <p>
-                                    Cobrai is an AI retention intelligence platform built for
-                                    subscription and SaaS businesses. It helps teams identify
-                                    at-risk customers, understand the reasons behind churn,
-                                    and take action before revenue is lost.
+                                    Cobrai is an AI retention
+                                    intelligence platform built
+                                    for subscription and SaaS
+                                    businesses. It helps teams
+                                    identify at-risk customers,
+                                    understand the reasons
+                                    behind churn, and take
+                                    action before revenue is
+                                    lost.
                                 </p>
 
                                 <div className="footerModalGrid">
@@ -206,8 +216,12 @@ export default function Footer() {
                                         <h3>Mission</h3>
 
                                         <p>
-                                            To help businesses retain more customers by
-                                            making churn risk clear, early, and actionable.
+                                            To help businesses
+                                            retain more
+                                            customers by making
+                                            churn risk clear,
+                                            early, and
+                                            actionable.
                                         </p>
                                     </div>
 
@@ -215,8 +229,12 @@ export default function Footer() {
                                         <h3>Vision</h3>
 
                                         <p>
-                                            To become the intelligence layer that helps
-                                            subscription businesses grow through stronger
+                                            To become the
+                                            intelligence layer
+                                            that helps
+                                            subscription
+                                            businesses grow
+                                            through stronger
                                             customer retention.
                                         </p>
                                     </div>
@@ -225,24 +243,30 @@ export default function Footer() {
                                         <h3>Service</h3>
 
                                         <p>
-                                            Cobrai connects customer, billing, and
-                                            behavioural signals to show which accounts need
-                                            attention and what action to take next.
+                                            Cobrai connects
+                                            customer, billing,
+                                            and behavioural
+                                            signals to show
+                                            which accounts need
+                                            attention and what
+                                            action to take next.
                                         </p>
                                     </div>
                                 </div>
                             </>
                         )}
 
-                        {/* Termly Policies */}
+                        {/* TERMLY */}
                         {(modalType === "privacy" ||
                             modalType === "terms" ||
                             modalType === "cookie") && (
                                 <>
                                     <h2>
-                                        {modalType === "privacy"
+                                        {modalType ===
+                                            "privacy"
                                             ? "Privacy Policy"
-                                            : modalType === "terms"
+                                            : modalType ===
+                                                "terms"
                                                 ? "Terms & Conditions"
                                                 : "Cookie Policy"}
                                     </h2>
@@ -251,7 +275,10 @@ export default function Footer() {
                                         <div
                                             {...{
                                                 name: "termly-embed",
-                                                "data-id": TERM_IDS[modalType],
+                                                "data-id":
+                                                    TERM_IDS[
+                                                    modalType
+                                                    ],
                                             }}
                                         />
                                     </div>

@@ -13,6 +13,7 @@ import { checkAiUsageLimit, recordAiUsageRun } from "./aiUsage";
 
 import type {
     ActionFirstRecommendation,
+    AiBusinessNarrative,
     AiOperationalSummary,
     AiResponse,
     CustomerFact,
@@ -20,12 +21,98 @@ import type {
     InsightSource,
     WorkspaceInsightResult,
 } from "./types";
+import { buildAccountRisk } from "../risk/buildAccountRisk";
+
 
 const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
 const CACHE_MINUTES = 30;
+function normalizeCurrency(value?: string | null) {
+    return (value || "GBP").toUpperCase();
+}
+
+function formatCurrencyFromMinor(minor: number, currency = "GBP") {
+    const amount = Number(minor || 0) / 100;
+
+    try {
+        return new Intl.NumberFormat("en-GB", {
+            style: "currency",
+            currency,
+        }).format(amount);
+    } catch {
+        return `${amount.toFixed(2)} ${currency}`;
+    }
+}
+
+function buildRiskAccountAction(customer: CustomerFact) {
+    const flags = Array.isArray(customer.reasonFlags)
+        ? customer.reasonFlags.join(" ").toLowerCase()
+        : "";
+
+    const daysInactive = Number(customer.daysInactive || 0);
+    const churnRisk = Number(customer.churnRisk || 0);
+
+    if (
+        customer.recentBillingFailure ||
+        flags.includes("billing") ||
+        flags.includes("payment") ||
+        flags.includes("invoice") ||
+        flags.includes("failed")
+    ) {
+        return "Retry failed payment and send billing recovery email";
+    }
+
+    if (
+        flags.includes("usage") ||
+        flags.includes("inactive") ||
+        flags.includes("engagement") ||
+        daysInactive >= 14
+    ) {
+        return "Send usage recovery email and offer onboarding support";
+    }
+
+    if (flags.includes("renewal") || flags.includes("contract")) {
+        return "Schedule renewal check-in with decision maker";
+    }
+
+    if (flags.includes("downgrade") || flags.includes("plan")) {
+        return "Send downgrade prevention offer";
+    }
+
+    if (churnRisk >= 85) {
+        return "Assign urgent CSM outreach";
+    }
+
+    if (churnRisk >= 70) {
+        return "Send personalised retention email";
+    }
+
+    return "Monitor account and review next health signal";
+}
+
+function buildRiskAccountReason(customer: CustomerFact) {
+    const flags = Array.isArray(customer.reasonFlags)
+        ? customer.reasonFlags.filter(Boolean)
+        : [];
+
+    if (flags.length) return flags.join(" + ");
+
+    if (customer.recentBillingFailure) {
+        return "Failed payment + billing risk";
+    }
+
+    if (Number(customer.daysInactive || 0) >= 14) {
+        return `Inactive for ${customer.daysInactive} days`;
+    }
+
+    if (Number(customer.healthScore || 0) < 50) {
+        return "Low customer health score";
+    }
+
+    return "Elevated churn risk";
+}
 
 const allowedKinds = [
     "billing_failed",
@@ -162,11 +249,21 @@ export async function generateWorkspaceInsights(args: {
 
     const workspace = await prisma.workspace.findUnique({
         where: { id: args.workspaceId },
+
         select: {
             id: true,
             tier: true,
             trialEndsAt: true,
             demoMode: true,
+            stripeSubscriptions: {
+                orderBy: {
+                    updatedAt: "desc",
+                },
+                take: 1,
+                select: {
+                    currency: true,
+                },
+            },
         },
     });
 
@@ -178,6 +275,10 @@ export async function generateWorkspaceInsights(args: {
         workspace?.demoMode ||
         isTrialActive ||
         workspace?.tier === "pro";
+
+    const workspaceCurrency = normalizeCurrency(
+        workspace?.stripeSubscriptions?.[0]?.currency
+    );
 
     // =========================================================
     // CACHE
@@ -195,16 +296,28 @@ export async function generateWorkspaceInsights(args: {
                 workspaceId: args.workspaceId,
                 type: runType,
                 createdAt: { gte: cachedSince },
+                result: {
+                    path: ["source"],
+                    equals: ["ai"],
+                },
             },
             orderBy: { createdAt: "desc" },
         });
     }
-
     if (cached?.result) {
         const cachedResult = cached.result as {
             insights?: Insight[];
             actions?: ActionFirstRecommendation[];
             operationalSummary?: AiOperationalSummary;
+
+            businessNarrative?: AiBusinessNarrative;
+
+            executiveSummary?: {
+                overview: string;
+                biggestRisk: string;
+                biggestOpportunity: string;
+                recommendedPriority: string;
+            };
         };
 
         await recordAiUsageRun({
@@ -215,7 +328,9 @@ export async function generateWorkspaceInsights(args: {
 
         return {
             insights: cachedResult.insights ?? [],
+
             actions: cachedResult.actions ?? [],
+
             operationalSummary:
                 cachedResult.operationalSummary ??
                 buildOperationalSummary({
@@ -223,21 +338,105 @@ export async function generateWorkspaceInsights(args: {
                     actions: cachedResult.actions ?? [],
                     customerFacts: [],
                 }),
+
+            businessNarrative:
+                cachedResult.businessNarrative ?? {
+                    headline: "Business performance remains stable.",
+
+                    summary: "Cobrai did not detect major retention volatility.",
+
+                    businessHealth: "Overall business health is currently stable.",
+
+                    churnPrediction: "No major churn acceleration detected.",
+
+                    engagementAnalysis:
+                        "Customer engagement trends remain relatively consistent.",
+
+                    revenueForecast:
+                        "Revenue is expected to remain stable if current trends continue.",
+
+                    forecastExplanation: {
+                        mrr:
+                            "MRR is expected to remain stable because no major revenue or retention volatility was detected.",
+                        churn:
+                            "Churn is expected to remain controlled because no major churn acceleration was detected.",
+                    },
+                },
+
+            executiveSummary:
+                cachedResult.executiveSummary ?? {
+                    overview: "Retention performance remains stable.",
+
+                    biggestRisk: "No critical business risk detected.",
+
+                    biggestOpportunity: "Expansion opportunities remain available.",
+
+                    recommendedPriority: "Continue monitoring customer health.",
+                },
+
             cached: true,
+
             source: "cache",
+
             timeframe,
+
             promptVersion: PROMPT_VERSION,
         };
     }
+
+    // =========================================================
+    // ANALYTICS CONTEXT
+    // =========================================================
+
+    const latestWorkspaceSnapshot =
+        await prisma.workspaceAnalyticsSnapshot.findFirst({
+            where: {
+                workspaceId: args.workspaceId,
+            },
+            orderBy: {
+                snapshotDate: "desc",
+            },
+        });
+
+    const latestMrrSnapshot = await prisma.mrrSnapshot.findFirst({
+        where: {
+            workspaceId: args.workspaceId,
+            active: true,
+        },
+        orderBy: {
+            month: "desc",
+        },
+        select: {
+            mrrMinor: true,
+            month: true,
+        },
+    });
+
+    const latestNarratives =
+        await prisma.aiWorkspaceNarrative.findMany({
+            where: {
+                workspaceId: args.workspaceId,
+            },
+
+            orderBy: {
+                createdAt: "desc",
+            },
+
+            take: 5,
+        });
 
     // =========================================================
     // CUSTOMERS
     // =========================================================
 
     let topCustomers = await prisma.customer.findMany({
-        where: { workspaceId: args.workspaceId },
+        where: {
+            workspaceId: args.workspaceId,
+        },
 
-        orderBy: { churnRisk: "desc" },
+        orderBy: {
+            churnRisk: "desc",
+        },
 
         take: 12,
 
@@ -251,14 +450,7 @@ export async function generateWorkspaceInsights(args: {
         },
     });
 
-    // Demo + Trial = rotating insights
-    if (workspace?.demoMode || isTrialActive) {
-        topCustomers = topCustomers
-            .sort(() => Math.random() - 0.5)
-            .slice(0, 8);
-    } else {
-        topCustomers = topCustomers.slice(0, 8);
-    }
+    topCustomers = topCustomers.slice(0, 8);
 
     const failedInvoices = await prisma.invoice.findMany({
         where: {
@@ -266,7 +458,9 @@ export async function generateWorkspaceInsights(args: {
             status: "failed",
         },
 
-        orderBy: { dueAt: "desc" },
+        orderBy: {
+            dueAt: "desc",
+        },
 
         take: 10,
 
@@ -277,6 +471,7 @@ export async function generateWorkspaceInsights(args: {
                     name: true,
                 },
             },
+
             amount: true,
             dueAt: true,
         },
@@ -287,10 +482,115 @@ export async function generateWorkspaceInsights(args: {
         failedInvoices,
         source: sourceMode,
     });
+    function toMinorAmount(value: number) {
+        if (!Number.isFinite(value) || value <= 0) return 0;
+
+        return value >= 10000 ? Math.round(value) : Math.round(value * 100);
+    }
+
+    const customerMrrMinor = customerFacts.reduce(
+        (sum, c) => sum + toMinorAmount(Number(c.mrr || 0)),
+        0
+    );
+
+    const snapshotMrrMinor =
+        typeof latestMrrSnapshot?.mrrMinor === "number"
+            ? latestMrrSnapshot.mrrMinor
+            : 0;
+
+    const analyticsSnapshotMrrMinor =
+        typeof latestWorkspaceSnapshot?.totalMrr === "number"
+            ? toMinorAmount(latestWorkspaceSnapshot.totalMrr)
+            : 0;
+
+    const totalMrr = Math.max(
+        customerMrrMinor,
+        snapshotMrrMinor,
+        analyticsSnapshotMrrMinor
+    );
+
+    const highRiskCustomers = customerFacts.filter(
+        (c) => c.riskBand === "high"
+    );
+
+    const avgHealth =
+        customerFacts.length > 0
+            ? customerFacts.reduce(
+                (sum, c) => sum + Number(c.healthScore || 0),
+                0
+            ) / customerFacts.length
+            : 70;
+
+    const inactiveCustomers = customerFacts.filter(
+        (c) => Number(c.daysInactive || 0) >= 7
+    );
+
+    const failedBillingCustomers = customerFacts.filter(
+        (c) => c.recentBillingFailure
+    );
+
+    const engagementScore = Math.max(
+        0,
+        Math.min(
+            100,
+            Math.round(
+                avgHealth * 0.55 +
+                (100 - highRiskCustomers.length * 4) * 0.25 +
+                (100 - inactiveCustomers.length * 3) * 0.2
+            )
+        )
+    );
+
+    const projectedChurnPct =
+        highRiskCustomers.length > 0
+            ? Number(
+                (
+                    highRiskCustomers.reduce((sum, c) => sum + c.churnRisk, 0) /
+                    highRiskCustomers.length /
+                    18
+                ).toFixed(1)
+            )
+            : 1.8;
+
+    const projectedGrowthPct =
+        totalMrr > 0
+            ? Math.max(
+                -15,
+                Math.min(
+                    30,
+                    Number((((engagementScore - 50) / 5) - projectedChurnPct).toFixed(1))
+                )
+            )
+            : 0;
+
+    const nextMonthMrr = Math.round(
+        totalMrr * (1 + projectedGrowthPct / 100)
+    );
 
     const payload = {
         timeframe,
+
+        currency: workspaceCurrency,
+
+        businessMetrics: {
+            totalMrr,
+            engagementScore,
+            projectedChurnPct,
+            projectedGrowthPct,
+            nextMonthMrr,
+            inactiveCustomers: inactiveCustomers.length,
+            failedBillingCustomers:
+                failedBillingCustomers.length,
+            avgHealth,
+        },
+
         promptVersion: PROMPT_VERSION,
+
+        workspaceAnalytics:
+            latestWorkspaceSnapshot,
+
+        recentNarratives:
+            latestNarratives,
 
         customerFacts,
 
@@ -306,19 +606,16 @@ export async function generateWorkspaceInsights(args: {
             ),
 
             grounding:
-                "Use only facts explicitly present in customerFacts. Do not infer email opens, clicks, sentiment, payment recovery, product usage events, upgrade intent, downgrade intent, or customer emotions unless provided.",
+                "Use only facts explicitly present in customerFacts or workspaceAnalytics. Do not infer unsupported product usage or customer behavior.",
 
             wording:
-                "Keep every insight concise, clear, and suitable for a minimal SaaS dashboard. Prefer decisive action-first language.",
+                "Keep every insight concise, executive-level, intelligent, and operationally useful.",
         },
     };
 
     const fallbackInsights =
         buildFallbackInsights(customerFacts);
 
-    if (workspace?.demoMode || isTrialActive) {
-        customerFacts.sort(() => Math.random() - 0.5);
-    }
 
     const buildAndSaveFallback = async (
         source: InsightSource,
@@ -337,6 +634,20 @@ export async function generateWorkspaceInsights(args: {
                 customerFacts,
             });
 
+        const executiveSummary = {
+            overview:
+                "Retention performance requires monitoring.",
+
+            biggestRisk:
+                "High-risk accounts require follow-up.",
+
+            biggestOpportunity:
+                "Expansion opportunities exist among healthier accounts.",
+
+            recommendedPriority:
+                "Prioritize customer recovery and engagement.",
+        };
+
         await prisma.insightRun.create({
             data: {
                 workspaceId: args.workspaceId,
@@ -345,13 +656,23 @@ export async function generateWorkspaceInsights(args: {
 
                 result: {
                     promptVersion: PROMPT_VERSION,
+
                     timeframe,
+
                     source,
+
                     input: payload,
+
                     rawModelOutput: null,
+
                     insights: fallbackInsights,
+
                     actions,
+
                     operationalSummary,
+
+                    executiveSummary,
+
                     ...(extra ?? {}),
                 } as Prisma.InputJsonValue,
             },
@@ -370,11 +691,116 @@ export async function generateWorkspaceInsights(args: {
 
         return {
             insights: fallbackInsights,
+
             actions,
+
             operationalSummary,
+
+            executiveSummary,
+
+            businessNarrative: {
+                headline:
+                    engagementScore >= 75
+                        ? "Customer retention remains stable despite early churn signals."
+                        : engagementScore >= 55
+                            ? "Retention is stable, but early churn signals need attention."
+                            : "Retention risk is rising across vulnerable accounts.",
+
+                summary:
+                    highRiskCustomers.length > 0
+                        ? `Cobrai identified ${highRiskCustomers.length} elevated-risk account${highRiskCustomers.length === 1 ? "" : "s"} requiring proactive follow-up.`
+                        : "Cobrai did not detect broad retention instability this period.",
+
+                businessHealth:
+                    engagementScore >= 75
+                        ? "Overall customer health remains steady, with isolated risk signals being monitored."
+                        : "Customer health needs attention due to churn exposure, inactivity, or unresolved risk signals.",
+
+                churnPrediction:
+                    `${projectedChurnPct.toFixed(1)}% projected churn next month based on current risk patterns and account health.`,
+
+                engagementAnalysis:
+                    inactiveCustomers.length > 0
+                        ? `${inactiveCustomers.length} account${inactiveCustomers.length === 1 ? "" : "s"} show weaker engagement and should be reviewed before risk increases.`
+                        : "Engagement remains stable with no major inactivity cluster detected this period.",
+
+                revenueForecast:
+                    `Next-month MRR is projected at ${formatCurrencyFromMinor(
+                        nextMonthMrr,
+                        workspaceCurrency
+                    )}, a ${projectedGrowthPct >= 0 ? "+" : ""}${projectedGrowthPct.toFixed(
+                        1
+                    )}% movement based on current MRR, churn exposure, engagement health, and billing-risk signals.`,
+
+                forecastExplanation: {
+                    mrr:
+                        "MRR is expected to remain stable because no major revenue or retention volatility was detected.",
+                    churn:
+                        "Churn is expected to remain controlled because no major churn acceleration was detected.",
+                },
+                health: {
+                    overallScore: engagementScore,
+                    label:
+                        engagementScore >= 80
+                            ? "Strong"
+                            : engagementScore >= 65
+                                ? "Healthy"
+                                : engagementScore >= 45
+                                    ? "Watch"
+                                    : "At Risk",
+                    summary:
+                        engagementScore >= 75
+                            ? "Retention health is stable with manageable churn exposure."
+                            : "Retention health needs attention due to weak engagement and elevated customer risk.",
+                },
+
+                forecast: {
+                    nextMonthMrr,
+                    projectedGrowthPct,
+                    predictedChurnPct: projectedChurnPct,
+                    confidence:
+                        engagementScore >= 75
+                            ? "High"
+                            : engagementScore >= 55
+                                ? "Medium"
+                                : "Low",
+                },
+
+                mrrDrivers: [
+                    {
+                        label: "Engagement health",
+                        impact: engagementScore,
+                        direction: engagementScore >= 60 ? "positive" : "negative",
+                        explanation:
+                            "Engagement health is influencing the next-month revenue outlook and retention stability.",
+                    },
+                    {
+                        label: "Churn exposure",
+                        impact: projectedChurnPct,
+                        direction: "negative",
+                        explanation:
+                            "High-risk accounts and inactivity signals are increasing pressure on projected MRR.",
+                    },
+                ],
+
+                riskAccounts: highRiskCustomers.slice(0, 5).map((c) => ({
+                    customerId: c.id,
+                    customerName: c.name,
+                    churnRisk: c.churnRisk,
+                    mrrAtRiskMinor: Math.round(c.mrr * 100),
+                    reason: buildRiskAccountReason(c),
+                    recommendedAction: buildRiskAccountAction(c),
+                })),
+
+                engagementScore,
+            },
+
             cached: false,
+
             source,
+
             timeframe,
+
             promptVersion: PROMPT_VERSION,
         };
     };
@@ -382,6 +808,14 @@ export async function generateWorkspaceInsights(args: {
     // =========================================================
     // API KEY
     // =========================================================
+
+
+    console.log("[AI DEBUG]", {
+        hasOpenAiKey: !!process.env.OPENAI_API_KEY,
+        tier: workspace?.tier,
+        demoMode: workspace?.demoMode,
+        isTrialActive,
+    });
 
     if (!process.env.OPENAI_API_KEY) {
         return buildAndSaveFallback("fallback", {
@@ -405,7 +839,14 @@ export async function generateWorkspaceInsights(args: {
             workspace?.demoMode ?? false,
     });
 
-    if (!usageDecision.allowed) {
+    console.log("[AI USAGE DECISION]", usageDecision);
+
+    const shouldForceOpenAi =
+        workspace?.tier === "pro" ||
+        workspace?.demoMode === true ||
+        isTrialActive;
+
+    if (!usageDecision.allowed && !shouldForceOpenAi) {
         await recordAiUsageRun({
             workspaceId: args.workspaceId,
             source: "blocked_limit",
@@ -421,7 +862,6 @@ export async function generateWorkspaceInsights(args: {
             },
         });
     }
-
     // =========================================================
     // OPENAI
     // =========================================================
@@ -436,39 +876,137 @@ export async function generateWorkspaceInsights(args: {
                 messages: [
                     {
                         role: "developer",
+
                         content: `
-You are Cobrai, an AI retention intelligence system for B2B SaaS teams.
+You are Cobrai.
 
-Generate realistic, highly varied retention insights.
+Cobrai is an AI-powered retention intelligence platform for SaaS companies.
 
-CRITICAL RULES:
-- Never repeat the same account more than once
-- Never repeat the same title
-- Never repeat the same action recommendation
-- Mix billing, onboarding, churn, adoption, expansion, and recovery insights
-- Some insights should be positive opportunities
-- Some should be warnings
-- Some should be progress updates
-- Output should feel dynamic and alive like a real SaaS dashboard
+You analyze:
+- retention health
+- churn acceleration
+- revenue movement
+- expansion opportunities
+- billing instability
+- customer engagement
+- operational inefficiencies
 
-Avoid repetitive wording like:
-"Recover declining product usage"
+You think like:
+- a VP of Customer Success
+- a SaaS revenue operator
+- a retention strategist
+- an executive business analyst
 
-Use varied titles such as:
-- Expansion opportunity detected
-- Billing recovery in progress
-- Trial activation slowing
-- Revenue protected this week
-- Product engagement recovering
-- High-risk renewal approaching
-- Adoption improving after outreach
-- Payment retry succeeded
-- Usage drop accelerating
+Prioritize:
+- causal reasoning
+- trend explanation
+- operational impact
+- revenue implications
+- retention urgency
+- executive-level clarity
+
+Avoid generic observations.
+Always explain:
+- what changed
+- why it matters
+- what will likely happen next
+- what action should happen now
+- which revenue drivers influenced growth
+- which accounts represent the biggest churn exposure
+- whether engagement health is improving or deteriorating
+- how billing instability affects retention
+- what the next-month revenue outlook looks like
+
+You must behave like:
+- a SaaS CFO
+- a VP Customer Success
+- a retention strategist
+- a revenue intelligence analyst
+
+Return:
+- executive-level insights
+- operational recommendations
+- churn predictions
+- revenue forecasting
+- engagement health analysis
+- key MRR drivers
+- highest-risk accounts
+- concise but intelligent summaries
+
+Never hallucinate metrics.
+For businessNarrative.forecastExplanation:
+- mrr must explain why the next MRR forecast is likely, using current MRR, engagement health, churn exposure, failed billing, expansion signals, and customer risk.
+- churn must explain why the churn forecast is likely, using high-risk accounts, inactivity, billing issues, customer health, and retention progress.
+- Keep each explanation under 22 words.
+- Do not say “based on the last 6 months” unless monthly history is explicitly supplied.
+- Do not invent causes that are not present in the payload.
+Only use supplied analytics data.
+
+Focus heavily on:
+- revenue risk
+- churn acceleration
+- engagement deterioration
+- billing instability
+- expansion likelihood
+- retention leverage opportunities
+
+Use the supplied currency field for all money wording. Do not hardcode GBP or £.
+
+Do NOT repeat customer facts verbatim.
+Synthesize patterns across accounts and business trends.
+Return JSON with this exact top-level shape:
+{
+  "insights": [],
+  "operationalSummary": {},
+  "businessNarrative": {
+    "headline": string,
+    "summary": string,
+    "businessHealth": string,
+    "churnPrediction": string,
+    "engagementAnalysis": string,
+    "revenueForecast": string,
+    "forecastExplanation": {
+    "mrr": string,
+    "churn": string
+    },
+    "health": {
+      "overallScore": number,
+      "label": "Strong" | "Healthy" | "Watch" | "At Risk",
+      "summary": string
+    },
+    "forecast": {
+      "nextMonthMrr": number,
+      "projectedGrowthPct": number,
+      "predictedChurnPct": number,
+      "confidence": "Low" | "Medium" | "High"
+    },
+    "mrrDrivers": [],
+    "riskAccounts": [],
+    "engagementScore": number
+  },
+  "executiveSummary": {}
+}
+  For businessNarrative.riskAccounts:
+- recommendedAction must be specific to the actual signal.
+- If billing/payment/invoice failed: use retry failed payment or billing recovery wording.
+- If usage dropped, inactive, or low engagement: use usage recovery or reactivation wording.
+- If renewal risk: use renewal check-in wording.
+- If downgrade signal: use downgrade prevention wording.
+- Do NOT repeat "Trigger retention follow-up" for every account.
+- Each account should have a different action when the underlying reason is different.
+
+For forecast.nextMonthMrr, return minor units only.
+Example: £1,200.50 should be 120050.
+
+Return STRICT JSON.
 `,
                     },
+
                     {
                         role: "user",
-                        content: JSON.stringify(payload),
+
+                        content:
+                            JSON.stringify(payload),
                     },
                 ],
 
@@ -478,66 +1016,99 @@ Use varied titles such as:
             });
 
         const content =
-            completion.choices[0]?.message?.content ??
-            "{}";
+            completion.choices[0]?.message
+                ?.content ?? "{}";
 
-        let parsed: AiResponse | null = null;
+        let parsed: AiResponse | null =
+            null;
 
         try {
-            parsed = JSON.parse(content) as AiResponse;
+            parsed = JSON.parse(
+                content
+            ) as AiResponse;
         } catch {
             parsed = null;
         }
 
-        let insights = cleanAndValidateInsights(
-            parsed,
-            customerFacts
-        );
+        let insights =
+            cleanAndValidateInsights(
+                parsed,
+                customerFacts
+            );
 
-        let source: InsightSource = "ai";
+        let source: InsightSource =
+            "ai";
 
-        if (!insights.length) {
+        if (!insights.length && !parsed?.businessNarrative) {
             throw new Error(
-                "OpenAI returned empty insights"
+                "OpenAI returned empty insights and no business narrative"
             );
         }
 
-        // =========================================================
-        // DEDUPE SAME ACCOUNTS
-        // =========================================================
+        if (!insights.length) {
+            insights = buildFallbackInsights(customerFacts).map((item) => ({
+                ...item,
+                source: "ai",
+            }));
+        }
 
-        const seen = new Set<string>();
+        const seenCustomers =
+            new Set<string>();
 
-        const seenCustomers = new Set<string>();
-        const seenTitles = new Set<string>();
+        const seenTitles =
+            new Set<string>();
 
-        insights = insights.filter((item) => {
-            const focusId = item.focusId || "";
-            const title = item.title?.trim().toLowerCase();
+        insights = insights.filter(
+            (item) => {
+                const focusId =
+                    item.focusId || "";
 
-            if (focusId && seenCustomers.has(focusId)) {
-                return false;
+                const title =
+                    item.title
+                        ?.trim()
+                        .toLowerCase();
+
+                if (
+                    focusId &&
+                    seenCustomers.has(
+                        focusId
+                    )
+                ) {
+                    return false;
+                }
+
+                if (
+                    title &&
+                    seenTitles.has(
+                        title
+                    )
+                ) {
+                    return false;
+                }
+
+                if (focusId) {
+                    seenCustomers.add(
+                        focusId
+                    );
+                }
+
+                if (title) {
+                    seenTitles.add(
+                        title
+                    );
+                }
+
+                return true;
             }
+        );
 
-            if (title && seenTitles.has(title)) {
-                return false;
-            }
-
-            if (focusId) {
-                seenCustomers.add(focusId);
-            }
-
-            if (title) {
-                seenTitles.add(title);
-            }
-
-            return true;
-        });
         const actions =
-            buildActionFirstRecommendations({
-                insights,
-                customerFacts,
-            });
+            buildActionFirstRecommendations(
+                {
+                    insights,
+                    customerFacts,
+                }
+            );
 
         const operationalSummary =
             parsed?.operationalSummary ??
@@ -547,14 +1118,239 @@ Use varied titles such as:
                 customerFacts,
             });
 
+        const businessNarrative =
+            parsed?.businessNarrative ?? {
+                headline:
+                    engagementScore >= 70
+                        ? "Business retention health is stable."
+                        : "Retention risk signals require attention.",
+
+                summary:
+                    "Cobrai identified key retention, engagement, and revenue signals impacting overall business health.",
+
+                businessHealth:
+                    engagementScore >= 70
+                        ? "Customer engagement and retention remain relatively healthy."
+                        : "Churn exposure and inactivity trends weakened overall health.",
+
+                churnPrediction:
+                    `Projected churn is approximately ${projectedChurnPct.toFixed(1)}% next month based on engagement and risk trends.`,
+
+                engagementAnalysis:
+                    `${inactiveCustomers.length} accounts show low engagement patterns contributing to retention risk.`,
+
+                revenueForecast:
+                    `Projected next month MRR is ${formatCurrencyFromMinor(
+                        nextMonthMrr,
+                        workspaceCurrency
+                    )}. This is based on current MRR, projected growth, churn exposure, inactive accounts, and billing-risk signals.`,
+
+                forecastExplanation: {
+                    mrr:
+                        "MRR is expected to remain stable because no major revenue or retention volatility was detected.",
+                    churn:
+                        "Churn is expected to remain controlled because no major churn acceleration was detected.",
+                },
+                health: {
+                    overallScore: engagementScore,
+
+                    label:
+                        engagementScore >= 80
+                            ? "Strong"
+                            : engagementScore >= 65
+                                ? "Healthy"
+                                : engagementScore >= 45
+                                    ? "Watch"
+                                    : "At Risk",
+
+                    summary:
+                        engagementScore >= 70
+                            ? "Engagement and retention metrics are stable."
+                            : "Business health weakened due to churn and inactivity.",
+                },
+
+                forecast: {
+                    nextMonthMrr,
+
+                    projectedGrowthPct,
+
+                    predictedChurnPct:
+                        projectedChurnPct,
+
+                    confidence:
+                        engagementScore >= 75
+                            ? "High"
+                            : engagementScore >= 55
+                                ? "Medium"
+                                : "Low",
+                },
+
+                mrrDrivers: [
+                    {
+                        label:
+                            "Expansion revenue",
+
+                        impact: 24,
+
+                        direction:
+                            "positive",
+
+                        explanation:
+                            "Expansion activity from retained customers increased MRR.",
+                    },
+
+                    {
+                        label:
+                            "Customer inactivity",
+
+                        impact: 16,
+
+                        direction:
+                            "negative",
+
+                        explanation:
+                            "Reduced engagement increased churn exposure.",
+                    },
+                ],
+
+                riskAccounts:
+                    highRiskCustomers
+                        .slice(0, 5)
+                        .map((c) => ({
+                            customerId: c.id,
+
+                            customerName:
+                                c.name,
+
+                            churnRisk:
+                                c.churnRisk,
+
+                            mrrAtRiskMinor:
+                                Math.round(
+                                    c.mrr *
+                                    100
+                                ),
+
+                            reason:
+                                c.reasonFlags?.join(
+                                    ", "
+                                ) ||
+                                "High churn exposure",
+
+                            recommendedAction:
+                                c.recentBillingFailure
+                                    ? "Retry billing and send recovery email"
+                                    : "Trigger re-engagement outreach",
+                        })),
+
+                engagementScore,
+            };
+
+        const safeBusinessNarrative: AiBusinessNarrative = {
+            ...businessNarrative,
+
+            health: {
+                overallScore:
+                    businessNarrative?.health?.overallScore && businessNarrative.health.overallScore > 0
+                        ? businessNarrative.health.overallScore
+                        : engagementScore,
+
+                label:
+                    businessNarrative?.health?.label ||
+                    (engagementScore >= 80
+                        ? "Strong"
+                        : engagementScore >= 65
+                            ? "Healthy"
+                            : engagementScore >= 45
+                                ? "Watch"
+                                : "At Risk"),
+
+                summary:
+                    businessNarrative?.health?.summary ||
+                    "Business health calculated from engagement, churn exposure and customer activity.",
+            },
+
+            forecast: {
+                nextMonthMrr:
+                    businessNarrative?.forecast?.nextMonthMrr &&
+                        businessNarrative.forecast.nextMonthMrr > 0
+                        ? businessNarrative.forecast.nextMonthMrr
+                        : nextMonthMrr,
+
+                projectedGrowthPct:
+                    typeof businessNarrative?.forecast?.projectedGrowthPct === "number"
+                        ? businessNarrative.forecast.projectedGrowthPct
+                        : projectedGrowthPct,
+
+                predictedChurnPct:
+                    typeof businessNarrative?.forecast?.predictedChurnPct === "number"
+                        ? businessNarrative.forecast.predictedChurnPct
+                        : projectedChurnPct,
+
+                confidence:
+                    businessNarrative?.forecast?.confidence ||
+                    (engagementScore >= 75
+                        ? "High"
+                        : engagementScore >= 55
+                            ? "Medium"
+                            : "Low"),
+            },
+
+            engagementScore:
+                businessNarrative?.engagementScore &&
+                    businessNarrative.engagementScore > 0
+                    ? businessNarrative.engagementScore
+                    : engagementScore,
+
+            mrrDrivers:
+                businessNarrative?.mrrDrivers?.length
+                    ? businessNarrative.mrrDrivers
+                    : [
+                        {
+                            label: "Engagement health",
+                            impact: engagementScore,
+                            direction:
+                                engagementScore >= 60
+                                    ? ("positive" as const)
+                                    : ("negative" as const),
+                            explanation:
+                                "Customer engagement trends directly influence retention stability and projected revenue movement.",
+                        },
+                        {
+                            label: "Churn exposure",
+                            impact: projectedChurnPct,
+                            direction: "negative" as const,
+                            explanation:
+                                "High-risk accounts and inactivity signals increase churn pressure on projected MRR.",
+                        },
+                    ],
+        };
+
+        const executiveSummary =
+            parsed?.executiveSummary ?? {
+                overview:
+                    "Retention performance remains stable.",
+
+                biggestRisk:
+                    "No critical business risk detected.",
+
+                biggestOpportunity:
+                    "Expansion opportunities remain available.",
+
+                recommendedPriority:
+                    "Continue monitoring customer health.",
+            };
+
         await prisma.insightRun.create({
             data: {
-                workspaceId: args.workspaceId,
+                workspaceId:
+                    args.workspaceId,
 
                 type: runType,
 
                 result: {
-                    promptVersion: PROMPT_VERSION,
+                    promptVersion:
+                        PROMPT_VERSION,
 
                     timeframe,
 
@@ -562,7 +1358,8 @@ Use varied titles such as:
 
                     input: payload,
 
-                    rawModelOutput: content,
+                    rawModelOutput:
+                        content,
 
                     insights,
 
@@ -570,10 +1367,17 @@ Use varied titles such as:
 
                     operationalSummary,
 
+                    businessNarrative: safeBusinessNarrative,
+
+                    executiveSummary,
+
                     aiUsage: {
-                        limit: usageDecision.limit,
+                        limit:
+                            usageDecision.limit,
+
                         usedBeforeRun:
                             usageDecision.used,
+
                         remainingBeforeRun:
                             usageDecision.remaining,
                     },
@@ -592,23 +1396,38 @@ Use varied titles such as:
             timeframe,
 
             tokensIn:
-                completion.usage?.prompt_tokens ?? 0,
+                completion.usage
+                    ?.prompt_tokens ?? 0,
 
             tokensOut:
-                completion.usage?.completion_tokens ??
+                completion.usage
+                    ?.completion_tokens ??
                 0,
         }).catch(() => null);
 
         return {
             insights,
+
             actions,
+
             operationalSummary,
+
+            businessNarrative: safeBusinessNarrative,
+
+            executiveSummary,
+
             cached: false,
+
             source,
+
             timeframe,
-            promptVersion: PROMPT_VERSION,
+
+            promptVersion:
+                PROMPT_VERSION,
         };
     } catch (err) {
+        console.error("[OpenAI insights failed]", err);
+
         return buildAndSaveFallback(
             "fallback_after_error",
             {

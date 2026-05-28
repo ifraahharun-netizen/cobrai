@@ -31,6 +31,23 @@ type DashboardSummary = {
   trialEndsAt?: string | null;
   connectedIntegrations?: string[];
 
+  executiveSummary?: {
+    overview: string;
+    biggestRisk: string;
+    biggestOpportunity: string;
+    recommendedPriority: string;
+
+  };
+
+  businessNarrative?: {
+    headline: string;
+    summary: string;
+    businessHealth: string;
+    churnPrediction: string;
+    engagementAnalysis: string;
+    revenueForecast: string;
+  };
+
   kpis?: {
     totalMrr?: number;
     mrrAtRisk?: number;
@@ -542,7 +559,7 @@ export async function GET(req: Request) {
       connectedIntegrations.length > 0 &&
       (mrrSnapshotCount > 0 || accountRiskCount > 0);
 
-      const effectiveDemoMode =
+    const effectiveDemoMode =
       ws?.demoMode === true ||
       process.env.NODE_ENV === "development";
 
@@ -569,6 +586,11 @@ export async function GET(req: Request) {
       eventsCurrentMonth,
       eventsPreviousMonth,
       customersRecent,
+
+      // NEW
+      latestAnalyticsSnapshot,
+      latestNarrative,
+      latestInsightRun,
     ] = await Promise.all([
       prisma.mrrSnapshot.aggregate({
         where: {
@@ -578,6 +600,7 @@ export async function GET(req: Request) {
         },
         _sum: { mrrMinor: true },
       }),
+
       prisma.mrrSnapshot.aggregate({
         where: {
           workspaceId,
@@ -586,8 +609,10 @@ export async function GET(req: Request) {
         },
         _sum: { mrrMinor: true },
       }),
+
       prisma.accountRisk.findMany({
         where: { workspaceId },
+
         select: {
           id: true,
           companyName: true,
@@ -597,46 +622,65 @@ export async function GET(req: Request) {
           mrr: true,
           updatedAt: true,
         },
-        orderBy: [{ riskScore: "desc" }, { updatedAt: "desc" }],
+
+        orderBy: [
+          { riskScore: "desc" },
+          { updatedAt: "desc" },
+        ],
+
         take: 10,
       }),
+
       prisma.accountRiskSnapshot.findMany({
         where: {
           workspaceId,
+
           snapshotDate: {
             gte: currentMonthStart,
             lte: currentMonthEnd,
           },
         },
+
         select: {
           companyName: true,
           riskScore: true,
           mrrMinor: true,
           snapshotDate: true,
         },
-        orderBy: { snapshotDate: "desc" },
+
+        orderBy: {
+          snapshotDate: "desc",
+        },
       }),
+
       prisma.accountRiskSnapshot.findMany({
         where: {
           workspaceId,
+
           snapshotDate: {
             gte: previousMonthStart,
             lte: previousMonthEnd,
           },
         },
+
         select: {
           companyName: true,
           riskScore: true,
           mrrMinor: true,
           snapshotDate: true,
         },
-        orderBy: { snapshotDate: "desc" },
+
+        orderBy: {
+          snapshotDate: "desc",
+        },
       }),
+
       prisma.mrrSnapshot.findMany({
         where: {
           workspaceId,
           month: { in: months },
         },
+
         select: {
           month: true,
           mrrMinor: true,
@@ -644,43 +688,64 @@ export async function GET(req: Request) {
           stripeCustomerId: true,
         },
       }),
+
       prisma.stripeSubscription.findMany({
         where: {
           workspaceId,
+
           createdAt: {
             gte: currentMonthStart,
             lte: currentMonthEnd,
           },
         },
+
         select: {
           id: true,
           stripeCustomerId: true,
           status: true,
           createdAt: true,
         },
-        orderBy: { createdAt: "desc" },
+
+        orderBy: {
+          createdAt: "desc",
+        },
+
         take: 100,
       }),
+
       prisma.stripeSubscription.findMany({
         where: {
           workspaceId,
-          createdAt: { gte: last30DaysStart },
+
+          createdAt: {
+            gte: last30DaysStart,
+          },
         },
+
         select: {
           id: true,
           stripeCustomerId: true,
           status: true,
           createdAt: true,
         },
-        orderBy: { createdAt: "desc" },
+
+        orderBy: {
+          createdAt: "desc",
+        },
+
         take: 100,
       }),
+
       prisma.invoice.findMany({
         where: {
           workspaceId,
           paidAt: null,
-          dueAt: { gte: last30DaysStart },
+
+          dueAt: {
+            gte: last30DaysStart,
+          },
         },
+
         select: {
           id: true,
           customerId: true,
@@ -688,19 +753,29 @@ export async function GET(req: Request) {
           amount: true,
           dueAt: true,
         },
-        orderBy: { dueAt: "desc" },
+
+        orderBy: {
+          dueAt: "desc",
+        },
+
         take: 100,
       }),
+
       prisma.event.findMany({
         where: {
           workspaceId,
-          occurredAt: { gte: last30DaysStart },
+
+          occurredAt: {
+            gte: last30DaysStart,
+          },
         },
+
         select: {
           id: true,
           type: true,
           occurredAt: true,
           value: true,
+
           customer: {
             select: {
               id: true,
@@ -709,17 +784,24 @@ export async function GET(req: Request) {
             },
           },
         },
-        orderBy: { occurredAt: "desc" },
+
+        orderBy: {
+          occurredAt: "desc",
+        },
+
         take: 100,
       }),
+
       prisma.event.findMany({
         where: {
           workspaceId,
+
           occurredAt: {
             gte: currentMonthStart,
             lte: currentMonthEnd,
           },
         },
+
         select: {
           id: true,
           type: true,
@@ -727,14 +809,17 @@ export async function GET(req: Request) {
           value: true,
         },
       }),
+
       prisma.event.findMany({
         where: {
           workspaceId,
+
           occurredAt: {
             gte: previousMonthStart,
             lte: previousMonthEnd,
           },
         },
+
         select: {
           id: true,
           type: true,
@@ -742,8 +827,12 @@ export async function GET(req: Request) {
           value: true,
         },
       }),
+
       prisma.customer.findMany({
-        where: { workspaceId },
+        where: {
+          workspaceId,
+        },
+
         select: {
           id: true,
           name: true,
@@ -753,7 +842,42 @@ export async function GET(req: Request) {
           createdAt: true,
           updatedAt: true,
         },
+
         take: 1000,
+      }),
+
+      // =====================================================
+      // NEW SNAPSHOT + AI DATA
+      // =====================================================
+
+      prisma.workspaceAnalyticsSnapshot.findFirst({
+        where: {
+          workspaceId,
+        },
+
+        orderBy: {
+          snapshotDate: "desc",
+        },
+      }),
+
+      prisma.aiWorkspaceNarrative.findFirst({
+        where: {
+          workspaceId,
+        },
+
+        orderBy: {
+          createdAt: "desc",
+        },
+      }),
+
+      prisma.insightRun.findFirst({
+        where: {
+          workspaceId,
+        },
+
+        orderBy: {
+          createdAt: "desc",
+        },
       }),
     ]);
 
@@ -1102,18 +1226,71 @@ export async function GET(req: Request) {
       },
     ];
 
+    const persistedInsights =
+      (
+        latestInsightRun?.result as any
+      )?.insights ?? liveInsights;
+
+    const persistedExecutiveSummary =
+      (
+        latestInsightRun?.result as any
+      )?.executiveSummary ?? null;
+
+    const persistedBusinessNarrative =
+      (
+        latestInsightRun?.result as any
+      )?.businessNarrative ?? null;
+
     const response: DashboardSummary = {
       ok: true,
-      tier: (ws?.tier as "free" | "starter" | "pro" | "scale") || "free",
+
+      tier:
+        (ws?.tier as
+          | "free"
+          | "starter"
+          | "pro"
+          | "scale") || "free",
+
       demoMode: effectiveDemoMode,
-      trialEndsAt: ws?.trialEndsAt?.toISOString() ?? null,
-      connectedIntegrations: connectedIntegrations.map((i) => i.provider),
+
+      trialEndsAt:
+        ws?.trialEndsAt?.toISOString() ??
+        null,
+
+      connectedIntegrations:
+        connectedIntegrations.map(
+          (i) => i.provider
+        ),
+
       kpis: {
-        totalMrr,
-        mrrAtRisk,
-        atRiskAccounts,
-        retentionPct: latestChurnPct === null ? null : Number((100 - latestChurnPct).toFixed(1)),
-        churnPct: latestChurnPct,
+        totalMrr:
+          latestAnalyticsSnapshot
+            ?.totalMrr ?? totalMrr,
+
+        mrrAtRisk:
+          latestAnalyticsSnapshot
+            ?.mrrAtRisk ?? mrrAtRisk,
+
+        atRiskAccounts:
+          latestAnalyticsSnapshot
+            ?.atRiskAccounts ??
+          atRiskAccounts,
+
+        retentionPct:
+          latestAnalyticsSnapshot
+            ?.retentionRate ??
+          (latestChurnPct === null
+            ? null
+            : Number(
+              (
+                100 - latestChurnPct
+              ).toFixed(1)
+            )),
+
+        churnPct:
+          latestAnalyticsSnapshot
+            ?.predictedChurnRate ??
+          latestChurnPct,
       },
 
       totalMrrTrend: isDemo
@@ -1122,8 +1299,13 @@ export async function GET(req: Request) {
           previous: 64200,
         }
         : {
-          current: totalMrr,
-          previous: previousTotalMrr,
+          current:
+            latestAnalyticsSnapshot
+              ?.totalMrr ??
+            totalMrr,
+
+          previous:
+            previousTotalMrr,
         },
 
       mrrProtected: isDemo
@@ -1132,8 +1314,11 @@ export async function GET(req: Request) {
           previous: 1200,
         }
         : {
-          current: currentMonthProtectedMrr,
-          previous: previousMonthProtectedMrr,
+          current:
+            currentMonthProtectedMrr,
+
+          previous:
+            previousMonthProtectedMrr,
         },
 
       mrrAtRiskTrend: isDemo
@@ -1143,13 +1328,12 @@ export async function GET(req: Request) {
         }
         : {
           current:
-            currentMrrAtRiskFromSnapshots > 0 ? currentMrrAtRiskFromSnapshots : mrrAtRisk,
+            latestAnalyticsSnapshot
+              ?.mrrAtRisk ??
+            currentMrrAtRiskFromSnapshots,
+
           previous:
-            previousMrrAtRiskFromSnapshots > 0
-              ? previousMrrAtRiskFromSnapshots
-              : currentMrrAtRiskFromSnapshots > 0
-                ? currentMrrAtRiskFromSnapshots
-                : mrrAtRisk,
+            previousMrrAtRiskFromSnapshots,
         },
 
       churnProxyTrend: isDemo
@@ -1158,110 +1342,245 @@ export async function GET(req: Request) {
           previous: 3.9,
         }
         : {
-          current: latestChurnPct ?? 0,
-          previous: previousChurnPct ?? 0,
+          current:
+            latestAnalyticsSnapshot
+              ?.predictedChurnRate ??
+            latestChurnPct ??
+            0,
+
+          previous:
+            previousChurnPct ?? 0,
         },
 
       accountsFlaggedTrend: {
-        current: currentFlaggedAccounts.length > 0 ? currentFlaggedAccounts.length : atRiskAccounts,
+        current:
+          latestAnalyticsSnapshot
+            ?.atRiskAccounts ??
+          currentFlaggedAccounts.length,
+
         previous:
-          previousFlaggedAccounts.length > 0
-            ? previousFlaggedAccounts.length
-            : currentFlaggedAccounts.length > 0
-              ? currentFlaggedAccounts.length
-              : atRiskAccounts,
+          previousFlaggedAccounts.length,
       },
 
       mrrProtectedChart: isDemo
         ? {
-          months: ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar"],
-          values: [420, 510, 480, 620, 590, 710],
+          months: [
+            "Oct",
+            "Nov",
+            "Dec",
+            "Jan",
+            "Feb",
+            "Mar",
+          ],
+
+          values: [
+            420,
+            510,
+            480,
+            620,
+            590,
+            710,
+          ],
         }
         : liveMrrProtectedChart,
 
       churnTrend: isDemo
         ? {
-          months: ["Oct", "Nov", "Dec", "Jan", "Feb", "Mar"],
-          values: [5.8, 5.1, 4.7, 4.3, 3.9, 3.4],
+          months: [
+            "Oct",
+            "Nov",
+            "Dec",
+            "Jan",
+            "Feb",
+            "Mar",
+          ],
+
+          values: [
+            5.8,
+            5.1,
+            4.7,
+            4.3,
+            3.9,
+            3.4,
+          ],
+
           unavailable: false,
         }
         : {
-          months: months.map(monthLabel),
-          values: liveChurnValues,
+          months: months.map(
+            monthLabel
+          ),
+
+          values:
+            liveChurnValues,
+
           unavailable: false,
         },
 
       insights: isDemo
         ? [
           {
-            title: "Highest risk driver",
-            text: "Low feature adoption is driving churn risk.",
+            title:
+              "Highest risk driver",
+
+            text:
+              "Low feature adoption is driving churn risk.",
+
             kind: "adoption",
-            accountIds: ["demo_1", "demo_2"],
+
+            accountIds: [
+              "demo_1",
+              "demo_2",
+            ],
           },
+
           {
-            title: "Billing alert",
-            text: "Failed payments are creating immediate retention risk.",
+            title:
+              "Billing alert",
+
+            text:
+              "Failed payments are creating immediate retention risk.",
+
             kind: "billing",
-            accountIds: ["demo_3"],
+
+            accountIds: [
+              "demo_3",
+            ],
           },
+
           {
-            title: "Quick win",
-            text: "Guided onboarding is the fastest retention lever today.",
+            title:
+              "Quick win",
+
+            text:
+              "Guided onboarding is the fastest retention lever today.",
+
             kind: "onboarding",
-            accountIds: ["demo_4"],
+
+            accountIds: [
+              "demo_4",
+            ],
           },
         ]
-        : liveInsights,
+        : persistedInsights,
+
+      executiveSummary:
+        persistedExecutiveSummary,
+
+      businessNarrative:
+        persistedBusinessNarrative,
 
       riskAccounts: isDemo
         ? [
           {
             id: "demo_1",
-            company: "CedarWorks",
-            reason: "Usage dropped sharply in the last 14 days",
+
+            company:
+              "CedarWorks",
+
+            reason:
+              "Usage dropped sharply in the last 14 days",
+
             risk: 88,
+
             mrr: 219,
+
             tags: ["usage"],
-            updatedAt: new Date().toISOString(),
-            email: "team@cedarworks.io",
+
+            updatedAt:
+              new Date().toISOString(),
+
+            email:
+              "team@cedarworks.io",
           },
+
           {
             id: "demo_2",
-            company: "Kite Labs",
-            reason: "Renewal window approaching + downgrade signals",
+
+            company:
+              "Kite Labs",
+
+            reason:
+              "Renewal window approaching + downgrade signals",
+
             risk: 82,
+
             mrr: 129,
-            tags: ["adoption"],
-            updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-            email: "hello@kitelabs.io",
+
+            tags: [
+              "adoption",
+            ],
+
+            updatedAt:
+              new Date(
+                Date.now() -
+                1000 *
+                60 *
+                60 *
+                24
+              ).toISOString(),
+
+            email:
+              "hello@kitelabs.io",
           },
+
           {
             id: "demo_3",
-            company: "Northstar AI",
-            reason: "Failed payment + low engagement",
+
+            company:
+              "Northstar AI",
+
+            reason:
+              "Failed payment + low engagement",
+
             risk: 61,
+
             mrr: 349,
-            tags: ["billing"],
-            updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
-            email: "billing@northstarai.com",
+
+            tags: [
+              "billing",
+            ],
+
+            updatedAt:
+              new Date(
+                Date.now() -
+                1000 *
+                60 *
+                60 *
+                24 *
+                3
+              ).toISOString(),
+
+            email:
+              "billing@northstarai.com",
           },
         ]
         : liveRiskAccounts,
 
-      opportunities: isDemo ? demoOpportunities : liveOpportunities,
+      opportunities: isDemo
+        ? demoOpportunities
+        : liveOpportunities,
 
-      customerMix: isDemo ? customerMixDemo : customerMixLive,
+      customerMix: isDemo
+        ? customerMixDemo
+        : customerMixLive,
 
       activitySummary: {
-        windowLabel: "Last 30 days",
+        windowLabel:
+          "Last 30 days",
+
         newSubscriptions,
+
         newTrials,
+
         reactivations,
+
         failedSubscriptions,
       },
 
-      history: isDemo ? demoHistory : liveHistory,
+      history: isDemo
+        ? demoHistory
+        : liveHistory,
     };
 
     return NextResponse.json(response);
@@ -1269,7 +1588,7 @@ export async function GET(req: Request) {
     console.error("GET /api/dashboard/summary failed:", e);
 
     return NextResponse.json(
-      { ok: false, error: "Failed to load dashboard summary"} satisfies DashboardSummary,
+      { ok: false, error: "Failed to load dashboard summary" } satisfies DashboardSummary,
       { status: 500 }
     );
   }

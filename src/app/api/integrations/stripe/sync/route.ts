@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 
+import { runWorkspaceAnalyticsPipeline } from "@/lib/analytics/runWorkspaceAnalyticsPipeline";
+
 export const dynamic = "force-dynamic";
 
 type SyncBody = {
@@ -331,6 +333,44 @@ export async function POST(req: Request) {
             },
         });
 
+        for (const [stripeCustomerId, mrrMinor] of mrrByCustomer.entries()) {
+            const stripeCustomer = allCustomers.find(
+                (customer) => customer.id === stripeCustomerId
+            );
+
+            await prisma.customer.upsert({
+                where: {
+                    workspaceId_stripeCustomerId: {
+                        workspaceId: workspace.id,
+                        stripeCustomerId,
+                    },
+                },
+                update: {
+                    name:
+                        stripeCustomer?.name ||
+                        stripeCustomer?.email ||
+                        "Stripe customer",
+                    email: stripeCustomer?.email ?? null,
+                    mrr: mrrMinor,
+                    status: "active",
+                    canceledAt: null,
+                },
+                create: {
+                    workspaceId: workspace.id,
+                    stripeCustomerId,
+                    name:
+                        stripeCustomer?.name ||
+                        stripeCustomer?.email ||
+                        "Stripe customer",
+                    email: stripeCustomer?.email ?? null,
+                    mrr: mrrMinor,
+                    churnRisk: 0.25,
+                    riskScore: 25,
+                    status: "active",
+                },
+            });
+        }
+
         await prisma.workspace.update({
             where: {
                 id: workspace.id,
@@ -339,6 +379,8 @@ export async function POST(req: Request) {
                 stripeLastSyncedAt: new Date(),
             },
         });
+
+        await runWorkspaceAnalyticsPipeline(workspace.id);
 
         const totalMrrMinor = Array.from(mrrByCustomer.values()).reduce(
             (sum, value) => sum + value,

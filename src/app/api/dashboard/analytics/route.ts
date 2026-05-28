@@ -5,14 +5,25 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 
 /**
- * This endpoint is used by analyticsclient.tsx
- * It returns the "AnalyticsPayload" shape (mode, kpi, mrrSeries, churnSeries, cohorts, insights, etc.)
- * Demo mode returns a complete payload so the UI is always populated.
- * Live mode returns the same shape but empty placeholders (ready to fill when connectors write data).
+ * Analytics payload modes
+ *
+ * demo  = seeded showcase data
+ * trial = real connected workspace with full Pro access
+ * live  = paid/live production workspace
  */
 
-type Mode = "demo" | "live";
-type Point = { label: string; value: number };
+type Mode = "demo" | "trial" | "live";
+
+type Point = {
+    label: string;
+    value: number;
+};
+
+function isTrialActive(trialEndsAt: Date | null) {
+    if (!trialEndsAt) return false;
+
+    return new Date(trialEndsAt).getTime() > Date.now();
+}
 
 function demoPayload() {
     const mrrSeries: Point[] = [
@@ -39,7 +50,9 @@ function demoPayload() {
 
     const cohorts = {
         rows: ["2025-11", "2025-12", "2026-01", "2026-02"],
+
         cols: ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8"],
+
         values: [
             [100, 78, 66, 60, 56, 53, 51, 49],
             [100, 81, 70, 64, 60, 58, 55, 53],
@@ -50,6 +63,7 @@ function demoPayload() {
 
     return {
         mode: "demo" as Mode,
+
         kpi: {
             mrr: 31960,
             mrrChangePct: 5.2,
@@ -59,8 +73,11 @@ function demoPayload() {
             contraction: 610,
             nrr: 112.4,
         },
+
         mrrSeries,
+
         churnSeries,
+
         churnReasons: [
             { label: "Low usage / inactive", value: 41 },
             { label: "Pricing / budget", value: 23 },
@@ -68,66 +85,103 @@ function demoPayload() {
             { label: "Support / onboarding", value: 12 },
             { label: "Other", value: 6 },
         ],
+
         riskBuckets: [
             { label: "Critical", value: 9 },
             { label: "High", value: 24 },
             { label: "Medium", value: 61 },
             { label: "Low", value: 120 },
         ],
+
         behaviour: {
             weeklyActivePct: 64,
             inactive7d: 37,
+
             topSignals: [
                 { label: "Avg. logins / wk", value: "2.1" },
-                { label: "Feature adoption", value: "Top 3 features used by 58%" },
-                { label: "Time-to-value", value: "Median 2.4 days" },
+                {
+                    label: "Feature adoption",
+                    value: "Top 3 features used by 58%",
+                },
+                {
+                    label: "Time-to-value",
+                    value: "Median 2.4 days",
+                },
             ],
         },
+
         cohorts,
+
         insights: [
             {
                 title: "Usage drop is leading churn",
-                detail: "Accounts with 7+ inactive days are ~2.8× more likely to cancel in the next 30 days.",
+
+                detail:
+                    "Accounts with 7+ inactive days are ~2.8× more likely to cancel in the next 30 days.",
+
                 impact: "high" as const,
             },
+
             {
                 title: "Pro plan retains better",
-                detail: "Pro users retain ~11–14 pts higher after week 4 compared to Starter in recent cohorts.",
+
+                detail:
+                    "Pro users retain ~11–14 pts higher after week 4 compared to Starter in recent cohorts.",
+
                 impact: "medium" as const,
             },
+
             {
                 title: "Onboarding gap",
-                detail: "Customers who don’t complete setup in the first 72 hours churn significantly faster.",
+
+                detail:
+                    "Customers who don’t complete setup in the first 72 hours churn significantly faster.",
+
                 impact: "high" as const,
             },
         ],
+
         actions: [
             {
                 title: "Reach out to inactive high-MRR accounts",
-                detail: "Prioritise accounts inactive 7+ days with MRR > £150.",
+
+                detail:
+                    "Prioritise accounts inactive 7+ days with MRR > £150.",
+
                 cta: "View accounts" as const,
             },
+
             {
                 title: "Trigger onboarding nudge",
-                detail: "Email users who haven’t completed setup within 48–72 hours.",
+
+                detail:
+                    "Email users who haven’t completed setup within 48–72 hours.",
+
                 cta: "Create email" as const,
             },
+
             {
                 title: "Review feature-gap churn",
-                detail: "Tag + review cancellations mentioning missing features; shortlist top requests.",
+
+                detail:
+                    "Tag + review cancellations mentioning missing features; shortlist top requests.",
+
                 cta: "Open insights" as const,
             },
         ],
+
         segments: {
             plans: ["All plans", "Starter", "Pro"],
+
             regions: ["All regions", "UK", "EU", "US", "Other"],
         },
     };
 }
 
-function liveEmptyPayload() {
+function emptyPayload(mode: Mode) {
     return {
-        mode: "live" as Mode,
+        mode,
+
         kpi: {
             mrr: 0,
             mrrChangePct: 0,
@@ -137,51 +191,97 @@ function liveEmptyPayload() {
             contraction: 0,
             nrr: 0,
         },
+
         mrrSeries: [] as Point[],
+
         churnSeries: [] as Point[],
-        churnReasons: [] as Array<{ label: string; value: number }>,
-        riskBuckets: [] as Array<{ label: string; value: number }>,
+
+        churnReasons: [] as Array<{
+            label: string;
+            value: number;
+        }>,
+
+        riskBuckets: [] as Array<{
+            label: string;
+            value: number;
+        }>,
+
         behaviour: {
             weeklyActivePct: 0,
+
             inactive7d: 0,
-            topSignals: [] as Array<{ label: string; value: string }>,
+
+            topSignals: [] as Array<{
+                label: string;
+                value: string;
+            }>,
         },
+
         cohorts: {
             rows: [] as string[],
+
             cols: [] as string[],
+
             values: [] as number[][],
         },
+
         insights: [] as Array<{
             title: string;
             detail: string;
             impact?: "high" | "medium" | "low";
         }>,
+
         actions: [] as Array<{
             title: string;
             detail: string;
             cta?: "View accounts" | "Create email" | "Open insights";
         }>,
-        segments: { plans: ["All plans"], regions: ["All regions"] },
+
+        segments: {
+            plans: ["All plans"],
+
+            regions: ["All regions"],
+        },
     };
 }
 
 export async function GET(req: Request) {
     try {
-        const authHeader = req.headers.get("authorization") || "";
-        const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+        const authHeader =
+            req.headers.get("authorization") || "";
 
-        if (!token) return NextResponse.json(demoPayload(), { status: 200 });
+        const token = authHeader.startsWith("Bearer ")
+            ? authHeader.slice(7)
+            : null;
 
-        const decoded = await verifyFirebaseIdToken(token);
+        /**
+         * No auth
+         * → show demo
+         */
+        if (!token) {
+            return NextResponse.json(
+                demoPayload(),
+                { status: 200 }
+            );
+        }
+
+        const decoded =
+            await verifyFirebaseIdToken(token);
+
         const uid = decoded.uid;
 
         const user = await prisma.user.findUnique({
-            where: { firebaseUid: uid },
+            where: {
+                firebaseUid: uid,
+            },
+
             select: {
                 workspace: {
                     select: {
                         id: true,
                         demoMode: true,
+                        tier: true,
+                        trialEndsAt: true,
                     },
                 },
             },
@@ -189,13 +289,59 @@ export async function GET(req: Request) {
 
         const workspace = user?.workspace;
 
-        if (!workspace || workspace.demoMode) {
-            return NextResponse.json(demoPayload(), { status: 200 });
+        /**
+         * Missing workspace
+         * → fallback demo
+         */
+        if (!workspace) {
+            return NextResponse.json(
+                demoPayload(),
+                { status: 200 }
+            );
         }
 
-        return NextResponse.json(liveEmptyPayload(), { status: 200 });
-    } catch {
-        return NextResponse.json(demoPayload(), { status: 200 });
+        /**
+         * Explicit demo workspace
+         */
+        if (workspace.demoMode) {
+            return NextResponse.json(
+                demoPayload(),
+                { status: 200 }
+            );
+        }
+
+        /**
+         * Trial mode
+         * Full Pro access
+         * Real data
+         */
+        const trialActive = isTrialActive(
+            workspace.trialEndsAt
+        );
+
+        if (trialActive) {
+            return NextResponse.json(
+                emptyPayload("trial"),
+                { status: 200 }
+            );
+        }
+
+        /**
+         * Paid/live workspace
+         */
+        return NextResponse.json(
+            emptyPayload("live"),
+            { status: 200 }
+        );
+    } catch (error) {
+        console.error(
+            "[analytics] failed to load",
+            error
+        );
+
+        return NextResponse.json(
+            demoPayload(),
+            { status: 200 }
+        );
     }
 }
-

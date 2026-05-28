@@ -81,7 +81,6 @@ export async function POST(req: Request) {
     try {
         const { workspaceId } =
             await getWorkspaceFromRequest(req);
-
         const workspace =
             await prisma.workspace.findUnique({
                 where: {
@@ -91,6 +90,7 @@ export async function POST(req: Request) {
                 select: {
                     id: true,
                     tier: true,
+                    trialEndsAt: true,
                 },
             });
 
@@ -101,9 +101,17 @@ export async function POST(req: Request) {
             );
         }
 
-        if (workspace.tier !== "pro") {
+        const hasActiveTrial =
+            !!workspace.trialEndsAt &&
+            new Date(workspace.trialEndsAt).getTime() > Date.now();
+
+        const canUseRetryPayment =
+            workspace.tier === "pro" ||
+            hasActiveTrial;
+
+        if (!canUseRetryPayment) {
             return jsonError(
-                "Retry payment is available on Pro.",
+                "Retry payment is available on Pro or during trial.",
                 403,
                 "PRO_FEATURE_REQUIRED"
             );
@@ -364,6 +372,23 @@ export async function POST(req: Request) {
                     },
                 }
             );
+
+
+        await prisma.actionOutcomeSnapshot.create({
+            data: {
+                workspaceId,
+                actionExecutionId: actionExecution.id,
+                mrrBefore: customer.mrr ?? null,
+                retainedRevenueMinor: null,
+                paymentRecovered: false,
+                outcomeLabel: "payment_retry_started",
+                metadata: {
+                    stripeCustomerId: customer.stripeCustomerId,
+                    portalSessionId: portalSession.id,
+                    source: "dashboard",
+                } as any,
+            },
+        });
 
         await createTimelineEvent({
             workspaceId,

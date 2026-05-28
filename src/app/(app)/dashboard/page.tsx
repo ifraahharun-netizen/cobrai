@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { churnTrendOption, mrrProtectedOption } from "@/components/charts/options";
 import { getFirebaseAuth } from "@/lib/firebase.client";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
-import {
+import { getDemoDashboardData } from "@/lib/demo/dashboard"; import {
     PoundSterling,
     AlertTriangle,
     TrendingDown,
@@ -14,11 +14,18 @@ import {
     Clock3,
     Crown,
     Settings,
+    Flame,
+    UsersRound,
+    CreditCard,
+    Activity,
+    MessageCircleWarning,
+    TrendingUp,
+    Sparkles,
     LogOut,
     ChevronDown,
     type LucideIcon,
 } from "lucide-react";
-
+import type { EChartsOption } from "echarts";
 import * as echarts from "echarts";
 
 import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
@@ -113,15 +120,16 @@ type ProgressApiResponse = {
         avgRiskDecreasePct: number;
     }>;
 };
-
 type InsightFeedItem = {
     id: string;
-    type: "progress" | "risk" | "opportunity";
+    type: "progress" | "risk" | "opportunity" | "billing" | "health";
     title: string;
     summary: string;
     meta?: string;
     amountLabel?: string;
-    amountTone?: "risk" | "opportunity" | "neutral";
+    metricLabel?: string;
+    badgeLabel?: string;
+    amountTone?: "risk" | "opportunity" | "neutral" | "success" | "warning" | "insight";
     href?: string;
     sortTime: number;
 };
@@ -137,14 +145,86 @@ type KPI = {
     Icon: LucideIcon;
 };
 
-function formatGBPFromMinor(minor: number | null | undefined) {
-    const value = Number(minor || 0) / 100;
+const FALLBACK_LOCALE = "en-GB";
 
-    return new Intl.NumberFormat("en-GB", {
+const REGION_CURRENCY: Record<string, string> = {
+    GB: "GBP",
+    US: "USD",
+    CA: "CAD",
+    AU: "AUD",
+    NZ: "NZD",
+    IE: "EUR",
+    FR: "EUR",
+    DE: "EUR",
+    ES: "EUR",
+    IT: "EUR",
+    NL: "EUR",
+    BE: "EUR",
+    AT: "EUR",
+    PT: "EUR",
+    FI: "EUR",
+    GR: "EUR",
+    LU: "EUR",
+    CY: "EUR",
+    MT: "EUR",
+    SK: "EUR",
+    SI: "EUR",
+    EE: "EUR",
+    LV: "EUR",
+    LT: "EUR",
+    IN: "INR",
+    AE: "AED",
+    SA: "SAR",
+    QA: "QAR",
+    KW: "KWD",
+    NG: "NGN",
+    ZA: "ZAR",
+    KE: "KES",
+    JP: "JPY",
+    CN: "CNY",
+    SG: "SGD",
+};
+
+function getUserLocale() {
+    if (typeof navigator !== "undefined" && navigator.language) {
+        return navigator.language;
+    }
+
+    return FALLBACK_LOCALE;
+}
+
+function getCurrencyFromLocale(locale: string) {
+    try {
+        const region = new Intl.Locale(locale).region;
+
+        if (region && REGION_CURRENCY[region]) {
+            return REGION_CURRENCY[region];
+        }
+    } catch {
+        return REGION_CURRENCY.GB;
+    }
+
+    return REGION_CURRENCY.GB;
+}
+
+const userLocale = getUserLocale();
+const userCurrency = getCurrencyFromLocale(userLocale);
+
+function formatCurrency(
+    value: number,
+    options?: {
+        maximumFractionDigits?: number;
+    }
+) {
+    return new Intl.NumberFormat(userLocale, {
         style: "currency",
-        currency: "GBP",
-        maximumFractionDigits: 0,
-    }).format(value);
+        currency: userCurrency,
+        maximumFractionDigits: options?.maximumFractionDigits ?? 0,
+    }).format(Number(value || 0));
+}
+
+function formatGBPFromMinor(minor: number | null | undefined) {
+    return formatCurrency(Number(minor || 0) / 100);
 }
 
 function formatCompactDate(iso?: string | null) {
@@ -153,7 +233,7 @@ function formatCompactDate(iso?: string | null) {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return "—";
 
-    return d.toLocaleString("en-GB", {
+    return d.toLocaleString(userLocale, {
         day: "2-digit",
         month: "short",
     });
@@ -202,7 +282,7 @@ function formatRefreshTime(value: string | null) {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return "Not refreshed yet";
 
-    return `Last refreshed ${d.toLocaleString("en-GB", {
+    return `Last refreshed ${d.toLocaleString(userLocale, {
         day: "2-digit",
         month: "short",
         hour: "2-digit",
@@ -244,128 +324,26 @@ export default function DashboardPage() {
     const [kpiChurnProxyPrevious, setKpiChurnProxyPrevious] = useState<number | null>(null);
     const [kpiMrrProtectedCurrent, setKpiMrrProtectedCurrent] = useState<number | null>(null);
     const [kpiMrrProtectedPrevious, setKpiMrrProtectedPrevious] = useState<number | null>(null);
+    const [activeUsersRange, setActiveUsersRange] = useState<7 | 30>(7);
+    const [activeUsersFilterOpen, setActiveUsersFilterOpen] = useState(false);
+    const [insightPage, setInsightPage] = useState(0);
 
-    const dynamicMonths = Array.from({ length: 6 }, (_, i) => {
-        const date = new Date();
 
-        date.setMonth(date.getMonth() - (5 - i));
+    const demoDashboardData = getDemoDashboardData(userLocale);
 
-        return date.toLocaleString("en-GB", {
-            month: "short",
-        });
-    });
+    const demoChurnMonths = demoDashboardData.churnMonths;
+    const demoChurnPct = demoDashboardData.churnPct;
 
-    const demoChurnMonths = dynamicMonths;
-    const demoChurnPct = [5.8, 6.1, 5.2, 4.7, 5.0, 4.1];
+    const demoMrrMonths = demoDashboardData.mrrProtectedMonths;
+    const demoMrrVals = demoDashboardData.mrrProtectedValues;
 
-    const demoMrrMonths = dynamicMonths;
-    const demoMrrVals = [320, 540, 460, 710, 590, 860];
+    const demoKpis = demoDashboardData.kpis;
 
-    const demoRiskAccounts: RiskAccount[] = [
-        {
-            id: "1",
-            company: "Acme Ltd",
-            email: "success@acmeltd.com",
-            reason: "Low feature adoption + unresolved tickets",
-            risk: 88,
-            mrr: 219,
-            tags: ["adoption", "support"],
-            updatedAt: new Date().toISOString(),
-        },
-        {
-            id: "2",
-            company: "Beta Systems",
-            email: "billing@betasystems.com",
-            reason: "Payment failed + no login in 10 days",
-            risk: 82,
-            mrr: 129,
-            tags: ["billing", "usage"],
-            updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-        },
-        {
-            id: "3",
-            company: "Northwind",
-            email: "team@northwind.com",
-            reason: "Onboarding incomplete + negative sentiment",
-            risk: 61,
-            mrr: 349,
-            tags: ["onboarding", "support"],
-            updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
-        },
-    ];
+    const demoRiskAccounts = demoDashboardData.riskAccounts;
+    const demoOpportunities = demoDashboardData.opportunities;
 
-    const demoOpportunities: OpportunityAccount[] = [
-        {
-            id: "11",
-            company: "BrightOps",
-            email: "ops@brightops.com",
-            signal: "Annual plan upgrade",
-            upside: 133,
-            updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-        },
-        {
-            id: "12",
-            company: "KiteCRM",
-            email: "finance@kitecrm.com",
-            signal: "New subscription started",
-            upside: 98,
-            updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString(),
-        },
-    ];
+    const demoProgressData: ProgressApiResponse = demoDashboardData.progressData;
 
-    const demoProgressData: ProgressApiResponse = {
-        mode: "demo",
-        workspaceTier: "pro",
-        connectedIntegrations: [],
-        kpis: {
-            mrrProtectedMinor: 142000,
-            accountsSaved: 7,
-            actionsExecuted: 18,
-            successRate: 61,
-            mrrProtectedPct: 18,
-            accountsSavedPct: 12,
-            actionsExecutedPct: 9,
-            successRatePct: 6,
-        },
-        recentMrrSaved: [],
-        nextPriorityAccounts: [],
-        progressBreakdown: [
-            {
-                id: "1",
-                accountId: "1",
-                account: "Acme Ltd",
-                action: "Re-engagement email",
-                aiReason: "Adoption improved after outreach",
-                outcome: "success",
-                mrrSavedMinor: 21900,
-                riskScore: 88,
-                date: new Date().toISOString(),
-            },
-            {
-                id: "2",
-                accountId: "2",
-                account: "Beta Systems",
-                action: "Billing recovery",
-                aiReason: "Payment issue still unresolved",
-                outcome: "pending",
-                mrrSavedMinor: 12900,
-                riskScore: 82,
-                date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-            },
-        ],
-        actionPerformance: [],
-    };
-
-    const demoKpis = {
-        totalMrrCurrent: 69700,
-        totalMrrPrevious: 64200,
-        mrrAtRiskCurrent: 12300,
-        mrrAtRiskPrevious: 14100,
-        churnProxyCurrent: 3.4,
-        churnProxyPrevious: 3.9,
-        mrrProtectedCurrent: 1420,
-        mrrProtectedPrevious: 1200,
-    };
 
     const isDemoMode =
         apiDemoMode === true || apiDemoMode === null;
@@ -396,8 +374,6 @@ export default function DashboardPage() {
             ? 4
             : 999;
 
-    const formatGBP = (value: number) => `£${Math.round(value).toLocaleString()}`;
-
     const formatPercentChange = (current: number, previous: number) => {
         if (!previous) return 0;
         return ((current - previous) / previous) * 100;
@@ -419,12 +395,12 @@ export default function DashboardPage() {
 
         if (delta === 0) {
             return isCurrency
-                ? `No change vs ${formatGBP(previousValue)} last month`
+                ? `No change vs ${formatCurrency(previousValue)} last month`
                 : `No change vs ${previousValue}${suffix} last month`;
         }
 
         return isCurrency
-            ? `${Math.abs(pct).toFixed(1)}% vs ${formatGBP(previousValue)} last month`
+            ? `${Math.abs(pct).toFixed(1)}% vs ${formatCurrency(previousValue)} last month`
             : `${Math.abs(pct).toFixed(1)}% vs ${previousValue}${suffix} last month`;
     };
 
@@ -472,11 +448,48 @@ export default function DashboardPage() {
         isDemoMode,
     });
 
-    const activeChurnMonths = hasLiveChurn ? churnMonths : demoChurnMonths;
-    const activeChurnPct = hasLiveChurn ? churnPct : demoChurnPct;
+    const canViewRetentionImpact = canAccessFeature({
+        plan: billing.plan,
+        feature: "retention-impact",
+        trialEndsAt: billing.trialEndsAt,
+        isDemoMode,
+    });
 
-    const activeMrrMonths = hasLiveMrr ? mrrNames : demoMrrMonths;
-    const activeMrrVals = hasLiveMrr ? mrrVals : demoMrrVals;
+    const canViewRetryPayment = canAccessFeature({
+        plan: billing.plan,
+        feature: "retry-payment",
+        trialEndsAt: billing.trialEndsAt,
+        isDemoMode,
+    });
+
+    const showStarterInsightUpgradeCta =
+        !isDemoMode &&
+        !isTrialActive &&
+        effectivePlan === "starter";
+
+    const activeChurnMonths = isDemoMode
+        ? demoChurnMonths
+        : hasLiveChurn
+            ? churnMonths
+            : demoChurnMonths;
+
+    const activeChurnPct = isDemoMode
+        ? demoChurnPct
+        : hasLiveChurn
+            ? churnPct
+            : demoChurnPct;
+
+    const activeMrrMonths = isDemoMode
+        ? demoMrrMonths
+        : hasLiveMrr
+            ? mrrNames
+            : demoMrrMonths;
+
+    const activeMrrVals = isDemoMode
+        ? demoMrrVals
+        : hasLiveMrr
+            ? mrrVals
+            : demoMrrVals;
 
     const activeRiskAccounts = isDemoMode ? demoRiskAccounts : riskAccounts;
     const activeOpportunityAccounts = isDemoMode ? demoOpportunities : opportunityAccounts;
@@ -538,7 +551,7 @@ export default function DashboardPage() {
     const kpis: KPI[] = [
         {
             label: "Total MRR",
-            value: formatGBP(totalMrrCurrent),
+            value: formatCurrency(totalMrrCurrent),
             subtext: formatKpiSubtext(
                 totalMrrDelta,
                 formatPercentChange(totalMrrCurrent, totalMrrPrevious),
@@ -550,7 +563,7 @@ export default function DashboardPage() {
         },
         {
             label: "MRR at risk",
-            value: formatGBP(mrrAtRiskCurrent),
+            value: formatCurrency(mrrAtRiskCurrent),
             subtext: formatKpiSubtext(
                 mrrAtRiskDelta,
                 formatPercentChange(mrrAtRiskCurrent, mrrAtRiskPrevious),
@@ -569,7 +582,7 @@ export default function DashboardPage() {
         },
         {
             label: "MRR protected",
-            value: formatGBP(totalProtected),
+            value: formatCurrency(totalProtected),
             subtext: formatKpiSubtext(
                 protectedDelta,
                 formatPercentChange(totalProtected, previousProtected),
@@ -616,7 +629,7 @@ export default function DashboardPage() {
         const date = new Date(value);
         if (Number.isNaN(date.getTime())) return "Recent";
 
-        return date.toLocaleDateString("en-GB", {
+        return date.toLocaleDateString(userLocale, {
             day: "numeric",
             month: "short",
         });
@@ -632,156 +645,227 @@ export default function DashboardPage() {
         return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
     };
 
-    const aiInsightFeed = useMemo<InsightFeedItem[]>(() => {
-        if (isDemoMode) {
-            const demoVariations = [
-                {
-                    customer: "CedarWorks",
-                    title: "Recover declining product usage",
-                    summary: "CedarWorks has been inactive for 54 days. Send a reactivation sequence.",
-                    amount: "£21,900",
-                },
-                {
-                    customer: "Northwind",
-                    title: "Resolve billing friction",
-                    summary: "Northwind had 2 failed invoices this week. Trigger payment recovery.",
-                    amount: "£14,200",
-                },
-                {
-                    customer: "Acme Ltd",
-                    title: "Prevent onboarding churn",
-                    summary: "New users are dropping during setup. Launch onboarding guidance.",
-                    amount: "£8,900",
-                },
-                {
-                    customer: "Beta Systems",
-                    title: "Reduce support dissatisfaction",
-                    summary: "Support sentiment dropped sharply after unresolved tickets.",
-                    amount: "£11,300",
-                },
-                {
-                    customer: "BrightOps",
-                    title: "Expand high-engagement account",
-                    summary: "Usage increased 42% this month. Recommend annual upgrade outreach.",
-                    amount: "£6,500",
-                },
-                {
-                    customer: "KiteCRM",
-                    title: "Protect expansion revenue",
-                    summary: "Team activity declined after seat expansion. Schedule account review.",
-                    amount: "£18,700",
-                },
-            ];
-
-            const shuffled = [...demoVariations]
-                .sort(() => Math.random() - 0.5)
-                .slice(0, 4);
-
-            return shuffled.map((item, index) => ({
-                id: `demo-ai-${index}-${Date.now()}`,
-                type: "risk",
-                title: item.title,
-                summary: item.summary,
-                meta: `${item.customer} • high priority`,
-                amountLabel: item.amount,
-                amountTone: "risk",
-                href: "/dashboard/accounts-at-risk",
-                sortTime: Date.now() - index,
-            }));
-        }
-
-        const actions = workspaceAi?.actions ?? [];
-
-        if (!actions.length) return [];
-
-        return actions
-            .filter((action) => action.actionType !== "none")
-            .slice(0, liveInsightLimit)
-            .map((action, index) => ({
-                id: `ai-${action.customerId}-${action.actionType}-${index}`,
-                type: "risk",
-                title: action.actionTitle,
-                summary: action.reason,
-                meta: `${action.customerName} • ${action.priority} priority`,
-                amountLabel: action.mrrAtRiskMinor
-                    ? formatGBPFromMinor(action.mrrAtRiskMinor)
-                    : `${action.riskScore}/100 risk`,
-                amountTone: "risk",
-                href: `/dashboard/accounts-at-risk/${action.customerId}`,
-                sortTime: Date.now() - index,
-            }));
-    }, [
-        workspaceAi,
-        isDemoMode,
-        liveInsightLimit,
-    ]);
-
     const insightFeed = useMemo<InsightFeedItem[]>(() => {
-        if (aiInsightFeed.length) return aiInsightFeed;
+        const progressItems: InsightFeedItem[] = canViewRetentionImpact
+            ? (activeProgressData?.progressBreakdown ?? [])
+                .filter((row) => isCurrentMonth(row.date))
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .slice(0, 4)
+                .map((row) => {
+                    const targetId = row.accountId || row.customerId;
+                    const savedMinor = Number(row.mrrSavedMinor || 0);
 
-        const progressItems: InsightFeedItem[] = (activeProgressData?.progressBreakdown ?? [])
-            .filter((row) => isCurrentMonth(row.date))
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            .slice(0, 2)
-            .map((row) => {
-                const targetId = row.accountId || row.customerId;
+                    return {
+                        id: `progress-${row.id}`,
+                        type: "progress",
+                        title:
+                            row.outcome === "success"
+                                ? savedMinor > 0
+                                    ? "MRR saved"
+                                    : "Churn momentum reduced"
+                                : row.outcome === "failed"
+                                    ? "Retention action failed"
+                                    : "Retention action pending",
+                        summary: `${row.account}: ${row.action}. ${row.aiReason}`,
+                        meta: `${row.account} • ${formatCompactDate(row.date)}`,
+                        amountLabel:
+                            savedMinor > 0
+                                ? `+${formatGBPFromMinor(savedMinor)}`
+                                : row.riskScore
+                                    ? `${row.riskScore}/100`
+                                    : undefined,
+                        metricLabel:
+                            savedMinor > 0
+                                ? "MRR saved"
+                                : row.outcome === "success"
+                                    ? "Risk reduced"
+                                    : "Action status",
+                        badgeLabel:
+                            row.outcome === "success"
+                                ? "Impact recorded"
+                                : row.outcome === "failed"
+                                    ? "Needs follow-up"
+                                    : "In progress",
+                        amountTone: row.outcome === "success" ? "opportunity" : "neutral",
+                        href: targetId ? `/dashboard/accounts-at-risk/${targetId}` : undefined,
+                        sortTime: new Date(row.date).getTime(),
+                    };
+                })
+            : [];
 
-                return {
-                    id: `progress-${row.id}`,
+        const mrrSavedItems: InsightFeedItem[] = canViewRetentionImpact
+            ? (activeProgressData?.recentMrrSaved ?? [])
+                .slice(0, 2)
+                .map((row, index) => ({
+                    id: `recent-mrr-saved-${row.id}`,
                     type: "progress",
-                    title: `Progress update — ${row.account}`,
-                    summary: `${row.action} ${row.outcome === "success" ? "succeeded" : "is in progress"
-                        }. ${row.aiReason}`,
-                    meta: `Action Impact • ${formatCompactDate(row.date)}`,
-                    amountLabel: row.mrrSavedMinor
-                        ? `+${formatGBPFromMinor(row.mrrSavedMinor)}`
-                        : undefined,
-                    amountTone: row.outcome === "success" ? "opportunity" : "neutral",
-                    href: targetId ? `/dashboard/accounts-at-risk/${targetId}` : undefined,
-                    sortTime: new Date(row.date).getTime(),
-                };
-            });
+                    title: "MRR saved",
+                    summary: `${row.account} had at-risk revenue protected by a recent retention action.`,
+                    meta: `${row.account} • retention impact`,
+                    amountLabel: `+${formatGBPFromMinor(row.mrrSavedMinor)}`,
+                    metricLabel: "MRR saved",
+                    badgeLabel: "Impact recorded",
+                    amountTone: "opportunity",
+                    href: undefined,
+                    sortTime: Date.now() - index,
+                }))
+            : [];
 
+        const retainedUsersItem: InsightFeedItem[] =
+            canViewRetentionImpact && Number(activeProgressData?.kpis?.accountsSaved || 0) > 0
+                ? [
+                    {
+                        id: "users-retained-summary",
+                        type: "progress",
+                        title: "Users retained",
+                        summary: `${activeProgressData?.kpis.accountsSaved} at-risk customer${activeProgressData?.kpis.accountsSaved === 1 ? "" : "s"} recovered through recent retention actions.`,
+                        meta: "Retention impact • current period",
+                        amountLabel: `+${activeProgressData?.kpis.accountsSaved}`,
+                        metricLabel: "Users retained",
+                        badgeLabel: "Momentum gained",
+                        amountTone: "opportunity",
+                        href: "/dashboard/retention-impact",
+                        sortTime: Date.now() - 20,
+                    },
+                ]
+                : [];
+
+        const aiItems: InsightFeedItem[] = isDemoMode
+            ? []
+            : (workspaceAi?.actions ?? [])
+                .filter((action) => action.actionType !== "none")
+                .slice(0, liveInsightLimit)
+                .map((action, index): InsightFeedItem => {
+                    const text =
+                        `${action.actionType} ${action.actionTitle} ${action.reason}`.toLowerCase();
+
+                    const isBilling =
+                        text.includes("billing") ||
+                        text.includes("invoice") ||
+                        text.includes("payment");
+
+                    const isExpansion =
+                        text.includes("expand") ||
+                        text.includes("upgrade") ||
+                        text.includes("annual") ||
+                        text.includes("growth");
+
+                    const itemType: InsightFeedItem["type"] = isBilling
+                        ? "billing"
+                        : isExpansion
+                            ? "opportunity"
+                            : "risk";
+
+                    const amountTone: InsightFeedItem["amountTone"] = isExpansion
+                        ? "opportunity"
+                        : "risk";
+
+                    return {
+                        id: `ai-${action.customerId}-${action.actionType}-${index}`,
+                        type: itemType,
+                        title: action.actionTitle,
+                        summary: action.reason,
+                        meta: `${action.customerName} • ${action.priority} priority`,
+                        amountLabel: action.mrrAtRiskMinor
+                            ? formatGBPFromMinor(action.mrrAtRiskMinor)
+                            : `${action.riskScore}/100`,
+                        metricLabel: isExpansion
+                            ? "Expansion potential"
+                            : isBilling
+                                ? "Overdue MRR"
+                                : "MRR at risk",
+                        badgeLabel:
+                            action.priority === "high"
+                                ? "High priority"
+                                : action.priority === "medium"
+                                    ? "Medium priority"
+                                    : "Low priority",
+                        amountTone,
+                        href: `/dashboard/accounts-at-risk/${action.customerId}`,
+                        sortTime: Date.now() - index,
+                    };
+                })
+                .filter((item) => item.type !== "billing" || canViewRetryPayment);
         const riskItems: InsightFeedItem[] = activeRiskAccounts
-            .filter((account) => isCurrentMonth(account.updatedAt))
-            .slice(0, 2)
+            .filter((account) => Number(account.risk ?? 0) >= 60)
+            .slice(0, 3)
             .map((account) => ({
                 id: `risk-${account.id}`,
                 type: "risk",
-                title: `${account.company} — Risk detected`,
-                summary: account.reason,
-                meta: formatRecentDate(account.updatedAt),
-                amountLabel: formatGBP(account.mrr),
+                title: `${account.company} — churn risk detected`,
+                summary: `${account.reason} Suggested manual action: ${getSuggestedAction(account)}.`,
+                meta: `${account.company} • ${account.risk}/100 risk`,
+                amountLabel: formatCurrency(account.mrr || 0),
+                metricLabel: "MRR at risk",
+                badgeLabel: account.risk >= 80 ? "High priority" : "Medium priority",
                 amountTone: "risk",
                 href: `/dashboard/accounts-at-risk/${account.id}`,
                 sortTime: accountDateTime(account.updatedAt),
             }));
 
         const opportunityItems: InsightFeedItem[] = activeOpportunityAccounts
-            .filter((account) => isCurrentMonth(account.updatedAt))
-            .slice(0, 2)
+            .slice(0, 3)
             .map((account) => ({
-                id: `opp-${account.id}`,
+                id: `opportunity-${account.id}`,
                 type: "opportunity",
-                title: `${account.company} — Opportunity`,
+                title: `${account.company} — expansion opportunity`,
                 summary: account.signal,
-                meta: formatRecentDate(account.updatedAt),
-                amountLabel: `+${formatGBP(account.upside)}`,
+                meta: `${account.company} • growth signal`,
+                amountLabel: `+${formatCurrency(account.upside)}`,
+                metricLabel: "Expansion potential",
+                badgeLabel: "Growth opportunity",
                 amountTone: "opportunity",
                 href: `/dashboard/accounts-at-risk/${account.id}`,
                 sortTime: accountDateTime(account.updatedAt),
             }));
 
-        return [...progressItems, ...riskItems, ...opportunityItems]
-            .sort((a, b) => b.sortTime - a.sortTime)
+        const merged = [
+            ...progressItems,
+            ...mrrSavedItems,
+            ...retainedUsersItem,
+            ...aiItems,
+            ...riskItems,
+            ...opportunityItems,
+        ].sort((a, b) => b.sortTime - a.sortTime);
+
+        const seen = new Set<string>();
+
+        return merged
+            .filter((item) => {
+                const accountKey =
+                    item.meta?.split("•")[0]?.trim().toLowerCase() ||
+                    item.title.toLowerCase();
+
+                const typeKey = item.title.toLowerCase();
+                const key = `${accountKey}-${typeKey}`;
+
+                if (seen.has(key)) return false;
+
+                seen.add(key);
+                return true;
+            })
             .slice(0, liveInsightLimit);
     }, [
-        activeOpportunityAccounts,
         activeProgressData,
+        workspaceAi,
         activeRiskAccounts,
+        activeOpportunityAccounts,
         liveInsightLimit,
-        aiInsightFeed,
+        canViewRetentionImpact,
+        canViewRetryPayment,
     ]);
+    const INSIGHTS_PER_PAGE = 4;
+
+    const insightPageCount = Math.max(
+        1,
+        Math.ceil(insightFeed.length / INSIGHTS_PER_PAGE)
+    );
+
+    const visibleInsights = insightFeed.slice(
+        insightPage * INSIGHTS_PER_PAGE,
+        insightPage * INSIGHTS_PER_PAGE + INSIGHTS_PER_PAGE
+    );
+
 
     async function loadWorkspaceAi(user: User) {
         try {
@@ -874,8 +958,6 @@ export default function DashboardPage() {
             try {
                 const token = await user.getIdToken();
 
-                void loadWorkspaceAi(user);
-
                 const summaryRes = await fetch("/api/dashboard/summary", {
                     headers: { Authorization: `Bearer ${token}` },
                     cache: "no-store",
@@ -887,8 +969,14 @@ export default function DashboardPage() {
 
                 const data = await summaryRes.json();
                 if (cancelled) return;
+                const dashboardIsDemo =
+                    typeof data?.demoMode === "boolean" ? data.demoMode : true;
 
-                setApiDemoMode(typeof data?.demoMode === "boolean" ? data.demoMode : true);
+                setApiDemoMode(dashboardIsDemo);
+
+                if (!dashboardIsDemo) {
+                    void loadWorkspaceAi(user);
+                }
 
                 setChurnMonths(Array.isArray(data?.churnTrend?.months) ? data.churnTrend.months : []);
                 setChurnPct(
@@ -1001,8 +1089,22 @@ export default function DashboardPage() {
                                 actionsExecutedPct: Number(progressJson?.kpis?.actionsExecutedPct ?? 0),
                                 successRatePct: Number(progressJson?.kpis?.successRatePct ?? 0),
                             },
-                            recentMrrSaved: [],
-                            nextPriorityAccounts: [],
+                            recentMrrSaved: Array.isArray(progressJson?.recentMrrSaved)
+                                ? progressJson.recentMrrSaved.map((row: any) => ({
+                                    id: String(row?.id ?? ""),
+                                    account: String(row?.account ?? ""),
+                                    mrrSavedMinor: Number(row?.mrrSavedMinor ?? 0),
+                                }))
+                                : [],
+                            nextPriorityAccounts: Array.isArray(progressJson?.nextPriorityAccounts)
+                                ? progressJson.nextPriorityAccounts.map((row: any) => ({
+                                    id: String(row?.id ?? ""),
+                                    account: String(row?.account ?? ""),
+                                    aiReason: String(row?.aiReason ?? ""),
+                                    mrrMinor: Number(row?.mrrMinor ?? 0),
+                                    riskScore: Number(row?.riskScore ?? 0),
+                                }))
+                                : [],
                             progressBreakdown: Array.isArray(progressJson?.progressBreakdown)
                                 ? progressJson.progressBreakdown.map((row: any) => ({
                                     id: String(row?.id ?? ""),
@@ -1062,7 +1164,229 @@ export default function DashboardPage() {
         !hasLiveProgress &&
         !hasLiveKpis;
 
+    const getInsightMeta = (item: InsightFeedItem) => {
+        const text = `${item.title} ${item.summary} ${item.meta ?? ""}`.toLowerCase();
+        const badge = `${item.badgeLabel ?? ""}`.toLowerCase();
 
+        const isSuccess =
+            item.amountTone === "opportunity" ||
+            item.amountTone === "success" ||
+            text.includes("saved") ||
+            text.includes("retained") ||
+            text.includes("recovered") ||
+            text.includes("successful") ||
+            badge.includes("impact") ||
+            badge.includes("momentum");
+
+        const isMedium =
+            badge.includes("medium") ||
+            text.includes("medium priority");
+
+        if (isSuccess) {
+            return { Icon: ShieldCheck, label: "Impact", tone: styles.insightPositive };
+        }
+
+        if (text.includes("billing") || text.includes("invoice") || text.includes("payment")) {
+            return {
+                Icon: CreditCard,
+                label: "Billing",
+                tone: isMedium ? styles.insightWarning : styles.insightUrgent,
+            };
+        }
+
+        if (text.includes("support") || text.includes("ticket")) {
+            return {
+                Icon: MessageCircleWarning,
+                label: "Support",
+                tone: isMedium ? styles.insightWarning : styles.insightUrgent,
+            };
+        }
+
+        if (text.includes("expand") || text.includes("upgrade") || text.includes("annual") || text.includes("growth")) {
+            return { Icon: TrendingUp, label: "Expansion", tone: styles.insightPositive };
+        }
+
+        if (text.includes("usage") || text.includes("engagement") || text.includes("inactive")) {
+            return {
+                Icon: Activity,
+                label: "Usage",
+                tone: isMedium ? styles.insightWarning : styles.insightUrgent,
+            };
+        }
+
+        if (item.type === "health") {
+            return { Icon: Sparkles, label: "Insight", tone: styles.insightNeutral };
+        }
+
+        return { Icon: Sparkles, label: "Insight", tone: styles.insightNeutral };
+    };
+
+    const activeUsersSeries =
+        Array.isArray(demoDashboardData.activeUsersValues)
+            ? demoDashboardData.activeUsersValues
+            : [];
+    const activeUsersRangeLabel = `${activeUsersRange} days`;
+
+    const buildActiveUsersRangeData = (
+        baseValues: number[],
+        range: 7 | 30
+    ) => {
+        const safeValues = baseValues.length ? baseValues : [0];
+
+        return Array.from({ length: range }, (_, index) => {
+            const date = new Date();
+            date.setDate(date.getDate() - (range - 1 - index));
+
+            return {
+                label:
+                    range === 7
+                        ? date.toLocaleDateString(userLocale, { weekday: "short" })
+                        : date.toLocaleDateString(userLocale, {
+                            day: "numeric",
+                            month: "short",
+                        }),
+                value: safeValues[index % safeValues.length],
+            };
+        });
+    };
+
+    const activeUsersRangeData = buildActiveUsersRangeData(
+        activeUsersSeries,
+        activeUsersRange
+    );
+
+    const visibleActiveUsersMonths = activeUsersRangeData.map((item) => item.label);
+    const visibleActiveUsersSeries = activeUsersRangeData.map((item) => item.value);
+    const activeUsersCurrent =
+        visibleActiveUsersSeries[visibleActiveUsersSeries.length - 1] ?? 0;
+
+    const activeUsersPrevious =
+        visibleActiveUsersSeries[visibleActiveUsersSeries.length - 2] ?? 0;
+
+    const activeUsersDelta = activeUsersCurrent - activeUsersPrevious;
+
+    const activeUsersPct = formatPercentChange(
+        activeUsersCurrent,
+        activeUsersPrevious
+    );
+
+
+    const activeUsersOption = (
+        months: string[],
+        values: number[]
+    ): EChartsOption => {
+        const safeMonths = Array.isArray(months) ? months : [];
+
+        const safeValues = Array.isArray(values)
+            ? values.map((value) => Number(value || 0))
+            : [];
+
+        const maxValue = Math.max(...safeValues, 1);
+        const yMax = Math.ceil(maxValue / 25) * 25;
+
+        return {
+            animation: false,
+            backgroundColor: "transparent",
+
+            grid: {
+                top: 8,
+                right: 4,
+                bottom: 24,
+                left: 0,
+                containLabel: true,
+            },
+
+            tooltip: {
+                trigger: "axis",
+                backgroundColor: "#ffffff",
+                borderColor: "#eef2f7",
+                borderWidth: 1,
+                padding: 10,
+                textStyle: {
+                    color: "#111827",
+                    fontFamily: "inherit",
+                },
+                extraCssText:
+                    "border-radius:14px; box-shadow:0 10px 30px rgba(15,23,42,0.06);",
+                formatter: (params: any) => {
+                    const point = Array.isArray(params) ? params[0] : params;
+
+                    return `
+<div style="display:flex;flex-direction:column;gap:4px;">
+<div style="font-size:12px;color:#6b7280;font-weight:500;">
+${point?.axisValue ?? ""}
+</div>
+<div style="font-size:14px;font-weight:650;color:#111827;">
+${Number(point?.value ?? 0).toLocaleString(userLocale)} active users
+</div>
+</div>
+`;
+                },
+            },
+
+            xAxis: {
+                type: "category",
+                data: safeMonths,
+                axisTick: {
+                    show: false,
+                },
+                axisLine: {
+                    show: false,
+                },
+                axisLabel: {
+                    color: "#9ca3af",
+                    fontSize: 10,
+                    margin: 10,
+                    fontWeight: 500,
+                    interval: activeUsersRange === 7 ? 0 : 4,
+                },
+            },
+
+            yAxis: {
+                type: "value",
+                min: 0,
+                max: yMax,
+                splitNumber: 3,
+                axisLine: {
+                    show: false,
+                },
+                axisTick: {
+                    show: false,
+                },
+                axisLabel: {
+                    show: false,
+                },
+                splitLine: {
+                    lineStyle: {
+                        type: "dashed",
+                        color: "rgba(148,163,184,0.12)",
+                    },
+                },
+            },
+
+            series: [
+                {
+                    type: "bar",
+                    data: safeValues,
+                    barWidth: activeUsersRange === 7 ? 34 : 13,
+                    barMaxWidth: activeUsersRange === 7 ? 38 : 16,
+                    itemStyle: {
+                        borderRadius: [8, 8, 4, 4],
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            {
+                                offset: 0,
+                                color: "rgba(29,155,240,0.82)",
+                            },
+                            {
+                                offset: 1,
+                                color: "rgba(29,155,240,0.14)",
+                            },
+                        ]),
+                    },
+                },
+            ],
+        };
+    };
     return (
 
         <div className={styles.page}>
@@ -1075,33 +1399,12 @@ export default function DashboardPage() {
                     <div />
 
                     <div className={styles.topRightControls}>
-                        {showTrialPill ? (
-                            <button
-                                type="button"
-                                className={styles.trialPill}
-                                onClick={() => router.push("/dashboard/settings?tab=manage-plan")}
-                            >
-                                <Clock3 size={14} strokeWidth={1.8} />
-                                <span>
-                                    Trial ends in <strong>{trialDaysLeft} days</strong>
-                                </span>
-                            </button>
-                        ) : null}
+
+
+
 
                         <div className={styles.profileWrap}>
-                            <button
-                                type="button"
-                                className={styles.profileButton}
-                                onClick={() => setProfileOpen((v) => !v)}
-                            >
-                                <span className={styles.profileCircle}>{getInitials(currentUser)}</span>
-                                <span className={styles.profileName}>
-                                    {currentUser?.displayName ||
-                                        currentUser?.email?.split("@")[0] ||
-                                        "Account"}
-                                </span>
-                                <ChevronDown size={14} strokeWidth={1.8} />
-                            </button>
+
 
                             {profileOpen ? (
                                 <div className={styles.profileMenu}>
@@ -1119,42 +1422,8 @@ export default function DashboardPage() {
                                         </div>
                                     </div>
 
-                                    <button
-                                        type="button"
-                                        className={styles.profileMenuItem}
-                                        onClick={() => {
-                                            setProfileOpen(false);
-                                            router.push("/dashboard/settings?tab=manage-plan");
-                                        }}
-                                    >
-                                        <Crown size={15} strokeWidth={1.8} />
-                                        Manage plan
-                                    </button>
 
-                                    <button
-                                        type="button"
-                                        className={styles.profileMenuItem}
-                                        onClick={() => {
-                                            setProfileOpen(false);
-                                            router.push("/dashboard/settings");
-                                        }}
-                                    >
-                                        <Settings size={15} strokeWidth={1.8} />
-                                        Settings
-                                    </button>
 
-                                    <button
-                                        type="button"
-                                        className={styles.profileMenuItem}
-                                        onClick={async () => {
-                                            setProfileOpen(false);
-                                            await signOut(auth);
-                                            router.push("/login");
-                                        }}
-                                    >
-                                        <LogOut size={15} strokeWidth={1.8} />
-                                        Sign out
-                                    </button>
                                 </div>
                             ) : null}
                         </div>
@@ -1228,14 +1497,17 @@ export default function DashboardPage() {
                         </div>
 
                         <div className={styles.chartPreview}>
-                            <EChart option={churnTrendOption(activeChurnMonths, activeChurnPct, isPro)} />
+                            <EChart
+                                key={`churn-${activeChurnMonths.join("-")}-${activeChurnPct.join("-")}`}
+                                option={churnTrendOption(activeChurnMonths, activeChurnPct, isPro)}
+                            />
                         </div>
                     </div>
 
                     <div className={styles.card}>
                         <div className={styles.cardHeader}>
                             <div>
-                                <h4>MRR Protected</h4>
+                                <h4>Revenue Trend</h4>
                                 <p>Revenue protected across recent retention activity.</p>
                             </div>
 
@@ -1249,206 +1521,249 @@ export default function DashboardPage() {
                         </div>
 
                         <div className={styles.chartPreview}>
-                            <EChart option={mrrProtectedOption(activeMrrMonths, activeMrrVals, isPro)} />
+                            <EChart
+                                key={`mrr-${activeMrrMonths.join("-")}-${activeMrrVals.join("-")}`}
+                                option={mrrProtectedOption(activeMrrMonths, activeMrrVals, isPro)}
+                            />
                         </div>
                     </div>
                 </div>
 
                 <div className={styles.bottomGrid}>
-
-                    {/* ACCOUNTS AT RISK */}
-                    <div className={styles.card}>
-                        <div className={styles.cardTop}>
+                    <div className={`${styles.card} ${styles.activeUsersCard}`}>
+                        <div className={styles.activeUsersHeader}>
                             <div>
-                                <h4>Accounts at Risk</h4>
+                                <div className={styles.activeUsersTitle}>
+                                    <UsersRound size={16} strokeWidth={1.9} />
+                                    <span>Daily active users</span>
+                                </div>
 
-                                <p>
-                                    {topRiskAccounts.length === 0
-                                        ? "No urgent churn risk right now"
-                                        : "Act now to protect revenue"}
+                                <p>An overview of your active users.</p>
+                            </div>
+
+                            <div className={styles.activeUsersFilterWrap}>
+                                <button
+                                    type="button"
+                                    className={styles.activeUsersFilter}
+                                    onClick={() => setActiveUsersFilterOpen((open) => !open)}
+                                >
+                                    <Clock3 size={13} strokeWidth={1.8} />
+                                    <span>{activeUsersRangeLabel}</span>
+                                    <ChevronDown size={13} strokeWidth={1.8} />
+                                </button>
+
+                                {activeUsersFilterOpen ? (
+                                    <div className={styles.activeUsersFilterMenu}>
+                                        {[7, 30].map((range) => (
+                                            <button
+                                                key={range}
+                                                type="button"
+                                                className={
+                                                    activeUsersRange === range
+                                                        ? styles.activeUsersFilterOptionActive
+                                                        : styles.activeUsersFilterOption
+                                                }
+                                                onClick={() => {
+                                                    setActiveUsersRange(range as 7 | 30);
+                                                    setActiveUsersFilterOpen(false);
+                                                }}
+                                            >
+                                                {range} days
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+
+                        <div className={styles.activeUsersMetricRow}>
+                            <strong>{activeUsersCurrent.toLocaleString(userLocale)}</strong>
+
+                            <div>
+                                <span className={activeUsersDelta >= 0 ? styles.activeUsersUp : styles.activeUsersDown}>
+                                    {activeUsersDelta >= 0 ? "↑" : "↓"} {Math.abs(activeUsersPct).toFixed(1)}%{" "}
+                                    ({activeUsersDelta >= 0 ? "+" : "-"}
+                                    {Math.abs(activeUsersDelta).toLocaleString(userLocale)})
+                                </span>
+
+                                <p>vs. {activeUsersPrevious.toLocaleString(userLocale)} last period</p>
+                            </div>
+                        </div>
+
+                        <div className={styles.activeUsersChartWrap}>
+                            <EChart
+                                key={`active-users-${activeUsersRange}-${visibleActiveUsersMonths.join("-")}-${visibleActiveUsersSeries.join("-")}`}
+                                option={activeUsersOption(visibleActiveUsersMonths, visibleActiveUsersSeries)}
+                            />
+                        </div>
+                    </div>
+
+
+
+                    <div className={`${styles.card} ${styles.aiInsightsCard}`}>
+                        <div className={styles.aiInsightsHeader}>
+                            <div>
+                                <h4 className={styles.aiInsightsTitle}>✧ AI Insights</h4>
+                                <p className={styles.aiInsightsSubtitle}>
+                                    Priority actions based on your customers and recent activity.
                                 </p>
+
+                                <div className={styles.aiInsightsMeta}>
+                                    <Clock3 size={13} strokeWidth={1.8} />
+                                    <span>{formatRefreshTime(insightsRefreshedAt)}</span>
+                                    <span>•</span>
+                                    <span>Insights based on customer data</span>
+                                </div>
                             </div>
 
                             <button
                                 type="button"
                                 className={styles.softButton}
                                 onClick={() => {
-                                    if (!canViewCriticalAccounts) {
+                                    if (isDemoMode) {
+                                        setInsightsRefreshedAt(new Date().toISOString());
+                                        return;
+                                    }
+
+                                    const canRefresh =
+                                        isTrialActive || isPro || effectivePlan === "starter";
+
+                                    if (!canRefresh) {
                                         setUpgradeOpen(true);
                                         return;
                                     }
 
-                                    router.push("/dashboard/accounts-at-risk?filter=critical");
+                                    if (currentUser) void loadWorkspaceAi(currentUser);
                                 }}
                             >
-                                View all accounts at risk
+                                Refresh insights
                             </button>
                         </div>
 
-                        <div className={styles.riskList}>
-                            {topRiskAccounts.map((account) => {
-                                const riskClass =
-                                    account.risk >= 80
-                                        ? styles.riskCritical
-                                        : styles.riskMedium;
+                        <div className={styles.aiInsightList}>
+                            {visibleInsights.length > 0 ? (
+                                visibleInsights.map((item) => {
+                                    const meta = getInsightMeta(item);
+                                    const Icon = meta.Icon;
 
-                                return (
-                                    <button
-                                        key={account.id}
-                                        className={styles.riskRow}
-                                    >
-                                        <div className={styles.riskRowLeft}>
-                                            <strong>{account.company}</strong>
+                                    return (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            className={`${styles.aiInsightRow} ${meta.tone}`}
+                                            onClick={() => {
+                                                if (item.href) router.push(item.href);
+                                            }}
+                                        >
+                                            <span className={`${styles.aiInsightIcon} ${meta.tone}`}>
+                                                <Icon size={21} strokeWidth={1.8} />
+                                            </span>
 
-                                            <span>{account.reason}</span>
+                                            <div className={styles.aiInsightContent}>
+                                                <span className={styles.aiInsightLabel}>{meta.label}</span>
+                                                <strong>{item.title}</strong>
+                                                <p>{item.summary}</p>
+                                                {item.meta ? <small>{item.meta}</small> : null}
 
-                                            <small>
-                                                Suggested action: {getSuggestedAction(account)}
-                                            </small>
-                                        </div>
-
-                                        <div className={styles.riskRowRight}>
-                                            <div className={`${styles.badge} ${riskClass}`}>
-                                                {account.risk}
+                                                <span className={styles.aiInsightBadge}>
+                                                    {item.badgeLabel ?? "Priority insight"}
+                                                </span>
                                             </div>
 
-                                            <div className={styles.mrr}>
-                                                £{account.mrr}
-                                            </div>
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
+                                            {item.amountLabel ? (
+                                                <div className={`${styles.aiInsightAmount} ${meta.tone}`}>
+                                                    <span>
+                                                        {item.metricLabel ?? "Insight value"}
+                                                    </span>
 
-                  
-
-                <div className={styles.card}>
-                    <div className={styles.cardTop}>
-                        <div className={styles.insightsHeaderLeft}>
-                            <h4 className={styles.insightsTitle}>  ✧ AI Insights</h4>
-
-                            <p className={styles.insightsSubheading}>
-                                Priority actions based on revenue risk, billing, and customer activity.
-                            </p>
-
-                            <div className={styles.insightsMeta}>
-                                <Clock3 size={13} strokeWidth={1.8} />
-                                <span>{formatRefreshTime(insightsRefreshedAt)}</span>
-                            </div>
-                        </div>
-
-                        <button
-                            type="button"
-                            className={styles.softButton}
-                            onClick={() => {
-                                // DEMO MODE ALWAYS WINS
-                                if (isDemoMode) {
-                                    if (currentUser) {
-                                        void loadWorkspaceAi(currentUser);
-                                    }
-                                    return;
-                                }
-
-                                const isTrialActive =
-                                    effectivePlan === "free" &&
-                                    typeof trialDaysLeft === "number" &&
-                                    trialDaysLeft > 0;
-
-                                const canRefresh =
-                                    isTrialActive ||
-                                    isPro ||
-                                    effectivePlan === "starter";
-
-                                if (!canRefresh) {
-                                    setUpgradeOpen(true);
-                                    return;
-                                }
-
-                                if (currentUser) {
-                                    void loadWorkspaceAi(currentUser);
-                                }
-                            }}
-                        >
-                            {isDemoMode
-                                ? "Refresh insights"
-                                : hasUnlimitedLiveInsights
-                                    ? "Refresh insights"
-                                    : "Refresh insights"}
-                        </button>
-                    </div>
-
-                    <div className={styles.insightsList}>
-                        {insightFeed.length > 0 ? (
-                            insightFeed.map((item) => (
-                                <button
-                                    key={item.id}
-                                    type="button"
-                                    className={styles.insightCard}
-                                    onClick={() => {
-                                        if (item.href) router.push(item.href);
-                                    }}
-                                >
+                                                    <strong>{item.amountLabel}</strong>
+                                                </div>
+                                            ) : null}
+                                        </button>
+                                    );
+                                })
+                            ) : (
+                                <div className={styles.emptyText}>No recent insight activity yet.</div>
+                            )}
+                            {showStarterInsightUpgradeCta ? (
+                                <div className={styles.aiInsightUpgradeCta}>
                                     <div>
-                                        <strong>{item.title}</strong>
-                                        <span>{item.summary}</span>
-                                        {item.meta ? <small>{item.meta}</small> : null}
+                                        <strong>Upgrade to Pro to track retention impact and automate recovery.</strong>
+                                        <p>Starter shows your top priority insights. Pro adds retry payment recovery, automation execution updates, MRR saved, and users retained.</p>
                                     </div>
 
-                                    {item.amountLabel ? (
-                                        <b
-                                            className={
-                                                item.amountTone === "risk"
-                                                    ? styles.amountRisk
-                                                    : item.amountTone === "opportunity"
-                                                        ? styles.amountOpportunity
-                                                        : styles.amountNeutral
-                                            }
-                                        >
-                                            {item.amountLabel}
-                                        </b>
-                                    ) : null}
+                                    <button
+                                        type="button"
+                                        onClick={() => router.push("/dashboard/settings?tab=manage-plan")}
+                                    >
+                                        Upgrade to Pro
+                                    </button>
+                                </div>
+                            ) : null}
+
+                            {insightFeed.length > INSIGHTS_PER_PAGE ? (
+                                <div className={styles.aiInsightsPagination}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setInsightPage((page) => Math.max(0, page - 1))}
+                                        disabled={insightPage === 0}
+                                    >
+                                        Previous
+                                    </button>
+
+                                    <span>
+                                        {insightPage + 1} of {insightPageCount}
+                                    </span>
+
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setInsightPage((page) =>
+                                                Math.min(insightPageCount - 1, page + 1)
+                                            )
+                                        }
+                                        disabled={insightPage >= insightPageCount - 1}
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
+                </div>
+
+
+
+                {upgradeOpen ? (
+                    <div className={styles.upgradeOverlay}>
+                        <div className={styles.upgradeModal}>
+                            <h3>Upgrade to Pro</h3>
+                            <p>
+                                Upgrade to Pro for unlimited live insights, deeper customer behaviour signals,
+                                and priority retention actions.
+                            </p>
+
+                            <div className={styles.modalActions}>
+                                <button type="button" onClick={() => setUpgradeOpen(false)}>
+                                    Not now
                                 </button>
-                            ))
-                        ) : (
-                            <div className={styles.emptyText}>No recent insight activity yet.</div>
-                        )}
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setUpgradeOpen(false);
+                                        router.push("/dashboard/settings?tab=manage-plan");
+                                    }}
+                                >
+                                    Upgrade to Pro
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                ) : null}
             </div>
-        </div>
+        </div >
 
-                {
-        upgradeOpen ? (
-            <div className={styles.upgradeOverlay}>
-                <div className={styles.upgradeModal}>
-                    <h3>Upgrade to Pro</h3>
-                    <p>
-                        Upgrade to Pro for unlimited live insights, deeper customer behaviour signals,
-                        and priority retention actions.
-                    </p>
+    );
 
-                    <div className={styles.modalActions}>
-                        <button type="button" onClick={() => setUpgradeOpen(false)}>
-                            Not now
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setUpgradeOpen(false);
-                                router.push("/dashboard/settings?tab=manage-plan");
-                            }}
-                        >
-                            Upgrade to Pro
-                        </button>
-                    </div>
-                </div>
-            </div>
-        ) : null
-    }
-            </div >
-            
-            );
 }

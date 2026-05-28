@@ -1219,3 +1219,21 @@
     }
 
 }
+
+
+.pricingPrimaryBtn:hover {
+    background: #1888d9;
+}
+
+.pricingPrimaryBtn {
+    border: 0;
+    background: #1d9bf0;
+    color: #ffffff;
+    box-shadow: 0 8px 24px rgba(29, 155, 240, 0.18);
+}
+
+.planBadgeDark {
+    background: #1d9bf0;
+    color: #ffffff;
+    border: 0;
+}

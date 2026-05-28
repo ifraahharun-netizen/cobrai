@@ -19,6 +19,36 @@ function verifySignature(payload: string, signature: string | null) {
     );
 }
 
+async function reduceCustomerRisk(customerId: string, amount = 0.08) {
+    const customer = await prisma.customer.findUnique({
+        where: { id: customerId },
+        select: {
+            churnRisk: true,
+        },
+    });
+
+    if (!customer) return null;
+
+    const before = Math.round(Number(customer.churnRisk || 0) * 100);
+
+    const reduced = Math.max(
+        0.05,
+        Number(customer.churnRisk || 0) - amount
+    );
+
+    await prisma.customer.update({
+        where: { id: customerId },
+        data: {
+            churnRisk: reduced,
+        },
+    });
+
+    return {
+        before,
+        after: Math.round(reduced * 100),
+    };
+}
+
 export async function POST(req: NextRequest) {
     try {
         const rawBody = await req.text();
@@ -46,7 +76,6 @@ export async function POST(req: NextRequest) {
             data.id ||
             crypto.randomUUID();
 
-        // Prevent duplicate processing
         const existing = await prisma.providerEvent.findUnique({
             where: {
                 externalId: providerEventId,
@@ -60,7 +89,6 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // Store raw provider event
         await prisma.providerEvent.create({
             data: {
                 provider: "resend",
@@ -109,7 +137,6 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // EMAIL OPENED
         if (eventType === "email.opened") {
             await prisma.actionExecution.update({
                 where: {
@@ -118,6 +145,23 @@ export async function POST(req: NextRequest) {
                 data: {
                     openedAt: new Date(),
                     status: "opened",
+                },
+            });
+
+            const riskDelta = await reduceCustomerRisk(customerId, 0.08);
+
+            await prisma.actionOutcomeSnapshot.create({
+                data: {
+                    workspaceId,
+                    actionExecutionId: execution.id,
+                    wasOpened: true,
+                    riskScoreBefore: riskDelta?.before ?? null,
+                    riskScoreAfter: riskDelta?.after ?? null,
+                    outcomeLabel: "email_opened",
+                    metadata: {
+                        providerEventId,
+                        emailId,
+                    } as any,
                 },
             });
 
@@ -139,7 +183,6 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // EMAIL CLICKED
         if (eventType === "email.clicked") {
             await prisma.actionExecution.update({
                 where: {
@@ -148,6 +191,23 @@ export async function POST(req: NextRequest) {
                 data: {
                     clickedAt: new Date(),
                     status: "clicked",
+                },
+            });
+
+            const riskDelta = await reduceCustomerRisk(customerId, 0.12);
+
+            await prisma.actionOutcomeSnapshot.create({
+                data: {
+                    workspaceId,
+                    actionExecutionId: execution.id,
+                    wasClicked: true,
+                    riskScoreBefore: riskDelta?.before ?? null,
+                    riskScoreAfter: riskDelta?.after ?? null,
+                    outcomeLabel: "email_clicked",
+                    metadata: {
+                        providerEventId,
+                        emailId,
+                    } as any,
                 },
             });
 
@@ -169,7 +229,6 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // EMAIL DELIVERED
         if (eventType === "email.delivered") {
             await prisma.actionExecution.update({
                 where: {
@@ -181,7 +240,6 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // EMAIL BOUNCED
         if (eventType === "email.bounced") {
             await prisma.actionExecution.update({
                 where: {
@@ -189,6 +247,19 @@ export async function POST(req: NextRequest) {
                 },
                 data: {
                     status: "bounced",
+                    outcomeAt: new Date(),
+                },
+            });
+
+            await prisma.actionOutcomeSnapshot.create({
+                data: {
+                    workspaceId,
+                    actionExecutionId: execution.id,
+                    outcomeLabel: "email_bounced",
+                    metadata: {
+                        providerEventId,
+                        emailId,
+                    } as any,
                 },
             });
 

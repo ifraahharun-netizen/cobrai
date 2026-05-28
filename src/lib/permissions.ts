@@ -21,7 +21,8 @@ export type FeatureKey =
     | "automations"
     | "retry-payment"
     | "send-notification"
-    | "workflows";
+    | "workflows"
+    | "retention-impact";
 
 /* ================= PLAN → FEATURES ================= */
 
@@ -35,7 +36,7 @@ const STARTER_FEATURES: FeatureKey[] = [
 
 const PRO_FEATURES: FeatureKey[] = [
     ...STARTER_FEATURES,
-   
+
     "full-risk-list",
     "forecasting",
     "revenue-drivers",
@@ -44,6 +45,7 @@ const PRO_FEATURES: FeatureKey[] = [
     "retry-payment",
     "send-notification",
     "workflows",
+    "retention-impact",
 ];
 
 const PLAN_FEATURES: Record<PlanTier, FeatureKey[]> = {
@@ -211,6 +213,11 @@ export function getUpgradeMessage(feature: FeatureKey): {
             title: "Build retention workflows",
             description:
                 "Create automated flows to engage, recover, and retain customers.",
+        },
+        "retention-impact": {
+            title: "Measure retention impact",
+            description:
+                "Track protected revenue, successful retention actions, and the accounts that need attention next.",
         },
     };
 

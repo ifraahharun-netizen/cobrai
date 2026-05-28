@@ -5,10 +5,19 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-async function getWorkspaceId(): Promise<string> {
-    const ws = await prisma.workspace.findFirst({ select: { id: true } });
-    if (!ws) throw new Error("No workspace exists yet. Create one first.");
-    return ws.id;
+async function getWorkspaceIdForStripeCustomer(
+    stripeCustomerId: string
+): Promise<string | null> {
+    const customer = await prisma.customer.findFirst({
+        where: {
+            stripeCustomerId,
+        },
+        select: {
+            workspaceId: true,
+        },
+    });
+
+    return customer?.workspaceId ?? null;
 }
 
 function calcMrrFromSubscription(sub: Stripe.Subscription): number {
@@ -54,8 +63,6 @@ export async function POST(req: Request) {
     }
 
     try {
-        const workspaceId = await getWorkspaceId();
-
         if (
             event.type === "customer.subscription.created" ||
             event.type === "customer.subscription.updated"
@@ -64,6 +71,15 @@ export async function POST(req: Request) {
 
             const stripeCustomerId =
                 typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+
+            const workspaceId = await getWorkspaceIdForStripeCustomer(stripeCustomerId);
+
+            if (!workspaceId) {
+                return NextResponse.json({
+                    received: true,
+                    skipped: "No matching workspace for Stripe customer",
+                });
+            }
 
             const mrr = calcMrrFromSubscription(sub);
 
@@ -97,14 +113,17 @@ export async function POST(req: Request) {
 
             if (stripeCustomerId) {
                 const customer = await prisma.customer.findFirst({
-                    where: { workspaceId, stripeCustomerId },
-                    select: { id: true },
+                    where: { stripeCustomerId },
+                    select: {
+                        id: true,
+                        workspaceId: true,
+                    },
                 });
 
                 if (customer) {
                     await prisma.invoice.create({
                         data: {
-                            workspaceId,
+                            workspaceId: customer.workspaceId,
                             customerId: customer.id,
                             status: inv.status ?? "open",
                             amount: inv.amount_due ?? 0,
@@ -119,6 +138,129 @@ export async function POST(req: Request) {
                         where: { id: customer.id },
                         data: { churnRisk: 0.8 },
                     });
+
+                    const execution = await prisma.actionExecution.findFirst({
+                        where: {
+                            workspaceId: customer.workspaceId,
+                            customerId: customer.id,
+                            actionType: "retry_payment",
+                            status: {
+                                in: ["pending", "sent", "delivered"],
+                            },
+                        },
+                        orderBy: {
+                            createdAt: "desc",
+                        },
+                    });
+
+                    if (execution) {
+                        await prisma.actionExecution.update({
+                            where: { id: execution.id },
+                            data: {
+                                status: "failed",
+                                outcomeAt: new Date(),
+                            },
+                        });
+
+                        await prisma.actionOutcomeSnapshot.create({
+                            data: {
+                                workspaceId: customer.workspaceId,
+                                actionExecutionId: execution.id,
+                                paymentRecovered: false,
+                                retainedRevenueMinor: 0,
+                                outcomeLabel: "payment_failed",
+                                metadata: {
+                                    stripeInvoiceId: inv.id,
+                                    stripeCustomerId,
+                                    source: "stripe_webhook",
+                                } as any,
+                            },
+                        });
+                    }
+                }
+            }
+        }
+
+        if (
+            event.type === "invoice.payment_succeeded" ||
+            event.type === "invoice.paid"
+        ) {
+            const inv = event.data.object as Stripe.Invoice;
+
+            const stripeCustomerId =
+                typeof inv.customer === "string" ? inv.customer : inv.customer?.id;
+
+            if (stripeCustomerId) {
+                const customer = await prisma.customer.findFirst({
+                    where: { stripeCustomerId },
+                    select: {
+                        id: true,
+                        workspaceId: true,
+                        mrr: true,
+                    },
+                });
+
+                if (customer) {
+                    await prisma.invoice.updateMany({
+                        where: {
+                            workspaceId: customer.workspaceId,
+                            customerId: customer.id,
+                            status: {
+                                in: ["open", "failed", "past_due", "overdue"],
+                            },
+                        },
+                        data: {
+                            status: "paid",
+                            paidAt: new Date(),
+                        },
+                    });
+
+                    await prisma.customer.update({
+                        where: { id: customer.id },
+                        data: {
+                            churnRisk: 0.2,
+                        },
+                    });
+
+                    const execution = await prisma.actionExecution.findFirst({
+                        where: {
+                            workspaceId: customer.workspaceId,
+                            customerId: customer.id,
+                            actionType: "retry_payment",
+                            status: {
+                                in: ["pending", "sent", "delivered", "failed"],
+                            },
+                        },
+                        orderBy: {
+                            createdAt: "desc",
+                        },
+                    });
+
+                    if (execution) {
+                        await prisma.actionExecution.update({
+                            where: { id: execution.id },
+                            data: {
+                                status: "success",
+                                outcomeAt: new Date(),
+                            },
+                        });
+
+                        await prisma.actionOutcomeSnapshot.create({
+                            data: {
+                                workspaceId: customer.workspaceId,
+                                actionExecutionId: execution.id,
+                                paymentRecovered: true,
+                                retainedRevenueMinor:
+                                    inv.amount_paid ?? customer.mrr ?? 0,
+                                outcomeLabel: "payment_recovered",
+                                metadata: {
+                                    stripeInvoiceId: inv.id,
+                                    stripeCustomerId,
+                                    source: "stripe_webhook",
+                                } as any,
+                            },
+                        });
+                    }
                 }
             }
         }
@@ -129,10 +271,14 @@ export async function POST(req: Request) {
             const stripeCustomerId =
                 typeof sub.customer === "string" ? sub.customer : sub.customer.id;
 
-            await prisma.customer.updateMany({
-                where: { workspaceId, stripeCustomerId },
-                data: { mrr: 0, churnRisk: 1 },
-            });
+            const workspaceId = await getWorkspaceIdForStripeCustomer(stripeCustomerId);
+
+            if (workspaceId) {
+                await prisma.customer.updateMany({
+                    where: { workspaceId, stripeCustomerId },
+                    data: { mrr: 0, churnRisk: 1 },
+                });
+            }
         }
 
         return NextResponse.json({ received: true });

@@ -121,8 +121,23 @@ function percentDelta(current: number, previous: number) {
 function outcomeFromStatus(status?: string | null): "success" | "pending" | "failed" {
     const s = (status || "").toLowerCase();
 
-    if (s === "recovered" || s === "retained" || s === "success") return "success";
-    if (s === "failed") return "failed";
+    if (
+        s === "success" ||
+        s === "recovered" ||
+        s === "retained" ||
+        s === "replied"
+    ) {
+        return "success";
+    }
+
+    if (
+        s === "failed" ||
+        s === "bounced" ||
+        s === "complained"
+    ) {
+        return "failed";
+    }
+
     return "pending";
 }
 
