@@ -134,16 +134,19 @@ export function churnTrendOption(
             ? Math.max(...safeValues)
             : 6;
 
+    const isSinglePoint =
+        safeValues.length === 1;
+
     return {
         animation: false,
 
         backgroundColor: "transparent",
 
         grid: {
-            top: 48,
-            right: 18,
-            bottom: 28,
-            left: 0,
+            top: 18,
+            right: 12,
+            bottom: 26,
+            left: 8,
             containLabel: true,
         },
 
@@ -203,7 +206,7 @@ ${formatPercent(value)} churn
 
             data: safeMonths,
 
-            boundaryGap: false,
+            boundaryGap: isSinglePoint,
 
             axisTick: {
                 show: false,
@@ -243,7 +246,7 @@ ${formatPercent(value)} churn
 
             axisLabel: {
                 color: "#9ca3af",
-                fontSize: 11,
+                fontSize: 10,
                 margin: 10,
 
                 formatter: (
@@ -268,9 +271,15 @@ ${formatPercent(value)} churn
 
                 data: safeValues,
 
-                showSymbol: false,
+                showSymbol: isSinglePoint,
 
-                symbol: "none",
+                symbol: isSinglePoint
+                    ? "circle"
+                    : "none",
+
+                symbolSize: isSinglePoint
+                    ? 8
+                    : 0,
 
                 lineStyle: {
                     width: 3,
@@ -283,29 +292,7 @@ ${formatPercent(value)} churn
                     color: "#e85d75",
                 },
 
-                areaStyle: {
-                    opacity: 1,
-
-                    color:
-                        new echarts.graphic.LinearGradient(
-                            0,
-                            0,
-                            0,
-                            1,
-                            [
-                                {
-                                    offset: 0,
-                                    color:
-                                        "rgba(232,93,117,0.18)",
-                                },
-                                {
-                                    offset: 1,
-                                    color:
-                                        "rgba(232,93,117,0.01)",
-                                },
-                            ]
-                        ),
-                },
+              
             },
         ],
     };
@@ -333,6 +320,9 @@ export function mrrProtectedOption(
         Math.ceil(maxValue / 250) *
         250
     );
+
+    const isSinglePoint =
+        safeValues.length === 1;
 
     return {
         animation: false,
@@ -407,7 +397,7 @@ ${formatCurrency(value)}
 
             data: safeMonths,
 
-            boundaryGap: false,
+            boundaryGap: isSinglePoint,
 
             axisTick: {
                 show: false,
@@ -471,9 +461,15 @@ ${formatCurrency(value)}
 
                 data: safeValues,
 
-                showSymbol: false,
+                showSymbol: isSinglePoint,
 
-                symbol: "none",
+                symbol: isSinglePoint
+                    ? "circle"
+                    : "none",
+
+                symbolSize: isSinglePoint
+                    ? 8
+                    : 0,
 
                 lineStyle: {
                     width: 3,
@@ -486,29 +482,7 @@ ${formatCurrency(value)}
                     color: "#1d9bf0",
                 },
 
-                areaStyle: {
-                    opacity: 1,
-
-                    color:
-                        new echarts.graphic.LinearGradient(
-                            0,
-                            0,
-                            0,
-                            1,
-                            [
-                                {
-                                    offset: 0,
-                                    color:
-                                        "rgba(29,155,240,0.16)",
-                                },
-                                {
-                                    offset: 1,
-                                    color:
-                                        "rgba(29,155,240,0.01)",
-                                },
-                            ]
-                        ),
-                },
+              
             },
         ],
     };

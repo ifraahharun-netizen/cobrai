@@ -18,11 +18,17 @@ import {
 
 } from "@/components/charts/options";
 
+import { getDemoRecoveryQueue } from "@/lib/demo/customers";
+
 import { buildDemoSeries } from "@/lib/demo/analytics";
 
 import { getEmailRecommendation } from "@/lib/emailRecommendations";
 
-import { Users } from "lucide-react";
+import {
+    Users,
+    Clock3,
+    ChevronDown,
+} from "lucide-react";
 
 import * as echarts from "echarts";
 
@@ -48,6 +54,7 @@ type DashboardSummary = {
     currency?: string;
     workspaceCurrency?: string;
     billingCurrency?: string;
+    workspaceName?: string;
     demoMode?: boolean;
     trialEndsAt?: string | null;
     connectedIntegrations?: string[];
@@ -61,6 +68,7 @@ type DashboardSummary = {
     riskAccounts?: Array<{
         id: string;
         company: string;
+        email?: string | null;
         reason: string;
         risk: number;
         mrr?: number | null;
@@ -80,6 +88,39 @@ type DashboardSummary = {
         occurredAt: string;
         valueMinor?: number | null;
     }>;
+};
+
+type RecoveryQueueItem = {
+    id: string;
+    customerId?: string | null;
+    accountRiskId?: string | null;
+    type?:
+    | "immediate_attention"
+    | "billing_recovery"
+    | "upsell_opportunity"
+    | "reactivation"
+    | "expansion_momentum";
+    priority?: string;
+    name: string;
+    email?: string | null;
+    reason: string;
+    action: string;
+    valueMinor: number;
+    confidence: number;
+    lastEventAt?: string | null;
+};
+
+type RecoveryQueueData = {
+    ok?: boolean;
+    currency?: string;
+    currentMrrMinor: number;
+    forecastMrrMinor: number;
+    revenueGapMinor: number;
+    potentialRecoveryMinor: number;
+    recoveryCoveragePct: number;
+    typeCounts?: Record<string, number>;
+    rows: RecoveryQueueItem[];
+    generatedAt?: string;
 };
 
 type AiMonthlyInsight = {
@@ -206,10 +247,10 @@ type InsightsFeedRes = {
     items: InsightItem[];
     error?: string;
 };
-
 type AttentionAccount = {
     id: string;
     company: string;
+    email?: string | null;
     risk: number;
     riskBand: "Critical" | "High" | "Medium" | "Low";
     mrrMinor?: number | null;
@@ -224,7 +265,7 @@ type AttentionRes = {
     error?: string;
 };
 
-type RangeKey = "auto" | "12m" | "ytd" | "24m";
+type RangeKey = "current" | "3m" | "6m" | "12m";
 
 type TimeseriesRes = {
     ok: boolean;
@@ -335,6 +376,8 @@ function getBrowserLocale() {
     return "en-GB";
 }
 
+
+
 function getWorkspaceCurrency(summary?: DashboardSummary | null) {
     return (
         (summary as any)?.currency ||
@@ -342,6 +385,24 @@ function getWorkspaceCurrency(summary?: DashboardSummary | null) {
         (summary as any)?.billingCurrency ||
         "GBP"
     ).toUpperCase();
+}
+
+
+const chartRangeOptions: Array<{ label: string; value: RangeKey }> = [
+    { label: "Current month", value: "current" },
+    { label: "3 months", value: "3m" },
+    { label: "6 months", value: "6m" },
+    { label: "12 months", value: "12m" },
+];
+
+function getRangeLabel(value: RangeKey) {
+    return chartRangeOptions.find((option) => option.value === value)?.label ?? "6 months";
+}
+function getRangeMonths(range: RangeKey) {
+    if (range === "current") return 2;
+    if (range === "3m") return 3;
+    if (range === "6m") return 6;
+    return 12;
 }
 
 function buildRiskAccountAction(customer: any) {
@@ -947,7 +1008,7 @@ function getRiskAccountRows(
                 .map((row) => ({
                     id: row.id,
                     name: row.company,
-                    email: null,
+                    email: row.email ?? null,
                     reason: row.driver || row.recommendedAction || "Risk signal detected",
                     mrrMinor: row.mrrMinor ?? null,
                     riskScore: Number(row.risk || 0),
@@ -972,7 +1033,7 @@ function getRiskAccountRows(
                 .map((row) => ({
                     id: row.id,
                     name: row.company,
-                    email: null,
+                    email: row.email ?? null,
                     reason: row.reason || "Risk signal detected",
                     mrrMinor:
                         typeof row.mrr === "number" && Number.isFinite(row.mrr)
@@ -1274,6 +1335,15 @@ function EmailModalPortal({
     return createPortal(children, document.body);
 }
 
+function formatQueueType(type?: RecoveryQueueItem["type"]) {
+    if (type === "immediate_attention") return "Immediate attention";
+    if (type === "billing_recovery") return "Billing recovery";
+    if (type === "upsell_opportunity") return "Upsell opportunity";
+    if (type === "reactivation") return "Reactivation";
+    if (type === "expansion_momentum") return "Expansion momentum";
+    return "Revenue opportunity";
+}
+
 export default function AnalyticsPage() {
     const router = useRouter();
 
@@ -1301,7 +1371,7 @@ export default function AnalyticsPage() {
     const [aiMrrInsights, setAiMrrInsights] = useState<AiMonthlyInsight[]>([]);
 
 
-    const AI_ACCOUNTS_PER_PAGE = 3;
+    const AI_ACCOUNTS_PER_PAGE = 5;
     const [aiAccountPage, setAiAccountPage] = useState(0);
 
 
@@ -1314,11 +1384,17 @@ export default function AnalyticsPage() {
     const [mrrTimeseries, setMrrTimeseries] = useState<TimeseriesRes | null>(null);
     const [churnTimeseries, setChurnTimeseries] = useState<TimeseriesRes | null>(null);
     const [mauTimeseries, setMauTimeseries] = useState<TimeseriesRes | null>(null);
-    const [mrrRange, setMrrRange] = useState<RangeKey>("auto");
-    const [churnRange, setChurnRange] = useState<RangeKey>("auto");
-    const [mauRange, setMauRange] = useState<RangeKey>("auto");
+    const [mrrRange, setMrrRange] = useState<RangeKey>("6m");
+    const [churnRange, setChurnRange] = useState<RangeKey>("6m");
+
+
+    const [aiRevenueFilterOpen, setAiRevenueFilterOpen] = useState(false);
+
     const [workspaceAi, setWorkspaceAi] = useState<AiWorkspaceRes | null>(null);
     const [upgradeOpen, setUpgradeOpen] = useState(false);
+
+    const [mrrFilterOpen, setMrrFilterOpen] = useState(false);
+    const [churnFilterOpen, setChurnFilterOpen] = useState(false);
 
     const [emailDraftOpen, setEmailDraftOpen] = useState(false);
     const [emailDraft, setEmailDraft] = useState({
@@ -1327,13 +1403,20 @@ export default function AnalyticsPage() {
         body: "",
     });
 
+
+    const RECOVERY_ROWS_PER_PAGE = 8;
+    const [recoveryPage, setRecoveryPage] = useState(0);
+    const [recoveryQueue, setRecoveryQueue] = useState<RecoveryQueueData | null>(null);
+    const [recoveryLoading, setRecoveryLoading] = useState(false);
+    const [recoveryError, setRecoveryError] = useState<string | null>(null);
+
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [drawerView, setDrawerView] = useState<DrawerView>("mrr");
 
     type AiRevenueTab = "mrr" | "churn";
 
     const [aiRevenueTab, setAiRevenueTab] = useState<AiRevenueTab>("mrr");
-
+    const [tableSearch, setTableSearch] = useState("");
     useEffect(() => {
         setAiAccountPage(0);
     }, [aiRevenueTab]);
@@ -1439,17 +1522,17 @@ export default function AnalyticsPage() {
             try {
                 if (!user) return;
 
-                const res = (await authedGet(
-                    `/api/dashboard/analytics/timeseries?range=${mrrRange}`,
-                    user
-                )) as TimeseriesRes;
+                const [mrrRes, churnRes] = await Promise.all([
+                    authedGet(`/api/dashboard/analytics/timeseries?range=${mrrRange}`, user) as Promise<TimeseriesRes>,
+                    authedGet(`/api/dashboard/analytics/timeseries?range=${churnRange}`, user) as Promise<TimeseriesRes>,
+                ]);
 
-                if (!res.ok) throw new Error(res.error || "Timeseries failed");
+                if (!mrrRes.ok) throw new Error(mrrRes.error || "MRR timeseries failed");
+                if (!churnRes.ok) throw new Error(churnRes.error || "Churn timeseries failed");
 
                 if (!cancelled) {
-                    setMrrTimeseries(res);
-                    setChurnTimeseries(res);
-                    setMauTimeseries(res);
+                    setMrrTimeseries(mrrRes);
+                    setChurnTimeseries(churnRes);
                 }
             } catch {
                 if (!cancelled) {
@@ -1467,7 +1550,7 @@ export default function AnalyticsPage() {
         return () => {
             cancelled = true;
         };
-    }, [status, user, mrrRange]);
+    }, [status, user, mrrRange, churnRange]);
 
     useEffect(() => {
         let cancelled = false;
@@ -1503,7 +1586,7 @@ export default function AnalyticsPage() {
                     "/api/dashboard/ai/insights",
                     user,
                     {
-                        timeframe: mrrRange === "ytd" ? "month" : "week",
+                        timeframe: mrrRange === "current" ? "week" : "month",
                     }
                 ) as AiWorkspaceRes;
 
@@ -1578,6 +1661,15 @@ export default function AnalyticsPage() {
 
         return fromApi;
     }, [churnSource, isDemoMode, demoChurnSeries]);
+
+
+    const visibleMrrSeries = useMemo(() => {
+        return mrrSeries.slice(-getRangeMonths(mrrRange));
+    }, [mrrSeries, mrrRange]);
+
+    const visibleChurnSeries = useMemo(() => {
+        return churnSeries.slice(-getRangeMonths(churnRange));
+    }, [churnSeries, churnRange]);
 
     const mauSeries = useMemo(() => {
         const fromApi =
@@ -1766,9 +1858,6 @@ export default function AnalyticsPage() {
     const mrrDeltaPct = useMemo(() => drawerInsights.mrr.deltaPct ?? null, [drawerInsights.mrr.deltaPct]);
     const churnDeltaPp = useMemo(() => drawerInsights.churn.deltaPp ?? null, [drawerInsights.churn.deltaPp]);
 
-    const mrrForecast = useMemo(() => computeForecastFromSeries(mrrSeries), [mrrSeries]);
-    const churnForecast = useMemo(() => computeForecastFromSeries(churnSeries), [churnSeries]);
-
 
     const aiMrr = useMemo(() => buildMrrAiSummary(drawerInsights.mrr), [drawerInsights.mrr]);
     const aiChurn = useMemo(() => buildChurnAiSummary(drawerInsights.churn), [drawerInsights.churn]);
@@ -1846,14 +1935,15 @@ export default function AnalyticsPage() {
         isDemoMode: isDemoPreview,
     });
     const mrrForecastPoints = useMemo(
-        () => (hasForecastAccess ? buildForecastPoints(mrrSeries, 3, false) : []),
-        [hasForecastAccess, mrrSeries]
+        () => (hasForecastAccess ? buildForecastPoints(visibleMrrSeries, 3, false) : []),
+        [hasForecastAccess, visibleMrrSeries]
     );
 
     const churnForecastPoints = useMemo(
-        () => (hasForecastAccess ? buildForecastPoints(churnSeries, 3, true) : []),
-        [hasForecastAccess, churnSeries]
+        () => (hasForecastAccess ? buildForecastPoints(visibleChurnSeries, 3, true) : []),
+        [hasForecastAccess, visibleChurnSeries]
     );
+
     const hasAiInsightAccess = canAccessFeature({
         plan: normalizedTier,
         feature: "ai-insights",
@@ -2030,6 +2120,7 @@ export default function AnalyticsPage() {
 
                 return {
                     ...mapped,
+                    action: row.action || row.label || "Review revenue movement",
                     riskScore: getMrrDriverRiskScore(mapped),
                 };
             }
@@ -2040,17 +2131,199 @@ export default function AnalyticsPage() {
 
     const activeAiRows = aiRevenueTab === "mrr" ? mrrAiRows : riskAccountRows;
 
+    const filteredAiRows = useMemo(() => {
+        const query = tableSearch.trim().toLowerCase();
+
+        if (!query) return activeAiRows;
+
+        return activeAiRows.filter((row: any) => {
+            const searchableText = [
+                row.name,
+                row.reason,
+                row.action,
+                row.automation,
+                row.recommendedAction,
+            ]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase();
+
+            return searchableText.includes(query);
+        });
+    }, [activeAiRows, tableSearch]);
+
     const aiDriverPageCount = Math.max(
         1,
-        Math.ceil(activeAiRows.length / AI_ACCOUNTS_PER_PAGE)
+        Math.ceil(filteredAiRows.length / AI_ACCOUNTS_PER_PAGE)
     );
 
     const visibleAiRows = hasFullAiDriverAccess
-        ? activeAiRows.slice(
+        ? filteredAiRows.slice(
             aiAccountPage * AI_ACCOUNTS_PER_PAGE,
             (aiAccountPage + 1) * AI_ACCOUNTS_PER_PAGE
         )
-        : activeAiRows.slice(0, AI_ACCOUNTS_PER_PAGE);
+        : filteredAiRows.slice(0, AI_ACCOUNTS_PER_PAGE);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function loadRecoveryQueue() {
+            try {
+                if (!user || !hasAiRevenueAccess) return;
+
+                setRecoveryLoading(true);
+                setRecoveryError(null);
+
+                const res = (await authedGet(
+                    "/api/dashboard/revenue-recovery-queue",
+                    user
+                )) as RecoveryQueueData;
+
+                if (!res.ok && typeof res.ok !== "undefined") {
+                    throw new Error("Revenue recovery queue failed");
+                }
+
+                if (cancelled) return;
+
+                setRecoveryQueue(res);
+                setRecoveryPage(0);
+            } catch (e: any) {
+                if (cancelled) return;
+
+                setRecoveryQueue(null);
+                setRecoveryError(e?.message ?? "Failed to load revenue recovery queue");
+            } finally {
+                if (cancelled) return;
+                setRecoveryLoading(false);
+            }
+        }
+
+        if (status === "authed" && user && summary) {
+            void loadRecoveryQueue();
+        }
+
+        return () => {
+            cancelled = true;
+        };
+    }, [status, user, summary, hasAiRevenueAccess]);
+
+    const demoRecoveryRows = useMemo(
+        () => getDemoRecoveryQueue(),
+        []
+    );
+
+
+    const hasRecoveryRows =
+        Array.isArray(recoveryQueue?.rows) &&
+        recoveryQueue.rows.length > 0;
+
+    const safeRecoveryQueue: RecoveryQueueData =
+        hasRecoveryRows
+            ? recoveryQueue!
+            : {
+                currentMrrMinor: demoKpis.mrrProtected,
+
+                forecastMrrMinor: Math.max(
+                    demoKpis.mrrProtected,
+                    Math.round(demoKpis.mrrProtected * 2)
+                ),
+
+                revenueGapMinor: Math.max(
+                    0,
+                    Math.round(demoKpis.mrrProtected * 2) -
+                    demoKpis.mrrProtected
+                ),
+
+                potentialRecoveryMinor: demoRecoveryRows.reduce(
+                    (sum, row) => sum + Number(row.valueMinor || 0),
+                    0
+                ),
+
+                recoveryCoveragePct: 0,
+
+                rows: isDemoPreview ? demoRecoveryRows : [],
+            };
+    const forecastProgressPct = Math.min(
+        100,
+        Math.round(
+            (safeRecoveryQueue.currentMrrMinor /
+                Math.max(safeRecoveryQueue.forecastMrrMinor, 1)) *
+            100
+        )
+    );
+
+    const forecastProgressTone =
+        forecastProgressPct >= 100
+            ? "green"
+            : forecastProgressPct >= 70
+                ? "yellow"
+                : forecastProgressPct >= 40
+                    ? "orange"
+                    : "red";
+
+    const recoveryPageCount = Math.max(
+        1,
+        Math.ceil(safeRecoveryQueue.rows.length / RECOVERY_ROWS_PER_PAGE)
+    );
+
+    useEffect(() => {
+        setRecoveryPage(0);
+    }, [safeRecoveryQueue.rows.length]);
+
+    const visibleRecoveryRows = safeRecoveryQueue.rows.slice(
+        recoveryPage * RECOVERY_ROWS_PER_PAGE,
+        (recoveryPage + 1) * RECOVERY_ROWS_PER_PAGE
+    );
+
+    function handleExportAiRows() {
+        const headers =
+            aiRevenueTab === "mrr"
+                ? ["Account", "Reason", "Action", "MRR"]
+                : ["Account", "Reason", "Action", "Revenue at risk"];
+
+        const rows = filteredAiRows.map((row: any) => {
+            if (aiRevenueTab === "mrr") {
+                return [
+                    row.name ?? "",
+                    formatAiReason(row.reason),
+                    row.action || "Review revenue movement",
+                    formatCurrencyFromMinor(row.valueMinor, workspaceCurrency),
+                ];
+            }
+
+            const aiReason = row.reason || "Customer shows elevated churn risk.";
+
+            return [
+                row.name ?? "",
+                formatAiReason(aiReason),
+                getDynamicChurnAction({
+                    reason: aiReason,
+                    automation: row.automation,
+                    recommendedAction: row.recommendedAction,
+                    riskScore: row.riskScore,
+                }),
+                formatCurrencyFromMinor(row.mrrMinor, workspaceCurrency),
+            ];
+        });
+
+        const csv = [headers, ...rows]
+            .map((line) =>
+                line
+                    .map((cell) => `"${String(cell).replaceAll('"', '""')}"`)
+                    .join(",")
+            )
+            .join("\n");
+
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+
+        link.href = url;
+        link.download = `${aiRevenueTab}-drivers.csv`;
+        link.click();
+
+        URL.revokeObjectURL(url);
+    }
 
     const recommendedActionCards = useMemo(() => {
         const riskRows = riskAccountRows ?? [];
@@ -2119,6 +2392,9 @@ export default function AnalyticsPage() {
         const color = neutral ? "#64748b" : good ? "#16a34a" : "#dc2626";
         const arrow = neutral ? "→" : positive ? "↑" : "↓";
 
+
+
+
         return (
             <span
                 style={{
@@ -2173,6 +2449,9 @@ export default function AnalyticsPage() {
     }, [isDemoMode, demoAnalytics.activityByMonth, mrrSource?.activityByMonth]);
 
     const subscriberMovementRows = subscriberChartRows;
+    const mrrForecast = useMemo(() => computeForecastFromSeries(visibleMrrSeries), [visibleMrrSeries]);
+
+    const churnForecast = useMemo(() => computeForecastFromSeries(visibleChurnSeries), [visibleChurnSeries]);
 
     const aiInsightCard = useMemo(() => {
         const narrative = workspaceAi?.businessNarrative;
@@ -2571,6 +2850,7 @@ export default function AnalyticsPage() {
     );
 
 
+
     const mrrForecastChart = useMemo(() => {
         const base = mrrSeries
             .filter((p) => typeof p.y === "number" && Number.isFinite(Number(p.y)))
@@ -2627,6 +2907,7 @@ export default function AnalyticsPage() {
 
         const values = safeBase.map((p) => Number(p.y || 0));
         const lastValue = values[values.length - 1] ?? currentChurn;
+
 
         return {
             labels,
@@ -2921,17 +3202,50 @@ export default function AnalyticsPage() {
                 <div className={styles.analyticsLayout}>
                     <section className={styles.primaryGrid}>
                         {/* MRR */}
-                        <div className={`${styles.heroChartCard} ${styles.mrrCard}`}>
-                            <div className={styles.chartHeader}>
-                                <div>
-                                    <div className={styles.chartTitle}>MRR Trend</div>
-                                    <div className={styles.chartMeta}>
-                                        {hasForecastAccess
-                                            ? "Last 12 months + AI forecast"
-                                            : "Last 12 months • Revenue over time"}
-                                    </div>
+                        <div className={`${styles.heroChartCard} ${styles.mrrCard} ${styles.revenueTrendCompact}`}>                            <div className={styles.chartHeader}>
+                            <div>
+                                <div className={styles.chartTitle}>Revenue Trend</div>
+                                <div className={styles.chartMeta}>
+                                    {getRangeLabel(mrrRange)} revenue performance and projected growth
                                 </div>
                             </div>
+
+                            <div className={styles.chartFilterWrap}>
+                                <button
+                                    type="button"
+                                    className={styles.chartFilterButton}
+                                    onClick={() => {
+                                        setMrrFilterOpen((open) => !open);
+                                        setChurnFilterOpen(false);
+                                        setAiRevenueFilterOpen(false);
+                                    }}
+                                >
+                                    <Clock3 size={13} strokeWidth={1.8} />
+                                    <span>{getRangeLabel(mrrRange)}</span>
+                                    <ChevronDown size={13} strokeWidth={1.8} />
+                                </button>
+
+                                {mrrFilterOpen ? (
+                                    <div className={styles.chartFilterMenu}>
+                                        {chartRangeOptions.map((option) => (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                className={`${styles.chartFilterOption} ${mrrRange === option.value ? styles.chartFilterOptionActive : ""
+                                                    }`}
+                                                onClick={() => {
+                                                    setMrrRange(option.value);
+                                                    setMrrFilterOpen(false);
+                                                }}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+
 
                             <div className={styles.heroRevenue}>
                                 {formatCurrencyFromMinor(
@@ -2940,59 +3254,58 @@ export default function AnalyticsPage() {
                                 )}
                             </div>
 
-                            <div className={styles.heroChart} style={{ height: 350 }}>
-                                <EChart
-                                    option={{
+                            <div className={styles.heroChart}>                                <EChart
+                                option={{
+                                    backgroundColor: "transparent",
+                                    tooltip: {
+                                        trigger: "axis",
                                         backgroundColor: "transparent",
-                                        tooltip: {
-                                            trigger: "axis",
-                                            backgroundColor: "transparent",
-                                            borderColor: "transparent",
-                                            borderWidth: 0,
-                                            padding: 0,
-                                            extraCssText: "box-shadow:none;",
-                                            axisPointer: {
-                                                type: "line",
-                                                lineStyle: {
-                                                    color: "#cbd5e1",
-                                                    width: 1.2,
-                                                    type: "dashed",
-                                                },
+                                        borderColor: "transparent",
+                                        borderWidth: 0,
+                                        padding: 0,
+                                        extraCssText: "box-shadow:none;",
+                                        axisPointer: {
+                                            type: "line",
+                                            lineStyle: {
+                                                color: "#cbd5e1",
+                                                width: 1.2,
+                                                type: "dashed",
                                             },
-                                            formatter: (params: any) => {
-                                                const item = Array.isArray(params) ? params[0] : params;
+                                        },
+                                        formatter: (params: any) => {
+                                            const item = Array.isArray(params) ? params[0] : params;
 
-                                                const index =
-                                                    typeof item?.dataIndex === "number"
-                                                        ? item.dataIndex
-                                                        : mrrSeries.length - 1;
+                                            const index =
+                                                typeof item?.dataIndex === "number"
+                                                    ? item.dataIndex
+                                                    : visibleMrrSeries.length - 1;
 
-                                                const chartRows = [...mrrSeries, ...mrrForecastPoints];
+                                            const chartRows = [...visibleMrrSeries, ...mrrForecastPoints];
 
-                                                const current = chartRows[index];
-                                                const previous = chartRows[index - 1];
+                                            const current = chartRows[index];
+                                            const previous = chartRows[index - 1];
 
-                                                const isForecastPoint = index >= mrrSeries.length;
+                                            const isForecastPoint = index >= visibleMrrSeries.length;
 
-                                                const currentValue = Number(current?.y ?? 0);
-                                                const previousValue = Number(previous?.y ?? 0);
-                                                const delta = currentValue - previousValue;
+                                            const currentValue = Number(current?.y ?? 0);
+                                            const previousValue = Number(previous?.y ?? 0);
+                                            const delta = currentValue - previousValue;
 
-                                                const row = subscriberChartRows?.[index];
+                                            const row = subscriberChartRows?.[index];
 
-                                                const newRevenueMinor = Number(row?.newSubscribers ?? 0) * 1200;
-                                                const expansionMinor = Number(row?.upgrades ?? 0) * 950;
-                                                const churnLossMinor = Number(row?.churned ?? 0) * 700;
+                                            const newRevenueMinor = Number(row?.newSubscribers ?? 0) * 1200;
+                                            const expansionMinor = Number(row?.upgrades ?? 0) * 950;
+                                            const churnLossMinor = Number(row?.churned ?? 0) * 700;
 
-                                                const retainedPct = row?.totalSubscribers
-                                                    ? Math.round(
-                                                        (Number(row.retained ?? 0) /
-                                                            Math.max(Number(row.totalSubscribers), 1)) *
-                                                        100
-                                                    )
-                                                    : null;
+                                            const retainedPct = row?.totalSubscribers
+                                                ? Math.round(
+                                                    (Number(row.retained ?? 0) /
+                                                        Math.max(Number(row.totalSubscribers), 1)) *
+                                                    100
+                                                )
+                                                : null;
 
-                                                return `
+                                            return `
 <div style="width:260px;max-width:260px;background:#ffffff;border:1px solid #e8eef6;border-radius:20px;padding:14px;box-sizing:border-box;box-shadow:0 18px 45px rgba(15,23,42,0.10);font-family:Inter,sans-serif;">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
         <div style="font-size:13px;font-weight:850;color:#0f172a;">
@@ -3000,9 +3313,9 @@ export default function AnalyticsPage() {
         </div>
 
         ${isForecastPoint
-                                                        ? `<span style="white-space:nowrap;font-size:10px;font-weight:900;color:#2563eb;background:#eff6ff;border:1px solid #dbeafe;border-radius:999px;padding:4px 8px;">AI forecast</span>`
-                                                        : ``
-                                                    }
+                                                    ? `<span style="white-space:nowrap;font-size:10px;font-weight:900;color:#2563eb;background:#eff6ff;border:1px solid #dbeafe;border-radius:999px;padding:4px 8px;">AI forecast</span>`
+                                                    : ``
+                                                }
     </div>
 
     <div style="font-size:30px;line-height:1;font-weight:900;letter-spacing:-0.06em;color:#0f172a;margin-bottom:8px;">
@@ -3010,15 +3323,15 @@ export default function AnalyticsPage() {
     </div>
 
     <div style="font-size:12px;font-weight:800;color:${delta >= 0 ? "#15803d" : "#b91c1c"
-                                                    };margin-bottom:12px;">
+                                                };margin-bottom:12px;">
         ${delta >= 0 ? "↑" : "↓"} ${formatMoneyAmount(
-                                                        Math.abs(delta),
-                                                        workspaceCurrency
-                                                    )} vs previous month
+                                                    Math.abs(delta),
+                                                    workspaceCurrency
+                                                )} vs previous month
     </div>
 
     ${isForecastPoint
-                                                        ? `
+                                                    ? `
                 <div style="padding:11px 0;border-top:1px solid #f1f5f9;border-bottom:1px solid #f1f5f9;margin-bottom:12px;">
                     <div style="font-size:10px;font-weight:900;color:#64748b;letter-spacing:0.08em;margin-bottom:6px;">
                         WHY THIS FORECAST
@@ -3026,9 +3339,9 @@ export default function AnalyticsPage() {
 
                     <div style="font-size:12px;line-height:1.45;font-weight:650;color:#334155;white-space:normal;word-break:normal;overflow-wrap:break-word;">
 ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
-                                                        workspaceAi?.businessNarrative?.revenueForecast ||
-                                                        "AI is reviewing revenue, retention, and customer health signals for this forecast."
-                                                        }                    </div>
+                                                    workspaceAi?.businessNarrative?.revenueForecast ||
+                                                    "AI is reviewing revenue, retention, and customer health signals for this forecast."
+                                                    }                    </div>
                 </div>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-bottom:12px;">
@@ -3040,44 +3353,44 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
                     <div>
                         <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">CONFIDENCE</div>
                         <div style="font-size:13px;font-weight:900;color:#2563eb;">${mrrForecast?.confidencePct ?? 68
-                                                        }%</div>
+                                                    }%</div>
                     </div>
                 </div>
             `
-                                                        : `
+                                                    : `
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-bottom:12px;">
                     <div>
                         <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">NEW REVENUE</div>
                         <div style="font-size:14px;font-weight:900;color:#15803d;">+${formatCurrencyFromMinor(
-                                                            newRevenueMinor,
-                                                            workspaceCurrency
-                                                        )}</div>
+                                                        newRevenueMinor,
+                                                        workspaceCurrency
+                                                    )}</div>
                     </div>
 
                     <div>
                         <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">EXPANSION</div>
                         <div style="font-size:14px;font-weight:900;color:#15803d;">+${formatCurrencyFromMinor(
-                                                            expansionMinor,
-                                                            workspaceCurrency
-                                                        )}</div>
+                                                        expansionMinor,
+                                                        workspaceCurrency
+                                                    )}</div>
                     </div>
 
                     <div>
                         <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">CHURN LOSS</div>
                         <div style="font-size:14px;font-weight:900;color:#b91c1c;">-${formatCurrencyFromMinor(
-                                                            churnLossMinor,
-                                                            workspaceCurrency
-                                                        )}</div>
+                                                        churnLossMinor,
+                                                        workspaceCurrency
+                                                    )}</div>
                     </div>
 
                     <div>
                         <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">RETAINED</div>
                         <div style="font-size:14px;font-weight:900;color:#0f172a;">${retainedPct !== null ? `${retainedPct}%` : "—"
-                                                        }</div>
+                                                    }</div>
                     </div>
                 </div>
             `
-                                                    }
+                                                }
 
     <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid #f1f5f9;">
         <span style="font-size:12px;font-weight:800;color:#64748b;">
@@ -3085,462 +3398,222 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
         </span>
 
         <strong style="font-size:13px;font-weight:900;color:${delta >= 0 ? "#15803d" : "#b91c1c"
-                                                    };">
+                                                };">
             ${delta >= 0 ? "Healthy" : "Declining"}
         </strong>
     </div>
 </div>
 `;
+                                        },
+                                    },
+                                    grid: {
+                                        top: 20,
+                                        right: 10,
+                                        bottom: 20,
+                                        left: 10,
+                                        containLabel: true,
+                                    },
+                                    xAxis: {
+                                        type: "category",
+                                        data: [...visibleMrrSeries, ...mrrForecastPoints].map((p) =>
+                                            formatMonthLong(p.x)
+                                        ),
+                                        boundaryGap: false,
+                                        axisLine: { show: false },
+                                        axisTick: { show: false },
+                                        axisLabel: { color: "#64748b", fontSize: 11 },
+                                    },
+                                    yAxis: {
+                                        type: "value",
+                                        axisLine: { show: false },
+                                        axisTick: { show: false },
+                                        splitLine: {
+                                            lineStyle: { color: "#eef2f7" },
+                                        },
+                                        axisLabel: {
+                                            color: "#64748b",
+                                            fontSize: 11,
+                                            formatter: (value: number) => `£${Math.round(value)} `,
+                                        },
+                                    },
+                                    series: [
+                                        {
+                                            name: "Actual MRR",
+                                            type: "line",
+                                            smooth: false,
+                                            showSymbol: false,
+                                            data: [
+                                                ...visibleMrrSeries.map((p) => p.y),
+                                                ...mrrForecastPoints.map(() => null),
+                                            ],
+                                            lineStyle: {
+                                                width: 3,
+                                                color: "#3264ff",
+                                            },
+                                            itemStyle: {
+                                                color: "#3264ff",
+                                            },
+                                            areaStyle: {
+                                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                                    { offset: 0, color: "rgba(50, 100, 255, 0.12)" },
+                                                    { offset: 1, color: "rgba(50, 100, 255, 0.02)" },
+                                                ]),
                                             },
                                         },
-                                        grid: {
-                                            top: 20,
-                                            right: 10,
-                                            bottom: 20,
-                                            left: 10,
-                                            containLabel: true,
-                                        },
-                                        xAxis: {
-                                            type: "category",
-                                            data: [...mrrSeries, ...mrrForecastPoints].map((p) =>
-                                                formatMonthLong(p.x)
-                                            ),
-                                            boundaryGap: false,
-                                            axisLine: { show: false },
-                                            axisTick: { show: false },
-                                            axisLabel: { color: "#64748b", fontSize: 11 },
-                                        },
-                                        yAxis: {
-                                            type: "value",
-                                            axisLine: { show: false },
-                                            axisTick: { show: false },
-                                            splitLine: {
-                                                lineStyle: { color: "#eef2f7" },
-                                            },
-                                            axisLabel: {
-                                                color: "#64748b",
-                                                fontSize: 11,
-                                                formatter: (value: number) => `£${Math.round(value)} `,
-                                            },
-                                        },
-                                        series: [
-                                            {
-                                                name: "Actual MRR",
-                                                type: "line",
-                                                smooth: false,
-                                                showSymbol: false,
-                                                data: [
-                                                    ...mrrSeries.map((p) => p.y),
-                                                    ...mrrForecastPoints.map(() => null),
-                                                ],
-                                                lineStyle: {
-                                                    width: 3,
-                                                    color: "#3264ff",
-                                                },
-                                                itemStyle: {
-                                                    color: "#3264ff",
-                                                },
-                                                areaStyle: {
-                                                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                                                        { offset: 0, color: "rgba(50, 100, 255, 0.12)" },
-                                                        { offset: 1, color: "rgba(50, 100, 255, 0.02)" },
-                                                    ]),
-                                                },
-                                            },
-                                            ...(hasForecastAccess
-                                                ? [
-                                                    {
-                                                        name: "Forecast",
-                                                        type: "line" as const,
-                                                        smooth: true,
-                                                        symbol: "circle",
-                                                        symbolSize: 6,
-                                                        data: [
-                                                            ...Array(Math.max(0, mrrSeries.length - 1)).fill(
-                                                                null
-                                                            ),
-                                                            mrrSeries[mrrSeries.length - 1]?.y ?? null,
-                                                            ...mrrForecastPoints.map((p) => p.y),
-                                                        ],
-                                                        lineStyle: {
-                                                            color: "#2563eb",
-                                                            width: 2,
-                                                            type: "dashed" as const,
-                                                        },
-                                                        itemStyle: {
-                                                            color: "#2563eb",
-                                                        },
-                                                        areaStyle: {
-                                                            color: new echarts.graphic.LinearGradient(
-                                                                0,
-                                                                0,
-                                                                0,
-                                                                1,
-                                                                [
-                                                                    {
-                                                                        offset: 0,
-                                                                        color: "rgba(37, 99, 235, 0.18)",
-                                                                    },
-                                                                    {
-                                                                        offset: 1,
-                                                                        color: "rgba(37, 99, 235, 0.03)",
-                                                                    },
-                                                                ]
-                                                            ),
-                                                        },
+                                        ...(hasForecastAccess
+                                            ? [
+                                                {
+                                                    name: "Forecast",
+                                                    type: "line" as const,
+                                                    smooth: true,
+                                                    symbol: "circle",
+                                                    symbolSize: 6,
+                                                    data: [
+                                                        ...Array(Math.max(0, visibleMrrSeries.length - 1)).fill(
+                                                            null
+                                                        ),
+                                                        visibleMrrSeries[visibleMrrSeries.length - 1]?.y ?? null,
+                                                        ...mrrForecastPoints.map((p) => p.y),
+                                                    ],
+                                                    lineStyle: {
+                                                        color: "#2563eb",
+                                                        width: 2,
+                                                        type: "dashed" as const,
                                                     },
-                                                ]
-                                                : []),
-                                        ],
-                                    }}
-                                />
+                                                    itemStyle: {
+                                                        color: "#2563eb",
+                                                    },
+                                                    areaStyle: {
+                                                        color: new echarts.graphic.LinearGradient(
+                                                            0,
+                                                            0,
+                                                            0,
+                                                            1,
+                                                            [
+                                                                {
+                                                                    offset: 0,
+                                                                    color: "rgba(37, 99, 235, 0.18)",
+                                                                },
+                                                                {
+                                                                    offset: 1,
+                                                                    color: "rgba(37, 99, 235, 0.03)",
+                                                                },
+                                                            ]
+                                                        ),
+                                                    },
+                                                },
+                                            ]
+                                            : []),
+                                    ],
+                                }}
+                            />
                             </div>
                         </div>
 
-
-
-                        {
-                            hasAiRevenueAccess ? (
-                                <div className={styles.bottomSide} >
-                                    <div className={`${styles.sideCard} ${styles.aiRevenueCard}`}>
-                                        <div className={styles.aiRevenueHeader}>
-
+                        <section className={styles.secondaryGrid}>
+                            {/* CHURN */}
+                            <div className={`${styles.heroChartCard} ${styles.churnCard}`}>
+                                <div className={styles.chartHeader}>
+                                    <div>
+                                        <div className={styles.chartTitle}>Churn Trend</div>
+                                        <div className={styles.chartMeta}>
+                                            {getRangeLabel(churnRange)} retention risk and churn movement
                                         </div>
+                                    </div>
 
-                                        <div className={styles.aiTabs}>
-                                            <button
-                                                type="button"
-                                                className={
-                                                    aiRevenueTab === "mrr"
-                                                        ? `${styles.aiTab} ${styles.aiTabActive}`
-                                                        : styles.aiTab
-                                                }
-                                                onClick={() => setAiRevenueTab("mrr")}
-                                            >
-                                                MRR Drivers
-                                            </button>
+                                    <div className={styles.chartFilterWrap}>
+                                        <button
+                                            type="button"
+                                            className={styles.chartFilterButton}
+                                            onClick={() => {
+                                                setChurnFilterOpen((open) => !open);
+                                                setMrrFilterOpen(false);
+                                                setAiRevenueFilterOpen(false);
+                                            }}
+                                        >
+                                            <Clock3 size={13} strokeWidth={1.8} />
+                                            <span>{getRangeLabel(churnRange)}</span>
+                                            <ChevronDown size={13} strokeWidth={1.8} />
+                                        </button>
 
-                                            <button
-                                                type="button"
-                                                className={
-                                                    aiRevenueTab === "churn"
-                                                        ? `${styles.aiTab} ${styles.aiTabActive}`
-                                                        : styles.aiTab
-                                                }
-                                                onClick={() => setAiRevenueTab("churn")}
-                                            >
-                                                Churn Drivers
-                                            </button>
-                                        </div>
-
-                                        {aiRevenueTab === "mrr" ? (
-                                            <div className={styles.aiPanel}>
-                                                <div className={styles.aiDriverTable}>
-                                                    <div className={styles.aiDriverTableHead}>
-                                                        <span>Account</span>
-                                                        <span>Reason</span>
-                                                        <span>Revenue</span>
-                                                    </div>
-
-                                                    {visibleAiRows.length ? (
-                                                        visibleAiRows.map((row: any) => (
-                                                            <button
-                                                                key={row.id}
-                                                                type="button"
-                                                                className={styles.aiDriverRow}
-                                                                onClick={() =>
-                                                                    router.push(`/dashboard/accounts-at-risk/${row.id}`)
-                                                                }
-                                                            >
-                                                                <div className={styles.aiDriverAccount}>
-                                                                    <div className={styles.aiAccountInitial}>
-                                                                        {row.name?.charAt(0)?.toUpperCase()}
-                                                                    </div>
-
-                                                                    <div>
-                                                                        <strong>{row.name}</strong>
-                                                                        <span>{getDriverDate(row)}</span>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div className={styles.aiDriverReason}>
-                                                                    {formatAiReason(row.reason)}
-                                                                </div>
-
-                                                                <div className={styles.aiDriverValue}>
-                                                                    +{formatCurrencyFromMinor(row.valueMinor, workspaceCurrency)}
-                                                                </div>
-
-                                                                <div className={styles.aiRiskScore}>
-                                                                    <span>{row.riskScore || "—"}</span>
-                                                                </div>
-                                                            </button>
-                                                        ))
-                                                    ) : (
-                                                        <div className={styles.aiEmpty}>
-                                                            No MRR driver accounts yet.
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className={styles.aiPanel}>
-                                                <div className={styles.aiChurnTable}>
-                                                    <div className={styles.aiChurnTableHead}>
-                                                        <span>Account</span>
-                                                        <span>AI reasoning & recommended action</span>
-                                                        <span>Revenue at risk</span>
-                                                        <span>Risk score</span>
-                                                    </div>
-
-                                                    {visibleAiRows.length ? (
-                                                        visibleAiRows.map((row: any) => {
-                                                            const openAiRiskAccount =
-                                                                workspaceAi?.businessNarrative?.riskAccounts?.find(
-                                                                    (account) =>
-                                                                        account.customerId === row.id ||
-                                                                        account.customerName?.trim().toLowerCase() ===
-                                                                        row.name?.trim().toLowerCase()
-                                                                );
-                                                            const aiReason =
-                                                                openAiRiskAccount?.reason ||
-                                                                row.reason ||
-                                                                "Customer shows elevated churn risk.";
-
-                                                            const aiRecommendation =
-                                                                getDynamicChurnAction({
-                                                                    reason: aiReason,
-                                                                    automation: openAiRiskAccount?.recommendedAction,
-                                                                    recommendedAction: openAiRiskAccount?.recommendedAction,
-                                                                    riskScore: row.riskScore,
-                                                                });
-
-
-                                                            return (
-                                                                <button
-                                                                    key={row.id}
-                                                                    type="button"
-                                                                    className={styles.aiChurnRow}
-                                                                    onClick={() =>
-                                                                        router.push(`/dashboard/accounts-at-risk/${row.id}`)
-                                                                    }
-                                                                >
-                                                                    <div className={styles.aiDriverAccount}>
-                                                                        <div className={styles.aiAccountInitialRed}>
-                                                                            {row.name?.charAt(0)?.toUpperCase()}
-                                                                        </div>
-
-                                                                        <div>
-                                                                            <strong>{row.name}</strong>
-                                                                            <span>{formatExactDate(row.lastEventAt)}</span>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div className={styles.aiReasonCell}>
-                                                                        <p className={styles.aiReasonText}>
-                                                                            {formatAiReason(aiReason)}
-                                                                        </p>
-
-                                                                        <div className={styles.aiActionButtons}>
-                                                                            {aiRecommendation.toLowerCase().includes("retry") && (
-                                                                                <button
-                                                                                    type="button"
-                                                                                    className={styles.aiActionButton}
-                                                                                    onClick={(e) => {
-                                                                                        e.stopPropagation();
-                                                                                        handleRetryPayment(row.id, row.customerId);
-                                                                                    }}
-                                                                                >
-                                                                                    Retry payment
-                                                                                </button>
-                                                                            )}
-
-                                                                            <button
-                                                                                type="button"
-                                                                                className={styles.aiActionButton}
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-
-                                                                                    const recommendation = getEmailRecommendation({
-                                                                                        accountName: row.name,
-                                                                                        reason: aiReason,
-                                                                                    });
-
-                                                                                    setEmailDraft({
-                                                                                        to: row.email || "",
-                                                                                        subject: recommendation.subject,
-                                                                                        body: recommendation.message,
-                                                                                    });
-
-                                                                                    setEmailDraftOpen(true);
-                                                                                }}
-                                                                            >
-                                                                                {aiRecommendation.toLowerCase().includes("retry")
-                                                                                    ? "Send billing recovery email"
-                                                                                    : formatAiReason(aiRecommendation)}
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className={styles.aiDriverValueRed}>
-                                                                        {formatCurrencyFromMinor(row.mrrMinor, workspaceCurrency)}
-                                                                    </div>
-
-                                                                    <div className={styles.aiRiskScore}>
-                                                                        <span>{row.riskScore || "—"}</span>
-                                                                    </div>
-                                                                </button>
-                                                            );
-                                                        })
-                                                    ) : (
-                                                        <div className={styles.aiEmpty}>
-                                                            No churn driver accounts yet.
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {activeAiRows.length >= AI_ACCOUNTS_PER_PAGE ? (
-                                            <div className={styles.aiPagination}>
-                                                <button
-                                                    type="button"
-                                                    disabled={hasFullAiDriverAccess && aiAccountPage === 0}
-                                                    onClick={() => {
-                                                        if (!hasFullAiDriverAccess) {
-                                                            setUpgradeOpen(true);
-                                                            return;
-                                                        }
-
-                                                        setAiAccountPage((page) => Math.max(0, page - 1));
-                                                    }}
-                                                >
-                                                    ←
-                                                </button>
-
-                                                <span>
-                                                    {hasFullAiDriverAccess ? aiAccountPage + 1 : 1} of {aiDriverPageCount}
-                                                </span>
-
-                                                <button
-                                                    type="button"
-                                                    disabled={hasFullAiDriverAccess && aiAccountPage >= aiDriverPageCount - 1}
-                                                    onClick={() => {
-                                                        if (!hasFullAiDriverAccess) {
-                                                            setUpgradeOpen(true);
-                                                            return;
-                                                        }
-
-                                                        setAiAccountPage((page) =>
-                                                            Math.min(aiDriverPageCount - 1, page + 1)
-                                                        );
-                                                    }}
-                                                >
-                                                    →
-                                                </button>
-                                            </div>
-                                        ) : null}
-
-                                        {upgradeOpen ? (
-                                            <div className={styles.emailOverlay}>
-                                                <div className={styles.emailModal}>
-                                                    <h3>Upgrade to Pro</h3>
-
-                                                    <p>
-                                                        Upgrade to Pro to view the full monthly driver list, paginate through every account, and unlock complete AI retention actions.
-                                                    </p>
-
-                                                    <div className={styles.emailModalActions}>
-                                                        <button type="button" onClick={() => setUpgradeOpen(false)}>
-                                                            Not now
-                                                        </button>
-
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                setUpgradeOpen(false);
-                                                                router.push("/dashboard/settings?tab=manage-plan");
-                                                            }}
-                                                        >
-                                                            Upgrade to Pro
-                                                        </button>
-                                                    </div>
-                                                </div>
+                                        {churnFilterOpen ? (
+                                            <div className={styles.chartFilterMenu}>
+                                                {chartRangeOptions.map((option) => (
+                                                    <button
+                                                        key={option.value}
+                                                        type="button"
+                                                        className={`${styles.chartFilterOption} ${churnRange === option.value
+                                                            ? styles.chartFilterOptionActive
+                                                            : ""
+                                                            }`}
+                                                        onClick={() => {
+                                                            setChurnRange(option.value);
+                                                            setChurnFilterOpen(false);
+                                                        }}
+                                                    >
+                                                        {option.label}
+                                                    </button>
+                                                ))}
                                             </div>
                                         ) : null}
                                     </div>
                                 </div>
-                            ) : null}
-                    </section >
 
-
-                    <section className={styles.secondaryGrid}>
-                        {/* CHURN */}
-                        <div className={`${styles.heroChartCard} ${styles.churnCard} `}>
-                            <div className={styles.chartHeader}>
-                                <div>
-                                    <div className={styles.chartTitle}>Churn Trend</div>
-                                    <div className={styles.chartMeta}>
-                                        {hasForecastAccess
-                                            ? "Last 12 months + AI forecast"
-                                            : "Last 12 months • Customer churn over time"}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className={styles.heroChart} style={{ height: 315 }}>
-                                <EChart
-                                    option={{
-                                        backgroundColor: "transparent",
-
-                                        tooltip: {
-                                            trigger: "axis",
+                                <div className={styles.heroChart} style={{ height: 315 }}>
+                                    <EChart
+                                        option={{
                                             backgroundColor: "transparent",
-                                            borderColor: "transparent",
-                                            borderWidth: 0,
-                                            padding: 0,
-                                            extraCssText: "box-shadow:none;",
-
-                                            axisPointer: {
-                                                type: "line",
-                                                lineStyle: {
-                                                    color: "#cbd5e1",
-                                                    width: 1.2,
-                                                    type: "dashed",
+                                            tooltip: {
+                                                trigger: "axis",
+                                                backgroundColor: "transparent",
+                                                borderColor: "transparent",
+                                                borderWidth: 0,
+                                                padding: 0,
+                                                extraCssText: "box-shadow:none;",
+                                                axisPointer: {
+                                                    type: "line",
+                                                    lineStyle: {
+                                                        color: "#cbd5e1",
+                                                        width: 1.2,
+                                                        type: "dashed",
+                                                    },
                                                 },
-                                            },
+                                                formatter: (params: any) => {
+                                                    const item = Array.isArray(params) ? params[0] : params;
 
-                                            formatter: (params: any) => {
-                                                const item = Array.isArray(params) ? params[0] : params;
+                                                    const index =
+                                                        typeof item?.dataIndex === "number"
+                                                            ? item.dataIndex
+                                                            : visibleChurnSeries.length - 1;
 
-                                                const index =
-                                                    typeof item?.dataIndex === "number"
-                                                        ? item.dataIndex
-                                                        : churnSeries.length - 1;
+                                                    const chartRows = [...visibleChurnSeries, ...churnForecastPoints];
 
-                                                const chartRows = [...churnSeries, ...churnForecastPoints];
+                                                    const current = chartRows[index];
+                                                    const previous = chartRows[index - 1];
 
-                                                const current = chartRows[index];
-                                                const previous = chartRows[index - 1];
+                                                    const isForecastPoint = index >= visibleChurnSeries.length;
 
-                                                const isForecastPoint = index >= churnSeries.length;
+                                                    const currentValue = Number(current?.y ?? 0);
+                                                    const previousValue = Number(previous?.y ?? 0);
+                                                    const delta = currentValue - previousValue;
 
-                                                const currentValue = Number(current?.y ?? 0);
-                                                const previousValue = Number(previous?.y ?? 0);
-                                                const delta = currentValue - previousValue;
+                                                    const row = subscriberChartRows?.[index];
 
-                                                const row = subscriberChartRows?.[index];
+                                                    const atRisk = Math.max(
+                                                        0,
+                                                        Math.round(Number(row?.churned ?? 0) * 0.4)
+                                                    );
+                                                    const failed = Number(row?.churned ?? 0);
+                                                    const recovered = Number(row?.retained ?? 0);
+                                                    const revenueLossMinor = Number(row?.churned ?? 0) * 700;
 
-                                                const atRisk = Math.max(0, Math.round(Number(row?.churned ?? 0) * 0.4));
-                                                const failed = Number(row?.churned ?? 0);
-                                                const recovered = Number(row?.retained ?? 0);
-                                                const revenueLossMinor = Number(row?.churned ?? 0) * 700;
 
-                                                const forecastReason =
-                                                    workspaceAi?.businessNarrative?.forecastExplanation?.churn ||
-                                                    workspaceAi?.businessNarrative?.churnPrediction ||
-                                                    "AI is reviewing churn, billing, customer health, and retention signals for this forecast.";
+                                                    const forecastReason =
+                                                        workspaceAi?.businessNarrative?.forecastExplanation?.churn ||
+                                                        workspaceAi?.businessNarrative?.churnPrediction ||
+                                                        "AI is reviewing churn, billing, customer health, and retention signals for this forecast.";
 
-                                                return `
+                                                    return `
 <div style="width:270px;max-width:270px;background:#ffffff;border:1px solid #e8eef6;border-radius:20px;padding:15px;box-sizing:border-box;box-shadow:0 18px 45px rgba(15,23,42,0.10);font-family:Inter,sans-serif;">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
         <div style="font-size:13px;font-weight:850;color:#0f172a;">
@@ -3548,9 +3621,9 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
         </div>
 
         ${isForecastPoint
-                                                        ? `<span style="white-space:nowrap;font-size:10px;font-weight:900;color:#dc2626;background:#fff1f2;border:1px solid #ffe4e6;border-radius:999px;padding:4px 8px;">AI forecast</span>`
-                                                        : ``
-                                                    }
+                                                            ? `<span style="white-space:nowrap;font-size:10px;font-weight:900;color:#dc2626;background:#fff1f2;border:1px solid #ffe4e6;border-radius:999px;padding:4px 8px;">AI forecast</span>`
+                                                            : ``
+                                                        }
     </div>
 
     <div style="font-size:30px;line-height:1;font-weight:900;letter-spacing:-0.06em;color:#b91c1c;margin-bottom:8px;">
@@ -3562,7 +3635,7 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
     </div>
 
     ${isForecastPoint
-                                                        ? `
+                                                            ? `
                 <div style="padding:11px 0;border-top:1px solid #f1f5f9;border-bottom:1px solid #f1f5f9;margin-bottom:12px;">
                     <div style="font-size:10px;font-weight:900;color:#64748b;letter-spacing:0.08em;margin-bottom:6px;">
                         WHY THIS FORECAST
@@ -3585,7 +3658,7 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
                     </div>
                 </div>
             `
-                                                        : `
+                                                            : `
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-bottom:12px;">
                     <div>
                         <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">AT RISK</div>
@@ -3608,7 +3681,7 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
                     </div>
                 </div>
             `
-                                                    }
+                                                        }
 
     <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid #f1f5f9;">
         <span style="font-size:12px;font-weight:800;color:#64748b;">
@@ -3621,84 +3694,62 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
     </div>
 </div>
 `;
-                                            },
-                                        },
-
-                                        grid: {
-                                            top: 24,
-                                            right: 10,
-                                            bottom: 20,
-                                            left: 10,
-                                            containLabel: true,
-                                        },
-
-                                        xAxis: {
-                                            type: "category",
-
-                                            data: [...churnSeries, ...churnForecastPoints].map(
-                                                (p) => formatMonthLong(p.x).slice(0, 3)
-                                            ),
-
-                                            boundaryGap: false,
-
-                                            axisLine: { show: false },
-                                            axisTick: { show: false },
-
-                                            axisLabel: {
-                                                color: "#64748b",
-                                                fontSize: 11,
-                                            },
-                                        },
-
-                                        yAxis: {
-                                            type: "value",
-
-                                            axisLine: { show: false },
-                                            axisTick: { show: false },
-
-                                            splitLine: {
-                                                lineStyle: {
-                                                    color: "#eef2f7",
                                                 },
                                             },
-
-                                            axisLabel: {
-                                                color: "#64748b",
-                                                fontSize: 11,
-                                                formatter: (value: number) => `${value}% `,
+                                            grid: {
+                                                top: 24,
+                                                right: 10,
+                                                bottom: 20,
+                                                left: 10,
+                                                containLabel: true,
                                             },
-                                        },
-
-                                        series: [
-                                            {
-                                                name: "Actual Churn",
-
-                                                type: "line" as const,
-
-                                                smooth: false,
-                                                showSymbol: false,
-
-                                                data: [
-                                                    ...churnSeries.map((p) => p.y),
-                                                    ...churnForecastPoints.map(() => null),
-                                                ],
-
-                                                lineStyle: {
-                                                    width: 3,
-                                                    color: "#f43f5e",
+                                            xAxis: {
+                                                type: "category",
+                                                data: [...visibleChurnSeries, ...churnForecastPoints].map((p) =>
+                                                    formatMonthLong(p.x).slice(0, 3)
+                                                ),
+                                                boundaryGap: false,
+                                                axisLine: { show: false },
+                                                axisTick: { show: false },
+                                                axisLabel: {
+                                                    color: "#64748b",
+                                                    fontSize: 11,
                                                 },
-
-                                                itemStyle: {
-                                                    color: "#f43f5e",
+                                            },
+                                            yAxis: {
+                                                type: "value",
+                                                axisLine: { show: false },
+                                                axisTick: { show: false },
+                                                splitLine: {
+                                                    lineStyle: {
+                                                        color: "#eef2f7",
+                                                    },
                                                 },
-
-                                                areaStyle: {
-                                                    color: new echarts.graphic.LinearGradient(
-                                                        0,
-                                                        0,
-                                                        0,
-                                                        1,
-                                                        [
+                                                axisLabel: {
+                                                    color: "#64748b",
+                                                    fontSize: 11,
+                                                    formatter: (value: number) => `${value}% `,
+                                                },
+                                            },
+                                            series: [
+                                                {
+                                                    name: "Actual Churn",
+                                                    type: "line" as const,
+                                                    smooth: false,
+                                                    showSymbol: false,
+                                                    data: [
+                                                        ...visibleChurnSeries.map((p) => p.y),
+                                                        ...churnForecastPoints.map(() => null),
+                                                    ],
+                                                    lineStyle: {
+                                                        width: 3,
+                                                        color: "#f43f5e",
+                                                    },
+                                                    itemStyle: {
+                                                        color: "#f43f5e",
+                                                    },
+                                                    areaStyle: {
+                                                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
                                                             {
                                                                 offset: 0,
                                                                 color: "rgba(244,63,94,0.17)",
@@ -3707,52 +3758,34 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
                                                                 offset: 1,
                                                                 color: "rgba(244,63,94,0.01)",
                                                             },
-                                                        ]
-                                                    ),
+                                                        ]),
+                                                    },
                                                 },
-                                            },
-
-                                            ...(hasForecastAccess
-                                                ? [
-                                                    {
-                                                        name: "Forecast",
-
-                                                        type: "line" as const,
-
-                                                        smooth: true,
-                                                        symbol: "circle",
-                                                        symbolSize: 6,
-
-                                                        data: [
-                                                            ...Array(
-                                                                Math.max(
-                                                                    0,
-                                                                    churnSeries.length - 1
-                                                                )
-                                                            ).fill(null),
-
-                                                            churnSeries[
-                                                                churnSeries.length - 1
-                                                            ]?.y ?? null,
-
-                                                            ...churnForecastPoints.map(
-                                                                (p) => p.y
-                                                            ),
-                                                        ],
-
-                                                        lineStyle: {
-                                                            color: "#dc2626",
-                                                            width: 2,
-                                                            type: "dashed" as const,
-                                                        },
-
-                                                        itemStyle: {
-                                                            color: "#dc2626",
-                                                        },
-
-                                                        areaStyle: {
-                                                            color:
-                                                                new echarts.graphic.LinearGradient(
+                                                ...(hasForecastAccess
+                                                    ? [
+                                                        {
+                                                            name: "Forecast",
+                                                            type: "line" as const,
+                                                            smooth: true,
+                                                            symbol: "circle",
+                                                            symbolSize: 6,
+                                                            data: [
+                                                                ...Array(
+                                                                    Math.max(0, visibleChurnSeries.length - 1)
+                                                                ).fill(null),
+                                                                visibleChurnSeries[visibleChurnSeries.length - 1]?.y ?? null,
+                                                                ...churnForecastPoints.map((p) => p.y),
+                                                            ],
+                                                            lineStyle: {
+                                                                color: "#dc2626",
+                                                                width: 2,
+                                                                type: "dashed" as const,
+                                                            },
+                                                            itemStyle: {
+                                                                color: "#dc2626",
+                                                            },
+                                                            areaStyle: {
+                                                                color: new echarts.graphic.LinearGradient(
                                                                     0,
                                                                     0,
                                                                     0,
@@ -3760,480 +3793,369 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
                                                                     [
                                                                         {
                                                                             offset: 0,
-                                                                            color:
-                                                                                "rgba(220, 38, 38, 0.15)",
+                                                                            color: "rgba(220, 38, 38, 0.15)",
                                                                         },
                                                                         {
                                                                             offset: 1,
-                                                                            color:
-                                                                                "rgba(220, 38, 38, 0.03)",
+                                                                            color: "rgba(220, 38, 38, 0.03)",
                                                                         },
                                                                     ]
                                                                 ),
+                                                            },
                                                         },
-                                                    },
-                                                ]
-                                                : []),
-                                        ],
-                                    }}
-                                />
+                                                    ]
+                                                    : []),
+                                            ],
+                                        }}
+                                    />
+                                </div>
                             </div>
-                        </div>
 
-                        {/* SUBSCRIBER MOVEMENT */}
-                        <div className={`${styles.heroChartCard} ${styles.subscriberCard} `}>
-                            <div className={styles.chartHeader}>
-                                <div>
-                                    <div className={styles.subscriberTitleRow}>
-                                        <div className={styles.chartTitle}>Subscriber Movement</div>
+                            {/* SUBSCRIBER MOVEMENT */}
 
-                                        <div className={styles.subscriberTotalPill}>
-                                            <Users size={13} />
-                                            <strong>{subscriberTotal}</strong>
-                                            <span>Subscribers</span>
+
+                        </section>
+
+
+                        {hasAiRevenueAccess ? (
+                            <div className={styles.revenueRecoveryCard}>
+                                <div className={styles.revenueRecoveryTop}>
+                                    <div>
+
+                                        <h3>Revenue Recovery Queue</h3>
+                                        <p>AI-prioritised accounts that can help close the gap to forecast MRR.</p>
+                                    </div>
+
+                                    <div className={styles.recoveryActions}>
+                                        <button
+                                            type="button"
+                                            className={styles.recoveryExportBtn}
+                                            onClick={() => {
+                                                const headers = ["Account", "Opportunity", "MRR impact", "Why now", "Suggested action"];
+
+                                                const rows = safeRecoveryQueue.rows.map((row) => [
+                                                    row.name,
+                                                    formatQueueType(row.type),
+                                                    formatCurrencyFromMinor(row.valueMinor, safeRecoveryQueue.currency || workspaceCurrency),
+                                                    formatAiReason(row.reason),
+                                                    row.action,
+                                                ]);
+
+                                                const csv = [headers, ...rows]
+                                                    .map((line) =>
+                                                        line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")
+                                                    )
+                                                    .join("\n");
+
+                                                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                                                const url = URL.createObjectURL(blob);
+                                                const link = document.createElement("a");
+
+                                                link.href = url;
+                                                link.download = "revenue-recovery-queue.csv";
+                                                link.click();
+
+                                                URL.revokeObjectURL(url);
+                                            }}
+                                        >
+                                            Export CSV
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className={styles.recoveryForecastPanel}>
+                                    <div className={styles.recoveryMeasureBar}>
+              
+
+                                        <div className={styles.recoveryMeasureTrack}>
+                                            <div
+                                                className={styles.recoveryMeasureFill}
+                                                style={{ width: `${Math.min(100, Math.max(0, forecastProgressPct))}%` }}
+                                            />
+
+                                            <div
+                                                className={styles.recoveryMeasureStripe}
+                                                style={{
+                                                    left: `${Math.min(100, Math.max(0, forecastProgressPct))}%`,
+                                                    width: `${Math.max(0, 100 - Math.min(100, Math.max(0, forecastProgressPct)))}%`,
+                                                }}
+                                            />
+
+                                            <span
+                                                className={styles.recoveryMeasureMarker}
+                                                style={{ left: `${Math.min(100, Math.max(0, forecastProgressPct))}%` }}
+                                            />
+                                        </div>
+
+                                        <div className={styles.recoveryMeasureValues}>
+                                            <div>
+                                                <strong>
+                                                    {formatCurrencyFromMinor(
+                                                        safeRecoveryQueue.currentMrrMinor,
+                                                        safeRecoveryQueue.currency || workspaceCurrency
+                                                    )}
+                                                </strong>
+                                                <span>Current MRR</span>
+                                            </div>
+
+                                            <div>
+                                                <strong>
+                                                    {formatCurrencyFromMinor(
+                                                        safeRecoveryQueue.forecastMrrMinor,
+                                                        safeRecoveryQueue.currency || workspaceCurrency
+                                                    )}
+                                                </strong>
+                                                <span>Forecast Goal</span>
+                                            </div>
+                                        </div>
+
+                                        <p className={styles.recoveryForecastInsight}>
+                                            You’re{" "}
+                                            <strong>{forecastProgressPct >= 100 ? "ahead of pace" : "behind pace"}</strong>{" "}
+                                            {forecastProgressPct >= 100 ? (
+                                                <>and forecast to reach your goal.</>
+                                            ) : (
+                                                <>
+                                                    and need{" "}
+                                                    <strong>
+                                                        {formatCurrencyFromMinor(
+                                                            safeRecoveryQueue.revenueGapMinor,
+                                                            safeRecoveryQueue.currency || workspaceCurrency
+                                                        )}
+                                                    </strong>{" "}
+                                                    more MRR to reach forecast.
+                                                </>
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className={styles.recoveryTableWrap}>
+                                    <table className={styles.recoveryTable}>
+                                        <thead>
+                                            <tr>
+                                                <th>Account</th>
+                                                <th>Opportunity</th>
+                                                <th>MRR impact</th>
+                                                <th>Why now</th>
+                                                <th>Suggested action</th>
+                                            </tr>
+                                        </thead>
+
+                                        <tbody>
+                                            {visibleRecoveryRows.length ? (
+                                                visibleRecoveryRows.map((row) => (
+                                                    <tr key={`${row.type || "queue"}-${row.id}`}>
+                                                        <td>
+                                                            <button
+                                                                type="button"
+                                                                className={styles.recoveryAccountBtn}
+                                                                onClick={() => router.push(getAccountHref(row.customerId || row.id))}
+                                                            >
+                                                                {row.name}
+                                                            </button>
+                                                        </td>
+
+                                                        <td>
+                                                            <span className={styles.recoveryReasonPill}>
+                                                                {formatQueueType(row.type)}
+                                                            </span>
+                                                        </td>
+
+                                                        <td>
+                                                            {formatCurrencyFromMinor(
+                                                                row.valueMinor,
+                                                                safeRecoveryQueue.currency || workspaceCurrency
+                                                            )}
+                                                        </td>
+
+                                                        <td>
+                                                            <span className={styles.recoveryReasonPill}>
+                                                                {formatAiReason(row.reason)}
+                                                            </span>
+                                                        </td>
+
+                                                        <td>
+                                                            <button
+                                                                type="button"
+                                                                className={styles.recoveryActionBtn}
+                                                                onClick={() => {
+                                                                    const rec = getEmailRecommendation({
+                                                                        accountName: row.name,
+                                                                        reason: row.reason,
+                                                                    });
+
+                                                                    setEmailDraft({
+                                                                        to: row.email || "",
+                                                                        subject: rec.subject,
+                                                                        body: rec.message,
+                                                                    });
+
+                                                                    setEmailDraftOpen(true);
+                                                                }}
+                                                            >
+                                                                {row.action}
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan={5} className={styles.emptyRecoveryState}>
+                                                        {recoveryLoading
+                                                            ? "Loading revenue opportunities..."
+                                                            : recoveryError
+                                                                ? "Revenue recovery queue is unavailable right now."
+                                                                : "No revenue opportunities found for this period."}
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {recoveryPageCount > 1 ? (
+                                    <div className={styles.recoveryPagination}>
+                                        <span>
+                                            Showing {recoveryPage * RECOVERY_ROWS_PER_PAGE + 1}-
+                                            {Math.min(
+                                                (recoveryPage + 1) * RECOVERY_ROWS_PER_PAGE,
+                                                safeRecoveryQueue.rows.length
+                                            )}{" "}
+                                            of {safeRecoveryQueue.rows.length} accounts
+                                        </span>
+
+                                        <div className={styles.recoveryPagerButtons}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setRecoveryPage((p) => Math.max(0, p - 1))}
+                                                disabled={recoveryPage === 0}
+                                            >
+                                                Previous
+                                            </button>
+
+                                            {Array.from({ length: recoveryPageCount }).map((_, index) => (
+                                                <button
+                                                    key={index}
+                                                    type="button"
+                                                    className={recoveryPage === index ? styles.recoveryPageActive : ""}
+                                                    onClick={() => setRecoveryPage(index)}
+                                                >
+                                                    {index + 1}
+                                                </button>
+                                            ))}
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setRecoveryPage((p) => Math.min(recoveryPageCount - 1, p + 1))}
+                                                disabled={recoveryPage === recoveryPageCount - 1}
+                                            >
+                                                Next
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : null}
+
+                    </section >
+
+
+                    {emailDraftOpen ? (
+                        <EmailModalPortal open={emailDraftOpen}>
+                            <div
+                                className={styles.modalOverlay}
+                                onClick={() => setEmailDraftOpen(false)}
+                            >
+                                <div
+                                    className={styles.emailModal}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <div className={styles.emailModalHeader}>
+                                        <div className={styles.emailModalTitle}>Retention Outreach</div>
+
+                                        <button
+                                            className={styles.emailCloseBtn}
+                                            onClick={() => setEmailDraftOpen(false)}
+                                            type="button"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+
+                                    <div className={styles.emailShell}>
+                                        <div className={styles.emailField}>
+                                            <label className={styles.emailLabel}>To</label>
+
+                                            <input
+                                                className={styles.emailInput}
+                                                value={emailDraft.to}
+                                                onChange={(e) =>
+                                                    setEmailDraft((prev) => ({
+                                                        ...prev,
+                                                        to: e.target.value,
+                                                    }))
+                                                }
+                                            />
+                                        </div>
+
+                                        <div className={styles.emailField}>
+                                            <label className={styles.emailLabel}>Subject</label>
+
+                                            <input
+                                                className={styles.emailInput}
+                                                value={emailDraft.subject}
+                                                onChange={(e) =>
+                                                    setEmailDraft((prev) => ({
+                                                        ...prev,
+                                                        subject: e.target.value,
+                                                    }))
+                                                }
+                                            />
+                                        </div>
+
+                                        <div className={styles.emailField}>
+                                            <label className={styles.emailLabel}>Message</label>
+
+                                            <textarea
+                                                className={styles.emailTextarea}
+                                                value={emailDraft.body}
+                                                onChange={(e) =>
+                                                    setEmailDraft((prev) => ({
+                                                        ...prev,
+                                                        body: e.target.value,
+                                                    }))
+                                                }
+                                            />
+                                        </div>
+
+                                        <div className={styles.emailModalActions}>
+                                            <button
+                                                className={styles.emailCancelBtn}
+                                                type="button"
+                                                onClick={() => setEmailDraftOpen(false)}
+                                            >
+                                                Cancel
+                                            </button>
+
+                                            <button
+                                                className={styles.emailSendBtn}
+                                                type="button"
+                                                onClick={() => {
+                                                    setEmailDraftOpen(false);
+                                                    setActionToast("Retention email ready to send.");
+                                                }}
+                                            >
+                                                Send email
+                                            </button>
                                         </div>
                                     </div>
 
-                                    <div className={styles.chartMeta}>
-                                        Last 12 months • Subscriber growth, retention and churn trends
-                                    </div>
                                 </div>
                             </div>
-
-                            <div className={styles.heroChart} style={{ height: 370 }}>
-                                <EChart
-                                    option={{
-                                        backgroundColor: "transparent",
-                                        tooltip: {
-                                            trigger: "axis",
-                                            backgroundColor: "transparent",
-                                            borderColor: "transparent",
-                                            borderWidth: 0,
-                                            padding: 0,
-                                            extraCssText: "box-shadow:none;",
-                                            axisPointer: {
-                                                type: "line",
-                                                lineStyle: {
-                                                    color: "#cbd5e1",
-                                                    width: 1.2,
-                                                    type: "dashed",
-                                                },
-                                            },
-                                            formatter: (params: any) => {
-                                                const item = Array.isArray(params) ? params[0] : params;
-                                                const index =
-                                                    typeof item?.dataIndex === "number"
-                                                        ? item.dataIndex
-                                                        : subscriberChartRows.length - 1;
-
-                                                const current = subscriberChartRows[index];
-                                                const previous = subscriberChartRows[index - 1];
-
-                                                const currentSubscribers = Number(current?.totalSubscribers ?? 0);
-                                                const previousSubscribers = Number(previous?.totalSubscribers ?? 0);
-                                                const delta = currentSubscribers - previousSubscribers;
-
-                                                const newSubscribers = Number(current?.newSubscribers ?? 0);
-                                                const retained = Number(current?.retained ?? 0);
-                                                const churned = Number(current?.churned ?? 0);
-                                                const trials = Number(current?.trials ?? 0);
-                                                const upgrades = Number(current?.upgrades ?? 0);
-
-                                                const retentionPct =
-                                                    currentSubscribers > 0
-                                                        ? Math.round((retained / currentSubscribers) * 100)
-                                                        : null;
-
-                                                const churnPct =
-                                                    currentSubscribers > 0
-                                                        ? ((churned / currentSubscribers) * 100).toFixed(1)
-                                                        : null;
-
-                                                const retentionRate =
-                                                    currentSubscribers > 0
-                                                        ? retained / currentSubscribers
-                                                        : 0;
-
-                                                const growthRate =
-                                                    previousSubscribers > 0
-                                                        ? delta / previousSubscribers
-                                                        : 0;
-
-                                                const churnRate =
-                                                    currentSubscribers > 0
-                                                        ? churned / currentSubscribers
-                                                        : 0;
-
-                                                const health =
-                                                    growthRate >= 0.08 &&
-                                                        churnRate <= 0.025 &&
-                                                        retentionRate >= 0.22
-                                                        ? "Healthy"
-                                                        : growthRate < 0 ||
-                                                            churnRate >= 0.06
-                                                            ? "Declining"
-                                                            : "Watch";
-                                                const healthColor =
-                                                    health === "Healthy"
-                                                        ? "#15803d"
-                                                        : health === "Watch"
-                                                            ? "#d97706"
-                                                            : "#b91c1c";
-
-                                                return `
-    <div style="
-        width:190px;
-        max-width:190px;
-        background:#ffffff;
-        border:1px solid #e8eef6;
-        border-radius:18px;
-        padding:12px;
-        box-sizing:border-box;
-        box-shadow:0 14px 34px rgba(15,23,42,0.08);
-        font-family:Inter,sans-serif;
-    ">
-        <div style="
-            font-size:11px;
-            font-weight:850;
-            color:#0f172a;
-            margin-bottom:6px;
-        ">
-            ${formatMonthLong(current?.month ?? "")} Subscribers
-        </div>
-
-        <div style="
-            font-size:28px;
-            line-height:1;
-            font-weight:900;
-            letter-spacing:-0.06em;
-            color:#0f172a;
-            margin-bottom:6px;
-        ">
-            ${currentSubscribers}
-        </div>
-
-        <div style="
-            font-size:11px;
-            font-weight:800;
-            color:${delta >= 0 ? "#15803d" : "#b91c1c"};
-            margin-bottom:10px;
-        ">
-            ${delta >= 0 ? "↑" : "↓"} ${Math.abs(delta)} vs previous month
-        </div>
-
-        <div style="
-            display:grid;
-            grid-template-columns:1fr 1fr;
-            gap:8px 10px;
-            margin-bottom:10px;
-        ">
-            <div>
-                <div style="
-                    font-size:9px;
-                    font-weight:800;
-                    color:#94a3b8;
-                    letter-spacing:0.08em;
-                    margin-bottom:2px;
-                ">
-                    NEW
+                        </EmailModalPortal>
+                    ) : null}
                 </div>
-
-                <div style="
-                    font-size:13px;
-                    font-weight:900;
-                    color:#15803d;
-                ">
-                    +${newSubscribers}
-                </div>
-            </div>
-
-            <div>
-                <div style="
-                    font-size:9px;
-                    font-weight:800;
-                    color:#94a3b8;
-                    letter-spacing:0.08em;
-                    margin-bottom:2px;
-                ">
-                    RETAINED
-                </div>
-
-                <div style="
-                    font-size:13px;
-                    font-weight:900;
-                    color:#0f172a;
-                ">
-                    ${retained}
-                </div>
-            </div>
-
-            <div>
-                <div style="
-                    font-size:9px;
-                    font-weight:800;
-                    color:#94a3b8;
-                    letter-spacing:0.08em;
-                    margin-bottom:2px;
-                ">
-                    CHURNED
-                </div>
-
-                <div style="
-                    font-size:13px;
-                    font-weight:900;
-                    color:#b91c1c;
-                ">
-                    -${churned}
-                </div>
-            </div>
-
-            <div>
-                <div style="
-                    font-size:9px;
-                    font-weight:800;
-                    color:#94a3b8;
-                    letter-spacing:0.08em;
-                    margin-bottom:2px;
-                ">
-                    TRIALS
-                </div>
-
-                <div style="
-                    font-size:13px;
-                    font-weight:900;
-                    color:#2563eb;
-                ">
-                    ${trials}
-                </div>
-            </div>
-
-            <div>
-                <div style="
-                    font-size:9px;
-                    font-weight:800;
-                    color:#94a3b8;
-                    letter-spacing:0.08em;
-                    margin-bottom:2px;
-                ">
-                    UPGRADES
-                </div>
-
-                <div style="
-                    font-size:13px;
-                    font-weight:900;
-                    color:#15803d;
-                ">
-                    ${upgrades}
-                </div>
-            </div>
-
-            <div>
-                <div style="
-                    font-size:9px;
-                    font-weight:800;
-                    color:#94a3b8;
-                    letter-spacing:0.08em;
-                    margin-bottom:2px;
-                ">
-                    CHURN
-                </div>
-
-                <div style="
-                    font-size:13px;
-                    font-weight:900;
-                    color:#b91c1c;
-                ">
-                    ${churnPct !== null ? `${churnPct}%` : "—"}
-                </div>
-            </div>
-        </div>
-
-      <div style="
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:8px;
-    padding-top:8px;
-    border-top:1px solid #f1f5f9;
-">
-    <span style="
-        font-size:11px;
-        font-weight:700;
-        color:#64748b;
-    ">
-        Health
-    </span>
-
-    <strong style="
-        font-size:11px;
-        font-weight:900;
-        color:${healthColor};
-        text-align:right;
-    ">
-        ${health}
-    </strong>
-</div>
-    </div>
-`;
-                                            },
-                                        },
-                                        legend: { show: false },
-                                        grid: {
-                                            top: 20,
-                                            right: 10,
-                                            bottom: 22,
-                                            left: 10,
-                                            containLabel: true,
-                                        },
-                                        xAxis: {
-                                            type: "category",
-                                            data: subscriberChartRows.map((p) =>
-                                                formatMonthLong(p.month).slice(0, 3)
-                                            ),
-                                            axisLine: { show: false },
-                                            axisTick: { show: false },
-                                            axisLabel: {
-                                                color: "#64748b",
-                                                fontSize: 11,
-                                                interval: 0,
-                                            },
-                                        },
-                                        yAxis: {
-                                            type: "value",
-                                            axisLine: { show: false },
-                                            axisTick: { show: false },
-                                            splitLine: {
-                                                lineStyle: {
-                                                    color: "#eef2f7",
-                                                    type: "dashed",
-                                                },
-                                            },
-                                            axisLabel: {
-                                                color: "#64748b",
-                                                fontSize: 11,
-                                            },
-                                        },
-                                        series: [
-                                            {
-                                                name: "Subscribers",
-                                                type: "bar",
-                                                data: subscriberChartRows.map((p) =>
-                                                    Number(p.totalSubscribers ?? 0)
-                                                ),
-                                                barWidth: 7,
-                                                itemStyle: {
-                                                    color: "#1D9BF0",
-                                                    borderRadius: [999, 999, 0, 0],
-                                                },
-                                                emphasis: {
-                                                    itemStyle: {
-                                                        color: "#0f83d6",
-                                                    },
-                                                },
-                                            },
-                                        ],
-                                    }}
-                                />
-                            </div>
-                        </div>
-                    </section>
-                </div >
-
-                {emailDraftOpen ? (
-                    <EmailModalPortal open={emailDraftOpen}>
-                        <div
-                            className={styles.modalOverlay}
-                            onClick={() => setEmailDraftOpen(false)}
-                        >
-                            <div
-                                className={styles.emailModal}
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <div className={styles.emailModalHeader}>
-                                    <div className={styles.emailModalTitle}>
-                                        Retention Outreach
-                                    </div>
-
-                                    <button
-                                        className={styles.emailCloseBtn}
-                                        onClick={() => setEmailDraftOpen(false)}
-                                        type="button"
-                                    >
-                                        ×
-                                    </button>
-                                </div>
-
-                                <div className={styles.emailShell}>
-                                    <div className={styles.emailField}>
-                                        <label className={styles.emailLabel}>To</label>
-
-                                        <input
-                                            className={styles.emailInput}
-                                            value={emailDraft.to}
-                                            onChange={(e) =>
-                                                setEmailDraft((prev) => ({
-                                                    ...prev,
-                                                    to: e.target.value,
-                                                }))
-                                            }
-                                        />
-                                    </div>
-
-                                    <div className={styles.emailField}>
-                                        <label className={styles.emailLabel}>Subject</label>
-
-                                        <input
-                                            className={styles.emailInput}
-                                            value={emailDraft.subject}
-                                            onChange={(e) =>
-                                                setEmailDraft((prev) => ({
-                                                    ...prev,
-                                                    subject: e.target.value,
-                                                }))
-                                            }
-                                        />
-                                    </div>
-
-                                    <div className={styles.emailField}>
-                                        <label className={styles.emailLabel}>Message</label>
-
-                                        <textarea
-                                            className={styles.emailTextarea}
-                                            value={emailDraft.body}
-                                            onChange={(e) =>
-                                                setEmailDraft((prev) => ({
-                                                    ...prev,
-                                                    body: e.target.value,
-                                                }))
-                                            }
-                                        />
-                                    </div>
-
-                                    <div className={styles.emailModalActions}>
-                                        <button
-                                            className={styles.emailCancelBtn}
-                                            type="button"
-                                            onClick={() => setEmailDraftOpen(false)}
-                                        >
-                                            Cancel
-                                        </button>
-
-                                        <button
-                                            className={styles.emailSendBtn}
-                                            type="button"
-                                            onClick={() => {
-                                                setEmailDraftOpen(false);
-                                                setActionToast("Retention email ready to send.");
-                                            }}
-                                        >
-                                            Send email
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </EmailModalPortal>
-                ) : null}
             </>
         );
     }

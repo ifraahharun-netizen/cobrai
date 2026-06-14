@@ -1,0 +1,828 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+    Activity,
+    AlertTriangle,
+    CreditCard,
+    TrendingDown,
+    TrendingUp,
+    UserRoundCheck,
+    X,
+    ChevronRight,
+    ChevronLeft,
+} from "lucide-react";
+
+import { getDemoCustomers } from "@/lib/demo/customers";
+import { getEmailRecommendation } from "@/lib/emailRecommendations";
+import { getFirebaseAuth } from "@/lib/firebase.client";
+
+import styles from "./ai-action-queue.module.css";
+
+type ActionType =
+    | "critical"
+    | "billing"
+    | "engagement"
+    | "success"
+    | "expansion";
+
+type ActionStatus =
+    | "not_started"
+    | "sent"
+    | "started"
+    | "pending"
+    | "failed";
+
+type RiskAccount = {
+    id: string;
+    company: string;
+    email?: string;
+    reason: string;
+    risk: number;
+    mrr: number;
+    tags?: string[];
+    updatedAt?: string;
+    customerId?: string;
+    stripeCustomerId?: string | null;
+};
+
+type AIActionQueueProps = {
+    accounts?: RiskAccount[];
+    isDemoMode?: boolean;
+    canRetryPayment?: boolean;
+    senderName?: string;
+    currency?: string;
+    locale?: string;
+};
+
+type ActionItem = {
+    id: string;
+    customerId?: string;
+    accountId?: string;
+    type: ActionType;
+    customerName: string;
+    customerEmail?: string;
+    riskScore: number;
+    mrr: number;
+    reason: string;
+    lastActive?: string;
+    emailSubject: string;
+    emailMessage: string;
+    suggestedEmail: string;
+    canRetry: boolean;
+    status: ActionStatus;
+    actionDate?: string;
+};
+
+const ITEMS_PER_PAGE = 4;
+
+function formatCurrency(value: number, currency = "GBP", locale = "en-GB") {
+    return new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency,
+        maximumFractionDigits: 0,
+    }).format(Number(value || 0));
+}
+
+function formatLastActive(value?: string | null) {
+    if (!value) return undefined;
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return undefined;
+
+    const days = Math.max(
+        0,
+        Math.round((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24))
+    );
+
+    if (days <= 0) return "Last active today";
+    if (days === 1) return "Last active 1 day ago";
+
+    return `Last active ${days} days ago`;
+}
+
+function formatActionDate(value?: string) {
+    if (!value) return "—";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+
+    return date.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+    });
+}
+
+function actionStatusLabel(status?: ActionStatus) {
+    if (status === "sent") return "Email sent";
+    if (status === "started") return "Payment started";
+    if (status === "pending") return "Pending";
+    if (status === "failed") return "Failed";
+
+    return "Not started";
+}
+
+function hasSignal(text: string, signals: string[]) {
+    return signals.some((signal) => text.includes(signal));
+}
+
+function getActionType(reason: string, tags: string[] = [], risk = 0): ActionType {
+    const text = `${reason} ${tags.join(" ")}`.toLowerCase();
+
+    const billingSignals = [
+        "payment",
+        "billing",
+        "invoice",
+        "failed",
+        "card",
+        "past due",
+        "overdue",
+        "dunning",
+        "recoverable",
+    ];
+
+    const engagementSignals = [
+        "usage",
+        "adoption",
+        "inactive",
+        "activity",
+        "dropped",
+        "drop",
+        "login",
+        "last seen",
+        "low engagement",
+        "declining",
+        "decline",
+        "feature",
+        "onboarding",
+    ];
+
+    const expansionSignals = [
+        "expansion",
+        "upgrade",
+        "upsell",
+        "seat",
+        "seats",
+        "usage growth",
+        "power user",
+        "high usage",
+        "plan limit",
+    ];
+
+    const successSignals = [
+        "check-in",
+        "check in",
+        "success",
+        "support",
+        "ticket",
+        "nps",
+        "feedback",
+        "relationship",
+        "renewal",
+        "proactive",
+    ];
+
+    if (risk >= 80) return "critical";
+    if (hasSignal(text, billingSignals)) return "billing";
+    if (hasSignal(text, expansionSignals)) return "expansion";
+    if (hasSignal(text, engagementSignals)) return "engagement";
+    if (hasSignal(text, successSignals)) return "success";
+
+    return risk >= 65 ? "critical" : "success";
+}
+
+function getRiskClass(score: number) {
+    if (score >= 80) return styles.riskCritical;
+    if (score >= 65) return styles.riskHigh;
+    if (score >= 45) return styles.riskMedium;
+
+    return styles.riskLow;
+}
+
+function getMeta(type: ActionType) {
+    const meta = {
+        critical: {
+            label: "Critical Churn Risks",
+            shortLabel: "Critical risks",
+            description: "Accounts showing the strongest churn signals.",
+            icon: AlertTriangle,
+            valueLabel: "MRR at risk",
+        },
+        billing: {
+            label: "Billing Recovery",
+            shortLabel: "Billing recovery",
+            description: "Failed, overdue, or recoverable payment actions.",
+            icon: CreditCard,
+            valueLabel: "Recoverable",
+        },
+        engagement: {
+            label: "Low Engagement",
+            shortLabel: "Low engagement",
+            description: "Customers showing usage decline or inactivity.",
+            icon: TrendingDown,
+            valueLabel: "MRR at risk",
+        },
+        success: {
+            label: "Success Check-ins",
+            shortLabel: "Success check-ins",
+            description: "Customers who need proactive retention outreach.",
+            icon: UserRoundCheck,
+            valueLabel: "MRR to protect",
+        },
+        expansion: {
+            label: "Expansion Opportunities",
+            shortLabel: "Expansion",
+            description: "Accounts showing upgrade or growth potential.",
+            icon: TrendingUp,
+            valueLabel: "Expansion MRR",
+        },
+    };
+
+    return meta[type];
+}
+
+export default function AIActionQueue({
+    accounts = [],
+    isDemoMode = false,
+    canRetryPayment = false,
+    senderName = "Team",
+    currency = "GBP",
+    locale = "en-GB",
+}: AIActionQueueProps) {
+    const [selectedType, setSelectedType] = useState<ActionType | null>(null);
+    const [page, setPage] = useState(0);
+    const [retryingId, setRetryingId] = useState<string | null>(null);
+    const [sendingEmail, setSendingEmail] = useState(false);
+    const [emailModalItem, setEmailModalItem] = useState<ActionItem | null>(null);
+
+    const [executedActions, setExecutedActions] = useState<
+        Record<
+            string,
+            {
+                status: ActionStatus;
+                actionDate: string;
+            }
+        >
+    >({});
+
+    const [emailDraft, setEmailDraft] = useState({
+        to: "",
+        subject: "",
+        message: "",
+    });
+
+    const actions = useMemo<ActionItem[]>(() => {
+        const sourceAccounts: RiskAccount[] = isDemoMode
+            ? getDemoCustomers().map((customer) => ({
+                id: customer.id,
+                customerId: customer.id,
+                company: customer.name,
+                email: customer.email ?? undefined,
+                reason: customer.status || "Retention risk detected",
+                risk: Number(customer.riskScore ?? customer.churnRisk ?? 0),
+                mrr: Number(customer.mrr ?? 0),
+                updatedAt: customer.lastActiveAt ?? undefined,
+                stripeCustomerId: customer.stripeCustomerId ?? null,
+                tags: [],
+            }))
+            : accounts;
+
+        return sourceAccounts
+            .filter((account) => Number(account.risk || 0) >= 25)
+            .sort((a, b) => Number(b.risk || 0) - Number(a.risk || 0))
+            .map((account) => {
+                const type = getActionType(
+                    account.reason,
+                    account.tags,
+                    Number(account.risk || 0)
+                );
+
+                const recommendation = getEmailRecommendation({
+                    accountName: account.company,
+                    reason: account.reason,
+                    senderName,
+                    companyName: "",
+                });
+
+                const cleanMessage = recommendation.message
+                    .replace(/\n\s*$/g, "")
+                    .replace(
+                        new RegExp(`\\n${senderName}\\n\\s*$`),
+                        `\n${senderName}`
+                    );
+
+                const isPayment =
+                    recommendation.type === "payment_recovery" || type === "billing";
+
+                const executed = executedActions[account.id];
+
+                return {
+                    id: account.id,
+                    customerId: account.customerId,
+                    accountId: account.id,
+                    type: isPayment ? "billing" : type,
+                    customerName: account.company,
+                    customerEmail: account.email,
+                    riskScore: Number(account.risk || 0),
+                    mrr: Number(account.mrr || 0),
+                    reason: account.reason,
+                    lastActive: formatLastActive(account.updatedAt),
+                    emailSubject: recommendation.subject,
+                    emailMessage: cleanMessage,
+                    suggestedEmail: recommendation.action,
+                    canRetry: isPayment && canRetryPayment && !isDemoMode,
+                    status: executed?.status || "not_started",
+                    actionDate: executed?.actionDate,
+                };
+            });
+    }, [accounts, canRetryPayment, executedActions, isDemoMode, senderName]);
+
+    const groups = useMemo(() => {
+        const groupOrder: ActionType[] = [
+            "critical",
+            "billing",
+            "engagement",
+            "success",
+            "expansion",
+        ];
+
+        return groupOrder.map((type) => {
+            const items = actions.filter((action) => action.type === type);
+            const meta = getMeta(type);
+
+            return {
+                type,
+                ...meta,
+                items,
+                count: items.length,
+                totalMrr: items.reduce((sum, item) => sum + item.mrr, 0),
+            };
+        });
+    }, [actions]);
+
+    const selectedGroup = groups.find((group) => group.type === selectedType);
+    const selectedItems = selectedGroup?.items ?? [];
+    const pageCount = Math.max(1, Math.ceil(selectedItems.length / ITEMS_PER_PAGE));
+
+    const visibleItems = selectedItems.slice(
+        page * ITEMS_PER_PAGE,
+        page * ITEMS_PER_PAGE + ITEMS_PER_PAGE
+    );
+
+    async function getAuthToken() {
+        const auth = getFirebaseAuth();
+        const token = await auth.currentUser?.getIdToken();
+
+        if (!token) {
+            throw new Error("You need to be signed in.");
+        }
+
+        return token;
+    }
+
+    async function handleRetryPayment(item: ActionItem) {
+        if (!item.canRetry || retryingId) return;
+
+        try {
+            setRetryingId(item.id);
+
+            const token = await getAuthToken();
+
+            const res = await fetch("/api/automation/retry-payment", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    customerId: item.customerId,
+                    accountId: item.accountId,
+                }),
+            });
+
+            const data = await res.json().catch(() => null);
+
+            if (!res.ok || !data?.url) {
+                throw new Error(data?.error || "Could not start retry payment.");
+            }
+
+            setExecutedActions((current) => ({
+                ...current,
+                [item.id]: {
+                    status: "started",
+                    actionDate: new Date().toISOString(),
+                },
+            }));
+
+            window.location.href = data.url;
+        } catch (error) {
+            console.error("[AIActionQueue] retry payment failed:", error);
+
+            setExecutedActions((current) => ({
+                ...current,
+                [item.id]: {
+                    status: "failed",
+                    actionDate: new Date().toISOString(),
+                },
+            }));
+
+            alert(error instanceof Error ? error.message : "Retry payment failed.");
+        } finally {
+            setRetryingId(null);
+        }
+    }
+
+    async function handleSendEmail() {
+        if (!emailModalItem || sendingEmail) return;
+
+        try {
+            setSendingEmail(true);
+
+            const token = await getAuthToken();
+
+            const res = await fetch("/api/automation/send-email", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    accountId: emailModalItem.accountId,
+                    to: emailDraft.to,
+                    subject: emailDraft.subject,
+                    body: emailDraft.message,
+                }),
+            });
+
+            const data = await res.json().catch(() => null);
+
+            if (!res.ok) {
+                throw new Error(data?.error || "Email could not be sent.");
+            }
+
+            setExecutedActions((current) => ({
+                ...current,
+                [emailModalItem.id]: {
+                    status: data?.dryRun ? "pending" : "sent",
+                    actionDate: new Date().toISOString(),
+                },
+            }));
+
+            alert(
+                data?.dryRun
+                    ? "Email saved successfully in dry run mode."
+                    : "Email sent successfully."
+            );
+
+            closeEmailModal();
+        } catch (error) {
+            console.error("[AIActionQueue] send email failed:", error);
+
+            if (emailModalItem) {
+                setExecutedActions((current) => ({
+                    ...current,
+                    [emailModalItem.id]: {
+                        status: "failed",
+                        actionDate: new Date().toISOString(),
+                    },
+                }));
+            }
+
+            alert(error instanceof Error ? error.message : "Failed to send email.");
+        } finally {
+            setSendingEmail(false);
+        }
+    }
+
+    function openPanel(type: ActionType) {
+        setSelectedType(type);
+        setPage(0);
+    }
+
+    function openEmailModal(item: ActionItem) {
+        setEmailModalItem(item);
+        setEmailDraft({
+            to: item.customerEmail || "",
+            subject: item.emailSubject,
+            message: item.emailMessage,
+        });
+    }
+
+    function closeEmailModal() {
+        if (sendingEmail) return;
+        setEmailModalItem(null);
+    }
+
+    return (
+        <>
+            <div className={styles.card}>
+                <div className={styles.header}>
+                    <div>
+                        <div className={styles.title}>
+                            <Activity size={14} strokeWidth={1.8} />
+                            <span>AI Action Queue</span>
+                        </div>
+                        <p>Churn prevention, billing recovery, and growth actions ready to use.</p>
+                    </div>
+                </div>
+
+                <div className={styles.queueList}>
+                    {groups.map((group) => {
+                        const Icon = group.icon;
+
+                        return (
+                            <button
+                                key={group.type}
+                                type="button"
+                                className={styles.queueItem}
+                                onClick={() => openPanel(group.type)}
+                            >
+                                <span className={styles.iconBox}>
+                                    <Icon size={16} strokeWidth={1.8} />
+                                </span>
+
+                                <span className={styles.queueContent}>
+                                    <span className={styles.queueTop}>
+                                        <strong>{group.count}</strong>
+                                        <span>{group.shortLabel}</span>
+                                    </span>
+                                    <small>{group.description}</small>
+                                </span>
+
+                                <span className={styles.queueValue}>
+                                    <strong>
+                                        {formatCurrency(group.totalMrr, currency, locale)}
+                                    </strong>
+                                    <small>{group.valueLabel}</small>
+                                </span>
+
+                                <ChevronRight size={15} strokeWidth={1.8} />
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {selectedGroup ? (
+                <div className={styles.overlay} onClick={() => setSelectedType(null)}>
+                    <aside className={styles.panel} onClick={(e) => e.stopPropagation()}>
+                        <div className={styles.panelHeader}>
+                            <div>
+                                <h3>{selectedGroup.label}</h3>
+                                <p>{selectedGroup.description}</p>
+                            </div>
+
+                            <button
+                                type="button"
+                                className={styles.closeButton}
+                                onClick={() => setSelectedType(null)}
+                                aria-label="Close panel"
+                            >
+                                <X size={18} strokeWidth={1.8} />
+                            </button>
+                        </div>
+
+                        <div className={styles.panelSummary}>
+                            <span>Total {selectedGroup.valueLabel.toLowerCase()}</span>
+                            <strong>
+                                {formatCurrency(selectedGroup.totalMrr, currency, locale)}
+                            </strong>
+                        </div>
+
+                        <div className={styles.customerTable}>
+                            <div className={styles.customerTableHead}>
+                                <span>Account</span>
+                                <span>Risk</span>
+                                <span>MRR</span>
+                                <span>Reason</span>
+                                <span>Action</span>
+                                <span>Status</span>
+                                <span>Date</span>
+                            </div>
+
+                            {visibleItems.length > 0 ? (
+                                visibleItems.map((item) => (
+                                    <div key={item.id} className={styles.customerTableRow}>
+                                        <div className={styles.accountCell}>
+                                            <div className={styles.avatar}>
+                                                {item.customerName.charAt(0)}
+                                            </div>
+
+                                            <div>
+                                                <strong>{item.customerName}</strong>
+                                                {item.customerEmail ? (
+                                                    <small>{item.customerEmail}</small>
+                                                ) : null}
+                                            </div>
+                                        </div>
+
+                                        <div className={styles.riskCell}>
+                                            <span className={getRiskClass(item.riskScore)}>
+                                                {item.riskScore}
+                                            </span>
+                                        </div>
+
+                                        <div className={styles.mrrCell}>
+                                            <strong>
+                                                {formatCurrency(item.mrr, currency, locale)}
+                                            </strong>
+                                            <small>{selectedGroup.valueLabel}</small>
+                                        </div>
+
+                                        <div className={styles.reasonCell}>
+                                            <p>{item.reason}</p>
+                                            {item.lastActive ? <small>{item.lastActive}</small> : null}
+                                        </div>
+
+                                        <div className={styles.emailCell}>
+                                            <strong>{item.emailSubject}</strong>
+                                            <p>{item.suggestedEmail}</p>
+                                        </div>
+
+                                        <div className={styles.statusCell}>
+                                            <span
+                                                className={
+                                                    item.status === "sent" ||
+                                                        item.status === "started"
+                                                        ? styles.statusSuccess
+                                                        : item.status === "failed"
+                                                            ? styles.statusFailed
+                                                            : item.status === "pending"
+                                                                ? styles.statusPending
+                                                                : styles.statusNeutral
+                                                }
+                                            >
+                                                {actionStatusLabel(item.status)}
+                                            </span>
+                                        </div>
+
+                                        <div className={styles.dateCell}>
+                                            {formatActionDate(item.actionDate)}
+                                        </div>
+
+                                        <div className={styles.actionCell}>
+                                            <button
+                                                type="button"
+                                                onClick={() => openEmailModal(item)}
+                                                disabled={item.status === "sent"}
+                                            >
+                                                {item.status === "sent" ? "Sent" : "Send email"}
+                                            </button>
+
+                                            {item.canRetry ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void handleRetryPayment(item)}
+                                                    disabled={
+                                                        retryingId === item.id ||
+                                                        item.status === "started"
+                                                    }
+                                                >
+                                                    {retryingId === item.id
+                                                        ? "Starting..."
+                                                        : item.status === "started"
+                                                            ? "Started"
+                                                            : "Retry payment"}
+                                                </button>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className={styles.emptyState}>
+                                    No actions in this queue yet.
+                                </div>
+                            )}
+                        </div>
+
+                        {selectedItems.length > ITEMS_PER_PAGE ? (
+                            <div className={styles.pagination}>
+                                <button
+                                    type="button"
+                                    onClick={() => setPage((value) => Math.max(0, value - 1))}
+                                    disabled={page === 0}
+                                >
+                                    <ChevronLeft size={14} />
+                                    Previous
+                                </button>
+
+                                <span>
+                                    {page + 1} of {pageCount}
+                                </span>
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setPage((value) =>
+                                            Math.min(pageCount - 1, value + 1)
+                                        )
+                                    }
+                                    disabled={page >= pageCount - 1}
+                                >
+                                    Next
+                                    <ChevronRight size={14} />
+                                </button>
+                            </div>
+                        ) : null}
+
+                        <button
+                            type="button"
+                            className={styles.footerLink}
+                            onClick={() => {
+                                window.location.href = "/dashboard/accounts-at-risk";
+                            }}
+                        >
+                            View all at-risk accounts
+                            <ChevronRight size={14} strokeWidth={1.8} />
+                        </button>
+                    </aside>
+                </div>
+            ) : null}
+
+            {emailModalItem ? (
+                <div className={styles.emailModalOverlay} onClick={closeEmailModal}>
+                    <div className={styles.emailModal} onClick={(e) => e.stopPropagation()}>
+                        <div className={styles.emailModalHeader}>
+                            <div>
+                                <h3>Retention Outreach</h3>
+                                <p>{emailModalItem.customerName}</p>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={closeEmailModal}
+                                aria-label="Close email modal"
+                                disabled={sendingEmail}
+                            >
+                                <X size={16} strokeWidth={1.8} />
+                            </button>
+                        </div>
+
+                        <label className={styles.emailField}>
+                            <span>To</span>
+                            <input
+                                value={emailDraft.to}
+                                placeholder="customer@email.com"
+                                disabled={sendingEmail}
+                                onChange={(e) =>
+                                    setEmailDraft((draft) => ({
+                                        ...draft,
+                                        to: e.target.value,
+                                    }))
+                                }
+                            />
+                        </label>
+
+                        <label className={styles.emailField}>
+                            <span>Subject</span>
+                            <input
+                                value={emailDraft.subject}
+                                disabled={sendingEmail}
+                                onChange={(e) =>
+                                    setEmailDraft((draft) => ({
+                                        ...draft,
+                                        subject: e.target.value,
+                                    }))
+                                }
+                            />
+                        </label>
+
+                        <label className={styles.emailField}>
+                            <span>Message</span>
+                            <textarea
+                                value={emailDraft.message}
+                                disabled={sendingEmail}
+                                onChange={(e) =>
+                                    setEmailDraft((draft) => ({
+                                        ...draft,
+                                        message: e.target.value,
+                                    }))
+                                }
+                                rows={9}
+                            />
+                        </label>
+
+                        <div className={styles.emailModalActions}>
+                            <button
+                                type="button"
+                                onClick={closeEmailModal}
+                                disabled={sendingEmail}
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => void handleSendEmail()}
+                                disabled={sendingEmail}
+                            >
+                                {sendingEmail ? "Sending..." : "Send email"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+        </>
+    );
+}

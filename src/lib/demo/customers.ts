@@ -211,3 +211,42 @@ export function getDemoCustomers(): CobraiCustomerListItem[] {
         },
     ];
 }
+
+
+export function getDemoRecoveryQueue() {
+    return getDemoCustomers()
+        .filter((customer) => Number(customer.mrr || 0) > 0)
+        .sort((a, b) => Number(b.churnRisk || 0) - Number(a.churnRisk || 0))
+        .slice(0, 8)
+        .map((customer) => ({
+            id: customer.id,
+            customerId: customer.id,
+            accountRiskId: customer.id,
+            name: customer.name,
+            email: customer.email,
+            reason:
+                Number(customer.churnRisk || 0) >= 85
+                    ? "High churn risk + low health score"
+                    : Number(customer.churnRisk || 0) >= 70
+                        ? "Usage drop + retention risk"
+                        : Number(customer.churnRisk || 0) >= 55
+                            ? "Engagement needs attention"
+                            : "Expansion opportunity",
+            action:
+                Number(customer.churnRisk || 0) >= 85
+                    ? "Send urgent retention email"
+                    : Number(customer.churnRisk || 0) >= 70
+                        ? "Schedule check-in"
+                        : Number(customer.churnRisk || 0) >= 55
+                            ? "Send usage recovery email"
+                            : "Review upsell fit",
+            valueMinor: Number(customer.mrr || 0),
+            confidence:
+                Number(customer.churnRisk || 0) >= 85
+                    ? 92
+                    : Number(customer.churnRisk || 0) >= 70
+                        ? 84
+                        : 72,
+            lastEventAt: customer.lastActiveAt,
+        }));
+}

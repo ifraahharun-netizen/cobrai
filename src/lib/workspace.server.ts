@@ -25,10 +25,6 @@ export async function getWorkspaceIdFromRequest(
 
     const firebaseUid = decoded.uid;
 
-    console.log(
-        "Looking up workspace for firebaseUid:",
-        firebaseUid
-    );
 
     let user =
         await prisma.user.findUnique({
@@ -43,7 +39,7 @@ export async function getWorkspaceIdFromRequest(
             },
         });
 
-    console.log("Found user:", user);
+
 
     /*
      * Auto recover after prisma reset
@@ -79,10 +75,7 @@ export async function getWorkspaceIdFromRequest(
 
             });
    
-        console.log(
-            "Recovered or created user:",
-            user
-        );
+     
     }
 
     /*
@@ -116,10 +109,7 @@ export async function getWorkspaceIdFromRequest(
             },
         });
 
-        console.log(
-            "Created missing workspace:",
-            workspace.id
-        );
+     
 
         return workspace.id;
     }

@@ -67,6 +67,7 @@ export async function GET(req: NextRequest) {
         "https://app.hubspot.com/oauth/authorize" +
         `?client_id=${encodeURIComponent(clientId)}` +
         `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&scope=${encodeURIComponent(scopes)}` +
         `&state=${encodeURIComponent(state)}` +
         `&code_challenge=${encodeURIComponent(codeChallenge)}` +
         `&code_challenge_method=S256`;

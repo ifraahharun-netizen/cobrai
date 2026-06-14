@@ -20,25 +20,23 @@ export default function EChart({ option, onEvents }: EChartProps) {
             chartRef.current = echarts.init(ref.current);
         }
 
-        chartRef.current.setOption(option, true);
+        const frame = window.requestAnimationFrame(() => {
+            chartRef.current?.setOption(option, true);
+            chartRef.current?.resize();
+        });
 
         const resize = () => chartRef.current?.resize();
         window.addEventListener("resize", resize);
 
-        requestAnimationFrame(() => {
-            chartRef.current?.resize();
-        });
-
         return () => {
+            window.cancelAnimationFrame(frame);
             window.removeEventListener("resize", resize);
         };
     }, [option]);
 
     useEffect(() => {
         const chart = chartRef.current;
-        if (!chart) return;
-
-        if (!onEvents) return;
+        if (!chart || !onEvents) return;
 
         Object.entries(onEvents).forEach(([eventName, handler]) => {
             chart.off(eventName);

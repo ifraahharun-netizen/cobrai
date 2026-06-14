@@ -121,6 +121,11 @@ type DashboardSummary = {
     newSubscribers: number;
   };
 
+  activeUsers?: {
+    last24Hours: ActiveUsersPoint[];
+    last7Days: ActiveUsersPoint[];
+  };
+
   activitySummary?: {
     windowLabel: string;
     newSubscriptions: number;
@@ -130,6 +135,12 @@ type DashboardSummary = {
   };
 
   history?: HistoryRow[];
+};
+
+
+type ActiveUsersPoint = {
+  timestamp: string;
+  value: number;
 };
 
 type EventForInsight = {
@@ -156,6 +167,54 @@ function monthLabel(month: string) {
   const [, mm] = month.split("-");
   const labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   return labels[Math.max(0, Math.min(11, Number(mm) - 1))];
+}
+function startOfUtcHour(date: Date) {
+  return new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      date.getUTCHours(),
+      0,
+      0,
+      0
+    )
+  );
+}
+
+function addHours(date: Date, delta: number) {
+  return new Date(date.getTime() + delta * 60 * 60 * 1000);
+}
+
+function buildActiveUsersSeries(
+  events: EventForInsight[],
+  now = new Date(),
+  hours: number
+): ActiveUsersPoint[] {
+  const endHour = startOfUtcHour(now);
+  const buckets = new Map<string, Set<string>>();
+
+  for (let i = hours - 1; i >= 0; i--) {
+    const hour = addHours(endHour, -i);
+    buckets.set(hour.toISOString(), new Set());
+  }
+
+  for (const event of events) {
+    const customerId = event.customer?.id;
+    if (!customerId) continue;
+
+    const hour = startOfUtcHour(event.occurredAt).toISOString();
+    const bucket = buckets.get(hour);
+
+    if (bucket) {
+      bucket.add(customerId);
+    }
+  }
+
+  return Array.from(buckets.entries()).map(([timestamp, customers]) => ({
+    timestamp,
+    value: customers.size,
+  }));
 }
 
 function humanizeType(type: string) {
@@ -546,6 +605,8 @@ export async function GET(req: Request) {
 
     const last30DaysStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
+    const last7DaysStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
     const [mrrSnapshotCount, accountRiskCount, connectedIntegrations] = await Promise.all([
       prisma.mrrSnapshot.count({ where: { workspaceId } }),
       prisma.accountRisk.count({ where: { workspaceId } }),
@@ -554,6 +615,7 @@ export async function GET(req: Request) {
         select: { provider: true },
       }),
     ]);
+
 
     const hasEnoughLiveData =
       connectedIntegrations.length > 0 &&
@@ -582,6 +644,7 @@ export async function GET(req: Request) {
       subscriptionsCurrentMonth,
       subscriptionsLast30Days,
       invoicesLast30Days,
+      eventsLast7Days,
       eventsLast30Days,
       eventsCurrentMonth,
       eventsPreviousMonth,
@@ -764,6 +827,31 @@ export async function GET(req: Request) {
       prisma.event.findMany({
         where: {
           workspaceId,
+          occurredAt: {
+            gte: last7DaysStart,
+          },
+        },
+        select: {
+          id: true,
+          type: true,
+          occurredAt: true,
+          value: true,
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: {
+          occurredAt: "asc",
+        },
+      }),
+
+      prisma.event.findMany({
+        where: {
+          workspaceId,
 
           occurredAt: {
             gte: last30DaysStart,
@@ -911,10 +999,12 @@ export async function GET(req: Request) {
         email: customer?.email ?? null,
       };
     });
+    const eventsLast7DaysTyped = eventsLast7Days as EventForInsight[];
+    const eventsLast30DaysTyped = eventsLast30Days as EventForInsight[];
+
 
     const riskInsights = buildRiskInsights(risks);
-    const progressAndEmailInsights = buildProgressAndEmailInsights(eventsLast30Days as EventForInsight[]);
-    const liveInsights = mergeInsights(progressAndEmailInsights, riskInsights, 3);
+    const progressAndEmailInsights = buildProgressAndEmailInsights(eventsLast30DaysTyped); const liveInsights = mergeInsights(progressAndEmailInsights, riskInsights, 3);
 
     const currentMonthLatestPerCompany = dedupeLatestSnapshotPerCompany(currentMonthSnapshots);
     const previousMonthLatestPerCompany = dedupeLatestSnapshotPerCompany(previousMonthSnapshots);
@@ -1241,6 +1331,20 @@ export async function GET(req: Request) {
         latestInsightRun?.result as any
       )?.businessNarrative ?? null;
 
+
+    const liveActiveUsers = {
+      last24Hours: buildActiveUsersSeries(
+        eventsLast7DaysTyped,
+        now,
+        24
+      ),
+      last7Days: buildActiveUsersSeries(
+        eventsLast7DaysTyped,
+        now,
+        7 * 24
+      ),
+    };
+
     const response: DashboardSummary = {
       ok: true,
 
@@ -1564,6 +1668,10 @@ export async function GET(req: Request) {
       customerMix: isDemo
         ? customerMixDemo
         : customerMixLive,
+
+      activeUsers: isDemo
+        ? undefined
+        : liveActiveUsers,
 
       activitySummary: {
         windowLabel:

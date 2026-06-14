@@ -33,10 +33,9 @@ export function middleware(req: NextRequest) {
     }
 
     const authHeader = req.headers.get("authorization") ?? "";
-    const hasBearerToken = authHeader.startsWith("Bearer ");
-    const hasSessionCookie = Boolean(req.cookies.get("session")?.value);
+   const hasBearerToken = authHeader.toLowerCase().startsWith("bearer ");
 
-    if (!hasBearerToken && !hasSessionCookie) {
+if (!hasBearerToken) {
         return NextResponse.json(
             { ok: false, error: "Unauthorized" },
             { status: 401 }

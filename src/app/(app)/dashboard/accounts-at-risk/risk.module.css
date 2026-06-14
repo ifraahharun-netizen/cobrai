@@ -22,14 +22,14 @@
 .searchInput {
   width: 100%;
   height: 44px;
-  border: 1px solid #e7e4f1;
+  border: 1px solid #e8eef6;
   background: #ffffff;
   border-radius: 13px;
   padding: 0 44px 0 16px;
   outline: none;
   font-size: 13px;
   color: #252844;
-  box-shadow: 0 8px 22px rgba(30, 20, 70, 0.03);
+  box-shadow: none;
 }
 
 .searchInput::placeholder {
@@ -37,8 +37,8 @@
 }
 
 .searchInput:focus {
-  border-color: #111827;
-  box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.06);
+  border-color: #dbe4ee;
+  box-shadow: none;
 }
 
 .searchIcon {
@@ -58,15 +58,15 @@
   background: #ffffff;
   color: #111827;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 650;
   cursor: pointer;
   transition: 0.18s ease;
 }
 
 .downloadBtn:hover {
-  border-color: #111827;
-  background: #111827;
-  color: #ffffff;
+  border-color: #dbe4ee;
+  background: #ffffff;
+  color: #111827;
 }
 
 .header {
@@ -75,9 +75,9 @@
 
 .title {
   margin: 0;
-  font-size: 28px;
+  font-size: 26px;
   line-height: 1.1;
-  font-weight: 560;
+  font-weight: 550;
   letter-spacing: -0.04em;
   color: #14162f;
 }
@@ -98,20 +98,20 @@
 
 .kpiCard {
   min-height: 108px;
-  border: 1px solid #e9e5f2;
-  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e8eef6;
+  background: #ffffff;
   border-radius: 18px;
   padding: 17px 18px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  box-shadow: 0 12px 32px rgba(30, 20, 70, 0.04);
+  box-shadow: none;
   transition: 0.18s ease;
 }
 
 .kpiCard:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 18px 42px rgba(30, 20, 70, 0.07);
+  transform: none;
+  box-shadow: none;
 }
 
 .kpiLabel {
@@ -122,9 +122,9 @@
 }
 
 .kpiValue {
-  font-size: 17px;
+  font-size: 15px;
   line-height: 1.1;
-  font-weight: 550;
+  font-weight: 450;
   letter-spacing: -0.035em;
   color: #16182f;
 }
@@ -142,11 +142,11 @@
   border-radius: 12px;
   display: grid;
   place-items: center;
-  background: linear-gradient(180deg, #f7f7f8, #ffffff);
+  background: #f8fafc;
   color: #111827;
   font-size: 16px;
-  font-weight: 700;
-  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.08);
+  font-weight: 650;
+  box-shadow: none;
   flex: 0 0 auto;
 }
 
@@ -162,7 +162,7 @@
   padding: 0 17px;
   border-radius: 14px;
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 550;
   cursor: pointer;
   transition: 0.16s ease;
 }
@@ -174,24 +174,24 @@
 }
 
 .riskFilterBtn:hover {
-  border-color: #dfdfe0;
-  color: #100e0e;
+  border-color: #dbe4ee;
+  color: #111827;
 }
 
 .riskFilterBtnActive {
-  border: 1px solid #e7e7e8;
+  border: 1px solid #e8eef6;
   background: #ffffff;
   color: #2a2828;
-  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.12);
+  box-shadow: none;
 }
 
 .tableCard {
   width: 100%;
-  border: 1px solid #e9e5f1;
+  border: 1px solid #e8eef6;
   background: #ffffff;
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 14px 36px rgba(30, 20, 70, 0.04);
+  box-shadow: none;
 }
 
 .table {
@@ -204,10 +204,10 @@
   height: 48px;
   padding: 0 14px;
   background: #ffffff;
-  border-bottom: 1px solid #ebe7f2;
-  color: #17171b;
+  border-bottom: 1px solid #eef2f7;
+  color: #64748b;
   font-size: 11.5px;
-  font-weight: 700;
+  font-weight: 400;
   text-align: left;
   white-space: nowrap;
 }
@@ -215,7 +215,7 @@
 .table td {
   height: 66px;
   padding: 0 14px;
-  border-bottom: 1px solid #eeeaf3;
+  border-bottom: 1px solid #eef2f7;
   color: #0a0a0a;
   font-size: 13px;
   vertical-align: middle;
@@ -226,7 +226,7 @@
 }
 
 .table tbody tr:hover {
-  background: #fafafa;
+  background: #fbfdff;
 }
 
 .table tr:last-child td {
@@ -279,10 +279,10 @@
   border-radius: 12px;
   display: grid;
   place-items: center;
-  background: #f7f7f7;
+  background: #f8fafc;
   color: #050313;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 650;
   flex: 0 0 auto;
 }
 
@@ -290,7 +290,7 @@
   max-width: 165px;
   font-size: 13.5px;
   line-height: 1.2;
-  font-weight: 700;
+  font-weight: 450;
   color: #242643;
   letter-spacing: -0.015em;
   white-space: nowrap;
@@ -318,7 +318,7 @@
   border-radius: 9px;
   padding: 0 8px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 650;
 }
 
 .riskScoreCritical {
@@ -344,7 +344,7 @@
 .reasonMain {
   font-size: 13px;
   line-height: 1.25;
-  font-weight: 700;
+  font-weight: 420;
   color: #242643;
   letter-spacing: -0.01em;
 }
@@ -363,7 +363,7 @@
 
 .mrrCell {
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 450;
   color: #34364f;
   white-space: nowrap;
 }
@@ -388,13 +388,13 @@
   background: #ffffff;
   color: #131212;
   font-size: 12.5px;
-  font-weight: 750;
+  font-weight: 650;
   cursor: pointer;
   transition: 0.18s ease;
 }
 
 .viewBtn:hover:not(:disabled) {
-  border-color: #e4e1e1;
+  border-color: #dbe4ee;
   background: #ffffff;
   color: #090909;
 }
@@ -443,7 +443,7 @@
   color: #5f5c76;
   background: #ffffff;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 650;
 }
 
 .modalOverlay {
@@ -497,7 +497,7 @@
 }
 
 .iconBtn:hover {
-  border-color: #111827;
+  border-color: #dbe4ee;
   color: #111827;
 }
 
@@ -516,14 +516,14 @@
   background: #111827;
   color: #ffffff;
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 650;
   cursor: pointer;
   transition: 0.18s ease;
 }
 
 .primaryBtn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(17, 24, 39, 0.16);
+  transform: none;
+  box-shadow: none;
 }
 
 @media (max-width: 1180px) {

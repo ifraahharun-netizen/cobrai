@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const tokenRes = await fetch("https://api.hubapi.com/oauth/v1/token", {
+        const tokenRes = await fetch("https://api.hubapi.com/oauth/2026-03/token", {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",

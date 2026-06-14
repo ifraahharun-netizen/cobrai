@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
 import { AuthError, getWorkspaceFromRequest } from "@/lib/auth/getWorkspaceFromRequest";
-
+import { ratelimit } from "@/lib/rateLimit";
 export const runtime = "nodejs";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -97,7 +97,29 @@ async function createTimelineEvent(args: {
 export async function POST(req: Request) {
     try {
         const { workspaceId } = await getWorkspaceFromRequest(req);
+        const { success, reset } = await ratelimit.limit(
+            `email-send:${workspaceId}`
+        );
 
+        if (!success) {
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: "Too many email requests. Please try again shortly.",
+                },
+                {
+                    status: 429,
+                    headers: {
+                        "Retry-After": String(
+                            Math.max(
+                                1,
+                                Math.ceil((reset - Date.now()) / 1000)
+                            )
+                        ),
+                    },
+                }
+            );
+        }
         const raw = await req.json().catch(() => null);
 
         if (!raw || typeof raw !== "object") {

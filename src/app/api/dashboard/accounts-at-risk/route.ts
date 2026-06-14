@@ -741,75 +741,6 @@ export async function GET(
                     forecast.escalationDetected,
             });
 
-            const latestSnapshot =
-                customerSnapshots[0];
-
-            const shouldCreateSnapshot =
-                !latestSnapshot ||
-                Date.now() -
-                new Date(
-                    latestSnapshot.snapshotDate
-                ).getTime() >
-                1000 *
-                60 *
-                60 *
-                12;
-
-            if (shouldCreateSnapshot) {
-                await prisma.accountRiskSnapshot.create(
-                    {
-                        data: {
-                            workspaceId:
-                                workspace.id,
-
-                            accountRiskId:
-                                c.id,
-
-                            companyName:
-                                c.name ||
-                                "Unknown",
-
-                            riskScore,
-
-                            reasonKey:
-                                computedRisk.reasonKey,
-
-                            reasonLabel:
-                                computedRisk.reasonLabel,
-
-                            velocityScore:
-                                forecast.velocityScore,
-
-                            accelerationScore:
-                                forecast.accelerationScore,
-
-                            momentumScore:
-                                forecast.momentumScore,
-
-                            predictedRisk7d:
-                                forecast.predictedRisk7d,
-
-                            predictedRisk14d:
-                                forecast.predictedRisk14d,
-
-                            predictedRisk30d:
-                                forecast.predictedRisk30d,
-
-                            escalationDetected:
-                                forecast.escalationDetected,
-
-                            mrrMinor:
-                                Number(
-                                    c.mrr ||
-                                    0
-                                ),
-
-                            snapshotDate:
-                                new Date(),
-                        },
-                    }
-                );
-            }
         }
 
         const {
@@ -853,16 +784,16 @@ export async function GET(
             summary,
         });
     } catch (e: any) {
+        console.error("Accounts at risk route failed:", e);
+
         const msg =
             e?.message ||
             "Failed to load accounts at risk";
 
         const status =
-            msg ===
-                "Unauthorized"
+            msg === "Unauthorized"
                 ? 401
-                : msg ===
-                    "Workspace not found"
+                : msg === "Workspace not found"
                     ? 404
                     : 500;
 

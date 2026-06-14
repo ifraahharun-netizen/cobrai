@@ -135,6 +135,25 @@ function formatDate(value?: string) {
         year: "numeric",
     });
 }
+function formatActivityWindow() {
+    const end = new Date();
+    const start = new Date();
+
+    start.setMonth(start.getMonth() - 1);
+
+    const formatter = new Intl.DateTimeFormat("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+    });
+
+    return `${formatter.format(start)} – ${formatter.format(end)}`;
+}
+
+function escapeCsvValue(value: string | number | null | undefined) {
+    const safeValue = String(value ?? "");
+    return `"${safeValue.replaceAll('"', '""')}"`;
+}
 
 function fallbackEmail() {
     return "No email available";
@@ -219,6 +238,7 @@ export default function ProgressPage() {
     const [error, setError] = useState<string | null>(null);
     const [outcomeFilter, setOutcomeFilter] = useState<OutcomeFilter>("all");
     const [page, setPage] = useState(1);
+    const [searchQuery, setSearchQuery] = useState("");
 
     const rowsPerPage = 10;
 
@@ -347,10 +367,28 @@ export default function ProgressPage() {
             ? data.progressBreakdown
             : [];
 
-        if (outcomeFilter === "all") return rows;
+        const filteredByOutcome =
+            outcomeFilter === "all"
+                ? rows
+                : rows.filter((row) => row.outcome === outcomeFilter);
 
-        return rows.filter((row) => row.outcome === outcomeFilter);
-    }, [data?.progressBreakdown, outcomeFilter]);
+        const query = searchQuery.trim().toLowerCase();
+
+        if (!query) return filteredByOutcome;
+
+        return filteredByOutcome.filter((row) =>
+            [
+                row.account,
+                row.email,
+                row.action,
+                row.aiReason,
+                row.aiRecommendation,
+            ]
+                .join(" ")
+                .toLowerCase()
+                .includes(query)
+        );
+    }, [data?.progressBreakdown, outcomeFilter, searchQuery]);
 
     const totalPages = Math.max(1, Math.ceil(progressRows.length / rowsPerPage));
     const safePage = Math.min(page, totalPages);
@@ -453,11 +491,83 @@ export default function ProgressPage() {
             </main>
         );
     }
+    const activityWindow = formatActivityWindow();
+
+    function downloadCsv() {
+        const csvRows = progressRows.map((row) => ({
+            Account: row.account,
+            Email: row.email || fallbackEmail(),
+            Reason: cleanText(row.aiReason),
+            Action: row.action,
+            Outcome: outcomeLabel(row.outcome),
+            "Revenue protected": formatMoney(row.mrrSavedMinor, currency),
+            "Risk score": row.riskScore,
+            Date: formatDate(row.date),
+        }));
+
+        const headers = Object.keys(csvRows[0] || {
+            Account: "",
+            Email: "",
+            Reason: "",
+            Action: "",
+            Outcome: "",
+            "Revenue protected": "",
+            "Risk score": "",
+            Date: "",
+        });
+
+        const csvContent = [
+            headers.map(escapeCsvValue).join(","),
+            ...csvRows.map((row) =>
+                headers.map((header) => escapeCsvValue(row[header as keyof typeof row])).join(",")
+            ),
+        ].join("\n");
+
+        const blob = new Blob([csvContent], {
+            type: "text/csv;charset=utf-8;",
+        });
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+
+        link.href = url;
+        link.download = `cobrai-retention-activity-${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+
+        URL.revokeObjectURL(url);
+    }
 
     return (
         <main className={styles.page}>
             <div className={styles.container}>
                 <div className={styles.topHeaderRow}>
+                    <div className={styles.headerControls}>
+                        <div className={styles.searchWrap}>
+                            <input
+                                value={searchQuery}
+                                onChange={(event) => setSearchQuery(event.target.value)}
+                                className={styles.searchInput}
+                                placeholder="Search account..."
+                                type="search"
+                            />
+
+                            <span className={styles.searchIcon}>⌕</span>
+                        </div>
+
+                        <div className={styles.headerRightControls}>
+                            <span className={styles.dateRangePill}>{activityWindow}</span>
+
+                            <button
+                                type="button"
+                                className={styles.downloadCsvBtn}
+                                onClick={downloadCsv}
+                                disabled={progressRows.length === 0}
+                            >
+                                Download CSV
+                            </button>
+                        </div>
+                    </div>
+
                     <section className={styles.hero}>
                         <h1>Retention activity</h1>
                         <p>
@@ -541,10 +651,9 @@ export default function ProgressPage() {
                                         <thead>
                                             <tr>
                                                 <th>Account</th>
-                                                <th>AI reasoning & signals</th>
-                                                <th>Action result</th>
+                                                <th>Reason</th>
                                                 <th>Outcome</th>
-                                                <th>MRR saved</th>
+                                                <th>Revenue protected</th>
                                                 <th>Risk score</th>
                                                 <th>Date</th>
                                             </tr>
@@ -607,43 +716,6 @@ export default function ProgressPage() {
                                                             </div>
                                                         </td>
 
-                                                        <td>
-                                                            {row.outcome === "success" ? (
-                                                                <div className={styles.effectivenessCard}>
-                                                                    <span className={styles.actionMiniIcon}>
-                                                                        {getActionIcon(row)}
-                                                                    </span>
-
-                                                                    <div>
-                                                                        <strong>
-                                                                            {effectivenessScore ?? 0}% effectiveness
-                                                                        </strong>
-
-                                                                        <p>
-                                                                            Action completed and revenue protection
-                                                                            confirmed.
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            ) : (
-                                                                <div className={styles.recommendationCard}>
-                                                                    <span className={styles.actionMiniIcon}>
-                                                                        {getActionIcon(row)}
-                                                                    </span>
-
-                                                                    <div>
-                                                                        <strong>
-                                                                            {cleanText(
-                                                                                row.aiRecommendation ||
-                                                                                "Review this account and take the recommended retention action."
-                                                                            )}
-                                                                        </strong>
-                                                                    </div>
-
-                                                                    <span className={styles.sparkleIcon}>✦</span>
-                                                                </div>
-                                                            )}
-                                                        </td>
 
                                                         <td>
                                                             <span
@@ -733,8 +805,17 @@ export default function ProgressPage() {
                             </>
                         ) : (
                             <div className={styles.emptyState}>
-                                <strong>No progress rows yet</strong>
-                                <p>Your API loaded, but no progress breakdown rows were returned.</p>
+                                <strong>
+                                    {searchQuery.trim()
+                                        ? "No matching accounts found"
+                                        : "No progress rows yet"}
+                                </strong>
+
+                                <p>
+                                    {searchQuery.trim()
+                                        ? "Try searching another account name, email, reason, or action."
+                                        : "Your API loaded, but no progress breakdown rows were returned."}
+                                </p>
                             </div>
                         )}
                     </article>

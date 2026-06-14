@@ -123,6 +123,8 @@ function outcomeFromStatus(status?: string | null): "success" | "pending" | "fai
 
     if (
         s === "success" ||
+        s === "sent" ||
+        s === "completed" ||
         s === "recovered" ||
         s === "retained" ||
         s === "replied"
@@ -176,9 +178,12 @@ export async function getLiveProgress(
         prisma.actionExecution.findMany({
             where: {
                 workspaceId,
-                sentAt: { gte: ninetyDaysAgo },
+                OR: [
+                    { sentAt: { gte: ninetyDaysAgo } },
+                    { createdAt: { gte: ninetyDaysAgo } },
+                ],
             },
-            orderBy: { sentAt: "desc" },
+            orderBy: { createdAt: "desc" },
             include: {
                 customer: {
                     select: {
@@ -222,13 +227,12 @@ export async function getLiveProgress(
 
         const customerId = action.customerId || undefined;
         const accountId = action.accountRiskId || undefined;
-        const stableEntityId = customerId || accountId || action.id;
         const actionDate = action.sentAt || action.createdAt;
         const actionType = action.actionType || "retention_action";
         const kind = getProgressKind(actionType);
 
         return {
-            id: stableEntityId,
+            id: action.id,
             customerId,
             accountId,
             account: action.customer?.name || "Unknown account",

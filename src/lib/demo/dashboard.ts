@@ -29,97 +29,115 @@ function monthLabels(userLocale: string, count = 10) {
     });
 }
 
+function currentMonthDayLabels(userLocale: string) {
+    const now = new Date();
+    const dayCount = now.getDate();
+
+    return Array.from({ length: dayCount }, (_, index) => {
+        const date = new Date(now.getFullYear(), now.getMonth(), index + 1);
+
+        return date.toLocaleDateString(userLocale, {
+            day: "numeric",
+            month: "short",
+        });
+    });
+}
+
+function clamp(value: number, min: number, max: number) {
+    return Math.min(max, Math.max(min, value));
+}
+
 function getAccountName(customer: any, fallback: string) {
     return customer?.name ?? customer?.account ?? fallback;
 }
 
+function realisticMrrProtectedTrend(length: number) {
+    let value = 620;
+
+    return Array.from({ length }, (_, index) => {
+        const progress = length <= 1 ? 1 : index / (length - 1);
+
+        const trendLift = 28 + progress * 34;
+        const weekdayPush = [16, -10, 22, 8, 36, -18, 12][index % 7];
+        const campaignSpike =
+            index === Math.floor(length * 0.45) ||
+                index === Math.floor(length * 0.72)
+                ? 140
+                : 0;
+
+        const dip =
+            index === Math.floor(length * 0.35) ||
+                index === Math.floor(length * 0.62)
+                ? -95
+                : 0;
+
+        const wave = Math.sin(index * 0.85) * 42;
+
+        value = value + trendLift + weekdayPush + wave * 0.32 + campaignSpike + dip;
+
+        return Math.round(clamp(value, 520, 2200));
+    });
+}
+
+function realisticCurrentMonthChurn(length: number) {
+    let value = 4.8;
+
+    return Array.from({ length }, (_, index) => {
+        const progress = length <= 1 ? 1 : index / (length - 1);
+
+        const downwardPressure = 0.055 + progress * 0.025;
+        const weeklyNoise = [0.12, -0.08, 0.16, -0.04, -0.14, 0.09, -0.06][index % 7];
+        const saveImpact =
+            index === Math.floor(length * 0.42) ||
+                index === Math.floor(length * 0.7)
+                ? -0.34
+                : 0;
+
+        const smallSpike =
+            index === Math.floor(length * 0.28) ||
+                index === Math.floor(length * 0.58)
+                ? 0.26
+                : 0;
+
+        value = value - downwardPressure + weeklyNoise + saveImpact + smallSpike;
+
+        return Number(clamp(value, 2.4, 5.2).toFixed(1));
+    });
+}
+
+function realisticSixMonthMrr() {
+    return [690, 1040, 930, 1460, 1320, 1856];
+}
+
+function realisticSixMonthChurn() {
+    return [4.6, 4.9, 4.2, 4.4, 3.6, 2.8];
+}
+
 export function getDemoDashboardData(userLocale: string) {
     const customers = getDemoCustomers();
-    const months = monthLabels(userLocale, 10);
+    const months = monthLabels(userLocale, 6);
+    const currentMonthDays = currentMonthDayLabels(userLocale);
 
-    const totalMrrSeries = [
-        68200,
-        70100,
-        72400,
-        73900,
-        75100,
-        76800,
-        78200,
-        79400,
-        81250,
-        80700,
-    ];
+    const currentMonthMrrProtectedValues = realisticMrrProtectedTrend(
+        currentMonthDays.length
+    );
 
-    const mrrAtRiskSeries = [
-        9800,
-        9400,
-        8900,
-        8300,
-        7800,
-        7200,
-        6900,
-        6400,
-        6150,
-        5700,
-    ];
+    const currentMonthChurnPct = realisticCurrentMonthChurn(
+        currentMonthDays.length
+    );
 
-    const churnPct = [
-        5.1,
-        4.7,
-        4.9,
-        4.2,
-        3.9,
-        3.7,
-        3.2,
-        3.1,
-        3.4,
-        2.6,
-    ];
+    const totalMrrSeries = [75100, 76800, 78200, 79400, 81250, 80700];
 
-    const mrrProtectedValues = [
-        210,
-        430,
-        390,
-        710,
-        880,
-        1160,
-        1090,
-        1490,
-        1695,
-        1856,
-    ];
+    const mrrAtRiskSeries = [7800, 7200, 6900, 6400, 6150, 5700];
+
+    const churnPct = realisticSixMonthChurn();
+
+    const mrrProtectedValues = realisticSixMonthMrr();
 
     const activeUsersValues = [
-        142,
-        139,
-        144,
-        147,
-        143,
-        148,
-        151,
-        146,
-        149,
-        152,
-        148,
-        151,
-        153,
-        150,
-        154,
-        157,
-        153,
-        158,
-        160,
-        156,
-        161,
-        163,
-        159,
-        164,
-        166,
-        162,
-        167,
-        169,
-        165,
-        170,
+        128, 136, 129, 144, 139, 157, 151, 166, 159, 172,
+        164, 181, 169, 156, 162, 149, 158, 147, 171, 183,
+        176, 194, 188, 173, 181, 169, 178, 186, 179, 191,
     ];
 
     const riskAccounts = [
@@ -186,6 +204,10 @@ export function getDemoDashboardData(userLocale: string) {
 
         mrrProtectedMonths: months,
         mrrProtectedValues,
+
+        currentMonthDays,
+        currentMonthMrrProtectedValues,
+        currentMonthChurnPct,
 
         activeUsersValues,
 

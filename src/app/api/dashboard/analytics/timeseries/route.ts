@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 10;
 
-type RangeKey = "12m" | "ytd" | "24m";
+type RangeKey = "current" | "3m" | "6m" | "12m";
 
 type ExpansionRow = {
     id: string;
@@ -96,30 +96,26 @@ function endOfMonth(date: Date) {
 }
 
 function resolveRange(input: string | null): RangeKey {
-    if (input === "ytd") return "ytd";
-    if (input === "24m") return "24m";
+    if (input === "current") return "current";
+    if (input === "3m") return "3m";
+    if (input === "6m") return "6m";
 
     return "12m";
 }
 
 function buildMonthKeys(range: RangeKey): string[] {
     const now = new Date();
-
     const keys: string[] = [];
 
-    if (range === "ytd") {
-        for (let m = 0; m <= now.getMonth(); m++) {
-            keys.push(
-                `${now.getFullYear()}-${String(
-                    m + 1
-                ).padStart(2, "0")}`
-            );
-        }
+    let count = 12;
 
-        return keys;
+    if (range === "current") {
+        count = 2;
+    } else if (range === "3m") {
+        count = 3;
+    } else if (range === "6m") {
+        count = 6;
     }
-
-    const count = range === "24m" ? 24 : 12;
 
     const cursor = new Date(
         now.getFullYear(),

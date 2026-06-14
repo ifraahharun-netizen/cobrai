@@ -17,7 +17,7 @@
     margin: 0;
     font-size: 22px;
     line-height: 1;
-    letter-spacing: -0.06em;
+    letter-spacing: -0.05em;
     color: #111827;
     font-weight: 620;
 }
@@ -50,8 +50,8 @@
 }
 
 .kpiIcon {
-    width: 36px;
-    height: 36px;
+    width: 26px;
+    height: 26px;
     border-radius: 12px;
     background: #f8fafc;
     border: 1px solid #edf1f5;
@@ -60,7 +60,7 @@
     justify-content: center;
     color: #667085;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 650;
     flex-shrink: 0;
 }
 
@@ -74,10 +74,10 @@
 
 .kpiCard strong {
     display: block;
-    font-size: 21px;
+    font-size: 16px;
     line-height: 1;
     letter-spacing: -0.05em;
-    font-weight: 650;
+    font-weight: 550;
     color: #111827;
 }
 
@@ -130,7 +130,7 @@
     line-height: 1;
     letter-spacing: -0.05em;
     color: #111827;
-    font-weight: 640;
+    font-weight: 620;
 }
 
 .panelHeader p {
@@ -156,13 +156,13 @@
     background: #ffffff;
     color: #101012;
     font-size: 10px;
-    font-weight: 650;
+    font-weight: 620;
     transition: all 0.18s ease;
     cursor: pointer;
 }
 
 .filterBtn:hover {
-    background: #fdfdfd;
+    background: #f8fafc;
 }
 
 .activeFilter {
@@ -174,7 +174,7 @@
 .progressTableWrap {
     width: 100%;
     flex: 1;
-    overflow-x: auto;
+    overflow-x: hidden;
     overflow-y: hidden;
     border: 1px solid #edf1f5;
     border-radius: 22px;
@@ -183,7 +183,7 @@
 
 .progressTable {
     width: 100%;
-    min-width: 1180px;
+    min-width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
 }
@@ -195,51 +195,58 @@
     color: #667085;
     font-size: 11px;
     line-height: 1.2;
-    font-weight: 650;
+    font-weight: 620;
     text-align: left;
     white-space: nowrap;
 }
 
 .progressTable th:nth-child(1),
 .progressTable td:nth-child(1) {
-    width: 19%;
+    width: 22%;
 }
 
 .progressTable th:nth-child(2),
 .progressTable td:nth-child(2) {
-    width: 25%;
+    width: 34%;
 }
 
 .progressTable th:nth-child(3),
 .progressTable td:nth-child(3) {
-    width: 25%;
+    width: 12%;
 }
 
 .progressTable th:nth-child(4),
 .progressTable td:nth-child(4) {
-    width: 10%;
+    width: 13%;
 }
 
 .progressTable th:nth-child(5),
 .progressTable td:nth-child(5) {
     width: 10%;
-    min-width: 110px;
 }
 
 .progressTable th:nth-child(6),
 .progressTable td:nth-child(6) {
-    width: 11%;
-    min-width: 105px;
+    width: 9%;
 }
 
 .progressTable tbody td {
-    padding: 13px 14px;
+    padding: 15px 14px;
     border-bottom: 1px solid #f4f6f8;
     vertical-align: middle;
     font-size: 11px;
     line-height: 1.4;
     color: #111827;
     overflow: hidden;
+}
+
+.progressTable tbody tr {
+    cursor: pointer;
+    transition: background 0.16s ease;
+}
+
+.progressTable tbody tr:hover {
+    background: #fcfcfd;
 }
 
 .progressTable tbody tr:last-child td {
@@ -249,7 +256,7 @@
 .accountCell {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
     min-width: 0;
 }
 
@@ -263,19 +270,19 @@
     align-items: center;
     justify-content: center;
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 620;
     color: #181616;
     flex-shrink: 0;
 }
 
-.accountMeta strong {
-    font-size: 11px;
+.accountMeta {
+    min-width: 0;
 }
 
 .accountMeta strong {
     display: block;
-    font-size: 9px;
-    font-weight: 650;
+    font-size: 11px;
+    font-weight: 620;
     color: #111827;
     margin-bottom: 2px;
     overflow: hidden;
@@ -285,7 +292,7 @@
 
 .accountMeta span {
     display: block;
-    font-size: 8px;
+    font-size: 10px;
     color: #98a2b3;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -295,13 +302,14 @@
 .reasoningCell {
     width: 100%;
     min-width: 0;
+    max-width: 100%;
 }
 
 .reasoningCell strong {
     display: block;
     color: #0f172a;
     font-size: 11px;
-    font-weight: 650;
+    font-weight: 620;
     line-height: 1.45;
     letter-spacing: -0.02em;
     margin-bottom: 3px;
@@ -313,7 +321,7 @@
 .reasoningCell p {
     margin: 0;
     color: #64748b;
-    font-size: 9px;
+    font-size: 10px;
     line-height: 1.35;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -337,7 +345,7 @@
     padding: 0 6px;
     border-radius: 999px;
     font-size: 8px;
-    font-weight: 650;
+    font-weight: 620;
     letter-spacing: -0.01em;
     border: 1px solid transparent;
     white-space: nowrap;
@@ -359,82 +367,6 @@
     color: #059669;
     background: rgba(16, 185, 129, 0.08);
     border-color: rgba(16, 185, 129, 0.14);
-}
-
-.recommendationCard,
-.effectivenessCard {
-    position: relative;
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    width: 100%;
-    max-width: 100%;
-    min-height: 60px;
-    padding: 10px 11px;
-    border-radius: 15px;
-    border: 1px solid #dbeafe;
-    background: #f8fbff;
-    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.035);
-    overflow: hidden;
-}
-
-.effectivenessCard {
-    border-color: #d1fae5;
-    background: #f7fffb;
-    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.035);
-}
-
-.recommendationCard strong,
-.effectivenessCard strong {
-    display: block;
-    color: #0f172a;
-    font-size: 10px;
-    font-weight: 650;
-    line-height: 1.35;
-    letter-spacing: -0.02em;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.effectivenessCard p {
-    margin: 3px 0 0;
-    color: #64748b;
-    font-size: 9px;
-    line-height: 1.3;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.actionMiniIcon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    width: 17px;
-    height: 17px;
-    border-radius: 6px;
-    color: #2563eb;
-    background: #eff6ff;
-    font-size: 8px;
-    font-weight: 800;
-}
-
-.effectivenessCard .actionMiniIcon {
-    color: #059669;
-    background: #ecfdf5;
-}
-
-.sparkleIcon {
-    position: absolute;
-    right: 7px;
-    bottom: 6px;
-    color: #2563eb;
-    font-size: 9px;
-    opacity: 0.7;
 }
 
 .outcomePill {
@@ -476,15 +408,13 @@
 }
 
 .mrrCell {
-    display: block;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 650;
     color: #111827;
     white-space: nowrap;
-    overflow: visible;
-    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-
 
 .riskRing {
     --risk-color: #ef4444;
@@ -495,8 +425,6 @@
     border-radius: 999px;
     display: grid;
     place-items: center;
-    margin-left: 0;
-    margin-right: auto;
     background:
         radial-gradient(circle at center, #ffffff 58%, transparent 60%),
         conic-gradient(var(--risk-color) var(--risk-score), #e5e7eb 0);
@@ -506,14 +434,16 @@
 .riskRing span {
     color: #0f172a;
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 650;
     letter-spacing: -0.03em;
 }
 
 .dateCell {
-    font-size: 8px;
-    color: #98a2b3;
+    font-size: 10px;
+    color: #667085;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .tableFooter {
@@ -608,29 +538,23 @@
 }
 
 @media (max-width: 1200px) {
+    .progressTableWrap {
+        overflow-x: auto;
+    }
+
+    .progressTable {
+        min-width: 1040px;
+    }
 
     .progressTable thead th,
     .progressTable tbody td {
-        padding: 10px 8px;
-    }
-
-    .recommendationCard,
-    .effectivenessCard {
-        padding: 7px 8px;
+        padding: 12px 10px;
     }
 }
 
 @media (max-width: 1100px) {
     .kpiGrid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .progressTableWrap {
-        overflow-x: auto;
-    }
-
-    .progressTable {
-        min-width: 980px;
     }
 }
 
@@ -659,7 +583,311 @@
         border-radius: 22px;
     }
 
+    .progressTableWrap {
+        overflow-x: auto;
+    }
+
     .progressTable {
         min-width: 980px;
+    }
+}
+
+
+.progressTable tbody tr {
+    cursor: pointer;
+    transition:
+        background-color 0.18s ease,
+        transform 0.18s ease;
+}
+
+.progressTable tbody tr:hover {
+    background: #fafbfc;
+}
+
+.progressTable tbody tr:hover td {
+    background: #fafbfc;
+}
+
+.progressTable tbody tr:hover .accountAvatar {
+    border-color: #d6dbe3;
+    background: #f8fafc;
+}
+
+.progressTable tbody tr:hover .accountMeta strong {
+    color: #111827;
+}
+
+
+.panelTitleRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.topHeaderRow {
+    margin-bottom: 18px;
+}
+
+.activityTopBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.dateRangePill {
+    height: 32px;
+    padding: 0 13px;
+    border-radius: 999px;
+    border: 1px solid #edf1f5;
+    background: #fefefe;
+    display: inline-flex;
+    align-items: center;
+    color: #667085;
+    font-size: 11px;
+    font-weight: 620;
+    white-space: nowrap;
+}
+
+.downloadCsvBtn {
+    height: 34px;
+    padding: 0 15px;
+    border-radius: 999px;
+    border: 1px solid #e8edf2;
+    background: #ffffff;
+    color: #1d1a1a;
+    font-size: 10px;
+    font-weight: 620;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+        background 0.18s ease,
+        opacity 0.18s ease,
+        transform 0.18s ease;
+}
+
+.downloadCsvBtn:hover {
+    background: #fbfbfd;
+    transform: translateY(-1px);
+}
+
+.downloadCsvBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.topHeaderRow {
+    margin-bottom: 18px;
+}
+
+.activityTopBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.headerLeftTools {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.dateRangePill {
+    height: 30px;
+    padding: 0 13px;
+    border-radius: 999px;
+    border: 1px solid #edf1f5;
+    background: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    color: #667085;
+    font-size: 11px;
+    font-weight: 620;
+    white-space: nowrap;
+}
+
+.searchWrap {
+    position: relative;
+    width: 340px;
+    max-width: 100%;
+}
+
+.searchInput {
+    width: 100%;
+    height: 42px;
+    border: 1px solid #edf1f5;
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 0 42px 0 15px;
+    outline: none;
+    font-size: 12px;
+    color: #111827;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.015);
+}
+
+.searchInput::placeholder {
+    color: #98a2b3;
+}
+
+.searchInput:focus {
+    border-color: #d8dee7;
+    box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.035);
+}
+
+.searchIcon {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #98a2b3;
+    font-size: 13px;
+    pointer-events: none;
+}
+
+.downloadCsvBtn {
+    height: 34px;
+    padding: 0 15px;
+    border-radius: 999px;
+    border: 1px solid #e8edf2;
+    background: #ffffff;
+    color: #111827;
+    font-size: 10px;
+    font-weight: 620;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+        background 0.18s ease,
+        border-color 0.18s ease,
+        transform 0.18s ease;
+}
+
+.downloadCsvBtn:hover {
+    background: #f8fafc;
+    border-color: #d8dee7;
+    transform: translateY(-1px);
+}
+
+.downloadCsvBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+}
+
+
+
+.headerControls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.headerRightControls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.searchWrap {
+    position: relative;
+    width: min(340px, 100%);
+}
+
+.searchInput {
+    width: 100%;
+    height: 42px;
+    border: 1px solid #edf1f5;
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 0 42px 0 15px;
+    outline: none;
+    font-size: 12px;
+    color: #111827;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.015);
+}
+
+.searchInput::placeholder {
+    color: #98a2b3;
+}
+
+.searchInput:focus {
+    border-color: #d8dee7;
+    box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.035);
+}
+
+.searchIcon {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #98a2b3;
+    font-size: 13px;
+    pointer-events: none;
+}
+
+.dateRangePill {
+    height: 34px;
+    padding: 0 13px;
+    border-radius: 999px;
+    border: 1px solid #edf1f5;
+    background: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    color: #667085;
+    font-size: 10px;
+    font-weight: 620;
+    white-space: nowrap;
+}
+
+.downloadCsvBtn {
+    height: 34px;
+    padding: 0 15px;
+    border-radius: 999px;
+    border: 1px solid #e8edf2;
+    background: #ffffff;
+    color: #667085;
+    font-size: 10px;
+    font-weight: 620;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+        background 0.18s ease,
+        border-color 0.18s ease,
+        transform 0.18s ease;
+}
+
+.downloadCsvBtn:hover {
+    background: #f8fafc;
+    border-color: #d8dee7;
+    transform: translateY(-1px);
+}
+
+.downloadCsvBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+}
+
+@media (max-width: 760px) {
+    .headerControls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .headerRightControls {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .searchWrap {
+        width: 100%;
     }
 }
