@@ -1035,8 +1035,8 @@
 
 .pricingCardTitle {
     margin: 0;
-    font-size: 16px;
-    font-weight: 650;
+    font-size: 13px;
+    font-weight: 450;
     color: #111827;
     line-height: 1.35;
     letter-spacing: 0;
@@ -1044,7 +1044,7 @@
 }
 
 .pricingSmallText {
-    font-size: 13px;
+    font-size: 11px;
     color: #6b7280;
     margin: 0;
     line-height: 1.45;
@@ -1059,7 +1059,7 @@
 
 .pricingAmount {
     font-size: 22px;
-    font-weight: 700;
+    font-weight: 500;
     color: #111827;
     line-height: 1;
     letter-spacing: 0;
@@ -1074,7 +1074,7 @@
 
 .pricingDescription {
     margin: 0;
-    font-size: 13px;
+    font-size: 12px;
     color: #6b7280;
     line-height: 1.5;
     max-width: none;
@@ -1111,7 +1111,7 @@
     border-radius: 10px;
     padding: 0 14px;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 300;
     cursor: pointer;
     transition: none;
 }
