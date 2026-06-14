@@ -783,15 +783,6 @@ export async function generateWorkspaceInsights(args: {
                     },
                 ],
 
-                riskAccounts: highRiskCustomers.slice(0, 5).map((c) => ({
-                    customerId: c.id,
-                    customerName: c.name,
-                    churnRisk: c.churnRisk,
-                    mrrAtRiskMinor: Math.round(c.mrr * 100),
-                    reason: buildRiskAccountReason(c),
-                    recommendedAction: buildRiskAccountAction(c),
-                })),
-
                 engagementScore,
             },
 
@@ -1212,39 +1203,34 @@ Return STRICT JSON.
                             "Reduced engagement increased churn exposure.",
                     },
                 ],
-
                 riskAccounts:
                     highRiskCustomers
                         .slice(0, 5)
-                        .map((c) => ({
-                            customerId: c.id,
+                        .map((c) => {
+                            const reason =
+                                c.reasonFlags?.join(", ") ||
+                                "High churn exposure";
 
-                            customerName:
-                                c.name,
-
-                            churnRisk:
-                                c.churnRisk,
-
-                            mrrAtRiskMinor:
-                                Math.round(
-                                    c.mrr *
-                                    100
-                                ),
-
-                            reason:
-                                c.reasonFlags?.join(
-                                    ", "
-                                ) ||
-                                "High churn exposure",
-
-                            recommendedAction:
+                            const recommendedAction =
                                 c.recentBillingFailure
                                     ? "Retry billing and send recovery email"
-                                    : "Trigger re-engagement outreach",
-                        })),
+                                    : "Trigger re-engagement outreach";
 
+                            return {
+                                customerId: c.id,
+                                customerName: c.name,
+                                churnRisk: c.churnRisk,
+                                mrrAtRiskMinor: Math.round(c.mrr * 100),
+                                reason,
+                                recommendedAction,
+                                opportunity: "Retention recovery",
+                                whyNow: reason,
+                                suggestedAction: recommendedAction,
+                            };
+                        }),
                 engagementScore,
             };
+
 
         const safeBusinessNarrative: AiBusinessNarrative = {
             ...businessNarrative,

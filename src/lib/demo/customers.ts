@@ -15,6 +15,8 @@ export type CobraiCustomerListItem = {
     hubspotCompanyId: string | null;
 };
 
+
+
 export function getDemoCustomers(): CobraiCustomerListItem[] {
     return [
         {
@@ -213,40 +215,83 @@ export function getDemoCustomers(): CobraiCustomerListItem[] {
 }
 
 
+type DemoRecoveryQueueType =
+    | "immediate_attention"
+    | "billing_recovery"
+    | "upsell_opportunity"
+    | "reactivation"
+    | "expansion_momentum";
+
 export function getDemoRecoveryQueue() {
     return getDemoCustomers()
         .filter((customer) => Number(customer.mrr || 0) > 0)
         .sort((a, b) => Number(b.churnRisk || 0) - Number(a.churnRisk || 0))
         .slice(0, 8)
-        .map((customer) => ({
-            id: customer.id,
-            customerId: customer.id,
-            accountRiskId: customer.id,
-            name: customer.name,
-            email: customer.email,
-            reason:
-                Number(customer.churnRisk || 0) >= 85
-                    ? "High churn risk + low health score"
-                    : Number(customer.churnRisk || 0) >= 70
-                        ? "Usage drop + retention risk"
-                        : Number(customer.churnRisk || 0) >= 55
-                            ? "Engagement needs attention"
-                            : "Expansion opportunity",
-            action:
-                Number(customer.churnRisk || 0) >= 85
-                    ? "Send urgent retention email"
-                    : Number(customer.churnRisk || 0) >= 70
-                        ? "Schedule check-in"
-                        : Number(customer.churnRisk || 0) >= 55
-                            ? "Send usage recovery email"
-                            : "Review upsell fit",
-            valueMinor: Number(customer.mrr || 0),
-            confidence:
-                Number(customer.churnRisk || 0) >= 85
-                    ? 92
-                    : Number(customer.churnRisk || 0) >= 70
-                        ? 84
-                        : 72,
-            lastEventAt: customer.lastActiveAt,
-        }));
+        .map((customer) => {
+            const churnRisk = Number(customer.churnRisk || 0);
+            const healthScore = Number(customer.healthScore || 0);
+            const mrrMinor = Number(customer.mrr || 0);
+
+            const isCritical = churnRisk >= 85;
+            const isHighRisk = churnRisk >= 70;
+            const isMediumRisk = churnRisk >= 55;
+
+            const type: DemoRecoveryQueueType = isCritical
+                ? "immediate_attention"
+                : isHighRisk
+                    ? "reactivation"
+                    : isMediumRisk
+                        ? "reactivation"
+                        : "upsell_opportunity";
+
+            const opportunity = isCritical
+                ? "Retention recovery"
+                : isHighRisk
+                    ? "Usage recovery"
+                    : isMediumRisk
+                        ? "Engagement recovery"
+                        : "Expansion opportunity";
+
+            const whyNow = isCritical
+                ? `${customer.name} has very high churn risk, weak health, and meaningful MRR exposure, making this one of the most urgent recovery accounts.`
+                : isHighRisk
+                    ? `${customer.name} is showing elevated retention risk while still contributing meaningful MRR, so early outreach could prevent revenue loss.`
+                    : isMediumRisk
+                        ? `${customer.name} has weaker engagement signals that could turn into churn if the account is left untouched.`
+                        : `${customer.name} is healthy and recently active, making this a good moment to explore upgrade or expansion potential.`;
+            const suggestedAction = isCritical
+                ? "Send a personalised retention email and offer a founder-led check-in this week."
+                : isHighRisk
+                    ? "Schedule a check-in focused on recent value, blockers, and next steps."
+                    : isMediumRisk
+                        ? "Send a usage recovery email with one clear action to restart engagement."
+                        : "Review plan fit and test an upgrade, annual plan, or seat expansion offer.";
+
+            return {
+                id: customer.id,
+                customerId: customer.id,
+                accountRiskId: customer.id,
+                type,
+                priority: isCritical
+                    ? "Critical"
+                    : isHighRisk
+                        ? "High"
+                        : isMediumRisk
+                            ? "Medium"
+                            : "Low",
+                name: customer.name,
+                email: customer.email,
+
+                reason: whyNow,
+                action: suggestedAction,
+
+                opportunity,
+                whyNow,
+                suggestedAction,
+
+                valueMinor: mrrMinor,
+                confidence: isCritical ? 92 : isHighRisk ? 84 : isMediumRisk ? 72 : 68,
+                lastEventAt: customer.lastActiveAt,
+            };
+        });
 }

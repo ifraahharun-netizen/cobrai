@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
     Activity,
     AlertTriangle,
@@ -76,7 +77,67 @@ type ActionItem = {
 
 const ITEMS_PER_PAGE = 4;
 
-function formatCurrency(value: number, currency = "GBP", locale = "en-GB") {
+const REGION_CURRENCY: Record<string, string> = {
+    GB: "GBP",
+    US: "USD",
+    CA: "CAD",
+    AU: "AUD",
+    NZ: "NZD",
+    IE: "EUR",
+    FR: "EUR",
+    DE: "EUR",
+    ES: "EUR",
+    IT: "EUR",
+    NL: "EUR",
+    BE: "EUR",
+    AT: "EUR",
+    PT: "EUR",
+    FI: "EUR",
+    GR: "EUR",
+    LU: "EUR",
+    CY: "EUR",
+    MT: "EUR",
+    SK: "EUR",
+    SI: "EUR",
+    EE: "EUR",
+    LV: "EUR",
+    LT: "EUR",
+    IN: "INR",
+    AE: "AED",
+    SA: "SAR",
+    QA: "QAR",
+    KW: "KWD",
+    NG: "NGN",
+    ZA: "ZAR",
+    KE: "KES",
+    JP: "JPY",
+    CN: "CNY",
+    SG: "SGD",
+};
+
+function getBrowserLocale() {
+    if (typeof navigator !== "undefined" && navigator.language) {
+        return navigator.language;
+    }
+
+    return "en";
+}
+
+function getCurrencyFromLocale(locale: string) {
+    try {
+        const region = new Intl.Locale(locale).region;
+
+        if (region && REGION_CURRENCY[region]) {
+            return REGION_CURRENCY[region];
+        }
+    } catch {
+        return "USD";
+    }
+
+    return "USD";
+}
+
+function formatCurrency(value: number, currency: string, locale: string) {
     return new Intl.NumberFormat(locale, {
         style: "currency",
         currency,
@@ -101,13 +162,13 @@ function formatLastActive(value?: string | null) {
     return `Last active ${days} days ago`;
 }
 
-function formatActionDate(value?: string) {
+function formatActionDate(value: string | undefined, locale: string) {
     if (!value) return "—";
 
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "—";
 
-    return date.toLocaleDateString("en-GB", {
+    return date.toLocaleDateString(locale, {
         day: "2-digit",
         month: "short",
         year: "numeric",
@@ -247,9 +308,14 @@ export default function AIActionQueue({
     isDemoMode = false,
     canRetryPayment = false,
     senderName = "Team",
-    currency = "GBP",
-    locale = "en-GB",
+    currency,
+    locale,
 }: AIActionQueueProps) {
+    const router = useRouter();
+
+    const resolvedLocale = locale || getBrowserLocale();
+    const resolvedCurrency = currency || getCurrencyFromLocale(resolvedLocale);
+
     const [selectedType, setSelectedType] = useState<ActionType | null>(null);
     const [page, setPage] = useState(0);
     const [retryingId, setRetryingId] = useState<string | null>(null);
@@ -500,6 +566,10 @@ export default function AIActionQueue({
         setPage(0);
     }
 
+    function openAccountProfile(item: ActionItem) {
+        router.push(`/dashboard/accounts-at-risk/${item.customerId || item.accountId || item.id}`);
+    }
+
     function openEmailModal(item: ActionItem) {
         setEmailModalItem(item);
         setEmailDraft({
@@ -552,7 +622,7 @@ export default function AIActionQueue({
 
                                 <span className={styles.queueValue}>
                                     <strong>
-                                        {formatCurrency(group.totalMrr, currency, locale)}
+                                        {formatCurrency(group.totalMrr, resolvedCurrency, resolvedLocale)}
                                     </strong>
                                     <small>{group.valueLabel}</small>
                                 </span>
@@ -586,7 +656,7 @@ export default function AIActionQueue({
                         <div className={styles.panelSummary}>
                             <span>Total {selectedGroup.valueLabel.toLowerCase()}</span>
                             <strong>
-                                {formatCurrency(selectedGroup.totalMrr, currency, locale)}
+                                {formatCurrency(selectedGroup.totalMrr, resolvedCurrency, resolvedLocale)}
                             </strong>
                         </div>
 
@@ -604,7 +674,11 @@ export default function AIActionQueue({
                             {visibleItems.length > 0 ? (
                                 visibleItems.map((item) => (
                                     <div key={item.id} className={styles.customerTableRow}>
-                                        <div className={styles.accountCell}>
+                                        <button
+                                            type="button"
+                                            className={styles.accountCell}
+                                            onClick={() => openAccountProfile(item)}
+                                        >
                                             <div className={styles.avatar}>
                                                 {item.customerName.charAt(0)}
                                             </div>
@@ -615,7 +689,7 @@ export default function AIActionQueue({
                                                     <small>{item.customerEmail}</small>
                                                 ) : null}
                                             </div>
-                                        </div>
+                                        </button>
 
                                         <div className={styles.riskCell}>
                                             <span className={getRiskClass(item.riskScore)}>
@@ -625,7 +699,7 @@ export default function AIActionQueue({
 
                                         <div className={styles.mrrCell}>
                                             <strong>
-                                                {formatCurrency(item.mrr, currency, locale)}
+                                                {formatCurrency(item.mrr, resolvedCurrency, resolvedLocale)}
                                             </strong>
                                             <small>{selectedGroup.valueLabel}</small>
                                         </div>
@@ -658,7 +732,7 @@ export default function AIActionQueue({
                                         </div>
 
                                         <div className={styles.dateCell}>
-                                            {formatActionDate(item.actionDate)}
+                                            {formatActionDate(item.actionDate, resolvedLocale)}
                                         </div>
 
                                         <div className={styles.actionCell}>
@@ -730,7 +804,7 @@ export default function AIActionQueue({
                             type="button"
                             className={styles.footerLink}
                             onClick={() => {
-                                window.location.href = "/dashboard/accounts-at-risk";
+                                router.push("/dashboard/accounts-at-risk");
                             }}
                         >
                             View all at-risk accounts

@@ -106,16 +106,16 @@ export type AiMrrDriver = {
 
 export type AiRiskAccount = {
     customerId: string;
-
     customerName: string;
-
     churnRisk: number;
-
     mrrAtRiskMinor: number;
 
-    reason: string;
+    opportunity: string;
+    whyNow: string;
+    suggestedAction: string;
 
-    recommendedAction: string;
+    reason?: string;
+    recommendedAction?: string;
 };
 
 export type Insight = {

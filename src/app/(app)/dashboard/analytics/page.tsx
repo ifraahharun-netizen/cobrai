@@ -94,19 +94,29 @@ type RecoveryQueueItem = {
     id: string;
     customerId?: string | null;
     accountRiskId?: string | null;
+
     type?:
     | "immediate_attention"
     | "billing_recovery"
     | "upsell_opportunity"
     | "reactivation"
     | "expansion_momentum";
+
     priority?: string;
+
     name: string;
     email?: string | null;
+
     reason: string;
     action: string;
+
+    opportunity?: string;
+    whyNow?: string;
+    suggestedAction?: string;
+
     valueMinor: number;
     confidence: number;
+
     lastEventAt?: string | null;
 };
 
@@ -1424,6 +1434,59 @@ export default function AnalyticsPage() {
     const openDrawer = (view: DrawerView) => {
         setDrawerView(view);
         setDrawerOpen(true);
+    };
+    const handleExecuteRecoveryAction = async (row: RecoveryQueueItem) => {
+        try {
+            if (!user) return;
+
+            const actionText = row.suggestedAction || row.action;
+
+            const isPaymentAction =
+                actionText.toLowerCase().includes("payment") ||
+                actionText.toLowerCase().includes("billing") ||
+                actionText.toLowerCase().includes("invoice");
+
+            if (isPaymentAction) {
+                await handleRetryPayment(
+                    row.accountRiskId || row.id,
+                    row.customerId || undefined
+                );
+                return;
+            }
+
+            await authedPost("/api/automation/execute-action", user, {
+                customerId: row.customerId || null,
+                accountRiskId: row.accountRiskId || null,
+                accountName: row.name,
+                type: row.type || null,
+                action: actionText,
+                reason: row.whyNow || row.reason,
+                valueMinor: row.valueMinor,
+                confidence: row.confidence,
+            });
+
+            setActionToast("Action executed successfully. Monitor outcome on Retention Impact.");
+            setRecoveryQueue((prev) =>
+                prev
+                    ? {
+                        ...prev,
+                        rows: prev.rows.map((item) =>
+                            item.id === row.id && item.type === row.type
+                                ? {
+                                    ...item,
+                                    action: "Monitor outcome",
+                                    suggestedAction: "Monitor outcome",
+                                    executed: true,
+                                }
+                                : item
+                        ),
+                    }
+                    : prev
+            );
+        } catch (e) {
+            console.error(e);
+            setActionToast("Could not start this action. Please try again.");
+        }
     };
 
     const handleRetryPayment = async (
@@ -3124,9 +3187,18 @@ export default function AnalyticsPage() {
                         </p>
                     </div>
                 </div>
-
                 {actionToast ? (
-                    <div className={styles.toast}>{actionToast}</div>
+                    <div className={styles.actionToast}>
+                        <span>{actionToast}</span>
+
+                        <button
+                            type="button"
+                            className={styles.actionToastBtn}
+                            onClick={() => router.push("/dashboard/progress")}
+                        >
+                            View Retention Impact
+                        </button>
+                    </div>
                 ) : null}
 
                 {/* KPI GRID */}
@@ -3816,78 +3888,16 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
 
                         </section>
 
-
                         {hasAiRevenueAccess ? (
                             <div className={styles.revenueRecoveryCard}>
-                                <div className={styles.revenueRecoveryTop}>
-                                    <div>
-
+                                <div className={styles.revenueRecoveryHeader}>
+                                    <div className={styles.revenueRecoveryTitle}>
                                         <h3>Revenue Recovery Queue</h3>
                                         <p>AI-prioritised accounts that can help close the gap to forecast MRR.</p>
                                     </div>
 
-                                    <div className={styles.recoveryActions}>
-                                        <button
-                                            type="button"
-                                            className={styles.recoveryExportBtn}
-                                            onClick={() => {
-                                                const headers = ["Account", "Opportunity", "MRR impact", "Why now", "Suggested action"];
-
-                                                const rows = safeRecoveryQueue.rows.map((row) => [
-                                                    row.name,
-                                                    formatQueueType(row.type),
-                                                    formatCurrencyFromMinor(row.valueMinor, safeRecoveryQueue.currency || workspaceCurrency),
-                                                    formatAiReason(row.reason),
-                                                    row.action,
-                                                ]);
-
-                                                const csv = [headers, ...rows]
-                                                    .map((line) =>
-                                                        line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")
-                                                    )
-                                                    .join("\n");
-
-                                                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-                                                const url = URL.createObjectURL(blob);
-                                                const link = document.createElement("a");
-
-                                                link.href = url;
-                                                link.download = "revenue-recovery-queue.csv";
-                                                link.click();
-
-                                                URL.revokeObjectURL(url);
-                                            }}
-                                        >
-                                            Export CSV
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className={styles.recoveryForecastPanel}>
-                                    <div className={styles.recoveryMeasureBar}>
-              
-
-                                        <div className={styles.recoveryMeasureTrack}>
-                                            <div
-                                                className={styles.recoveryMeasureFill}
-                                                style={{ width: `${Math.min(100, Math.max(0, forecastProgressPct))}%` }}
-                                            />
-
-                                            <div
-                                                className={styles.recoveryMeasureStripe}
-                                                style={{
-                                                    left: `${Math.min(100, Math.max(0, forecastProgressPct))}%`,
-                                                    width: `${Math.max(0, 100 - Math.min(100, Math.max(0, forecastProgressPct)))}%`,
-                                                }}
-                                            />
-
-                                            <span
-                                                className={styles.recoveryMeasureMarker}
-                                                style={{ left: `${Math.min(100, Math.max(0, forecastProgressPct))}%` }}
-                                            />
-                                        </div>
-
-                                        <div className={styles.recoveryMeasureValues}>
+                                    <div className={styles.recoveryForecastPanel}>
+                                        <div className={styles.recoveryForecastHero}>
                                             <div>
                                                 <strong>
                                                     {formatCurrencyFromMinor(
@@ -3895,7 +3905,7 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
                                                         safeRecoveryQueue.currency || workspaceCurrency
                                                     )}
                                                 </strong>
-                                                <span>Current MRR</span>
+                                                <span>{Math.round(forecastProgressPct)}% of forecast goal</span>
                                             </div>
 
                                             <div>
@@ -3909,24 +3919,70 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
                                             </div>
                                         </div>
 
-                                        <p className={styles.recoveryForecastInsight}>
-                                            You’re{" "}
-                                            <strong>{forecastProgressPct >= 100 ? "ahead of pace" : "behind pace"}</strong>{" "}
-                                            {forecastProgressPct >= 100 ? (
-                                                <>and forecast to reach your goal.</>
-                                            ) : (
-                                                <>
-                                                    and need{" "}
-                                                    <strong>
-                                                        {formatCurrencyFromMinor(
-                                                            safeRecoveryQueue.revenueGapMinor,
-                                                            safeRecoveryQueue.currency || workspaceCurrency
-                                                        )}
-                                                    </strong>{" "}
-                                                    more MRR to reach forecast.
-                                                </>
-                                            )}
-                                        </p>
+                                        <div className={styles.recoveryMeasureTrack}>
+                                            <div
+                                                className={styles.recoveryMeasureFill}
+                                                style={{
+                                                    width: `${Math.min(100, Math.max(0, forecastProgressPct))}%`,
+                                                }}
+                                            />
+
+                                            <span
+                                                className={styles.recoveryMeasureMarker}
+                                                style={{
+                                                    left: `${Math.min(100, Math.max(0, forecastProgressPct))}%`,
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className={styles.recoveryActions}>
+                                        <button
+                                            type="button"
+                                            className={styles.recoveryExportBtn}
+                                            onClick={() => {
+                                                const headers = [
+                                                    "Account",
+                                                    "Opportunity",
+                                                    "MRR impact",
+                                                    "Why now",
+                                                    "Suggested action",
+                                                ];
+
+                                                const rows = safeRecoveryQueue.rows.map((row) => [
+                                                    row.name,
+                                                    formatQueueType(row.type),
+                                                    formatCurrencyFromMinor(
+                                                        row.valueMinor,
+                                                        safeRecoveryQueue.currency || workspaceCurrency
+                                                    ),
+                                                    formatAiReason(row.reason),
+                                                    row.action,
+                                                ]);
+
+                                                const csv = [headers, ...rows]
+                                                    .map((line) =>
+                                                        line
+                                                            .map((cell) => `"${String(cell).replaceAll('"', '""')}"`)
+                                                            .join(",")
+                                                    )
+                                                    .join("\n");
+
+                                                const blob = new Blob([csv], {
+                                                    type: "text/csv;charset=utf-8;",
+                                                });
+                                                const url = URL.createObjectURL(blob);
+                                                const link = document.createElement("a");
+
+                                                link.href = url;
+                                                link.download = "revenue-recovery-queue.csv";
+                                                link.click();
+
+                                                URL.revokeObjectURL(url);
+                                            }}
+                                        >
+                                            Export CSV
+                                        </button>
                                     </div>
                                 </div>
 
@@ -3950,7 +4006,9 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
                                                             <button
                                                                 type="button"
                                                                 className={styles.recoveryAccountBtn}
-                                                                onClick={() => router.push(getAccountHref(row.customerId || row.id))}
+                                                                onClick={() =>
+                                                                    router.push(getAccountHref(row.customerId || row.id))
+                                                                }
                                                             >
                                                                 {row.name}
                                                             </button>
@@ -3958,7 +4016,7 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
 
                                                         <td>
                                                             <span className={styles.recoveryReasonPill}>
-                                                                {formatQueueType(row.type)}
+                                                                {row.opportunity || formatQueueType(row.type)}
                                                             </span>
                                                         </td>
 
@@ -3969,32 +4027,21 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
                                                             )}
                                                         </td>
 
-                                                        <td>
-                                                            <span className={styles.recoveryReasonPill}>
-                                                                {formatAiReason(row.reason)}
-                                                            </span>
-                                                        </td>
+                                                        <td>{row.whyNow || formatAiReason(row.reason)}</td>
 
                                                         <td>
                                                             <button
                                                                 type="button"
                                                                 className={styles.recoveryActionBtn}
-                                                                onClick={() => {
-                                                                    const rec = getEmailRecommendation({
-                                                                        accountName: row.name,
-                                                                        reason: row.reason,
-                                                                    });
-
-                                                                    setEmailDraft({
-                                                                        to: row.email || "",
-                                                                        subject: rec.subject,
-                                                                        body: rec.message,
-                                                                    });
-
-                                                                    setEmailDraftOpen(true);
-                                                                }}
+                                                                onClick={() =>
+                                                                    (row as any).executed
+                                                                        ? router.push("/dashboard/progress")
+                                                                        : handleExecuteRecoveryAction(row)
+                                                                }
                                                             >
-                                                                {row.action}
+                                                                {(row as any).executed
+                                                                    ? "✓ Monitor outcome"
+                                                                    : row.suggestedAction || row.action}
                                                             </button>
                                                         </td>
                                                     </tr>
@@ -4047,7 +4094,9 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
 
                                             <button
                                                 type="button"
-                                                onClick={() => setRecoveryPage((p) => Math.min(recoveryPageCount - 1, p + 1))}
+                                                onClick={() =>
+                                                    setRecoveryPage((p) => Math.min(recoveryPageCount - 1, p + 1))
+                                                }
                                                 disabled={recoveryPage === recoveryPageCount - 1}
                                             >
                                                 Next
