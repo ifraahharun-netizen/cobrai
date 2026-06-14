@@ -5876,3 +5876,68 @@ b {
         width: 100%;
     }
 }
+
+
+
+.marketingPriceTop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.marketingPopularBadge {
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: #2f7ecb;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.marketingPricingFooter {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 22px;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+
+.marketingPriceValue {
+    font-size: 56px;
+    font-weight: 700;
+    line-height: 1;
+    color: #111827;
+}
+
+.marketingPricePeriod {
+    margin-top: 4px;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+
+.marketingPriceValue {
+    font-size: 4rem;
+    line-height: 0.95;
+    font-weight: 620;
+    letter-spacing: -0.08em;
+    color: #111827;
+    margin-top: 6px;
+}
+
+.marketingPricePeriod {
+    margin-top: 6px;
+    margin-bottom: 22px;
+    font-size: 14px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.marketingPriceValue span {
+    display: none;
+}
