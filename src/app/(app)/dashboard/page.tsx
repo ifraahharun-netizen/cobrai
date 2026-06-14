@@ -646,8 +646,11 @@ export default function DashboardPage() {
         if (Number.isNaN(date.getTime())) return "Recent";
 
         return date.toLocaleDateString(userLocale, {
+            weekday: "short",
             day: "numeric",
             month: "short",
+            year: "numeric",
+
         });
     };
 
@@ -1271,6 +1274,7 @@ export default function DashboardPage() {
     const activeUsersRangeLabel =
         activeUsersRange === 24 ? "24 hrs" : "7 days";
 
+
     const buildActiveUsersRangeData = (
         points: ActiveUsersPoint[],
         range: 24 | 7
@@ -1279,29 +1283,25 @@ export default function DashboardPage() {
             return points.map((point) => {
                 const date = new Date(point.timestamp);
 
+                const timeLabel = date
+                    .toLocaleTimeString(userLocale, {
+                        hour: "numeric",
+                        hour12: true,
+                    })
+                    .replace(/\s/g, "")
+                    .toLowerCase();
+
                 return {
                     label:
                         range === 24
-                            ? date
-                                .toLocaleTimeString(userLocale, {
-                                    hour: "numeric",
-                                    hour12: true,
-                                })
-                                .replace(/\s/g, "")
-                                .toLowerCase()
+                            ? timeLabel
                             : date.toLocaleDateString(userLocale, {
                                 weekday: "short",
                             }),
 
                     tooltipLabel:
                         range === 24
-                            ? date
-                                .toLocaleTimeString(userLocale, {
-                                    hour: "numeric",
-                                    hour12: true,
-                                })
-                                .replace(/\s/g, "")
-                                .toLowerCase()
+                            ? timeLabel
                             : date.toLocaleDateString(userLocale, {
                                 weekday: "short",
                                 day: "numeric",
@@ -1324,9 +1324,15 @@ export default function DashboardPage() {
 
         return fallbackWindow.map((value: number, index: number) => {
             const date = new Date();
-            date.setHours(date.getHours() - (fallbackWindow.length - 1 - index), 0, 0, 0);
 
-            const label = date
+            if (range === 24) {
+                date.setHours(date.getHours() - (fallbackWindow.length - 1 - index), 0, 0, 0);
+            } else {
+                date.setDate(date.getDate() - (fallbackWindow.length - 1 - index));
+                date.setHours(0, 0, 0, 0);
+            }
+
+            const timeLabel = date
                 .toLocaleTimeString(userLocale, {
                     hour: "numeric",
                     hour12: true,
@@ -1335,723 +1341,744 @@ export default function DashboardPage() {
                 .toLowerCase();
 
             return {
-                label: range === 24 ? label : `Day ${index + 1}`,
-                tooltipLabel: range === 24 ? label : `Day ${index + 1}`,
+                label:
+                    range === 24
+                        ? timeLabel
+                        : date.toLocaleDateString(userLocale, {
+                            weekday: "short",
+                        }),
+
+                tooltipLabel:
+                    range === 24
+                        ? timeLabel
+                        : date.toLocaleDateString(userLocale, {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                        }),
+
                 value: Number(value || 0),
             };
         });
-    }
-
-        const activeUsersRangeData = buildActiveUsersRangeData(
-            activeUsersSeries,
-            activeUsersRange
-        );
-
-        const visibleActiveUsersMonths = activeUsersRangeData.map((item) => item.tooltipLabel);
-        const visibleActiveUsersSeries = activeUsersRangeData.map((item) => item.value);
-        const activeUsersCurrent =
-            visibleActiveUsersSeries[visibleActiveUsersSeries.length - 1] ?? 0;
-
-        const activeUsersPrevious =
-            visibleActiveUsersSeries[visibleActiveUsersSeries.length - 2] ?? 0;
-
-        const activeUsersDelta = activeUsersCurrent - activeUsersPrevious;
-
-        const activeUsersPct = formatPercentChange(
-            activeUsersCurrent,
-            activeUsersPrevious
-        );
+    };
 
 
-        const activeUsersOption = (
-            months: string[],
-            values: number[]
-        ): EChartsOption => {
-            const safeMonths = Array.isArray(months) ? months : [];
 
-            const safeValues = Array.isArray(values)
-                ? values.map((value) => Number(value || 0))
-                : [];
+    const activeUsersRangeData = buildActiveUsersRangeData(
+        activeUsersSeries,
+        activeUsersRange
+    );
 
-            const minValue = Math.min(...safeValues, 0);
-            const maxValue = Math.max(...safeValues, 1);
-            const padding = Math.max(8, Math.round((maxValue - minValue) * 0.18));
+    const visibleActiveUsersMonths = activeUsersRangeData.map((item) => item.tooltipLabel);
+    const visibleActiveUsersSeries = activeUsersRangeData.map((item) => item.value);
+    const activeUsersCurrent =
+        visibleActiveUsersSeries[visibleActiveUsersSeries.length - 1] ?? 0;
 
-            return {
-                animation: false,
-                backgroundColor: "transparent",
+    const activeUsersPrevious =
+        visibleActiveUsersSeries[visibleActiveUsersSeries.length - 2] ?? 0;
 
-                grid: {
-                    top: 8,
-                    right: 8,
-                    bottom: 28,
-                    left: 8,
-                    containLabel: false,
+    const activeUsersDelta = activeUsersCurrent - activeUsersPrevious;
+
+    const activeUsersPct = formatPercentChange(
+        activeUsersCurrent,
+        activeUsersPrevious
+    );
+
+
+    const activeUsersOption = (
+        months: string[],
+        values: number[]
+    ): EChartsOption => {
+        const safeMonths = Array.isArray(months) ? months : [];
+
+        const safeValues = Array.isArray(values)
+            ? values.map((value) => Number(value || 0))
+            : [];
+
+        const minValue = Math.min(...safeValues, 0);
+        const maxValue = Math.max(...safeValues, 1);
+        const padding = Math.max(8, Math.round((maxValue - minValue) * 0.18));
+
+        return {
+            animation: false,
+            backgroundColor: "transparent",
+
+            grid: {
+                top: 8,
+                right: 8,
+                bottom: 28,
+                left: 8,
+                containLabel: false,
+            },
+
+            tooltip: {
+                trigger: "axis",
+                backgroundColor: "#ffffff",
+                borderColor: "#eef2f7",
+                borderWidth: 1,
+                padding: 10,
+                textStyle: {
+                    color: "#111827",
+                    fontFamily: "inherit",
                 },
+                extraCssText:
+                    "border-radius:14px; box-shadow:0 10px 30px rgba(15,23,42,0.06);",
+                formatter: (params: any) => {
+                    const point = Array.isArray(params) ? params[0] : params;
 
-                tooltip: {
-                    trigger: "axis",
-                    backgroundColor: "#ffffff",
-                    borderColor: "#eef2f7",
-                    borderWidth: 1,
-                    padding: 10,
-                    textStyle: {
-                        color: "#111827",
-                        fontFamily: "inherit",
-                    },
-                    extraCssText:
-                        "border-radius:14px; box-shadow:0 10px 30px rgba(15,23,42,0.06);",
-                    formatter: (params: any) => {
-                        const point = Array.isArray(params) ? params[0] : params;
-
-                        return `
+                    return `
 <div style="display:flex;flex-direction:column;gap:4px;">
 <div style="font-size:12px;color:#6b7280;font-weight:500;">
-${point?.axisValue ?? ""}
+${safeMonths[point?.dataIndex ?? 0] ?? ""}
 </div>
 <div style="font-size:14px;font-weight:650;color:#111827;">
 ${Number(point?.value ?? 0).toLocaleString(userLocale)} active users
 </div>
 </div>
 `;
+                },
+            },
+
+            xAxis: {
+                type: "category",
+                data: safeMonths,
+                boundaryGap: false,
+                axisTick: { show: false },
+                axisLine: { show: false },
+                axisLabel: {
+                    color: "#9ca3af",
+                    fontSize: 10,
+                    margin: 10,
+                    fontWeight: 500,
+                    interval: activeUsersRange === 7 ? 0 : 2,
+                    formatter: (_value: string, index: number) => {
+                        if (activeUsersRange === 7) {
+                            const item = activeUsersRangeData[index];
+                            return item?.label ?? "";
+                        }
+
+                        return _value;
                     },
                 },
+            },
 
-                xAxis: {
-                    type: "category",
-                    data: safeMonths,
-                    boundaryGap: false,
-                    axisTick: { show: false },
-                    axisLine: { show: false },
-                    axisLabel: {
-                        color: "#9ca3af",
-                        fontSize: 10,
-                        margin: 10,
-                        fontWeight: 500,
-                        interval: activeUsersRange === 7 ? 23 : 2,
-                        formatter: (_value: string, index: number) => {
-                            if (activeUsersRange === 7) {
-                                const item = activeUsersRangeData[index];
-                                return item?.label ?? "";
-                            }
-
-                            return _value;
-                        },
+            yAxis: {
+                type: "value",
+                min: Math.max(0, Math.floor((minValue - padding) / 10) * 10),
+                max: Math.ceil((maxValue + padding) / 10) * 10,
+                splitNumber: 4,
+                axisLine: { show: false },
+                axisTick: { show: false },
+                axisLabel: { show: false },
+                splitLine: {
+                    lineStyle: {
+                        type: "dashed",
+                        color: "rgba(148,163,184,0.16)",
                     },
                 },
+            },
 
-                yAxis: {
-                    type: "value",
-                    min: Math.max(0, Math.floor((minValue - padding) / 10) * 10),
-                    max: Math.ceil((maxValue + padding) / 10) * 10,
-                    splitNumber: 4,
-                    axisLine: { show: false },
-                    axisTick: { show: false },
-                    axisLabel: { show: false },
-                    splitLine: {
-                        lineStyle: {
-                            type: "dashed",
-                            color: "rgba(148,163,184,0.16)",
-                        },
+            series: [
+                {
+                    name: "Active users",
+                    type: "line",
+                    data: safeValues,
+                    smooth: false,
+                    symbol: "circle",
+                    symbolSize: 5,
+                    showSymbol: activeUsersRange === 7,
+                    lineStyle: {
+                        width: 2.2,
+                        color: "#aca8ffff",
+                    },
+                    emphasis: {
+                        focus: "series",
                     },
                 },
-
-                series: [
-                    {
-                        name: "Active users",
-                        type: "line",
-                        data: safeValues,
-                        smooth: false,
-                        symbol: "none",
-                        lineStyle: {
-                            width: 2.5,
-                            color: "#aca8ffff",
-                        },
-                    },
-                ],
-            };
+            ],
         };
-        const filterChartRange = <T,>(
-            labels: T[],
-            values: number[],
-            range: 1 | 3 | 6
-        ) => {
-            if (range === 1) {
-                return {
-                    labels,
-                    values,
-                };
-            }
-
+    };
+    const filterChartRange = <T,>(
+        labels: T[],
+        values: number[],
+        range: 1 | 3 | 6
+    ) => {
+        if (range === 1) {
             return {
-                labels: labels.slice(-range),
-                values: values.slice(-range),
+                labels,
+                values,
             };
+        }
+
+        return {
+            labels: labels.slice(-range),
+            values: values.slice(-range),
         };
+    };
 
-        const mrrTrendData =
-            mrrTrendRange === 1 && isDemoMode
-                ? {
-                    labels: demoCurrentMonthDays,
-                    values: demoCurrentMonthMrrVals,
-                }
-                : filterChartRange(activeMrrMonths, activeMrrVals, mrrTrendRange);
-        const churnTrendData =
-            churnTrendRange === 1 && isDemoMode
-                ? {
-                    labels: demoCurrentMonthDays,
-                    values: demoCurrentMonthChurnPct,
-                }
-                : filterChartRange(activeChurnMonths, activeChurnPct, churnTrendRange);
-        const trendRangeOptions: Array<{ label: string; value: 1 | 3 | 6 }> = [
-            { label: "Current month", value: 1 },
-            { label: "3 months", value: 3 },
-            { label: "6 months", value: 6 },
-        ];
-        const churnedAccountsCurrent = Math.round(
-            activeUsersCurrent * (churnProxyCurrent / 100)
-        );
+    const mrrTrendData =
+        mrrTrendRange === 1 && isDemoMode
+            ? {
+                labels: demoCurrentMonthDays,
+                values: demoCurrentMonthMrrVals,
+            }
+            : filterChartRange(activeMrrMonths, activeMrrVals, mrrTrendRange);
+    const churnTrendData =
+        churnTrendRange === 1 && isDemoMode
+            ? {
+                labels: demoCurrentMonthDays,
+                values: demoCurrentMonthChurnPct,
+            }
+            : filterChartRange(activeChurnMonths, activeChurnPct, churnTrendRange);
+    const trendRangeOptions: Array<{ label: string; value: 1 | 3 | 6 }> = [
+        { label: "Current month", value: 1 },
+        { label: "3 months", value: 3 },
+        { label: "6 months", value: 6 },
+    ];
+    const churnedAccountsCurrent = Math.round(
+        activeUsersCurrent * (churnProxyCurrent / 100)
+    );
 
-        const churnedAccountsPrevious = Math.round(
-            activeUsersPrevious * (churnProxyPrevious / 100)
-        );
+    const churnedAccountsPrevious = Math.round(
+        activeUsersPrevious * (churnProxyPrevious / 100)
+    );
 
-        const churnedAccountsDelta = churnedAccountsCurrent - churnedAccountsPrevious;
+    const churnedAccountsDelta = churnedAccountsCurrent - churnedAccountsPrevious;
 
-        const atRiskAccountsCurrent = activeRiskAccounts.filter(
-            (account) => Number(account.risk ?? 0) >= 60
-        ).length;
+    const atRiskAccountsCurrent = activeRiskAccounts.filter(
+        (account) => Number(account.risk ?? 0) >= 60
+    ).length;
 
-        const averageAtRiskMrr =
-            atRiskAccountsCurrent > 0
-                ? mrrAtRiskCurrent / atRiskAccountsCurrent
-                : mrrAtRiskCurrent || 1;
+    const averageAtRiskMrr =
+        atRiskAccountsCurrent > 0
+            ? mrrAtRiskCurrent / atRiskAccountsCurrent
+            : mrrAtRiskCurrent || 1;
 
-        const atRiskAccountsPrevious = Math.max(
-            0,
-            Math.round(mrrAtRiskPrevious / averageAtRiskMrr)
-        );
+    const atRiskAccountsPrevious = Math.max(
+        0,
+        Math.round(mrrAtRiskPrevious / averageAtRiskMrr)
+    );
 
-        const atRiskAccountsDelta = atRiskAccountsCurrent - atRiskAccountsPrevious;
+    const atRiskAccountsDelta = atRiskAccountsCurrent - atRiskAccountsPrevious;
 
-        const churnMetricItems = [
-            {
-                label: "Churn proxy",
-                value: `${churnProxyCurrent.toFixed(1)}%`,
-                subtext: `vs ${churnProxyPrevious.toFixed(1)}% last month`,
-                delta: churnDelta,
-                pct: formatPercentChange(churnProxyCurrent, churnProxyPrevious),
-            },
-            {
-                label: "Accounts churned",
-                value: churnedAccountsCurrent.toLocaleString(userLocale),
-                subtext: `vs ${churnedAccountsPrevious.toLocaleString(userLocale)} last period`,
-                delta: churnedAccountsDelta,
-                pct: formatPercentChange(churnedAccountsCurrent, churnedAccountsPrevious),
-            },
-            {
-                label: "At-risk accounts",
-                value: atRiskAccountsCurrent.toLocaleString(userLocale),
-                subtext: `vs ${atRiskAccountsPrevious.toLocaleString(userLocale)} last period`,
-                delta: atRiskAccountsDelta,
-                pct: formatPercentChange(atRiskAccountsCurrent, atRiskAccountsPrevious),
-            },
-        ];
+    const churnMetricItems = [
+        {
+            label: "Churn proxy",
+            value: `${churnProxyCurrent.toFixed(1)}%`,
+            subtext: `vs ${churnProxyPrevious.toFixed(1)}% last month`,
+            delta: churnDelta,
+            pct: formatPercentChange(churnProxyCurrent, churnProxyPrevious),
+        },
+        {
+            label: "Accounts churned",
+            value: churnedAccountsCurrent.toLocaleString(userLocale),
+            subtext: `vs ${churnedAccountsPrevious.toLocaleString(userLocale)} last period`,
+            delta: churnedAccountsDelta,
+            pct: formatPercentChange(churnedAccountsCurrent, churnedAccountsPrevious),
+        },
+        {
+            label: "At-risk accounts",
+            value: atRiskAccountsCurrent.toLocaleString(userLocale),
+            subtext: `vs ${atRiskAccountsPrevious.toLocaleString(userLocale)} last period`,
+            delta: atRiskAccountsDelta,
+            pct: formatPercentChange(atRiskAccountsCurrent, atRiskAccountsPrevious),
+        },
+    ];
 
-        const visibleAccountsAtRisk = topRiskAccounts.slice(0, 3);
+    const visibleAccountsAtRisk = topRiskAccounts.slice(0, 3);
 
-        return (
+    return (
 
-            <div className={styles.page}>
-
-
-                <div className={styles.content}>
+        <div className={styles.page}>
 
 
-                    <div className={styles.topUtilityBar}>
-                        <div />
-
-                        <div className={styles.topRightControls}>
+            <div className={styles.content}>
 
 
+                <div className={styles.topUtilityBar}>
+                    <div />
+
+                    <div className={styles.topRightControls}>
 
 
-                            <div className={styles.profileWrap}>
 
 
-                                {profileOpen ? (
-                                    <div className={styles.profileMenu}>
-                                        <div className={styles.profileMenuHeader}>
-                                            <span className={styles.profileCircleLarge}>
-                                                {getInitials(currentUser)}
-                                            </span>
-                                            <div>
-                                                <div className={styles.profileMenuName}>
-                                                    {currentUser?.displayName || "Cobrai user"}
-                                                </div>
-                                                <div className={styles.profileMenuEmail}>
-                                                    {currentUser?.email || "No email"}
-                                                </div>
+                        <div className={styles.profileWrap}>
+
+
+                            {profileOpen ? (
+                                <div className={styles.profileMenu}>
+                                    <div className={styles.profileMenuHeader}>
+                                        <span className={styles.profileCircleLarge}>
+                                            {getInitials(currentUser)}
+                                        </span>
+                                        <div>
+                                            <div className={styles.profileMenuName}>
+                                                {currentUser?.displayName || "Cobrai user"}
+                                            </div>
+                                            <div className={styles.profileMenuEmail}>
+                                                {currentUser?.email || "No email"}
                                             </div>
                                         </div>
+                                    </div>
 
 
 
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
+                </div>
+
+                <div className={styles.header}>
+                    <div>
+                        <h1 className={styles.title}>Dashboard</h1>
+                        <p className={styles.subtitle}>
+                            Retention intelligence — clear actions that protect revenue.
+                        </p>
+
+
+                    </div>
+                </div>
+
+                {showLiveEmptyState && (
+                    <div className={styles.card} style={{ marginBottom: 16, padding: 18 }}>
+                        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>
+                            No live dashboard data yet
+                        </div>
+                        <div style={{ fontSize: 13, color: "#666666", lineHeight: 1.6 }}>
+                            Your workspace is in live mode. Connect data sources and complete the first
+                            sync to populate your dashboard.
+                        </div>
+                    </div>
+                )}
+
+                <div className={styles.kpiGrid}>
+                    {kpis.map((kpi) => {
+                        const Icon = kpi.Icon;
+
+                        return (
+                            <div key={kpi.label} className={styles.kpiCard}>
+                                <div>
+                                    <div className={styles.kpiLabel}>{kpi.label}</div>
+                                    <div className={styles.kpiValue}>{kpi.value}</div>
+
+                                    <div className={styles.kpiSubline}>
+                                        <span style={{ color: kpi.trend.color, fontWeight: 600 }}>
+                                            {kpi.trend.arrow}
+                                        </span>
+                                        <span>{kpi.subtext}</span>
+                                    </div>
+                                </div>
+
+                                <div className={styles.kpiIcon}>
+                                    <Icon size={16} strokeWidth={1.8} />
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+                <div className={styles.dashboardMainGrid}>
+                    <div className={styles.leftDashboardStack}>
+                        {/* Revenue Trend */}
+                        <div className={`${styles.card} ${styles.mrrChartCard}`}>
+                            <div className={styles.cardHeader}>
+                                <div className={styles.revenueHeaderLeft}>
+                                    <h4>Revenue Trend</h4>
+                                    <p>Revenue protected across recent retention activity.</p>
+                                </div>
+
+                                <div className={styles.activeUsersFilterWrap}>
+                                    <button
+                                        type="button"
+                                        className={styles.activeUsersFilter}
+                                        onClick={() => setMrrTrendFilterOpen((open) => !open)}
+                                    >
+                                        <Clock3 size={13} strokeWidth={1.8} />
+                                        <span>
+                                            {
+                                                trendRangeOptions.find(
+                                                    (option) => option.value === mrrTrendRange
+                                                )?.label
+                                            }
+                                        </span>
+                                        <ChevronDown size={13} strokeWidth={1.8} />
+                                    </button>
+
+                                    {mrrTrendFilterOpen ? (
+                                        <div className={styles.activeUsersFilterMenu}>
+                                            {trendRangeOptions.map((option) => (
+                                                <button
+                                                    key={option.value}
+                                                    type="button"
+                                                    className={
+                                                        mrrTrendRange === option.value
+                                                            ? styles.activeUsersFilterOptionActive
+                                                            : styles.activeUsersFilterOption
+                                                    }
+                                                    onClick={() => {
+                                                        setMrrTrendRange(option.value);
+                                                        setMrrTrendFilterOpen(false);
+                                                    }}
+                                                >
+                                                    {option.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : null}
+                                </div>
+                            </div>
+
+                            <div className={styles.revenueInlineMetricRow}>
+                                <div className={styles.revenueInlineMetric}>
+                                    <strong>{activeProgressData?.kpis?.accountsSaved ?? 0}</strong>
+                                    <span>
+                                        ↑ {Math.abs(Number(activeProgressData?.kpis?.accountsSavedPct ?? 0)).toFixed(1)}%
+                                    </span>
+                                    <p>Retained customers that moved MRR</p>
+                                </div>
+
+                                <div className={styles.revenueInlineMetric}>
+                                    <strong>
+                                        {formatCurrency(
+                                            activeOpportunityAccounts.reduce(
+                                                (sum, item) => sum + Number(item.upside || 0),
+                                                0
+                                            )
+                                        )}
+                                    </strong>
+                                    <span>Opportunity</span>
+                                    <p>Expansion MRR</p>
+                                </div>
+
+                                <div className={styles.revenueInlineMetric}>
+                                    <strong>{formatCurrency(totalProtected)}</strong>
+                                    <span>
+                                        ↑ {Math.abs(formatPercentChange(totalProtected, previousProtected)).toFixed(1)}%
+                                    </span>
+                                    <p>MRR protected</p>
+                                </div>
+                            </div>
+
+                            <div className={styles.chartPreview}>
+                                <EChart
+                                    key={`mrr-${mrrTrendRange}-${mrrTrendData.labels.join("-")}-${mrrTrendData.values.join("-")}`}
+                                    option={mrrProtectedOption(mrrTrendData.labels, mrrTrendData.values, isPro)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* AI Insights */}
+                        <div className={`${styles.card} ${styles.aiInsightsCard}`}>
+                            <div className={styles.aiInsightsHeader}>
+                                <div>
+                                    <h4 className={styles.aiInsightsTitle}>✧ AI Insights</h4>
+                                    <p className={styles.aiInsightsSubtitle}>
+                                        Priority actions based on your customers and recent activity.
+                                    </p>
+
+                                    <div className={styles.aiInsightsMeta}>
+                                        <Clock3 size={13} strokeWidth={1.8} />
+                                        <span>{formatRefreshTime(insightsRefreshedAt)}</span>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    className={styles.softButton}
+                                    onClick={() => {
+                                        if (isDemoMode) {
+                                            setInsightsRefreshedAt(new Date().toISOString());
+                                            return;
+                                        }
+
+                                        const canRefresh = isTrialActive || isPro || effectivePlan === "starter";
+
+                                        if (!canRefresh) {
+                                            setUpgradeOpen(true);
+                                            return;
+                                        }
+
+                                        if (currentUser) void loadWorkspaceAi(currentUser);
+                                    }}
+                                >
+                                    Refresh
+                                </button>
+                            </div>
+
+                            <div className={styles.aiInsightList}>
+                                {visibleInsights.length > 0 ? (
+                                    visibleInsights.map((item) => {
+                                        const meta = getInsightMeta(item);
+                                        const Icon = meta.Icon;
+
+                                        return (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                className={`${styles.aiInsightRow} ${meta.tone}`}
+                                                onClick={() => {
+                                                    if (item.href) router.push(item.href);
+                                                }}
+                                            >
+                                                <span className={`${styles.aiInsightIcon} ${meta.tone}`}>
+                                                    <Icon size={20} strokeWidth={1.8} />
+                                                </span>
+
+                                                <div className={styles.aiInsightContent}>
+                                                    <span className={styles.aiInsightLabel}>{meta.label}</span>
+                                                    <strong>{item.title}</strong>
+                                                    <p>{item.summary}</p>
+                                                    {item.meta ? <small>{item.meta}</small> : null}
+                                                </div>
+
+                                                {item.amountLabel ? (
+                                                    <div className={`${styles.aiInsightAmount} ${meta.tone}`}>
+                                                        <span>{item.metricLabel ?? "Value"}</span>
+                                                        <strong>{item.amountLabel}</strong>
+                                                    </div>
+                                                ) : null}
+                                            </button>
+                                        );
+                                    })
+                                ) : (
+                                    <div className={styles.emptyText}>No recent insight activity yet.</div>
+                                )}
+
+                                {insightFeed.length > INSIGHTS_PER_PAGE ? (
+                                    <div className={styles.aiInsightsPagination}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setInsightPage((page) => Math.max(0, page - 1))}
+                                            disabled={insightPage === 0}
+                                        >
+                                            Previous
+                                        </button>
+
+                                        <span>
+                                            {insightPage + 1} of {insightPageCount}
+                                        </span>
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setInsightPage((page) =>
+                                                    Math.min(insightPageCount - 1, page + 1)
+                                                )
+                                            }
+                                            disabled={insightPage >= insightPageCount - 1}
+                                        >
+                                            Next
+                                        </button>
                                     </div>
                                 ) : null}
                             </div>
                         </div>
                     </div>
 
-                    <div className={styles.header}>
-                        <div>
-                            <h1 className={styles.title}>Dashboard</h1>
-                            <p className={styles.subtitle}>
-                                Retention intelligence — clear actions that protect revenue.
-                            </p>
-
-
-                        </div>
-                    </div>
-
-                    {showLiveEmptyState && (
-                        <div className={styles.card} style={{ marginBottom: 16, padding: 18 }}>
-                            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>
-                                No live dashboard data yet
-                            </div>
-                            <div style={{ fontSize: 13, color: "#666666", lineHeight: 1.6 }}>
-                                Your workspace is in live mode. Connect data sources and complete the first
-                                sync to populate your dashboard.
-                            </div>
-                        </div>
-                    )}
-
-                    <div className={styles.kpiGrid}>
-                        {kpis.map((kpi) => {
-                            const Icon = kpi.Icon;
-
-                            return (
-                                <div key={kpi.label} className={styles.kpiCard}>
-                                    <div>
-                                        <div className={styles.kpiLabel}>{kpi.label}</div>
-                                        <div className={styles.kpiValue}>{kpi.value}</div>
-
-                                        <div className={styles.kpiSubline}>
-                                            <span style={{ color: kpi.trend.color, fontWeight: 600 }}>
-                                                {kpi.trend.arrow}
-                                            </span>
-                                            <span>{kpi.subtext}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className={styles.kpiIcon}>
-                                        <Icon size={16} strokeWidth={1.8} />
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                    <div className={styles.dashboardMainGrid}>
-                        <div className={styles.leftDashboardStack}>
-                            {/* Revenue Trend */}
-                            <div className={`${styles.card} ${styles.mrrChartCard}`}>
-                                <div className={styles.cardHeader}>
-                                    <div className={styles.revenueHeaderLeft}>
-                                        <h4>Revenue Trend</h4>
-                                        <p>Revenue protected across recent retention activity.</p>
-                                    </div>
-
-                                    <div className={styles.activeUsersFilterWrap}>
-                                        <button
-                                            type="button"
-                                            className={styles.activeUsersFilter}
-                                            onClick={() => setMrrTrendFilterOpen((open) => !open)}
-                                        >
-                                            <Clock3 size={13} strokeWidth={1.8} />
-                                            <span>
-                                                {
-                                                    trendRangeOptions.find(
-                                                        (option) => option.value === mrrTrendRange
-                                                    )?.label
-                                                }
-                                            </span>
-                                            <ChevronDown size={13} strokeWidth={1.8} />
-                                        </button>
-
-                                        {mrrTrendFilterOpen ? (
-                                            <div className={styles.activeUsersFilterMenu}>
-                                                {trendRangeOptions.map((option) => (
-                                                    <button
-                                                        key={option.value}
-                                                        type="button"
-                                                        className={
-                                                            mrrTrendRange === option.value
-                                                                ? styles.activeUsersFilterOptionActive
-                                                                : styles.activeUsersFilterOption
-                                                        }
-                                                        onClick={() => {
-                                                            setMrrTrendRange(option.value);
-                                                            setMrrTrendFilterOpen(false);
-                                                        }}
-                                                    >
-                                                        {option.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        ) : null}
-                                    </div>
+                    <div className={styles.rightDashboardStack}>
+                        {/* Churn Trend */}
+                        <div className={`${styles.card} ${styles.churnChartCard}`}>
+                            <div className={styles.cardHeader}>
+                                <div>
+                                    <h4>Churn Trend</h4>
+                                    <p>Monthly churn rate and customer risk signals.</p>
                                 </div>
 
-                                <div className={styles.revenueInlineMetricRow}>
-                                    <div className={styles.revenueInlineMetric}>
-                                        <strong>{activeProgressData?.kpis?.accountsSaved ?? 0}</strong>
-                                        <span>
-                                            ↑ {Math.abs(Number(activeProgressData?.kpis?.accountsSavedPct ?? 0)).toFixed(1)}%
-                                        </span>
-                                        <p>Retained customers that moved MRR</p>
-                                    </div>
-
-                                    <div className={styles.revenueInlineMetric}>
-                                        <strong>
-                                            {formatCurrency(
-                                                activeOpportunityAccounts.reduce(
-                                                    (sum, item) => sum + Number(item.upside || 0),
-                                                    0
-                                                )
-                                            )}
-                                        </strong>
-                                        <span>Opportunity</span>
-                                        <p>Expansion MRR</p>
-                                    </div>
-
-                                    <div className={styles.revenueInlineMetric}>
-                                        <strong>{formatCurrency(totalProtected)}</strong>
-                                        <span>
-                                            ↑ {Math.abs(formatPercentChange(totalProtected, previousProtected)).toFixed(1)}%
-                                        </span>
-                                        <p>MRR protected</p>
-                                    </div>
-                                </div>
-
-                                <div className={styles.chartPreview}>
-                                    <EChart
-                                        key={`mrr-${mrrTrendRange}-${mrrTrendData.labels.join("-")}-${mrrTrendData.values.join("-")}`}
-                                        option={mrrProtectedOption(mrrTrendData.labels, mrrTrendData.values, isPro)}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* AI Insights */}
-                            <div className={`${styles.card} ${styles.aiInsightsCard}`}>
-                                <div className={styles.aiInsightsHeader}>
-                                    <div>
-                                        <h4 className={styles.aiInsightsTitle}>✧ AI Insights</h4>
-                                        <p className={styles.aiInsightsSubtitle}>
-                                            Priority actions based on your customers and recent activity.
-                                        </p>
-
-                                        <div className={styles.aiInsightsMeta}>
-                                            <Clock3 size={13} strokeWidth={1.8} />
-                                            <span>{formatRefreshTime(insightsRefreshedAt)}</span>
-                                        </div>
-                                    </div>
-
+                                <div className={styles.activeUsersFilterWrap}>
                                     <button
                                         type="button"
-                                        className={styles.softButton}
-                                        onClick={() => {
-                                            if (isDemoMode) {
-                                                setInsightsRefreshedAt(new Date().toISOString());
-                                                return;
-                                            }
-
-                                            const canRefresh = isTrialActive || isPro || effectivePlan === "starter";
-
-                                            if (!canRefresh) {
-                                                setUpgradeOpen(true);
-                                                return;
-                                            }
-
-                                            if (currentUser) void loadWorkspaceAi(currentUser);
-                                        }}
+                                        className={styles.activeUsersFilter}
+                                        onClick={() => setChurnTrendFilterOpen((open) => !open)}
                                     >
-                                        Refresh
+                                        <Clock3 size={13} strokeWidth={1.8} />
+                                        <span>
+                                            {trendRangeOptions.find((option) => option.value === churnTrendRange)?.label}
+                                        </span>
+                                        <ChevronDown size={13} strokeWidth={1.8} />
                                     </button>
-                                </div>
 
-                                <div className={styles.aiInsightList}>
-                                    {visibleInsights.length > 0 ? (
-                                        visibleInsights.map((item) => {
-                                            const meta = getInsightMeta(item);
-                                            const Icon = meta.Icon;
-
-                                            return (
+                                    {churnTrendFilterOpen ? (
+                                        <div className={styles.activeUsersFilterMenu}>
+                                            {trendRangeOptions.map((option) => (
                                                 <button
-                                                    key={item.id}
+                                                    key={option.value}
                                                     type="button"
-                                                    className={`${styles.aiInsightRow} ${meta.tone}`}
+                                                    className={
+                                                        churnTrendRange === option.value
+                                                            ? styles.activeUsersFilterOptionActive
+                                                            : styles.activeUsersFilterOption
+                                                    }
                                                     onClick={() => {
-                                                        if (item.href) router.push(item.href);
+                                                        setChurnTrendRange(option.value);
+                                                        setChurnTrendFilterOpen(false);
                                                     }}
                                                 >
-                                                    <span className={`${styles.aiInsightIcon} ${meta.tone}`}>
-                                                        <Icon size={20} strokeWidth={1.8} />
-                                                    </span>
-
-                                                    <div className={styles.aiInsightContent}>
-                                                        <span className={styles.aiInsightLabel}>{meta.label}</span>
-                                                        <strong>{item.title}</strong>
-                                                        <p>{item.summary}</p>
-                                                        {item.meta ? <small>{item.meta}</small> : null}
-                                                    </div>
-
-                                                    {item.amountLabel ? (
-                                                        <div className={`${styles.aiInsightAmount} ${meta.tone}`}>
-                                                            <span>{item.metricLabel ?? "Value"}</span>
-                                                            <strong>{item.amountLabel}</strong>
-                                                        </div>
-                                                    ) : null}
+                                                    {option.label}
                                                 </button>
-                                            );
-                                        })
-                                    ) : (
-                                        <div className={styles.emptyText}>No recent insight activity yet.</div>
-                                    )}
-
-                                    {insightFeed.length > INSIGHTS_PER_PAGE ? (
-                                        <div className={styles.aiInsightsPagination}>
-                                            <button
-                                                type="button"
-                                                onClick={() => setInsightPage((page) => Math.max(0, page - 1))}
-                                                disabled={insightPage === 0}
-                                            >
-                                                Previous
-                                            </button>
-
-                                            <span>
-                                                {insightPage + 1} of {insightPageCount}
-                                            </span>
-
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setInsightPage((page) =>
-                                                        Math.min(insightPageCount - 1, page + 1)
-                                                    )
-                                                }
-                                                disabled={insightPage >= insightPageCount - 1}
-                                            >
-                                                Next
-                                            </button>
+                                            ))}
                                         </div>
                                     ) : null}
                                 </div>
                             </div>
+
+                            <div className={styles.churnMetricRow}>
+                                {churnMetricItems.map((item) => {
+                                    const trend = getTrendMeta(item.delta, true);
+
+                                    return (
+                                        <div key={item.label} className={styles.churnMiniKpi}>
+                                            <strong>{item.value}</strong>
+
+                                            <div className={styles.churnMiniSubline}>
+                                                <span style={{ color: trend.color }}>
+                                                    {trend.arrow} {Math.abs(item.pct).toFixed(1)}%
+                                                </span>
+                                            </div>
+
+                                            <p>{item.label}</p>
+                                            <small>{item.subtext}</small>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className={styles.churnChartWrap}>
+                                <EChart
+                                    key={`churn-${churnTrendRange}-${churnTrendData.labels.join("-")}-${churnTrendData.values.join("-")}`}
+                                    option={churnTrendOption(churnTrendData.labels, churnTrendData.values, isPro)}
+                                />
+                            </div>
                         </div>
 
-                        <div className={styles.rightDashboardStack}>
-                            {/* Churn Trend */}
-                            <div className={`${styles.card} ${styles.churnChartCard}`}>
-                                <div className={styles.cardHeader}>
-                                    <div>
-                                        <h4>Churn Trend</h4>
-                                        <p>Monthly churn rate and customer risk signals.</p>
+                        {/* User Metrics */}
+                        <div className={`${styles.card} ${styles.activeUsersCard}`}>
+                            <div className={styles.activeUsersHeader}>
+                                <div>
+                                    <div className={styles.activeUsersTitle}>
+                                        <UsersRound size={16} strokeWidth={1.9} />
+                                        <span>User Metrics</span>
                                     </div>
 
+                                    <p>An overview of your active users.</p>
+                                </div>
+
+                                <div className={styles.activeUsersHeaderRight}>
                                     <div className={styles.activeUsersFilterWrap}>
                                         <button
                                             type="button"
                                             className={styles.activeUsersFilter}
-                                            onClick={() => setChurnTrendFilterOpen((open) => !open)}
+                                            onClick={() => setActiveUsersFilterOpen((open) => !open)}
                                         >
                                             <Clock3 size={13} strokeWidth={1.8} />
-                                            <span>
-                                                {trendRangeOptions.find((option) => option.value === churnTrendRange)?.label}
-                                            </span>
+                                            <span>{activeUsersRangeLabel}</span>
                                             <ChevronDown size={13} strokeWidth={1.8} />
                                         </button>
 
-                                        {churnTrendFilterOpen ? (
+                                        {activeUsersFilterOpen ? (
                                             <div className={styles.activeUsersFilterMenu}>
-                                                {trendRangeOptions.map((option) => (
+                                                {[
+                                                    { label: "24 hrs", value: 24 },
+                                                    { label: "7 days", value: 7 },
+                                                ].map((range) => (
                                                     <button
-                                                        key={option.value}
+                                                        key={range.value}
                                                         type="button"
                                                         className={
-                                                            churnTrendRange === option.value
+                                                            activeUsersRange === range.value
                                                                 ? styles.activeUsersFilterOptionActive
                                                                 : styles.activeUsersFilterOption
                                                         }
                                                         onClick={() => {
-                                                            setChurnTrendRange(option.value);
-                                                            setChurnTrendFilterOpen(false);
+                                                            setActiveUsersRange(range.value as 24 | 7);
+                                                            setActiveUsersFilterOpen(false);
                                                         }}
                                                     >
-                                                        {option.label}
+                                                        {range.label}
                                                     </button>
                                                 ))}
                                             </div>
                                         ) : null}
                                     </div>
-                                </div>
 
-                                <div className={styles.churnMetricRow}>
-                                    {churnMetricItems.map((item) => {
-                                        const trend = getTrendMeta(item.delta, true);
+                                    <div className={styles.activeUsersMetricRow}>
+                                        <strong>{activeUsersCurrent.toLocaleString(userLocale)}</strong>
 
-                                        return (
-                                            <div key={item.label} className={styles.churnMiniKpi}>
-                                                <strong>{item.value}</strong>
-
-                                                <div className={styles.churnMiniSubline}>
-                                                    <span style={{ color: trend.color }}>
-                                                        {trend.arrow} {Math.abs(item.pct).toFixed(1)}%
-                                                    </span>
-                                                </div>
-
-                                                <p>{item.label}</p>
-                                                <small>{item.subtext}</small>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-
-                                <div className={styles.churnChartWrap}>
-                                    <EChart
-                                        key={`churn-${churnTrendRange}-${churnTrendData.labels.join("-")}-${churnTrendData.values.join("-")}`}
-                                        option={churnTrendOption(churnTrendData.labels, churnTrendData.values, isPro)}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* User Metrics */}
-                            <div className={`${styles.card} ${styles.activeUsersCard}`}>
-                                <div className={styles.activeUsersHeader}>
-                                    <div>
-                                        <div className={styles.activeUsersTitle}>
-                                            <UsersRound size={16} strokeWidth={1.9} />
-                                            <span>User Metrics</span>
-                                        </div>
-
-                                        <p>An overview of your active users.</p>
-                                    </div>
-
-                                    <div className={styles.activeUsersHeaderRight}>
-                                        <div className={styles.activeUsersFilterWrap}>
-                                            <button
-                                                type="button"
-                                                className={styles.activeUsersFilter}
-                                                onClick={() => setActiveUsersFilterOpen((open) => !open)}
+                                        <div>
+                                            <span
+                                                className={
+                                                    activeUsersDelta >= 0
+                                                        ? styles.activeUsersUp
+                                                        : styles.activeUsersDown
+                                                }
                                             >
-                                                <Clock3 size={13} strokeWidth={1.8} />
-                                                <span>{activeUsersRangeLabel}</span>
-                                                <ChevronDown size={13} strokeWidth={1.8} />
-                                            </button>
+                                                {activeUsersDelta >= 0 ? "↑" : "↓"}{" "}
+                                                {Math.abs(activeUsersPct).toFixed(1)}%{" "}
+                                                ({activeUsersDelta >= 0 ? "+" : "-"}
+                                                {Math.abs(activeUsersDelta).toLocaleString(userLocale)})
+                                            </span>
 
-                                            {activeUsersFilterOpen ? (
-                                                <div className={styles.activeUsersFilterMenu}>
-                                                    {[
-                                                        { label: "24 hrs", value: 24 },
-                                                        { label: "7 days", value: 7 },
-                                                    ].map((range) => (
-                                                        <button
-                                                            key={range.value}
-                                                            type="button"
-                                                            className={
-                                                                activeUsersRange === range.value
-                                                                    ? styles.activeUsersFilterOptionActive
-                                                                    : styles.activeUsersFilterOption
-                                                            }
-                                                            onClick={() => {
-                                                                setActiveUsersRange(range.value as 24 | 7);
-                                                                setActiveUsersFilterOpen(false);
-                                                            }}
-                                                        >
-                                                            {range.label}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            ) : null}
-                                        </div>
-
-                                        <div className={styles.activeUsersMetricRow}>
-                                            <strong>{activeUsersCurrent.toLocaleString(userLocale)}</strong>
-
-                                            <div>
-                                                <span
-                                                    className={
-                                                        activeUsersDelta >= 0
-                                                            ? styles.activeUsersUp
-                                                            : styles.activeUsersDown
-                                                    }
-                                                >
-                                                    {activeUsersDelta >= 0 ? "↑" : "↓"}{" "}
-                                                    {Math.abs(activeUsersPct).toFixed(1)}%{" "}
-                                                    ({activeUsersDelta >= 0 ? "+" : "-"}
-                                                    {Math.abs(activeUsersDelta).toLocaleString(userLocale)})
-                                                </span>
-
-                                                <p>
-                                                    vs. {activeUsersPrevious.toLocaleString(userLocale)} last period
-                                                </p>
-                                            </div>
+                                            <p>
+                                                vs. {activeUsersPrevious.toLocaleString(userLocale)} last period
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
-
-                                <div className={styles.activeUsersChartWrap}>
-                                    <EChart
-                                        key={`active-users-${activeUsersRange}-${visibleActiveUsersMonths.join("-")}-${visibleActiveUsersSeries.join("-")}`}
-                                        option={activeUsersOption(
-                                            visibleActiveUsersMonths,
-                                            visibleActiveUsersSeries
-                                        )}
-                                    />
-                                </div>
                             </div>
 
-                            <AIActionQueue
-                                accounts={activeRiskAccounts}
-                                isDemoMode={isDemoMode}
-                                canRetryPayment={canViewRetryPayment}
-                                senderName={currentUser?.displayName || currentUser?.email?.split("@")[0] || "Team"}
-                            />
+                            <div className={styles.activeUsersChartWrap}>
+                                <EChart
+                                    key={`active-users-${activeUsersRange}-${visibleActiveUsersMonths.join("-")}-${visibleActiveUsersSeries.join("-")}`}
+                                    option={activeUsersOption(
+                                        visibleActiveUsersMonths,
+                                        visibleActiveUsersSeries
+                                    )}
+                                />
+                            </div>
+                        </div>
+
+                        <AIActionQueue
+                            accounts={activeRiskAccounts}
+                            isDemoMode={isDemoMode}
+                            canRetryPayment={canViewRetryPayment}
+                            senderName={currentUser?.displayName || currentUser?.email?.split("@")[0] || "Team"}
+                        />
+                    </div>
+                </div>
+
+                {upgradeOpen && !isDemoMode ? (
+                    <div className={styles.upgradeOverlay}>
+                        <div className={styles.upgradeModal}>
+                            <h3>Upgrade to Pro</h3>
+                            <p>
+                                Upgrade to Pro for unlimited live insights, deeper customer behaviour signals,
+                                and priority retention actions.
+                            </p>
+
+                            <div className={styles.modalActions}>
+                                <button type="button" onClick={() => setUpgradeOpen(false)}>
+                                    Not now
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setUpgradeOpen(false);
+                                        router.push("/dashboard/settings?tab=manage-plan");
+                                    }}
+                                >
+                                    Upgrade to Pro
+                                </button>
+                            </div>
                         </div>
                     </div>
-
-                    {upgradeOpen && !isDemoMode ? (
-                        <div className={styles.upgradeOverlay}>
-                            <div className={styles.upgradeModal}>
-                                <h3>Upgrade to Pro</h3>
-                                <p>
-                                    Upgrade to Pro for unlimited live insights, deeper customer behaviour signals,
-                                    and priority retention actions.
-                                </p>
-
-                                <div className={styles.modalActions}>
-                                    <button type="button" onClick={() => setUpgradeOpen(false)}>
-                                        Not now
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setUpgradeOpen(false);
-                                            router.push("/dashboard/settings?tab=manage-plan");
-                                        }}
-                                    >
-                                        Upgrade to Pro
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    ) : null}
-                </div>
-            </div >
+                ) : null}
+            </div>
+        </div >
 
 
 
 
-        );
+    );
 
-    }
+}
