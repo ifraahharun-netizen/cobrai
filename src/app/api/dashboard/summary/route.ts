@@ -217,6 +217,55 @@ function buildActiveUsersSeries(
   }));
 }
 
+function startOfUtcDay(date: Date) {
+  return new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      0,
+      0,
+      0,
+      0
+    )
+  );
+}
+
+function addDays(date: Date, delta: number) {
+  return new Date(date.getTime() + delta * 24 * 60 * 60 * 1000);
+}
+
+function buildDailyActiveUsersSeries(
+  events: EventForInsight[],
+  now = new Date(),
+  days: number
+): ActiveUsersPoint[] {
+  const endDay = startOfUtcDay(now);
+  const buckets = new Map<string, Set<string>>();
+
+  for (let i = days - 1; i >= 0; i--) {
+    const day = addDays(endDay, -i);
+    buckets.set(day.toISOString(), new Set());
+  }
+
+  for (const event of events) {
+    const customerId = event.customer?.id;
+    if (!customerId) continue;
+
+    const day = startOfUtcDay(event.occurredAt).toISOString();
+    const bucket = buckets.get(day);
+
+    if (bucket) {
+      bucket.add(customerId);
+    }
+  }
+
+  return Array.from(buckets.entries()).map(([timestamp, customers]) => ({
+    timestamp,
+    value: customers.size,
+  }));
+}
+
 function humanizeType(type: string) {
   return type
     .replace(/[._-]+/g, " ")
@@ -1338,10 +1387,10 @@ export async function GET(req: Request) {
         now,
         24
       ),
-      last7Days: buildActiveUsersSeries(
+      last7Days: buildDailyActiveUsersSeries(
         eventsLast7DaysTyped,
         now,
-        7 * 24
+        7
       ),
     };
 

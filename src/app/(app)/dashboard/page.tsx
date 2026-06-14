@@ -1404,10 +1404,10 @@ export default function DashboardPage() {
             backgroundColor: "transparent",
 
             grid: {
-                top: 8,
-                right: 8,
-                bottom: 28,
-                left: 8,
+                top: 18,
+                right: 12,
+                bottom: 34,
+                left: 12,
                 containLabel: false,
             },
 
@@ -1448,9 +1448,9 @@ ${Number(point?.value ?? 0).toLocaleString(userLocale)} active users
                 axisLabel: {
                     color: "#9ca3af",
                     fontSize: 10,
-                    margin: 10,
+                    margin: 12,
                     fontWeight: 500,
-                    interval: activeUsersRange === 7 ? 0 : 2,
+                    interval: activeUsersRange === 7 ? 0 : 3,
                     formatter: (_value: string, index: number) => {
                         if (activeUsersRange === 7) {
                             const item = activeUsersRangeData[index];
@@ -1483,16 +1483,16 @@ ${Number(point?.value ?? 0).toLocaleString(userLocale)} active users
                     name: "Active users",
                     type: "line",
                     data: safeValues,
-                    smooth: false,
-                    symbol: "circle",
-                    symbolSize: 5,
-                    showSymbol: activeUsersRange === 7,
+                    smooth: true,
+                    symbol: "none",
+                    showSymbol: false,
                     lineStyle: {
                         width: 2.2,
                         color: "#aca8ffff",
                     },
-                    emphasis: {
-                        focus: "series",
+                    areaStyle: {
+                        opacity: 0.06,
+                        color: "#aca8ffff",
                     },
                 },
             ],
