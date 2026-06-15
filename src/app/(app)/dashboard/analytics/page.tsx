@@ -3892,8 +3892,8 @@ ${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
                             <div className={styles.revenueRecoveryCard}>
                                 <div className={styles.revenueRecoveryHeader}>
                                     <div className={styles.revenueRecoveryTitle}>
-                                        <h3>Revenue Recovery Queue</h3>
-                                        <p>AI-prioritised accounts that can help close the gap to forecast MRR.</p>
+                                        <h3>Revenue Impact Queue</h3>
+                                        <p>Your highest-leverage retention and expansion opportunities.</p>
                                     </div>
 
                                     <div className={styles.recoveryForecastPanel}>
