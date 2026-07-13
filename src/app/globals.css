@@ -2279,3 +2279,170 @@ button {
         font-size: 31px;
     }
 }
+
+
+
+
+
+
+
+
+.headerGhostBtn,
+.headerPrimaryBtn {
+    min-height: 40px;
+    padding: 0 16px;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    margin-left: 18px;
+}
+
+.topNav {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+}
+
+
+.siteHeaderInner {
+    width: min(1180px, calc(100% - 48px));
+    min-height: 74px;
+    margin: 0 auto;
+
+    display: flex;
+    align-items: center;
+}
+
+
+.sectionHeading h2 {
+    max-width: 760px;
+    margin: 0 auto;
+    color: #101828;
+    font-size: clamp(46px, 4.6vw, 68px);
+    font-weight: 400;
+    letter-spacing: -0.045em;
+    line-height: 0.96;
+}
+
+.sectionHeading h2 span {
+    display: block;
+    color: var(--cob-blue);
+    font-style: italic;
+}
+
+
+
+
+.heroInner>h1 {
+    max-width: 920px;
+    margin: 18px auto 0;
+    color: #101828;
+
+    font-size: clamp(54px, 5.8vw, 82px);
+    font-weight: 400;
+    line-height: 0.95;
+    letter-spacing: -0.045em;
+}
+
+.heroInner>h1 span {
+    display: block;
+    margin-top: 4px;
+    color: var(--cob-blue);
+    font-style: italic;
+}
+
+
+
+
+
+.proofStrip {
+    padding: 24px 14px 72px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+.proofStrip div {
+    display: grid;
+    justify-items: center;
+    gap: 5px;
+}
+
+.proofStrip strong {
+    color: #101828;
+    font-size: 22px;
+    font-weight: 650;
+    letter-spacing: -0.04em;
+}
+
+.proofStrip span {
+    color: #667085;
+    font-size: 9px;
+}
+
+.heroSection {
+    position: relative;
+    padding: 42px 0 0;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 50% 2%, rgba(29, 155, 240, 0.08), transparent 29%),
+        radial-gradient(circle at 9% 32%, rgba(29, 155, 240, 0.045), transparent 25%),
+        linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+}
+
+.benefitsSection {
+    position: relative;
+    margin-top: 0;
+    padding: 88px 0 80px;
+    background: linear-gradient(180deg, #fbfdff 0%, #ffffff 32%, #fbfdff 100%);
+}
+
+.sectionHeading {
+    text-align: center;
+    padding-top: 0;
+}
+
+@media (max-width: 700px) {
+    .proofStrip {
+        padding-bottom: 52px;
+    }
+
+    .benefitsSection {
+        padding-top: 64px;
+    }
+}
+
+
+
+
+
+.proofStrip {
+    margin-top: 36px;
+    /* pushes it down */
+    padding: 54px 14px 72px;
+    /* adds more breathing room below */
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+
+.benefitsSection {
+    position: relative;
+    margin-top: 0;
+    padding: 106px 0 80px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+}
+
+
+.sectionHeading {
+    text-align: center;
+    padding-top: 0;
+}

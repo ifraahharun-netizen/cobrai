@@ -73,6 +73,25 @@ export default function MarketingHeader() {
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
+
+    useEffect(() => {
+        function handleOpenAuth(
+            event: Event
+        ) {
+            const customEvent = event as CustomEvent<{
+                view?: "login" | "signup";
+            }>;
+
+            openAuth(customEvent.detail?.view ?? "login");
+        }
+
+        window.addEventListener("cobrai:open-auth", handleOpenAuth);
+
+        return () => {
+            window.removeEventListener("cobrai:open-auth", handleOpenAuth);
+        };
+    }, []);
+
     useEffect(() => {
         if (!authView) return;
 
@@ -304,12 +323,6 @@ export default function MarketingHeader() {
                         </button>
                     </div>
 
-
-
-
-
-
-
                     <button
                         type="button"
                         className="headerMenuButton"
@@ -503,6 +516,8 @@ export default function MarketingHeader() {
                     </section>
                 </div>
             )}
+
+
 
             <TermsModal
                 open={legalView !== null}

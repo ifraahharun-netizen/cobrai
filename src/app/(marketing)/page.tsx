@@ -17,12 +17,17 @@ import {
     Users,
     Zap,
 } from "lucide-react";
-import { Inter } from "next/font/google";
-
+import { Instrument_Serif, Inter } from "next/font/google";
 
 const inter = Inter({
     subsets: ["latin"],
     variable: "--font-inter",
+});
+
+const instrumentSerif = Instrument_Serif({
+    subsets: ["latin"],
+    weight: "400",
+    style: ["normal", "italic"],
 });
 
 const accounts = [
@@ -156,9 +161,9 @@ export default function HomePage() {
                         AI retention intelligence
                     </span>
 
-                    <h1>
+                    <h1 className={instrumentSerif.className}>
                         Stop churn. Protect revenue.
-                        <span> Grow with confidence.</span>
+                        <span>Grow with confidence.</span>
                     </h1>
 
                     <p className="heroDescription">
@@ -168,13 +173,33 @@ export default function HomePage() {
                     </p>
 
                     <div className="heroActions">
-                        <Link href="/signup" className="primaryButton">
+                        <button
+                            type="button"
+                            className="primaryButton"
+                            onClick={() => {
+                                window.dispatchEvent(
+                                    new CustomEvent("cobrai:open-auth", {
+                                        detail: { view: "signup" },
+                                    })
+                                );
+                            }}
+                        >
                             Get started free
-                        </Link>
+                        </button>
 
-                        <Link href="/login" className="secondaryButton">
+                        <button
+                            type="button"
+                            className="secondaryButton"
+                            onClick={() => {
+                                window.dispatchEvent(
+                                    new CustomEvent("cobrai:open-auth", {
+                                        detail: { view: "login" },
+                                    })
+                                );
+                            }}
+                        >
                             Log back in
-                        </Link>
+                        </button>
                     </div>
 
                     <div className="heroReassurance">
@@ -192,23 +217,22 @@ export default function HomePage() {
                         </span>
                     </div>
 
-                   
                     <div className="proofStrip">
                         <div>
-                            <strong>+30%</strong>
-                            <span>More revenue protected</span>
+                            <strong>Predictive</strong>
+                            <span>Churn detection</span>
                         </div>
                         <div>
-                            <strong>98%</strong>
-                            <span>Customer satisfaction rate</span>
+                            <strong>Proactive</strong>
+                            <span>Revenue protection</span>
                         </div>
                         <div>
-                            <strong>5M+</strong>
-                            <span>Monthly signals tracked</span>
+                            <strong>Automated</strong>
+                            <span>Retention workflows</span>
                         </div>
                         <div>
-                            <strong>50B</strong>
-                            <span>Revenue insights analysed</span>
+                            <strong>Actionable</strong>
+                            <span>Customer intelligence</span>
                         </div>
                     </div>
                 </div>
@@ -217,9 +241,9 @@ export default function HomePage() {
             <section id="features" className="benefitsSection">
                 <div className="landingShell">
                     <div className="sectionHeading">
-                        <h2>
+                        <h2 className={instrumentSerif.className}>
                             Everything you need to retain more.
-                            <span> One intelligent platform.</span>
+                            <span>One intelligent platform.</span>
                         </h2>
                     </div>
 
