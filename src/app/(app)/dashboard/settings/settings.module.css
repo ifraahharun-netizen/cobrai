@@ -34,10 +34,10 @@
 
 .title {
     margin: 0;
-    font-size: 36px;
+    font-size: 30px;
     line-height: 1;
     color: #000000;
-    font-weight: 700;
+    font-weight: 500;
     letter-spacing: -0.03em;
 }
 
@@ -104,7 +104,7 @@
 .inlineTabActive {
     background: #f3f4f6;
     color: #111827;
-    font-weight: 700;
+    font-weight: 500;
 }
 
 .contentGridFull {
@@ -142,15 +142,15 @@
 
 .cardTitle {
     margin: 0;
-    font-size: 18px;
-    font-weight: 620;
+    font-size: 16px;
+    font-weight: 420;
     color: #000000;
     letter-spacing: -0.01em;
 }
 
 .cardSubtext {
     margin: 4px 0 0;
-    font-size: 13px;
+    font-size: 11px;
     line-height: 1.45;
     color: #6b7280;
 }
@@ -278,8 +278,8 @@
 }
 
 .integrationName {
-    font-size: 16px;
-    font-weight: 650;
+    font-size: 15px;
+    font-weight: 550;
     color: #111827;
 }
 
@@ -324,8 +324,9 @@
 
 .connectBtn {
     border: 0;
-    background: #111827;
-    color: #ffffff;
+    background: #fcfcfc;
+    color: #0f0e0e;
+        border: 1px solid #e5e7eb;
 }
 
 .disconnectBtn {
@@ -423,9 +424,9 @@
 
 .contactTitle {
     margin: 0 0 14px;
-    font-size: 40px;
+    font-size: 20px;
     line-height: 1.05;
-    font-weight: 700;
+    font-weight: 400;
     color: #111827;
     letter-spacing: -0.04em;
 }
@@ -456,7 +457,7 @@
 
 .contactLabel {
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     color: #111827;
 }
 
@@ -510,8 +511,8 @@
     height: 46px;
     border: 0;
     border-radius: 12px;
-    background: #111827;
-    color: #ffffff;
+    background: #f8f8f8;
+    color: #0e0d0d;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -519,6 +520,7 @@
 
 .contactSubmit:hover {
     opacity: 0.96;
+     border-color: #d1d5db;
 }
 
 .contactTextarea {
