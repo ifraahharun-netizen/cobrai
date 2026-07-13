@@ -1,245 +1,225 @@
+"use client";
+
 import Link from "next/link";
 import {
     Activity,
-    ArrowRight,
     BarChart3,
+    CalendarDays,
     Check,
+    ChevronDown,
     CircleDollarSign,
-    MousePointerClick,
+    Download,
+    Gauge,
+    Mail,
+    Settings,
+    ShieldCheck,
+    Sparkles,
     Users,
     Zap,
 } from "lucide-react";
 import { Inter } from "next/font/google";
+
 
 const inter = Inter({
     subsets: ["latin"],
     variable: "--font-inter",
 });
 
-
-
-const benefits = [
+const accounts = [
     {
-        icon: BarChart3,
-        title: "Spot churn before it happens",
-        description:
-            "AI monitors usage, billing and support signals to surface risk early — not after customers leave.",
+        name: "CedarWorks",
+        risk: 91,
+        reason: "Confirm billing contact and resolve payment today.",
+        mrr: "£21,900",
+        lastActive: "12 Apr 2026",
     },
     {
-        icon: Zap,
-        title: "Automate actions that save accounts",
-        description:
-            "Trigger personalised emails, nudges and workflows at the exact moment they matter..",
+        name: "Kite Labs",
+        risk: 87,
+        reason: "Send a personal check-in and offer a quick walkthrough.",
+        mrr: "£12,900",
+        lastActive: "04 Apr 2026",
     },
     {
-        icon: Users,
-        title: "Focus on what matters",
-        description:
-            " Prioritise customers by financial impact so your team works where retention matters most.",
+        name: "NovaPay",
+        risk: 76,
+        reason: "Send a value recap and suggest a success call.",
+        mrr: "£8,400",
+        lastActive: "18 Apr 2026",
     },
     {
-        icon: CircleDollarSign,
-        title: "Protect and grow recurring revenue",
-        description:
-            "Reduce churn, increase expansion and maximise lifetime value with intelligent retention automation.",
+        name: "BrightDesk",
+        risk: 69,
+        reason: "Highlight unused features and offer setup support.",
+        mrr: "£7,200",
+        lastActive: "20 Apr 2026",
     },
 ];
 
+const activity = [
+    {
+        title: "Retention health recalculated",
+        description:
+            "Cobrai refreshed churn predictions using the latest billing and engagement activity.",
+        time: "25 mins ago",
+    },
+    {
+        title: "Customer opened outreach email",
+        description:
+            "The customer opened the re-engagement email after a period of declining activity.",
+        time: "2 hours ago",
+    },
+    {
+        title: "Re-engagement email sent",
+        description:
+            "An outreach email was triggered after Cobrai detected reduced engagement.",
+        time: "4 hours ago",
+    },
+    {
+        title: "Product engagement declined",
+        description:
+            "Cobrai detected a meaningful drop in product usage compared with normal activity.",
+        time: "6 hours ago",
+    },
+];
 
-type RiskCardProps = {
-    status: "high" | "medium" | "low";
-    label: string;
-    title: string;
-    description: string;
-    amountLabel: string;
-    amount: string;
-    action: string;
-};
+const queue = [
+    {
+        account: "Acme Groups",
+        opportunity: "Billing recovery email",
+        impact: "High",
+        action: "Retry the failed subscription payment",
+    },
+    {
+        account: "Northstar AI",
+        opportunity: "Re-engagement email",
+        impact: "High",
+        action: "Send a personalised check-in email",
+    },
+    {
+        account: "Peak Ops",
+        opportunity: "Retry payment",
+        impact: "Medium",
+        action: "Retry the failed card payment",
+    },
+    {
+        account: "Clearpath Labs",
+        opportunity: "Executive check-in",
+        impact: "Medium",
+        action: "Schedule executive check-in call",
+    },
+];
 
-function RiskCard({
-    status,
-    label,
-    title,
-    description,
-    amountLabel,
-    amount,
-    action,
-}: RiskCardProps) {
-    return (
-        <article className={`riskCard riskCard-${status}`}>
-            <div className="riskCardTop">
-                <span className={`riskStatus riskStatus-${status}`}>
-                    <span className="riskStatusDot" />
-                    {label}
-                </span>
+const benefits = [
+    {
+        icon: Gauge,
+        title: "Predict churn before it happens",
+        description:
+            "AI-powered predictions based on real engagement, billing and usage signals.",
+    },
+    {
+        icon: Zap,
+        title: "Automate the right actions",
+        description:
+            "Send personalised emails, retry payments and run workflows that recover revenue.",
+    },
+    {
+        icon: BarChart3,
+        title: "Track retention impact",
+        description:
+            "See exactly how much revenue you are protecting and where to focus next.",
+    },
+    {
+        icon: Users,
+        title: "Built for SaaS founders",
+        description:
+            "Simple, powerful and built to help your team grow with confidence.",
+    },
+];
 
-                <div className="riskValue">
-                    <span>{amountLabel}</span>
-                    <strong>{amount}</strong>
-                </div>
-            </div>
+function RiskBadge({ value }: { value: number }) {
+    const tone = value >= 85 ? "critical" : value >= 70 ? "high" : "medium";
 
-            <div className="riskCardContent">
-                <h3>{title}</h3>
-                <p>{description}</p>
-            </div>
-
-            <div className="riskCardBottom">
-                <span className="actionSuggested">
-                    <MousePointerClick size={13} />
-                    Action suggested
-                </span>
-
-                <button type="button">{action}</button>
-            </div>
-        </article>
-    );
-}
-
-function TestimonialCard({
-    quote,
-    name,
-    role,
-    initials,
-}: {
-    quote: string;
-    name: string;
-    role: string;
-    initials: string;
-}) {
-    return (
-        <article className="testimonialCard">
-            <div className="testimonialStars" aria-label="Five-star rating">
-                ★★★★★
-            </div>
-
-            <blockquote>“{quote}”</blockquote>
-
-            <div className="testimonialAuthor">
-                <span className="testimonialAvatar">{initials}</span>
-
-                <div>
-                    <strong>{name}</strong>
-                    <small>{role}</small>
-                </div>
-            </div>
-        </article>
-    );
+    return <span className={`dashboardRisk dashboardRisk-${tone}`}>{value}</span>;
 }
 
 export default function HomePage() {
     return (
         <main className={`${inter.variable} landingPage`}>
-
-
             <section className="heroSection">
-                <div className="heroDecoration heroDecorationRight" />
-                <div className="heroDecoration heroDecorationBottom" />
+                <div className="heroGlow heroGlowLeft" />
+                <div className="heroGlow heroGlowRight" />
 
-                <div className="pageShell heroGrid">
-                    <div className="heroCopy">
+                <div className="landingShell heroInner">
+                    <span className="heroEyebrow">
+                        <Sparkles size={13} />
+                        AI retention intelligence
+                    </span>
 
-                        <h1>
-                            <span className="headlineBlack">Make Churn</span>
-                            <br />
-                            <span className="headlineBlue">Predictable</span>
-                            <br />
-                            <span className="headlineBlack">and</span>
-                            <br />
-                            <span className="headlineBlue">Preventable</span>
-                        </h1>
+                    <h1>
+                        Stop churn. Protect revenue.
+                        <span> Grow with confidence.</span>
+                    </h1>
 
+                    <p className="heroDescription">
+                        Cobrai monitors your customers, predicts churn and
+                        automates the right actions to keep recurring revenue
+                        safe.
+                    </p>
 
+                    <div className="heroActions">
+                        <Link href="/signup" className="primaryButton">
+                            Get started free
+                        </Link>
 
-
-                        <p className="heroDescription">
-                            Cobrai connects your product, billing and support data, predicts churn before it hits, and automates the exact actions that keep customers engaged and revenue stable.
-                        </p>
-
-                        <div className="heroActions">
-                            <Link href="/signup" className="primaryButton">
-                                Start free for 14 days
-                            </Link>
-
-
-                        </div>
-
-                        <div className="heroReassurance">
-                            <span>
-                                <Check size={13} strokeWidth={2.7} />
-                                No credit card required
-                            </span>
-
-                            <span>
-                                <Check size={13} strokeWidth={2.7} />
-                                14-day free trial
-                            </span>
-
-                            <span>
-                                <Check size={13} strokeWidth={2.7} />
-                                Cancel anytime
-                            </span>
-                        </div>
+                        <Link href="/login" className="secondaryButton">
+                            Log back in
+                        </Link>
                     </div>
 
-                    <div className="riskVisual">
-                        <div className="riskLines" aria-hidden="true">
-                            {Array.from({ length: 9 }).map((_, index) => (
-                                <span
-                                    key={index}
-                                    style={{
-                                        left: `${index * 12}px`,
-                                        height: `${160 + index * 30}px`,
-                                    }}
-                                />
-                            ))}
+                    <div className="heroReassurance">
+                        <span>
+                            <Check size={14} />
+                            14-day free trial
+                        </span>
+                        <span>
+                            <Check size={14} />
+                            No credit card required
+                        </span>
+                        <span>
+                            <Check size={14} />
+                            Cancel anytime
+                        </span>
+                    </div>
+
+                   
+                    <div className="proofStrip">
+                        <div>
+                            <strong>+30%</strong>
+                            <span>More revenue protected</span>
                         </div>
-
-                        <div className="riskCardStack">
-                            <RiskCard
-                                status="high"
-                                label="High risk"
-                                title="Usage drop detected"
-                                description="Acme AI's usage has dropped 42% in the last 7 days."
-                                amountLabel="MRR at risk"
-                                amount="£12,680"
-                                action="Send retention email"
-                            />
-
-                            <RiskCard
-                                status="medium"
-                                label="At risk"
-                                title="Feature not adopted"
-                                description="CloudCore hasn't activated key product features yet."
-                                amountLabel="MRR at risk"
-                                amount="£6,840"
-                                action="Nudge with guide"
-                            />
-
-                            <RiskCard
-                                status="low"
-                                label="Low risk"
-                                title="Strong engagement"
-                                description="FlowDesk is engaged and steadily increasing usage."
-                                amountLabel="MRR"
-                                amount="£4,210"
-                                action="Send growth email"
-                            />
+                        <div>
+                            <strong>98%</strong>
+                            <span>Customer satisfaction rate</span>
+                        </div>
+                        <div>
+                            <strong>5M+</strong>
+                            <span>Monthly signals tracked</span>
+                        </div>
+                        <div>
+                            <strong>50B</strong>
+                            <span>Revenue insights analysed</span>
                         </div>
                     </div>
                 </div>
             </section>
 
-
-
             <section id="features" className="benefitsSection">
-                <div className="pageShell">
+                <div className="landingShell">
                     <div className="sectionHeading">
-
                         <h2>
-                            Everything you need to stop churn
-                            <br />
-                            and grow revenue.
+                            Everything you need to retain more.
+                            <span> One intelligent platform.</span>
                         </h2>
                     </div>
 
@@ -253,9 +233,8 @@ export default function HomePage() {
                                     key={benefit.title}
                                 >
                                     <span className="benefitIcon">
-                                        <Icon size={24} strokeWidth={2.1} />
+                                        <Icon size={22} />
                                     </span>
-
                                     <h3>{benefit.title}</h3>
                                     <p>{benefit.description}</p>
                                 </article>
@@ -264,10 +243,6 @@ export default function HomePage() {
                     </div>
                 </div>
             </section>
-
-
-
-
         </main>
     );
 }

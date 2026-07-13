@@ -4502,7 +4502,7 @@ export default function AnalyticsPage() {
                         <div className={styles.activeUsersCard}>
                             <div className={styles.activeUsersHeader}>
                                 <div>
-                                    <div className={styles.chartTitle}>Active Users</div>
+                                    <div className={styles.chartTitle}>User Metrics</div>
                                     <div className={styles.chartMeta}>Compared from last month</div>
                                 </div>
 
@@ -4535,7 +4535,7 @@ export default function AnalyticsPage() {
                                     <div className={styles.revenueOverviewHeader}>
                                         <div>
                                             <span className={styles.revenueOverviewEyebrow}>Revenue performance</span>
-                                            <h3>Revenue Impact</h3>
+                                            <h3>Revenue Trend</h3>
                                         </div>
                                         <span className={styles.revenueOverviewPeriod}>
                                             <CalendarDays size={13} strokeWidth={1.8} />
@@ -4619,7 +4619,7 @@ export default function AnalyticsPage() {
                                     <div className={styles.revenueOverviewHeader}>
                                         <div>
                                             <span className={styles.revenueOverviewEyebrow}>Customer retention</span>
-                                            <h3>Churn Impact</h3>
+                                            <h3>Churn Trend</h3>
                                         </div>
                                         <span className={styles.revenueOverviewPeriod}>
                                             <CalendarDays size={13} strokeWidth={1.8} />
