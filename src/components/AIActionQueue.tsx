@@ -1,18 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import {
-    Activity,
-    AlertTriangle,
-    CreditCard,
-    TrendingDown,
-    TrendingUp,
-    UserRoundCheck,
-    X,
-    ChevronRight,
-    ChevronLeft,
-} from "lucide-react";
+import { Mail, X, ChevronRight, ChevronLeft } from "lucide-react";
 
 import { getDemoCustomers } from "@/lib/demo/customers";
 import { getEmailRecommendation } from "@/lib/emailRecommendations";
@@ -267,40 +258,55 @@ function getMeta(type: ActionType) {
             label: "Critical Churn Risks",
             shortLabel: "Critical risks",
             description: "Accounts showing the strongest churn signals.",
-            icon: AlertTriangle,
             valueLabel: "MRR at risk",
         },
         billing: {
             label: "Billing Recovery",
             shortLabel: "Billing recovery",
             description: "Failed, overdue, or recoverable payment actions.",
-            icon: CreditCard,
             valueLabel: "Recoverable",
         },
         engagement: {
             label: "Low Engagement",
             shortLabel: "Low engagement",
             description: "Customers showing usage decline or inactivity.",
-            icon: TrendingDown,
             valueLabel: "MRR at risk",
         },
         success: {
             label: "Success Check-ins",
             shortLabel: "Success check-ins",
             description: "Customers who need proactive retention outreach.",
-            icon: UserRoundCheck,
             valueLabel: "MRR to protect",
         },
         expansion: {
             label: "Expansion Opportunities",
             shortLabel: "Expansion",
             description: "Accounts showing upgrade or growth potential.",
-            icon: TrendingUp,
             valueLabel: "Expansion MRR",
         },
     };
 
     return meta[type];
+}
+
+
+function EmailModalPortal({
+    open,
+    children,
+}: {
+    open: boolean;
+    children: ReactNode;
+}) {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
+
+    if (!mounted || !open) return null;
+
+    return createPortal(children, document.body);
 }
 
 export default function AIActionQueue({
@@ -321,6 +327,10 @@ export default function AIActionQueue({
     const [retryingId, setRetryingId] = useState<string | null>(null);
     const [sendingEmail, setSendingEmail] = useState(false);
     const [emailModalItem, setEmailModalItem] = useState<ActionItem | null>(null);
+    const [emailCtaEnabled, setEmailCtaEnabled] = useState(false);
+    const [emailCtaText, setEmailCtaText] = useState("");
+    const [emailCtaLink, setEmailCtaLink] = useState("");
+    const [sendEmailError, setSendEmailError] = useState<string | null>(null);
 
     const [executedActions, setExecutedActions] = useState<
         Record<
@@ -502,28 +512,76 @@ export default function AIActionQueue({
     async function handleSendEmail() {
         if (!emailModalItem || sendingEmail) return;
 
+        if (!emailDraft.to.trim()) {
+            setSendEmailError("No email on this account.");
+            return;
+        }
+
+        if (!emailDraft.subject.trim()) {
+            setSendEmailError("Add an email subject.");
+            return;
+        }
+
+        if (!emailDraft.message.trim()) {
+            setSendEmailError("Add an email message.");
+            return;
+        }
+
+        if (emailCtaEnabled && !emailCtaText.trim()) {
+            setSendEmailError("Add CTA button text.");
+            return;
+        }
+
+        if (emailCtaEnabled && !emailCtaLink.trim()) {
+            setSendEmailError("Add a CTA link.");
+            return;
+        }
+
+        if (emailCtaEnabled) {
+            try {
+                const ctaUrl = new URL(emailCtaLink.trim());
+
+                if (!["http:", "https:"].includes(ctaUrl.protocol)) {
+                    throw new Error("Invalid CTA URL protocol");
+                }
+            } catch {
+                setSendEmailError(
+                    "Enter a valid CTA link beginning with http:// or https://."
+                );
+                return;
+            }
+        }
+
         try {
             setSendingEmail(true);
+            setSendEmailError(null);
 
             const token = await getAuthToken();
 
             const res = await fetch("/api/automation/send-email", {
                 method: "POST",
+                cache: "no-store",
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
                     accountId: emailModalItem.accountId,
-                    to: emailDraft.to,
-                    subject: emailDraft.subject,
-                    body: emailDraft.message,
+                    to: emailDraft.to.trim(),
+                    subject: emailDraft.subject.trim(),
+                    body: emailDraft.message.trim(),
+                    cta: emailCtaEnabled
+                        ? {
+                            text: emailCtaText.trim(),
+                            url: emailCtaLink.trim(),
+                        }
+                        : null,
                 }),
             });
 
             const data = await res.json().catch(() => null);
 
-            if (!res.ok) {
+            if (!res.ok || data?.ok === false) {
                 throw new Error(data?.error || "Email could not be sent.");
             }
 
@@ -555,7 +613,9 @@ export default function AIActionQueue({
                 }));
             }
 
-            alert(error instanceof Error ? error.message : "Failed to send email.");
+            setSendEmailError(
+                error instanceof Error ? error.message : "Failed to send email."
+            );
         } finally {
             setSendingEmail(false);
         }
@@ -577,11 +637,20 @@ export default function AIActionQueue({
             subject: item.emailSubject,
             message: item.emailMessage,
         });
+        setEmailCtaEnabled(true);
+        setEmailCtaText("");
+        setEmailCtaLink("");
+        setSendEmailError(null);
     }
 
     function closeEmailModal() {
         if (sendingEmail) return;
+
         setEmailModalItem(null);
+        setEmailCtaEnabled(false);
+        setEmailCtaText("");
+        setEmailCtaLink("");
+        setSendEmailError(null);
     }
 
     return (
@@ -589,48 +658,51 @@ export default function AIActionQueue({
             <div className={styles.card}>
                 <div className={styles.header}>
                     <div>
-                        <div className={styles.title}>
-                            <Activity size={14} strokeWidth={1.8} />
-                            <span>AI Action Queue</span>
-                        </div>
+                        <div className={styles.title}>AI Action Queue</div>
                         <p>Churn prevention, billing recovery, and growth actions ready to use.</p>
                     </div>
                 </div>
 
-                <div className={styles.queueList}>
-                    {groups.map((group) => {
-                        const Icon = group.icon;
+                <div className={styles.queueTable}>
+                    <div className={styles.queueTableHead}>
+                        <span>Queue</span>
+                        <span>Accounts</span>
+                        <span>Value</span>
+                        <span />
+                    </div>
 
-                        return (
+                    <div className={styles.queueList}>
+                        {groups.map((group) => (
                             <button
                                 key={group.type}
                                 type="button"
                                 className={styles.queueItem}
                                 onClick={() => openPanel(group.type)}
                             >
-                                <span className={styles.iconBox}>
-                                    <Icon size={16} strokeWidth={1.8} />
+                                <span className={styles.queueContent}>
+                                    <strong>{group.shortLabel}</strong>
+                                    <small>{group.description}</small>
                                 </span>
 
-                                <span className={styles.queueContent}>
-                                    <span className={styles.queueTop}>
-                                        <strong>{group.count}</strong>
-                                        <span>{group.shortLabel}</span>
-                                    </span>
-                                    <small>{group.description}</small>
+                                <span className={styles.queueCount}>
+                                    {group.count}
                                 </span>
 
                                 <span className={styles.queueValue}>
                                     <strong>
-                                        {formatCurrency(group.totalMrr, resolvedCurrency, resolvedLocale)}
+                                        {formatCurrency(
+                                            group.totalMrr,
+                                            resolvedCurrency,
+                                            resolvedLocale
+                                        )}
                                     </strong>
                                     <small>{group.valueLabel}</small>
                                 </span>
 
-                                <ChevronRight size={15} strokeWidth={1.8} />
+                                <span className={styles.queueOpen}>View</span>
                             </button>
-                        );
-                    })}
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -679,10 +751,6 @@ export default function AIActionQueue({
                                             className={styles.accountCell}
                                             onClick={() => openAccountProfile(item)}
                                         >
-                                            <div className={styles.avatar}>
-                                                {item.customerName.charAt(0)}
-                                            </div>
-
                                             <div>
                                                 <strong>{item.customerName}</strong>
                                                 {item.customerEmail ? (
@@ -808,95 +876,186 @@ export default function AIActionQueue({
                             }}
                         >
                             View all at-risk accounts
-                            <ChevronRight size={14} strokeWidth={1.8} />
                         </button>
                     </aside>
                 </div>
             ) : null}
 
-            {emailModalItem ? (
-                <div className={styles.emailModalOverlay} onClick={closeEmailModal}>
-                    <div className={styles.emailModal} onClick={(e) => e.stopPropagation()}>
+            <EmailModalPortal open={Boolean(emailModalItem)}>
+                <div className={styles.modalOverlay} onClick={closeEmailModal}>
+                    <div
+                        className={styles.emailModal}
+                        onClick={(event) => event.stopPropagation()}
+                    >
                         <div className={styles.emailModalHeader}>
-                            <div>
-                                <h3>Retention Outreach</h3>
-                                <p>{emailModalItem.customerName}</p>
+                            <div className={styles.emailModalHeading}>
+                                <div className={styles.emailModalIcon} aria-hidden="true">
+                                    <Mail size={17} />
+                                </div>
+
+                                <div>
+                                    <div className={styles.emailModalTitle}>
+                                        Retention Outreach
+                                    </div>
+                                    <p className={styles.emailModalSubtitle}>
+                                        Send a personalised email to re-engage this customer.
+                                    </p>
+                                </div>
                             </div>
 
                             <button
-                                type="button"
+                                className={styles.emailCloseBtn}
                                 onClick={closeEmailModal}
-                                aria-label="Close email modal"
+                                type="button"
+                                aria-label="Close email"
                                 disabled={sendingEmail}
                             >
-                                <X size={16} strokeWidth={1.8} />
+                                ×
                             </button>
                         </div>
 
-                        <label className={styles.emailField}>
-                            <span>To</span>
-                            <input
-                                value={emailDraft.to}
-                                placeholder="customer@email.com"
-                                disabled={sendingEmail}
-                                onChange={(e) =>
-                                    setEmailDraft((draft) => ({
-                                        ...draft,
-                                        to: e.target.value,
-                                    }))
-                                }
-                            />
-                        </label>
+                        <div className={styles.emailShell}>
+                            <div className={styles.emailTopFields}>
+                                <div className={styles.emailField}>
+                                    <label className={styles.emailLabel}>To</label>
+                                    <input
+                                        className={styles.emailInput}
+                                        value={emailDraft.to}
+                                        readOnly
+                                    />
+                                </div>
 
-                        <label className={styles.emailField}>
-                            <span>Subject</span>
-                            <input
-                                value={emailDraft.subject}
-                                disabled={sendingEmail}
-                                onChange={(e) =>
-                                    setEmailDraft((draft) => ({
-                                        ...draft,
-                                        subject: e.target.value,
-                                    }))
-                                }
-                            />
-                        </label>
+                                <div className={styles.emailField}>
+                                    <label className={styles.emailLabel}>Subject</label>
+                                    <input
+                                        className={styles.emailInput}
+                                        value={emailDraft.subject}
+                                        onChange={(event) =>
+                                            setEmailDraft((draft) => ({
+                                                ...draft,
+                                                subject: event.target.value,
+                                            }))
+                                        }
+                                        disabled={sendingEmail}
+                                    />
+                                </div>
+                            </div>
 
-                        <label className={styles.emailField}>
-                            <span>Message</span>
-                            <textarea
-                                value={emailDraft.message}
-                                disabled={sendingEmail}
-                                onChange={(e) =>
-                                    setEmailDraft((draft) => ({
-                                        ...draft,
-                                        message: e.target.value,
-                                    }))
-                                }
-                                rows={9}
-                            />
-                        </label>
+                            <div className={styles.emailField}>
+                                <label className={styles.emailLabel}>Message</label>
 
-                        <div className={styles.emailModalActions}>
-                            <button
-                                type="button"
-                                onClick={closeEmailModal}
-                                disabled={sendingEmail}
-                            >
-                                Cancel
-                            </button>
+                                <div className={styles.emailMessageWrap}>
+                                    <textarea
+                                        className={styles.emailTextarea}
+                                        value={emailDraft.message}
+                                        onChange={(event) =>
+                                            setEmailDraft((draft) => ({
+                                                ...draft,
+                                                message: event.target.value,
+                                            }))
+                                        }
+                                        disabled={sendingEmail}
+                                        maxLength={2000}
+                                    />
 
-                            <button
-                                type="button"
-                                onClick={() => void handleSendEmail()}
-                                disabled={sendingEmail}
-                            >
-                                {sendingEmail ? "Sending..." : "Send email"}
-                            </button>
+                                    <span className={styles.emailCharacterCount}>
+                                        {emailDraft.message.length}/2000
+                                    </span>
+                                </div>
+                            </div>
+
+                            <section className={styles.emailCtaCard}>
+                                <div className={styles.emailCtaHeader}>
+                                    <div>
+                                        <h3>
+                                            Call to Action <span>(Optional)</span>
+                                        </h3>
+                                        <p>Add a button to drive the next step.</p>
+                                    </div>
+
+                                    <label className={styles.emailCtaToggle}>
+                                        <input
+                                            type="checkbox"
+                                            checked={emailCtaEnabled}
+                                            onChange={(event) =>
+                                                setEmailCtaEnabled(event.target.checked)
+                                            }
+                                            disabled={sendingEmail}
+                                        />
+                                        <span aria-hidden="true" />
+                                        <span className={styles.srOnly}>
+                                            Enable call to action
+                                        </span>
+                                    </label>
+                                </div>
+
+                                {emailCtaEnabled ? (
+                                    <div className={styles.emailCtaContent}>
+                                        <div className={styles.emailCtaFields}>
+                                            <div className={styles.emailField}>
+                                                <label className={styles.emailLabel}>
+                                                    Button Text
+                                                </label>
+                                                <input
+                                                    className={styles.emailInput}
+                                                    value={emailCtaText}
+                                                    onChange={(event) =>
+                                                        setEmailCtaText(event.target.value)
+                                                    }
+                                                    placeholder="e.g. Book a call"
+                                                    disabled={sendingEmail}
+                                                />
+                                            </div>
+
+                                            <div className={styles.emailField}>
+                                                <label className={styles.emailLabel}>
+                                                    Button Link
+                                                </label>
+                                                <input
+                                                    className={styles.emailInput}
+                                                    type="url"
+                                                    value={emailCtaLink}
+                                                    onChange={(event) =>
+                                                        setEmailCtaLink(event.target.value)
+                                                    }
+                                                    placeholder="https://"
+                                                    disabled={sendingEmail}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : null}
+                            </section>
+
+                            {sendEmailError ? (
+                                <div className={styles.emailError}>
+                                    {sendEmailError}
+                                </div>
+                            ) : null}
+
+                            <div className={styles.emailModalActions}>
+                                <button
+                                    className={styles.emailCancelBtn}
+                                    type="button"
+                                    onClick={closeEmailModal}
+                                    disabled={sendingEmail}
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    className={styles.emailSendBtn}
+                                    type="button"
+                                    onClick={() => void handleSendEmail()}
+                                    disabled={sendingEmail}
+                                >
+                                    {sendingEmail ? "Sending..." : "Send email"}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            ) : null}
+            </EmailModalPortal>
         </>
     );
 }

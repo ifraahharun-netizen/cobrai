@@ -1,289 +1,177 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-
-type ModalType =
-    | "about"
-    | "privacy"
-    | "terms"
-    | "cookie"
-    | null;
-
-const TERM_IDS = {
-    privacy: "a777b328-38d8-4bef-8046-88844055517f",
-    terms: "232e972c-8924-4d89-9111-0aa5cc2ce0a5",
-    cookie: "3e188e15-88f8-4ab9-aa2b-ef56422dd785",
-};
+import { useEffect, useState } from "react";
 
 export default function Footer() {
-    const [modalType, setModalType] =
-        useState<ModalType>(null);
+    const [aboutOpen, setAboutOpen] = useState(false);
 
     useEffect(() => {
-        if (
-            modalType !== "privacy" &&
-            modalType !== "terms" &&
-            modalType !== "cookie"
-        ) {
+        if (!aboutOpen) {
+            document.body.style.overflow = "";
             return;
         }
 
-        const existingScript =
-            document.getElementById("termly-jssdk");
+        document.body.style.overflow = "hidden";
 
-        if (existingScript) {
-            existingScript.remove();
+        return () => {
+            document.body.style.overflow = "";
+        };
+    }, [aboutOpen]);
+
+    useEffect(() => {
+        function closeOnEscape(event: KeyboardEvent) {
+            if (event.key === "Escape") {
+                setAboutOpen(false);
+            }
         }
 
-        const script =
-            document.createElement("script");
+        window.addEventListener("keydown", closeOnEscape);
 
-        script.id = "termly-jssdk";
-        script.type = "text/javascript";
-        script.src =
-            "https://app.termly.io/embed-policy.min.js";
-
-        script.async = true;
-
-        document.body.appendChild(script);
-    }, [modalType]);
+        return () => {
+            window.removeEventListener("keydown", closeOnEscape);
+        };
+    }, []);
 
     return (
         <>
             <footer className="footer">
                 <div className="footerCenter">
-                    {/* ===== TOP CTA ===== */}
                     <section className="featureFinalCta footerTopCta">
                         <div>
-                            <h2>
-                                Ready to protect your revenue?
-                            </h2>
+                            <h2>Ready to protect your revenue?</h2>
 
                             <p>
-                                Join subscription businesses
-                                using Cobrai to reduce churn
-                                and protect MRR.
+                                Join subscription businesses using Cobrai to
+                                reduce churn and protect MRR.
                             </p>
                         </div>
 
-                        <Link
-                            href="/signup"
-                            className="footerWhiteBtn"
-                        >
+                        <Link href="/signup" className="footerWhiteBtn">
                             Get Started Free
                         </Link>
                     </section>
 
-                    {/* ===== GRID ===== */}
                     <div className="footerGrid">
-                        {/* Brand */}
                         <div className="footerBrandCol">
                             <button
                                 type="button"
                                 className="footerBrand footerTextButton"
-                                onClick={() =>
-                                    setModalType("about")
-                                }
+                                onClick={() => setAboutOpen(true)}
                             >
-                                Cobrai 
+                                Cobrai
                             </button>
 
                             <p className="footerCopy">
-                                Retention intelligence for
-                                modern SaaS teams.
-
-
-
+                                Retention intelligence for modern SaaS teams.
                             </p>
                         </div>
 
-                        {/* About */}
                         <div>
-                            <div className="footerHeading">
-                                About
-                            </div>
+                            <div className="footerHeading">About</div>
 
                             <button
                                 type="button"
                                 className="footerLinkButton"
-                                onClick={() =>
-                                    setModalType("about")
-                                }
+                                onClick={() => setAboutOpen(true)}
                             >
-                                Cobrai 
+                                Cobrai
                             </button>
 
-                            <Link href="/features">
-                                Features
-                            </Link>
+                            <Link href="/features">Features</Link>
 
-                            <Link href="/pricing">
-                                Pricing
-                            </Link>
+                            <Link href="/pricing">Pricing</Link>
                         </div>
 
-                        {/* Legal */}
                         <div>
-                            <div className="footerHeading">
-                                Legal
-                            </div>
+                            <div className="footerHeading">Legal</div>
 
-                            <button
-                                type="button"
-                                className="footerLinkButton"
-                                onClick={() =>
-                                    setModalType("privacy")
-                                }
-                            >
+                            <Link href="/privacy">
                                 Privacy Policy
-                            </button>
+                            </Link>
 
-                            <button
-                                type="button"
-                                className="footerLinkButton"
-                                onClick={() =>
-                                    setModalType("terms")
-                                }
-                            >
-                                Terms & Conditions
-                            </button>
+                            <Link href="/terms">
+                                Terms &amp; Conditions
+                            </Link>
 
-                            <button
-                                type="button"
-                                className="footerLinkButton"
-                                onClick={() =>
-                                    setModalType("cookie")
-                                }
-                            >
+                            <Link href="/cookies">
                                 Cookie Policy
-                            </button>
+                            </Link>
                         </div>
-
-                        {/* Connect */}
-                      
                     </div>
 
-                    {/* ===== BOTTOM ===== */}
                     <div className="footerBottom">
-                        © {new Date().getFullYear()} Cobrai LTD
-                        All rights reserved.
+                        © {new Date().getFullYear()} Cobrai LTD. All rights
+                        reserved.
                     </div>
                 </div>
             </footer>
 
-            {/* ===== MODAL ===== */}
-            {modalType && (
+            {aboutOpen && (
                 <div
                     className="footerModalOverlay"
-                    onClick={() => setModalType(null)}
+                    role="presentation"
+                    onClick={() => setAboutOpen(false)}
                 >
                     <div
                         className="footerLegalModal"
-                        onClick={(e) =>
-                            e.stopPropagation()
-                        }
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="footer-about-title"
+                        onClick={(event) => event.stopPropagation()}
                     >
                         <button
                             type="button"
                             className="footerModalClose"
-                            onClick={() =>
-                                setModalType(null)
-                            }
+                            aria-label="Close about Cobrai"
+                            onClick={() => setAboutOpen(false)}
                         >
                             ×
                         </button>
 
-                        {/* ABOUT */}
-                        {modalType === "about" && (
-                            <>
-                                <h2>About Cobrai</h2>
+                        <h2 id="footer-about-title">
+                            About Cobrai
+                        </h2>
+
+                        <p>
+                            Cobrai is an AI retention intelligence platform
+                            built for subscription and SaaS businesses. It
+                            helps teams identify at-risk customers, understand
+                            the reasons behind churn, and take action before
+                            revenue is lost.
+                        </p>
+
+                        <div className="footerModalGrid">
+                            <div>
+                                <h3>Mission</h3>
 
                                 <p>
-                                    Cobrai is an AI retention
-                                    intelligence platform built
-                                    for subscription and SaaS
-                                    businesses. It helps teams
-                                    identify at-risk customers,
-                                    understand the reasons
-                                    behind churn, and take
-                                    action before revenue is
-                                    lost.
+                                    To help businesses retain more customers by
+                                    making churn risk clear, early and
+                                    actionable.
                                 </p>
+                            </div>
 
-                                <div className="footerModalGrid">
-                                    <div>
-                                        <h3>Mission</h3>
+                            <div>
+                                <h3>Vision</h3>
 
-                                        <p>
-                                            To help businesses
-                                            retain more
-                                            customers by making
-                                            churn risk clear,
-                                            early, and
-                                            actionable.
-                                        </p>
-                                    </div>
+                                <p>
+                                    To become the intelligence layer that helps
+                                    subscription businesses grow through
+                                    stronger customer retention.
+                                </p>
+                            </div>
 
-                                    <div>
-                                        <h3>Vision</h3>
+                            <div>
+                                <h3>Service</h3>
 
-                                        <p>
-                                            To become the
-                                            intelligence layer
-                                            that helps
-                                            subscription
-                                            businesses grow
-                                            through stronger
-                                            customer retention.
-                                        </p>
-                                    </div>
-
-                                    <div>
-                                        <h3>Service</h3>
-
-                                        <p>
-                                            Cobrai connects
-                                            customer, billing,
-                                            and behavioural
-                                            signals to show
-                                            which accounts need
-                                            attention and what
-                                            action to take next.
-                                        </p>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-
-                        {/* TERMLY */}
-                        {(modalType === "privacy" ||
-                            modalType === "terms" ||
-                            modalType === "cookie") && (
-                                <>
-                                    <h2>
-                                        {modalType ===
-                                            "privacy"
-                                            ? "Privacy Policy"
-                                            : modalType ===
-                                                "terms"
-                                                ? "Terms & Conditions"
-                                                : "Cookie Policy"}
-                                    </h2>
-
-                                    <div className="footerLegalContent">
-                                        <div
-                                            {...{
-                                                name: "termly-embed",
-                                                "data-id":
-                                                    TERM_IDS[
-                                                    modalType
-                                                    ],
-                                            }}
-                                        />
-                                    </div>
-                                </>
-                            )}
+                                <p>
+                                    Cobrai connects customer, billing and
+                                    behavioural signals to show which accounts
+                                    need attention and what action to take next.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

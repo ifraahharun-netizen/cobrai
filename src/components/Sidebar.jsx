@@ -6,9 +6,9 @@ import { signOut } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase.client";
 
 const nav = [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/dashboard/accounts-at-risk", label: "Customers" },
-    { href: "/dashboard/analytics", label: "Insights" },
+    { href: "/dashboard", label: "Overview" },
+    { href: "/dashboard/accounts-at-risk", label: "Accounts" },
+    { href: "/dashboard/analytics", label: "Analytics" },
     { href: "/dashboard/settings", label: "Settings" },
 ];
 

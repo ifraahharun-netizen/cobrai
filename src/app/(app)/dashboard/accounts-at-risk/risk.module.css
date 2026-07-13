@@ -1,8 +1,8 @@
 .page {
   min-height: 100vh;
-  padding: 24px 30px 32px;
+  padding: 24px;
   background: #ffffff;
-  color: #16182f;
+  color: #111827;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -11,7 +11,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 30px;
+  margin-bottom: 18px;
 }
 
 .searchWrap {
@@ -21,148 +21,153 @@
 
 .searchInput {
   width: 100%;
-  height: 44px;
-  border: 1px solid #e8eef6;
+  height: 40px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-  border-radius: 13px;
-  padding: 0 44px 0 16px;
+  border-radius: 10px;
+  padding: 0 42px 0 14px;
   outline: none;
-  font-size: 13px;
-  color: #252844;
+  font-size: 12px;
+  color: #374151;
   box-shadow: none;
+  transition: border-color 0.16s ease;
 }
 
 .searchInput::placeholder {
-  color: #a4a3b7;
+  color: #9ca3af;
 }
 
 .searchInput:focus {
-  border-color: #dbe4ee;
+  border-color: #d1d5db;
   box-shadow: none;
 }
 
 .searchIcon {
   position: absolute;
-  right: 16px;
+  right: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: #8e8ba3;
-  font-size: 17px;
+  color: #9ca3af;
+  font-size: 16px;
 }
 
 .downloadBtn {
-  height: 42px;
-  padding: 0 17px;
+  height: 34px;
+  padding: 0 12px;
   border: 1px solid #e5e7eb;
-  border-radius: 999px;
+  border-radius: 10px;
   background: #ffffff;
-  color: #111827;
-  font-size: 13px;
-  font-weight: 650;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  transition: 0.18s ease;
+  transition: 0.16s ease;
 }
 
 .downloadBtn:hover {
-  border-color: #dbe4ee;
-  background: #ffffff;
+  background: #f9fafb;
+  border-color: #d1d5db;
   color: #111827;
 }
 
 .header {
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
 .title {
   margin: 0;
-  font-size: 26px;
-  line-height: 1.1;
-  font-weight: 550;
-  letter-spacing: -0.04em;
-  color: #14162f;
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: #111827;
 }
 
 .subtitle {
-  margin: 8px 0 0;
-  font-size: 14px;
+  margin: 6px 0 0;
+  font-size: 13px;
   line-height: 1.5;
-  color: #65637b;
+  color: #6b7280;
 }
 
 .kpiRow {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 22px;
+  gap: 10px;
+  margin-bottom: 16px;
 }
 
 .kpiCard {
-  min-height: 108px;
-  border: 1px solid #e8eef6;
+  min-height: 86px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-  border-radius: 18px;
-  padding: 17px 18px;
+  border-radius: 16px;
+  padding: 14px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  box-shadow: none;
-  transition: 0.18s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  transition: background-color 0.16s ease;
 }
 
 .kpiCard:hover {
   transform: none;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  background: #ffffff;
 }
 
 .kpiLabel {
-  font-size: 12.5px;
-  color: #646179;
-  font-weight: 500;
   margin-bottom: 8px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: #6b7280;
+  font-weight: 400;
 }
 
 .kpiValue {
-  font-size: 15px;
-  line-height: 1.1;
-  font-weight: 450;
-  letter-spacing: -0.035em;
-  color: #16182f;
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  color: #111827;
 }
 
 .kpiSubline {
   margin-top: 8px;
-  font-size: 12px;
-  line-height: 1.25;
-  color: #737188;
+  font-size: 11px;
+  line-height: 1.3;
+  color: #9ca3af;
 }
 
 .kpiIcon {
-  width: 32px;
-  height: 32px;
-  border-radius: 12px;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
   display: grid;
   place-items: center;
-  background: #f8fafc;
-  color: #111827;
-  font-size: 16px;
-  font-weight: 650;
+  background: #fafafa;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
   box-shadow: none;
   flex: 0 0 auto;
 }
 
 .riskGroupButtons {
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
 .riskFilterBtn,
 .riskFilterBtnActive {
-  min-height: 40px;
-  padding: 0 17px;
-  border-radius: 14px;
-  font-size: 13px;
-  font-weight: 550;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
   transition: 0.16s ease;
 }
@@ -174,20 +179,21 @@
 }
 
 .riskFilterBtn:hover {
-  border-color: #dbe4ee;
+  background: #f9fafb;
+  border-color: #d1d5db;
   color: #111827;
 }
 
 .riskFilterBtnActive {
-  border: 1px solid #e8eef6;
-  background: #ffffff;
-  color: #2a2828;
+  border: 1px solid #111827;
+  background: #111827;
+  color: #ffffff;
   box-shadow: none;
 }
 
 .tableCard {
   width: 100%;
-  border: 1px solid #e8eef6;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
   border-radius: 18px;
   overflow: hidden;
@@ -201,32 +207,32 @@
 }
 
 .table th {
-  height: 48px;
+  height: 46px;
   padding: 0 14px;
-  background: #ffffff;
-  border-bottom: 1px solid #eef2f7;
-  color: #64748b;
-  font-size: 11.5px;
-  font-weight: 400;
+  background: #fafafa;
+  border-bottom: 1px solid #e5e7eb;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 500;
   text-align: left;
   white-space: nowrap;
 }
 
 .table td {
-  height: 66px;
+  height: 62px;
   padding: 0 14px;
-  border-bottom: 1px solid #eef2f7;
-  color: #0a0a0a;
-  font-size: 13px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #6b7280;
+  font-size: 12px;
   vertical-align: middle;
 }
 
 .table tbody tr {
-  transition: 0.16s ease;
+  transition: background-color 0.16s ease;
 }
 
 .table tbody tr:hover {
-  background: #fbfdff;
+  background: #fafafa;
 }
 
 .table tr:last-child td {
@@ -274,25 +280,26 @@
 }
 
 .avatar {
-  width: 33px;
-  height: 33px;
-  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
   display: grid;
   place-items: center;
-  background: #f8fafc;
-  color: #050313;
+  background: #fafafa;
+  color: #374151;
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 500;
   flex: 0 0 auto;
 }
 
 .companyName {
   max-width: 165px;
-  font-size: 13.5px;
-  line-height: 1.2;
-  font-weight: 450;
-  color: #242643;
-  letter-spacing: -0.015em;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 500;
+  color: #111827;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -301,9 +308,9 @@
 .companySub {
   max-width: 165px;
   margin-top: 3px;
-  font-size: 11.5px;
-  line-height: 1.25;
-  color: #7c7a91;
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: #9ca3af;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -314,47 +321,48 @@
   align-items: center;
   justify-content: center;
   min-width: 32px;
-  height: 27px;
-  border-radius: 9px;
+  height: 24px;
+  border-radius: 999px;
   padding: 0 8px;
-  font-size: 12px;
-  font-weight: 650;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .riskScoreCritical {
-  background: #ffe9ed;
-  color: #e5485d;
+  background: #fef2f2;
+  color: #dc2626;
 }
 
 .riskScoreHigh {
-  background: #fff0df;
-  color: #e78326;
+  background: #fff7ed;
+  color: #c2410c;
 }
 
 .riskScoreMedium {
-  background: #eef0ff;
-  color: #5267df;
+  background: #eef2ff;
+  color: #4f46e5;
 }
 
 .riskScoreLow {
-  background: #eafaf1;
-  color: #27a86b;
+  background: #ecfdf5;
+  color: #047857;
 }
 
 .reasonMain {
-  font-size: 13px;
-  line-height: 1.25;
-  font-weight: 420;
-  color: #242643;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 500;
+  color: #111827;
   letter-spacing: -0.01em;
 }
 
 .reasonSubAction {
   max-width: 360px;
   margin-top: 3px;
-  font-size: 11.8px;
-  line-height: 1.35;
-  color: #69677f;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: #9ca3af;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -362,15 +370,15 @@
 }
 
 .mrrCell {
-  font-size: 13px;
-  font-weight: 450;
-  color: #34364f;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
   white-space: nowrap;
 }
 
 .lastActiveCell {
-  color: #4b5563;
-  font-size: 12.5px;
+  color: #6b7280;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -380,27 +388,27 @@
 }
 
 .viewBtn {
-  min-height: 36px;
-  min-width: 64px;
-  padding: 0 14px;
+  min-height: 28px;
+  min-width: 54px;
+  padding: 0 9px;
   border: 1px solid #e5e7eb;
-  border-radius: 14px;
+  border-radius: 10px;
   background: #ffffff;
-  color: #131212;
-  font-size: 12.5px;
-  font-weight: 650;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
-  transition: 0.18s ease;
+  transition: 0.16s ease;
 }
 
 .viewBtn:hover:not(:disabled) {
-  border-color: #dbe4ee;
-  background: #ffffff;
-  color: #090909;
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #111827;
 }
 
 .viewBtn:disabled {
-  opacity: 0.38;
+  opacity: 0.45;
   cursor: not-allowed;
   background: #ffffff;
   color: #9ca3af;
@@ -409,61 +417,61 @@
 .emptyState {
   height: 120px !important;
   text-align: center;
-  color: #8c89a0 !important;
+  color: #9ca3af !important;
 }
 
 .paginationRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 18px;
-  color: #77758b;
-  font-size: 13px;
+  margin-top: 14px;
+  color: #6b7280;
+  font-size: 12px;
 }
 
 .paginationInfo {
-  color: #77758b;
-  font-size: 13px;
+  color: #6b7280;
+  font-size: 12px;
 }
 
 .paginationBtns {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .pagePill {
-  height: 36px;
-  min-width: 68px;
-  padding: 0 14px;
-  border-radius: 14px;
-  border: 1px solid #e8e4f2;
+  height: 30px;
+  min-width: 58px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
   display: grid;
   place-items: center;
-  color: #5f5c76;
+  color: #6b7280;
   background: #ffffff;
-  font-size: 12.5px;
-  font-weight: 650;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .modalOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 16, 32, 0.38);
+  background: rgba(15, 23, 42, 0.38);
   display: grid;
   place-items: center;
   padding: 24px;
   z-index: 9999;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(5px);
 }
 
 .modal {
   width: min(460px, 100%);
   background: #ffffff;
-  border: 1px solid #ebe7f2;
-  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 22px;
   padding: 22px;
-  box-shadow: 0 30px 80px rgba(20, 18, 50, 0.18);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
 }
 
 .modalTop {
@@ -473,31 +481,34 @@
 }
 
 .modalTitle {
+  margin: 0;
   font-size: 18px;
-  font-weight: 650;
+  font-weight: 500;
   letter-spacing: -0.03em;
-  color: #16182f;
+  color: #111827;
 }
 
 .modalText {
-  margin: 9px 0 0;
-  color: #68657c;
-  font-size: 14px;
-  line-height: 1.55;
+  margin: 8px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .iconBtn {
   width: 36px;
   height: 36px;
-  border-radius: 11px;
-  border: 1px solid #e7e4f1;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-  color: #6c697f;
+  color: #6b7280;
   cursor: pointer;
+  transition: 0.16s ease;
 }
 
 .iconBtn:hover {
-  border-color: #dbe4ee;
+  background: #f9fafb;
+  border-color: #d1d5db;
   color: #111827;
 }
 
@@ -511,24 +522,25 @@
 .primaryBtn {
   height: 38px;
   padding: 0 18px;
-  border-radius: 14px;
+  border-radius: 12px;
   border: 1px solid #111827;
   background: #111827;
   color: #ffffff;
-  font-size: 13px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  transition: 0.18s ease;
+  transition: 0.16s ease;
 }
 
 .primaryBtn:hover {
   transform: none;
   box-shadow: none;
+  background: #1f2937;
 }
 
 @media (max-width: 1180px) {
   .page {
-    padding: 22px 22px 30px;
+    padding: 22px;
   }
 
   .kpiRow {
@@ -552,7 +564,7 @@
   .topBar {
     align-items: stretch;
     flex-direction: column;
-    margin-bottom: 26px;
+    margin-bottom: 18px;
   }
 
   .searchWrap {
@@ -568,7 +580,7 @@
   }
 
   .title {
-    font-size: 25px;
+    font-size: 24px;
   }
 
   .riskGroupButtons {
@@ -585,4 +597,37 @@
     flex-direction: column;
     gap: 12px;
   }
+
+  .modalOverlay {
+    padding: 14px;
+  }
+}
+
+
+
+.riskFilterBtnActive {
+  border: 1px solid #e5e7eb;
+  background: #f3f4f6;
+  color: #111827;
+  box-shadow: none;
+}
+
+.riskFilterBtnActive:hover {
+  background: #eceff3;
+  border-color: #d1d5db;
+  color: #111827;
+}
+
+
+
+.riskFilterBtn {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
+}
+
+.riskFilterBtn:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #111827;
 }

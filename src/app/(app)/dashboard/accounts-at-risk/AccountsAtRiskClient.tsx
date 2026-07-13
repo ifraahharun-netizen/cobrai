@@ -718,7 +718,7 @@ export default function AccountsAtRiskClient() {
                 </div>
 
                 <div className={styles.header}>
-                    <h1 className={styles.title}>Subscribers</h1>
+                    <h1 className={styles.title}>Accounts</h1>
                     <p className={styles.subtitle}>
                         All accounts, ranked by churn risk and revenue impact.
                     </p>
@@ -754,7 +754,7 @@ export default function AccountsAtRiskClient() {
 
                     <div className={styles.kpiCard}>
                         <div>
-                            <div className={styles.kpiLabel}>Total subscribers</div>
+                            <div className={styles.kpiLabel}>Total Users</div>
                             <div className={styles.kpiValue}>
                                 {summary.totalCustomers > 0 ? summary.totalCustomers : DEMO_ROWS.length}
                             </div>
@@ -773,7 +773,7 @@ export default function AccountsAtRiskClient() {
 
                     <div className={styles.kpiCard}>
                         <div>
-                            <div className={styles.kpiLabel}>Subscribers health index</div>
+                            <div className={styles.kpiLabel}>Users health index</div>
                             <div className={styles.kpiValue}>{healthIndex}</div>
                             <div className={styles.kpiSubline}>
                                 0% ↑ vs {healthIndex} previous month

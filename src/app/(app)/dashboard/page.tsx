@@ -8,6 +8,7 @@ import { getFirebaseAuth } from "@/lib/firebase.client";
 import AIActionQueue from "@/components/AIActionQueue";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { getDemoDashboardData } from "@/lib/demo/dashboard";
+import { buildDemoSeries } from "@/lib/demo/analytics";
 import {
     PoundSterling,
     AlertTriangle,
@@ -298,6 +299,89 @@ function formatRefreshTime(value: string | null) {
     })}`;
 }
 
+
+type DemoTrendPoint = {
+    label: string;
+    value: number;
+};
+
+/**
+ * Expands monthly demo data into deterministic weekly-looking movement.
+ *
+ * It derives every point from buildDemoSeries(), so there are no fixed chart
+ * values in this page. Live workspaces continue using the existing API series.
+ */
+function buildDetailedDemoTrend(
+    months: string[],
+    values: number[],
+    mode: "mrr" | "churn"
+): DemoTrendPoint[] {
+    const safeLength = Math.min(months.length, values.length);
+
+    if (safeLength === 0) return [];
+
+    if (safeLength === 1) {
+        return [{
+            label: months[0],
+            value: Number(values[0] || 0),
+        }];
+    }
+
+    const pointsPerMonth = 4;
+    const output: DemoTrendPoint[] = [];
+
+    for (let monthIndex = 0; monthIndex < safeLength - 1; monthIndex += 1) {
+        const start = Number(values[monthIndex] || 0);
+        const end = Number(values[monthIndex + 1] || 0);
+        const movement = end - start;
+
+        const localScale =
+            mode === "mrr"
+                ? Math.max(Math.abs(movement) * 0.72, Math.abs(start) * 0.028)
+                : Math.max(Math.abs(movement) * 0.8, 0.18);
+
+        for (let step = 0; step < pointsPerMonth; step += 1) {
+            const progress = step / pointsPerMonth;
+            const baseline = start + movement * progress;
+
+            const wave =
+                Math.sin((monthIndex * pointsPerMonth + step) * 1.37) *
+                localScale *
+                0.58;
+
+            const secondaryWave =
+                Math.sin((monthIndex * pointsPerMonth + step) * 2.41 + 0.8) *
+                localScale *
+                0.27;
+
+            const eventMovement =
+                step === 1
+                    ? localScale * (monthIndex % 2 === 0 ? 0.55 : -0.48)
+                    : step === 3
+                        ? localScale * (monthIndex % 3 === 0 ? -0.42 : 0.36)
+                        : 0;
+
+            const rawValue =
+                baseline + wave + secondaryWave + eventMovement;
+
+            output.push({
+                label: step === 0 ? months[monthIndex] : "",
+                value:
+                    mode === "churn"
+                        ? Number(Math.max(0.2, rawValue).toFixed(2))
+                        : Number(Math.max(0, rawValue).toFixed(2)),
+            });
+        }
+    }
+
+    output.push({
+        label: months[safeLength - 1],
+        value: Number(values[safeLength - 1] || 0),
+    });
+
+    return output;
+}
+
 export default function DashboardPage() {
     const router = useRouter();
     const auth = useMemo(() => getFirebaseAuth(), []);
@@ -343,16 +427,65 @@ export default function DashboardPage() {
     const [churnTrendFilterOpen, setChurnTrendFilterOpen] = useState(false);
 
     const demoDashboardData = getDemoDashboardData(userLocale);
+    const demoAnalyticsSeries = useMemo(() => buildDemoSeries(), []);
 
-    const demoChurnMonths = demoDashboardData.churnMonths;
-    const demoChurnPct = demoDashboardData.churnPct;
+    /*
+     * Use the same deterministic, realistic demo history as the Analytics page.
+     * Live workspaces still use the existing dashboard API values automatically.
+     */
+    const baseDemoChurnMonths = demoAnalyticsSeries.churn.map(
+        (point) => point.month
+    );
+    const baseDemoChurnPct = demoAnalyticsSeries.churn.map(
+        (point) => Number(point.valuePct || 0)
+    );
 
-    const demoMrrMonths = demoDashboardData.mrrProtectedMonths;
-    const demoMrrVals = demoDashboardData.mrrProtectedValues;
+    const baseDemoMrrMonths = demoAnalyticsSeries.mrr.map(
+        (point) => point.month
+    );
+    const baseDemoMrrVals = demoAnalyticsSeries.mrr.map(
+        (point) => Number(point.valueMinor || 0) / 100
+    );
+
+    const detailedDemoMrrTrend = useMemo(
+        () =>
+            buildDetailedDemoTrend(
+                baseDemoMrrMonths,
+                baseDemoMrrVals,
+                "mrr"
+            ),
+        [baseDemoMrrMonths.join("|"), baseDemoMrrVals.join("|")]
+    );
+
+    const detailedDemoChurnTrend = useMemo(
+        () =>
+            buildDetailedDemoTrend(
+                baseDemoChurnMonths,
+                baseDemoChurnPct,
+                "churn"
+            ),
+        [baseDemoChurnMonths.join("|"), baseDemoChurnPct.join("|")]
+    );
+
+    const demoMrrMonths = detailedDemoMrrTrend.map(
+        (point) => point.label
+    );
+    const demoMrrVals = detailedDemoMrrTrend.map(
+        (point) => point.value
+    );
+
+    const demoChurnMonths = detailedDemoChurnTrend.map(
+        (point) => point.label
+    );
+    const demoChurnPct = detailedDemoChurnTrend.map(
+        (point) => point.value
+    );
 
     const demoCurrentMonthDays = demoDashboardData.currentMonthDays;
-    const demoCurrentMonthMrrVals = demoDashboardData.currentMonthMrrProtectedValues;
-    const demoCurrentMonthChurnPct = demoDashboardData.currentMonthChurnPct;
+    const demoCurrentMonthMrrVals =
+        demoDashboardData.currentMonthMrrProtectedValues;
+    const demoCurrentMonthChurnPct =
+        demoDashboardData.currentMonthChurnPct;
     const demoKpis = demoDashboardData.kpis;
 
     const demoRiskAccounts = demoDashboardData.riskAccounts;
@@ -1369,13 +1502,49 @@ export default function DashboardPage() {
         activeUsersRange
     );
 
-    const visibleActiveUsersMonths = activeUsersRangeData.map((item) => item.tooltipLabel);
-    const visibleActiveUsersSeries = activeUsersRangeData.map((item) => item.value);
-    const activeUsersCurrent =
-        visibleActiveUsersSeries[visibleActiveUsersSeries.length - 1] ?? 0;
+    const visibleActiveUsersMonths = activeUsersRangeData.map(
+        (item) => item.tooltipLabel
+    );
+
+    const visibleActiveUsersSeries = activeUsersRangeData.map(
+        (item) => Number(item.value || 0)
+    );
+
+    const activeUserBreakdownData = visibleActiveUsersSeries.map(
+        (total, index) => {
+            const previousTotal =
+                index > 0
+                    ? visibleActiveUsersSeries[index - 1]
+                    : total;
+
+            const acquired = Math.max(0, total - previousTotal);
+            const retained = Math.max(0, total - acquired);
+
+            return {
+                label: activeUsersRangeData[index]?.label ?? "",
+                tooltipLabel:
+                    activeUsersRangeData[index]?.tooltipLabel ?? "",
+                retained,
+                acquired,
+                total,
+            };
+        }
+    );
+
+    const latestActiveUserBreakdown =
+        activeUserBreakdownData[activeUserBreakdownData.length - 1] ?? {
+            retained: 0,
+            acquired: 0,
+            total: 0,
+        };
+
+    const activeUsersCurrent = latestActiveUserBreakdown.total;
 
     const activeUsersPrevious =
-        visibleActiveUsersSeries[visibleActiveUsersSeries.length - 2] ?? 0;
+        activeUserBreakdownData[activeUserBreakdownData.length - 2]?.total ?? 0;
+
+    const activeUsersRetained = latestActiveUserBreakdown.retained;
+    const activeUsersAcquired = latestActiveUserBreakdown.acquired;
 
     const activeUsersDelta = activeUsersCurrent - activeUsersPrevious;
 
@@ -1384,20 +1553,19 @@ export default function DashboardPage() {
         activeUsersPrevious
     );
 
-
     const activeUsersOption = (
-        months: string[],
-        values: number[]
+        rows: Array<{
+            label: string;
+            tooltipLabel: string;
+            retained: number;
+            acquired: number;
+            total: number;
+        }>
     ): EChartsOption => {
-        const safeMonths = Array.isArray(months) ? months : [];
-
-        const safeValues = Array.isArray(values)
-            ? values.map((value) => Number(value || 0))
-            : [];
-
-        const minValue = Math.min(...safeValues, 0);
-        const maxValue = Math.max(...safeValues, 1);
-        const padding = Math.max(8, Math.round((maxValue - minValue) * 0.18));
+        const safeRows = Array.isArray(rows) ? rows : [];
+        const totals = safeRows.map((row) => Number(row.total || 0));
+        const maxValue = Math.max(...totals, 1);
+        const axisMax = Math.ceil((maxValue * 1.12) / 10) * 10;
 
         return {
             animation: false,
@@ -1405,35 +1573,111 @@ export default function DashboardPage() {
 
             grid: {
                 top: 18,
-                right: 12,
+                right: 10,
                 bottom: 34,
-                left: 12,
+                left: 10,
                 containLabel: false,
             },
 
             tooltip: {
                 trigger: "axis",
-                backgroundColor: "#ffffff",
-                borderColor: "#eef2f7",
+                confine: true,
+                appendToBody: true,
+                axisPointer: {
+                    type: "shadow",
+                    shadowStyle: {
+                        color: "rgba(37, 99, 235, 0.045)",
+                    },
+                },
+                backgroundColor: "rgba(255, 255, 255, 0.98)",
+                borderColor: "#e8edf4",
                 borderWidth: 1,
-                padding: 10,
+                padding: 0,
                 textStyle: {
                     color: "#111827",
                     fontFamily: "inherit",
                 },
                 extraCssText:
-                    "border-radius:14px; box-shadow:0 10px 30px rgba(15,23,42,0.06);",
+                    "border-radius:16px; overflow:hidden; box-shadow:0 18px 45px rgba(15,23,42,0.12);",
                 formatter: (params: any) => {
-                    const point = Array.isArray(params) ? params[0] : params;
+                    const items = Array.isArray(params) ? params : [params];
+                    const dataIndex = Number(items[0]?.dataIndex ?? 0);
+                    const row = safeRows[dataIndex];
+
+                    if (!row) return "";
+
+                    const previous = dataIndex > 0 ? safeRows[dataIndex - 1] : null;
+                    const totalDelta = previous
+                        ? Number(row.total || 0) - Number(previous.total || 0)
+                        : null;
+
+                    const totalDeltaPct =
+                        previous && Number(previous.total || 0) > 0
+                            ? (Number(totalDelta || 0) / Number(previous.total)) * 100
+                            : null;
+
+                    const deltaIsUp =
+                        typeof totalDelta === "number" && totalDelta > 0;
+                    const deltaIsDown =
+                        typeof totalDelta === "number" && totalDelta < 0;
+
+                    const deltaColor = deltaIsUp
+                        ? "#16885f"
+                        : deltaIsDown
+                            ? "#dc2626"
+                            : "#94a3b8";
+
+                    const deltaArrow = deltaIsUp
+                        ? "↑"
+                        : deltaIsDown
+                            ? "↓"
+                            : "→";
+
+                    const comparisonText =
+                        typeof totalDeltaPct === "number" &&
+                            Number.isFinite(totalDeltaPct)
+                            ? `${deltaArrow} ${Math.abs(totalDeltaPct).toFixed(1)}% vs previous period`
+                            : "No previous-period comparison";
 
                     return `
-<div style="display:flex;flex-direction:column;gap:4px;">
-<div style="font-size:12px;color:#6b7280;font-weight:500;">
-${safeMonths[point?.dataIndex ?? 0] ?? ""}
-</div>
-<div style="font-size:14px;font-weight:650;color:#111827;">
-${Number(point?.value ?? 0).toLocaleString(userLocale)} active users
-</div>
+<div style="min-width:210px;">
+    <div style="padding:12px 14px 10px;border-bottom:1px solid #f0f3f7;">
+        <div style="font-size:11px;line-height:1.3;color:#8b95a5;font-weight:500;">
+            ${row.tooltipLabel}
+        </div>
+        <div style="margin-top:4px;font-size:18px;line-height:1;color:#111827;font-weight:650;letter-spacing:-0.03em;">
+            ${Math.round(row.total).toLocaleString(userLocale)}
+            <span style="font-size:11px;color:#8b95a5;font-weight:500;letter-spacing:0;"> total users</span>
+        </div>
+    </div>
+
+    <div style="padding:11px 14px 12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:26px;margin-bottom:9px;">
+            <span style="display:inline-flex;align-items:center;gap:8px;color:#667085;font-size:11.5px;">
+                <i style="width:8px;height:8px;border-radius:3px;background:#5f82e8;display:inline-block;"></i>
+                Retained users
+            </span>
+            <strong style="font-size:12px;color:#111827;font-weight:650;">
+                ${Math.round(row.retained).toLocaleString(userLocale)}
+            </strong>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:26px;">
+            <span style="display:inline-flex;align-items:center;gap:8px;color:#667085;font-size:11.5px;">
+                <i style="width:8px;height:8px;border-radius:3px;background:#77b7ef;display:inline-block;"></i>
+                Acquired users
+            </span>
+            <strong style="font-size:12px;color:#111827;font-weight:650;">
+                ${Math.round(row.acquired).toLocaleString(userLocale)}
+            </strong>
+        </div>
+
+        <div style="height:1px;background:#f0f3f7;margin:11px 0 9px;"></div>
+
+        <div style="font-size:10.5px;line-height:1.35;color:${deltaColor};font-weight:650;">
+            ${comparisonText}
+        </div>
+    </div>
 </div>
 `;
                 },
@@ -1441,31 +1685,25 @@ ${Number(point?.value ?? 0).toLocaleString(userLocale)} active users
 
             xAxis: {
                 type: "category",
-                data: safeMonths,
-                boundaryGap: false,
+                data: safeRows.map((row) => row.tooltipLabel),
+                boundaryGap: true,
                 axisTick: { show: false },
                 axisLine: { show: false },
                 axisLabel: {
-                    color: "#9ca3af",
+                    color: "#98a2b3",
                     fontSize: 10,
-                    margin: 12,
+                    margin: 13,
                     fontWeight: 500,
                     interval: activeUsersRange === 7 ? 0 : 3,
-                    formatter: (_value: string, index: number) => {
-                        if (activeUsersRange === 7) {
-                            const item = activeUsersRangeData[index];
-                            return item?.label ?? "";
-                        }
-
-                        return _value;
-                    },
+                    formatter: (_value: string, index: number) =>
+                        safeRows[index]?.label ?? "",
                 },
             },
 
             yAxis: {
                 type: "value",
-                min: Math.max(0, Math.floor((minValue - padding) / 10) * 10),
-                max: Math.ceil((maxValue + padding) / 10) * 10,
+                min: 0,
+                max: axisMax,
                 splitNumber: 4,
                 axisLine: { show: false },
                 axisTick: { show: false },
@@ -1473,35 +1711,64 @@ ${Number(point?.value ?? 0).toLocaleString(userLocale)} active users
                 splitLine: {
                     lineStyle: {
                         type: "dashed",
-                        color: "rgba(148,163,184,0.16)",
+                        color: "rgba(148, 163, 184, 0.12)",
                     },
                 },
             },
 
             series: [
                 {
-                    name: "Active users",
-                    type: "line",
-                    data: safeValues,
-                    smooth: true,
-                    symbol: "none",
-                    showSymbol: false,
-                    lineStyle: {
-                        width: 2.2,
-                        color: "#aca8ffff",
+                    name: "Retained",
+                    type: "bar",
+                    stack: "users",
+                    data: safeRows.map((row) => row.retained),
+                    barMaxWidth: activeUsersRange === 7 ? 22 : 11,
+                    barMinWidth: 6,
+                    barCategoryGap: activeUsersRange === 7 ? "46%" : "34%",
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: "#6f8ff0" },
+                            { offset: 1, color: "#5577d8" },
+                        ]),
+                        borderRadius: [0, 0, 5, 5],
                     },
-                    areaStyle: {
-                        opacity: 0.06,
-                        color: "#aca8ffff",
+                    emphasis: {
+                        itemStyle: {
+                            shadowBlur: 12,
+                            shadowColor: "rgba(85, 119, 216, 0.22)",
+                        },
+                    },
+                },
+                {
+                    name: "Acquired",
+                    type: "bar",
+                    stack: "users",
+                    data: safeRows.map((row) => row.acquired),
+                    barMaxWidth: activeUsersRange === 7 ? 22 : 11,
+                    barMinWidth: 6,
+                    itemStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: "#8bc9f3" },
+                            { offset: 1, color: "#62ade6" },
+                        ]),
+                        borderRadius: [6, 6, 0, 0],
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            shadowBlur: 12,
+                            shadowColor: "rgba(98, 173, 230, 0.22)",
+                        },
                     },
                 },
             ],
         };
     };
+
     const filterChartRange = <T,>(
         labels: T[],
         values: number[],
-        range: 1 | 3 | 6
+        range: 1 | 3 | 6,
+        pointsPerMonth = 1
     ) => {
         if (range === 1) {
             return {
@@ -1510,9 +1777,11 @@ ${Number(point?.value ?? 0).toLocaleString(userLocale)} active users
             };
         }
 
+        const pointCount = Math.max(1, range * pointsPerMonth + 1);
+
         return {
-            labels: labels.slice(-range),
-            values: values.slice(-range),
+            labels: labels.slice(-pointCount),
+            values: values.slice(-pointCount),
         };
     };
 
@@ -1522,14 +1791,25 @@ ${Number(point?.value ?? 0).toLocaleString(userLocale)} active users
                 labels: demoCurrentMonthDays,
                 values: demoCurrentMonthMrrVals,
             }
-            : filterChartRange(activeMrrMonths, activeMrrVals, mrrTrendRange);
+            : filterChartRange(
+                activeMrrMonths,
+                activeMrrVals,
+                mrrTrendRange,
+                isDemoMode ? 4 : 1
+            );
+
     const churnTrendData =
         churnTrendRange === 1 && isDemoMode
             ? {
                 labels: demoCurrentMonthDays,
                 values: demoCurrentMonthChurnPct,
             }
-            : filterChartRange(activeChurnMonths, activeChurnPct, churnTrendRange);
+            : filterChartRange(
+                activeChurnMonths,
+                activeChurnPct,
+                churnTrendRange,
+                isDemoMode ? 4 : 1
+            );
     const trendRangeOptions: Array<{ label: string; value: 1 | 3 | 6 }> = [
         { label: "Current month", value: 1 },
         { label: "3 months", value: 3 },
@@ -1680,92 +1960,168 @@ ${Number(point?.value ?? 0).toLocaleString(userLocale)} active users
                 </div>
                 <div className={styles.dashboardMainGrid}>
                     <div className={styles.leftDashboardStack}>
-                        {/* Revenue Trend */}
-                        <div className={`${styles.card} ${styles.mrrChartCard}`}>
-                            <div className={styles.cardHeader}>
-                                <div className={styles.revenueHeaderLeft}>
-                                    <h4>Revenue Trend</h4>
-                                    <p>Revenue protected across recent retention activity.</p>
+                        <div className={`${styles.card} ${styles.combinedTrendsCard}`}>
+                            {/* Revenue Trend */}
+                            <section className={styles.combinedTrendSection}>
+                                <div className={styles.cardHeader}>
+                                    <div className={styles.revenueHeaderLeft}>
+                                        <h4>Revenue Trend</h4>
+                                        <p>Revenue protected across recent retention activity.</p>
+                                    </div>
+
+                                    <div className={styles.activeUsersFilterWrap}>
+                                        <button
+                                            type="button"
+                                            className={styles.activeUsersFilter}
+                                            onClick={() => setMrrTrendFilterOpen((open) => !open)}
+                                        >
+                                            <Clock3 size={13} strokeWidth={1.8} />
+                                            <span>
+                                                {
+                                                    trendRangeOptions.find(
+                                                        (option) => option.value === mrrTrendRange
+                                                    )?.label
+                                                }
+                                            </span>
+                                            <ChevronDown size={13} strokeWidth={1.8} />
+                                        </button>
+
+                                        {mrrTrendFilterOpen ? (
+                                            <div className={styles.activeUsersFilterMenu}>
+                                                {trendRangeOptions.map((option) => (
+                                                    <button
+                                                        key={option.value}
+                                                        type="button"
+                                                        className={
+                                                            mrrTrendRange === option.value
+                                                                ? styles.activeUsersFilterOptionActive
+                                                                : styles.activeUsersFilterOption
+                                                        }
+                                                        onClick={() => {
+                                                            setMrrTrendRange(option.value);
+                                                            setMrrTrendFilterOpen(false);
+                                                        }}
+                                                    >
+                                                        {option.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        ) : null}
+                                    </div>
                                 </div>
 
-                                <div className={styles.activeUsersFilterWrap}>
-                                    <button
-                                        type="button"
-                                        className={styles.activeUsersFilter}
-                                        onClick={() => setMrrTrendFilterOpen((open) => !open)}
-                                    >
-                                        <Clock3 size={13} strokeWidth={1.8} />
+                                <div className={styles.revenueInlineMetricRow}>
+                                    <div className={styles.revenueInlineMetric}>
+                                        <strong>{activeProgressData?.kpis?.accountsSaved ?? 0}</strong>
                                         <span>
-                                            {
-                                                trendRangeOptions.find(
-                                                    (option) => option.value === mrrTrendRange
-                                                )?.label
-                                            }
+                                            ↑ {Math.abs(Number(activeProgressData?.kpis?.accountsSavedPct ?? 0)).toFixed(1)}%
                                         </span>
-                                        <ChevronDown size={13} strokeWidth={1.8} />
-                                    </button>
+                                        <p>Retained customers that moved MRR</p>
+                                    </div>
 
-                                    {mrrTrendFilterOpen ? (
-                                        <div className={styles.activeUsersFilterMenu}>
-                                            {trendRangeOptions.map((option) => (
-                                                <button
-                                                    key={option.value}
-                                                    type="button"
-                                                    className={
-                                                        mrrTrendRange === option.value
-                                                            ? styles.activeUsersFilterOptionActive
-                                                            : styles.activeUsersFilterOption
-                                                    }
-                                                    onClick={() => {
-                                                        setMrrTrendRange(option.value);
-                                                        setMrrTrendFilterOpen(false);
-                                                    }}
-                                                >
-                                                    {option.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    ) : null}
-                                </div>
-                            </div>
+                                    <div className={styles.revenueInlineMetric}>
+                                        <strong>
+                                            {formatCurrency(
+                                                activeOpportunityAccounts.reduce(
+                                                    (sum, item) => sum + Number(item.upside || 0),
+                                                    0
+                                                )
+                                            )}
+                                        </strong>
+                                        <span>Opportunity</span>
+                                        <p>Expansion MRR</p>
+                                    </div>
 
-                            <div className={styles.revenueInlineMetricRow}>
-                                <div className={styles.revenueInlineMetric}>
-                                    <strong>{activeProgressData?.kpis?.accountsSaved ?? 0}</strong>
-                                    <span>
-                                        ↑ {Math.abs(Number(activeProgressData?.kpis?.accountsSavedPct ?? 0)).toFixed(1)}%
-                                    </span>
-                                    <p>Retained customers that moved MRR</p>
+                                    <div className={styles.revenueInlineMetric}>
+                                        <strong>{formatCurrency(totalProtected)}</strong>
+                                        <span>
+                                            ↑ {Math.abs(formatPercentChange(totalProtected, previousProtected)).toFixed(1)}%
+                                        </span>
+                                        <p>MRR protected</p>
+                                    </div>
                                 </div>
 
-                                <div className={styles.revenueInlineMetric}>
-                                    <strong>
-                                        {formatCurrency(
-                                            activeOpportunityAccounts.reduce(
-                                                (sum, item) => sum + Number(item.upside || 0),
-                                                0
-                                            )
-                                        )}
-                                    </strong>
-                                    <span>Opportunity</span>
-                                    <p>Expansion MRR</p>
+                                <div className={styles.chartPreview}>
+                                    <EChart
+                                        key={`mrr-${mrrTrendRange}-${mrrTrendData.labels.join("-")}-${mrrTrendData.values.join("-")}`}
+                                        option={mrrProtectedOption(mrrTrendData.labels, mrrTrendData.values, isPro)}
+                                    />
+                                </div>
+                            </section>
+                            <div className={styles.combinedTrendDivider} />
+                            {/* Churn Trend */}
+                            <section className={styles.combinedTrendSection}>
+                                <div className={styles.cardHeader}>
+                                    <div>
+                                        <h4>Churn Trend</h4>
+                                        <p>Monthly churn rate and customer risk signals.</p>
+                                    </div>
+
+                                    <div className={styles.activeUsersFilterWrap}>
+                                        <button
+                                            type="button"
+                                            className={styles.activeUsersFilter}
+                                            onClick={() => setChurnTrendFilterOpen((open) => !open)}
+                                        >
+                                            <Clock3 size={13} strokeWidth={1.8} />
+                                            <span>
+                                                {trendRangeOptions.find((option) => option.value === churnTrendRange)?.label}
+                                            </span>
+                                            <ChevronDown size={13} strokeWidth={1.8} />
+                                        </button>
+
+                                        {churnTrendFilterOpen ? (
+                                            <div className={styles.activeUsersFilterMenu}>
+                                                {trendRangeOptions.map((option) => (
+                                                    <button
+                                                        key={option.value}
+                                                        type="button"
+                                                        className={
+                                                            churnTrendRange === option.value
+                                                                ? styles.activeUsersFilterOptionActive
+                                                                : styles.activeUsersFilterOption
+                                                        }
+                                                        onClick={() => {
+                                                            setChurnTrendRange(option.value);
+                                                            setChurnTrendFilterOpen(false);
+                                                        }}
+                                                    >
+                                                        {option.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        ) : null}
+                                    </div>
                                 </div>
 
-                                <div className={styles.revenueInlineMetric}>
-                                    <strong>{formatCurrency(totalProtected)}</strong>
-                                    <span>
-                                        ↑ {Math.abs(formatPercentChange(totalProtected, previousProtected)).toFixed(1)}%
-                                    </span>
-                                    <p>MRR protected</p>
-                                </div>
-                            </div>
+                                <div className={styles.churnMetricRow}>
+                                    {churnMetricItems.map((item) => {
+                                        const trend = getTrendMeta(item.delta, true);
 
-                            <div className={styles.chartPreview}>
-                                <EChart
-                                    key={`mrr-${mrrTrendRange}-${mrrTrendData.labels.join("-")}-${mrrTrendData.values.join("-")}`}
-                                    option={mrrProtectedOption(mrrTrendData.labels, mrrTrendData.values, isPro)}
-                                />
-                            </div>
+                                        return (
+                                            <div key={item.label} className={styles.churnMiniKpi}>
+                                                <strong>{item.value}</strong>
+
+                                                <div className={styles.churnMiniSubline}>
+                                                    <span style={{ color: trend.color }}>
+                                                        {trend.arrow} {Math.abs(item.pct).toFixed(1)}%
+                                                    </span>
+                                                </div>
+
+                                                <p>{item.label}</p>
+                                                <small>{item.subtext}</small>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div className={styles.churnChartWrap}>
+                                    <EChart
+                                        key={`churn-${churnTrendRange}-${churnTrendData.labels.join("-")}-${churnTrendData.values.join("-")}`}
+                                        option={churnTrendOption(churnTrendData.labels, churnTrendData.values, isPro)}
+                                    />
+                                </div>
+                            </section>
                         </div>
 
                         {/* AI Insights */}
@@ -1877,80 +2233,6 @@ ${Number(point?.value ?? 0).toLocaleString(userLocale)} active users
                     </div>
 
                     <div className={styles.rightDashboardStack}>
-                        {/* Churn Trend */}
-                        <div className={`${styles.card} ${styles.churnChartCard}`}>
-                            <div className={styles.cardHeader}>
-                                <div>
-                                    <h4>Churn Trend</h4>
-                                    <p>Monthly churn rate and customer risk signals.</p>
-                                </div>
-
-                                <div className={styles.activeUsersFilterWrap}>
-                                    <button
-                                        type="button"
-                                        className={styles.activeUsersFilter}
-                                        onClick={() => setChurnTrendFilterOpen((open) => !open)}
-                                    >
-                                        <Clock3 size={13} strokeWidth={1.8} />
-                                        <span>
-                                            {trendRangeOptions.find((option) => option.value === churnTrendRange)?.label}
-                                        </span>
-                                        <ChevronDown size={13} strokeWidth={1.8} />
-                                    </button>
-
-                                    {churnTrendFilterOpen ? (
-                                        <div className={styles.activeUsersFilterMenu}>
-                                            {trendRangeOptions.map((option) => (
-                                                <button
-                                                    key={option.value}
-                                                    type="button"
-                                                    className={
-                                                        churnTrendRange === option.value
-                                                            ? styles.activeUsersFilterOptionActive
-                                                            : styles.activeUsersFilterOption
-                                                    }
-                                                    onClick={() => {
-                                                        setChurnTrendRange(option.value);
-                                                        setChurnTrendFilterOpen(false);
-                                                    }}
-                                                >
-                                                    {option.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    ) : null}
-                                </div>
-                            </div>
-
-                            <div className={styles.churnMetricRow}>
-                                {churnMetricItems.map((item) => {
-                                    const trend = getTrendMeta(item.delta, true);
-
-                                    return (
-                                        <div key={item.label} className={styles.churnMiniKpi}>
-                                            <strong>{item.value}</strong>
-
-                                            <div className={styles.churnMiniSubline}>
-                                                <span style={{ color: trend.color }}>
-                                                    {trend.arrow} {Math.abs(item.pct).toFixed(1)}%
-                                                </span>
-                                            </div>
-
-                                            <p>{item.label}</p>
-                                            <small>{item.subtext}</small>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            <div className={styles.churnChartWrap}>
-                                <EChart
-                                    key={`churn-${churnTrendRange}-${churnTrendData.labels.join("-")}-${churnTrendData.values.join("-")}`}
-                                    option={churnTrendOption(churnTrendData.labels, churnTrendData.values, isPro)}
-                                />
-                            </div>
-                        </div>
-
                         {/* User Metrics */}
                         <div className={`${styles.card} ${styles.activeUsersCard}`}>
                             <div className={styles.activeUsersHeader}>
@@ -2026,13 +2308,37 @@ ${Number(point?.value ?? 0).toLocaleString(userLocale)} active users
                                 </div>
                             </div>
 
+                            <div className={styles.activeUsersLegend}>
+                                <span>
+                                    <i className={styles.activeUsersRetainedDot} />
+                                    Retained
+                                    <strong>
+                                        {activeUsersRetained.toLocaleString(userLocale)}
+                                    </strong>
+                                </span>
+
+                                <span>
+                                    <i className={styles.activeUsersAcquiredDot} />
+                                    Acquired
+                                    <strong>
+                                        {activeUsersAcquired.toLocaleString(userLocale)}
+                                    </strong>
+                                </span>
+
+                                <span className={styles.activeUsersTotal}>
+                                    Total
+                                    <strong>
+                                        {activeUsersCurrent.toLocaleString(userLocale)}
+                                    </strong>
+                                </span>
+                            </div>
+
                             <div className={styles.activeUsersChartWrap}>
                                 <EChart
-                                    key={`active-users-${activeUsersRange}-${visibleActiveUsersMonths.join("-")}-${visibleActiveUsersSeries.join("-")}`}
-                                    option={activeUsersOption(
-                                        visibleActiveUsersMonths,
-                                        visibleActiveUsersSeries
-                                    )}
+                                    key={`active-users-${activeUsersRange}-${activeUserBreakdownData
+                                        .map((row) => `${row.retained}-${row.acquired}-${row.total}`)
+                                        .join("-")}`}
+                                    option={activeUsersOption(activeUserBreakdownData)}
                                 />
                             </div>
                         </div>
@@ -2045,7 +2351,6 @@ ${Number(point?.value ?? 0).toLocaleString(userLocale)} active users
                         />
                     </div>
                 </div>
-
                 {upgradeOpen && !isDemoMode ? (
                     <div className={styles.upgradeOverlay}>
                         <div className={styles.upgradeModal}>

@@ -1,10 +1,13 @@
 .page {
     min-height: 100vh;
+    padding: 24px;
     background: #ffffff;
-    padding: 20px;
+    color: #111827;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .container {
+    width: 100%;
     max-width: 1540px;
     margin: 0 auto;
 }
@@ -15,78 +18,187 @@
 
 .hero h1 {
     margin: 0;
-    font-size: 22px;
-    line-height: 1;
-    letter-spacing: -0.05em;
+    font-size: 24px;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
     color: #111827;
-    font-weight: 620;
+    font-weight: 500;
 }
 
 .hero p {
-    margin: 8px 0 0;
+    margin: 6px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #6b7280;
+}
+
+.headerControls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.headerRightControls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.headerLeftTools {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.activityTopBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.searchWrap {
+    position: relative;
+    width: min(330px, 100%);
+}
+
+.searchInput {
+    width: 100%;
+    height: 40px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 0 42px 0 14px;
+    outline: none;
     font-size: 12px;
-    line-height: 1.6;
-    color: #98a2b3;
+    color: #374151;
+    box-shadow: none;
+    transition: border-color 0.16s ease;
+}
+
+.searchInput::placeholder {
+    color: #9ca3af;
+}
+
+.searchInput:focus {
+    border-color: #d1d5db;
+    box-shadow: none;
+}
+
+.searchIcon {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    font-size: 14px;
+    pointer-events: none;
+}
+
+.dateRangePill {
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    color: #6b7280;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.downloadCsvBtn {
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    color: #374151;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: 0.16s ease;
+}
+
+.downloadCsvBtn:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    color: #111827;
+    transform: none;
+}
+
+.downloadCsvBtn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
 }
 
 .kpiGrid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 14px;
-    margin-bottom: 18px;
+    gap: 10px;
+    margin-bottom: 16px;
 }
 
 .kpiCard {
+    min-height: 86px;
+    padding: 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
     background: #ffffff;
-    border: 1px solid #edf1f5;
-    border-radius: 18px;
-    padding: 16px 18px;
     display: flex;
     align-items: center;
     gap: 12px;
-    min-height: 88px;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.02),
-        0 6px 20px rgba(16, 24, 40, 0.025);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 
 .kpiIcon {
-    width: 26px;
-    height: 26px;
-    border-radius: 12px;
-    background: #f8fafc;
-    border: 1px solid #edf1f5;
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+    background: #fafafa;
+    border: 1px solid #e5e7eb;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #667085;
+    color: #6b7280;
     font-size: 13px;
-    font-weight: 650;
+    font-weight: 500;
     flex-shrink: 0;
 }
 
 .kpiCard span {
     display: block;
-    font-size: 10px;
-    color: #98a2b3;
     margin-bottom: 5px;
-    font-weight: 600;
+    font-size: 12px;
+    line-height: 1.3;
+    color: #6b7280;
+    font-weight: 400;
 }
 
 .kpiCard strong {
     display: block;
-    font-size: 16px;
+    font-size: 20px;
     line-height: 1;
-    letter-spacing: -0.05em;
-    font-weight: 550;
+    letter-spacing: -0.04em;
+    font-weight: 500;
     color: #111827;
 }
 
 .kpiCard small {
     display: block;
-    margin-top: 5px;
-    font-size: 10px;
-    line-height: 1.5;
-    font-weight: 600;
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.3;
+    font-weight: 500;
 }
 
 .trendUp {
@@ -104,16 +216,15 @@
 }
 
 .panel {
-    background: #ffffff;
-    border: 1px solid #edf1f5;
-    border-radius: 26px;
-    padding: 18px;
-    overflow: hidden;
     min-height: calc(100vh - 240px);
+    padding: 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    background: #ffffff;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.015),
-        0 10px 30px rgba(16, 24, 40, 0.03);
+    box-shadow: none;
 }
 
 .panelHeader {
@@ -124,20 +235,27 @@
     margin-bottom: 16px;
 }
 
+.panelTitleRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 .panelHeader h2 {
     margin: 0;
-    font-size: 20px;
-    line-height: 1;
-    letter-spacing: -0.05em;
+    font-size: 18px;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
     color: #111827;
-    font-weight: 620;
+    font-weight: 500;
 }
 
 .panelHeader p {
-    margin: 7px 0 0;
-    font-size: 11px;
-    line-height: 1.6;
-    color: #98a2b3;
+    margin: 6px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #6b7280;
 }
 
 .filterTabs {
@@ -150,34 +268,38 @@
 .activeFilter {
     height: 34px;
     min-width: 72px;
-    padding: 0 14px;
-    border-radius: 999px;
-    border: 1px solid #e8edf2;
-    background: #ffffff;
-    color: #101012;
-    font-size: 10px;
-    font-weight: 620;
-    transition: all 0.18s ease;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    font-size: 11px;
+    font-weight: 500;
     cursor: pointer;
+    transition: 0.16s ease;
+}
+
+.filterBtn {
+    background: #ffffff;
+    color: #374151;
 }
 
 .filterBtn:hover {
-    background: #f8fafc;
+    background: #f9fafb;
+    border-color: #d1d5db;
+    color: #111827;
 }
 
 .activeFilter {
-    background: #fafafc;
-    border-color: #e5e7eb;
-    color: #111827;
+    background: #111827;
+    border-color: #111827;
+    color: #ffffff;
 }
 
 .progressTableWrap {
     width: 100%;
     flex: 1;
-    overflow-x: hidden;
-    overflow-y: hidden;
-    border: 1px solid #edf1f5;
-    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
     background: #ffffff;
 }
 
@@ -189,13 +311,14 @@
 }
 
 .progressTable thead th {
-    padding: 13px 14px;
-    border-bottom: 1px solid #edf1f5;
-    background: #ffffff;
-    color: #667085;
+    height: 46px;
+    padding: 0 14px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fafafa;
+    color: #6b7280;
     font-size: 11px;
     line-height: 1.2;
-    font-weight: 620;
+    font-weight: 500;
     text-align: left;
     white-space: nowrap;
 }
@@ -231,47 +354,58 @@
 }
 
 .progressTable tbody td {
-    padding: 15px 14px;
-    border-bottom: 1px solid #f4f6f8;
+    height: 62px;
+    padding: 0 14px;
+    border-bottom: 1px solid #f1f5f9;
     vertical-align: middle;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.4;
-    color: #111827;
+    color: #6b7280;
     overflow: hidden;
 }
 
 .progressTable tbody tr {
     cursor: pointer;
-    transition: background 0.16s ease;
+    transition: background-color 0.16s ease;
 }
 
-.progressTable tbody tr:hover {
-    background: #fcfcfd;
+.progressTable tbody tr:hover,
+.progressTable tbody tr:hover td {
+    background: #fafafa;
 }
 
 .progressTable tbody tr:last-child td {
     border-bottom: none;
 }
 
+.progressTable tbody tr:hover .accountAvatar {
+    border-color: #d1d5db;
+    background: #f9fafb;
+}
+
+.progressTable tbody tr:hover .accountMeta strong {
+    color: #111827;
+}
+
 .accountCell {
     display: flex;
     align-items: center;
-    gap: 9px;
+    gap: 10px;
     min-width: 0;
 }
 
 .accountAvatar {
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     border-radius: 10px;
-    background: #ffffff;
-    border: 1px solid #e8edf3;
+    background: #fafafa;
+    border: 1px solid #e5e7eb;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
-    font-weight: 620;
-    color: #181616;
+    font-size: 11px;
+    font-weight: 500;
+    color: #374151;
     flex-shrink: 0;
 }
 
@@ -281,10 +415,11 @@
 
 .accountMeta strong {
     display: block;
-    font-size: 11px;
-    font-weight: 620;
+    margin-bottom: 3px;
+    font-size: 12px;
+    line-height: 1.3;
+    font-weight: 500;
     color: #111827;
-    margin-bottom: 2px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -292,8 +427,9 @@
 
 .accountMeta span {
     display: block;
-    font-size: 10px;
-    color: #98a2b3;
+    font-size: 10.5px;
+    line-height: 1.3;
+    color: #9ca3af;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -307,12 +443,12 @@
 
 .reasoningCell strong {
     display: block;
-    color: #0f172a;
-    font-size: 11px;
-    font-weight: 620;
-    line-height: 1.45;
-    letter-spacing: -0.02em;
     margin-bottom: 3px;
+    color: #111827;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -320,9 +456,9 @@
 
 .reasoningCell p {
     margin: 0;
-    color: #64748b;
-    font-size: 10px;
-    line-height: 1.35;
+    color: #9ca3af;
+    font-size: 10.5px;
+    line-height: 1.4;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -341,11 +477,11 @@
 .signalChip {
     display: inline-flex;
     align-items: center;
-    min-height: 18px;
-    padding: 0 6px;
+    min-height: 20px;
+    padding: 0 7px;
     border-radius: 999px;
-    font-size: 8px;
-    font-weight: 620;
+    font-size: 9px;
+    font-weight: 600;
     letter-spacing: -0.01em;
     border: 1px solid transparent;
     white-space: nowrap;
@@ -353,20 +489,20 @@
 
 .highSignal {
     color: #dc2626;
-    background: rgba(239, 68, 68, 0.08);
-    border-color: rgba(239, 68, 68, 0.14);
+    background: #fef2f2;
+    border-color: #fecaca;
 }
 
 .mediumSignal {
     color: #c2410c;
-    background: rgba(249, 115, 22, 0.08);
-    border-color: rgba(249, 115, 22, 0.14);
+    background: #fff7ed;
+    border-color: #fed7aa;
 }
 
 .lowSignal {
-    color: #059669;
-    background: rgba(16, 185, 129, 0.08);
-    border-color: rgba(16, 185, 129, 0.14);
+    color: #047857;
+    background: #ecfdf5;
+    border-color: #a7f3d0;
 }
 
 .outcomePill {
@@ -375,12 +511,12 @@
     justify-content: center;
     gap: 4px;
     height: 24px;
-    padding: 0 9px;
+    padding: 0 8px;
     border-radius: 999px;
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
     white-space: nowrap;
 }
 
@@ -393,24 +529,24 @@
 }
 
 .outcomeSuccess {
-    background: #edf9f1;
-    color: #1f8f52;
+    background: #ecfdf5;
+    color: #047857;
 }
 
 .outcomePending {
-    background: #fff4df;
-    color: #c97900;
+    background: #fff7ed;
+    color: #c2410c;
 }
 
 .outcomeFailed {
-    background: #ffecef;
-    color: #d92d4c;
+    background: #fef2f2;
+    color: #dc2626;
 }
 
 .mrrCell {
-    font-size: 11px;
-    font-weight: 650;
-    color: #111827;
+    font-size: 12px;
+    font-weight: 500;
+    color: #374151;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -432,15 +568,15 @@
 }
 
 .riskRing span {
-    color: #0f172a;
+    color: #111827;
     font-size: 10px;
-    font-weight: 650;
-    letter-spacing: -0.03em;
+    font-weight: 600;
+    letter-spacing: -0.02em;
 }
 
 .dateCell {
-    font-size: 10px;
-    color: #667085;
+    font-size: 11px;
+    color: #6b7280;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -451,9 +587,9 @@
     justify-content: space-between;
     align-items: center;
     gap: 14px;
-    margin-top: 16px;
-    font-size: 10px;
-    color: #98a2b3;
+    margin-top: 14px;
+    font-size: 12px;
+    color: #6b7280;
 }
 
 .paginationModern {
@@ -463,20 +599,22 @@
 }
 
 .paginationModern button {
-    width: 34px;
-    height: 34px;
-    border-radius: 999px;
-    border: 1px solid #e8edf2;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
     background: #ffffff;
-    color: #667085;
+    color: #6b7280;
     font-size: 11px;
-    font-weight: 700;
-    transition: all 0.18s ease;
+    font-weight: 500;
     cursor: pointer;
+    transition: 0.16s ease;
 }
 
 .paginationModern button:hover {
-    background: #f8fafc;
+    background: #f9fafb;
+    border-color: #d1d5db;
+    color: #111827;
 }
 
 .paginationModern button:disabled {
@@ -485,16 +623,16 @@
 }
 
 .currentModernPage {
-    background: #f4f4f5 !important;
-    color: #111827 !important;
-    border-color: #e5e7eb !important;
+    background: #111827 !important;
+    color: #ffffff !important;
+    border-color: #111827 !important;
 }
 
 .emptyState,
 .errorBox,
 .centerState {
-    border: 1px solid #edf1f5;
-    border-radius: 22px;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
     background: #ffffff;
     padding: 22px;
 }
@@ -504,13 +642,15 @@
     display: block;
     margin-bottom: 7px;
     color: #111827;
+    font-size: 13px;
+    font-weight: 500;
 }
 
 .emptyState p,
 .errorBox p {
     margin: 0;
-    font-size: 13px;
-    color: #667085;
+    font-size: 12px;
+    color: #6b7280;
 }
 
 .centerState {
@@ -548,7 +688,8 @@
 
     .progressTable thead th,
     .progressTable tbody td {
-        padding: 12px 10px;
+        padding-left: 10px;
+        padding-right: 10px;
     }
 }
 
@@ -560,16 +701,28 @@
 
 @media (max-width: 760px) {
     .page {
-        padding: 16px;
+        padding: 22px 18px;
+    }
+
+    .headerControls,
+    .activityTopBar,
+    .panelHeader {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .headerRightControls {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .searchWrap {
+        width: 100%;
     }
 
     .kpiGrid {
         grid-template-columns: 1fr;
-    }
-
-    .panelHeader {
-        flex-direction: column;
-        align-items: flex-start;
     }
 
     .filterTabs {
@@ -580,7 +733,7 @@
 
     .panel {
         padding: 16px;
-        border-radius: 22px;
+        border-radius: 18px;
     }
 
     .progressTableWrap {
@@ -590,304 +743,374 @@
     .progressTable {
         min-width: 980px;
     }
+
+    .tableFooter {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 12px;
+    }
 }
 
+/* ========================================================================== */
+/* EMAIL QUEUE TABLE DESIGN — FINAL CASCADE OVERRIDES                          */
+/* Visual-only. Existing class names, JSX, data, sorting and backend stay intact. */
+/* ========================================================================== */
+
+.panel {
+    padding: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: none;
+}
+
+.panelHeader {
+    margin: 0;
+    padding: 18px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #ffffff;
+}
+
+.filterTabs {
+    gap: 8px;
+}
+
+.filterBtn,
+.activeFilter {
+    height: 34px;
+    min-width: 72px;
+    padding: 0 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #374151;
+    font-size: 11px;
+    font-weight: 500;
+    box-shadow: none;
+}
+
+.filterBtn:hover,
+.activeFilter:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    color: #111827;
+}
+
+.activeFilter {
+    background: #f3f4f6;
+    color: #111827;
+    border-color: #e5e7eb;
+}
+
+.progressTableWrap {
+    flex: 1;
+    width: 100%;
+    overflow-x: auto;
+    border: 0;
+    border-radius: 0;
+    background: #ffffff;
+}
+
+.progressTable {
+    width: 100%;
+    min-width: 1080px;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.progressTable thead th {
+    height: 46px;
+    padding: 0 14px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fafafa;
+    color: #6b7280;
+    font-size: 11px;
+    line-height: 1.2;
+    font-weight: 500;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.progressTable tbody td {
+    height: 62px;
+    padding: 0 14px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #ffffff;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.4;
+    vertical-align: middle;
+}
 
 .progressTable tbody tr {
     cursor: pointer;
-    transition:
-        background-color 0.18s ease,
-        transform 0.18s ease;
+    transition: background-color 0.16s ease;
 }
 
-.progressTable tbody tr:hover {
-    background: #fafbfc;
-}
-
+.progressTable tbody tr:hover,
 .progressTable tbody tr:hover td {
-    background: #fafbfc;
+    background: #fafafa;
 }
 
-.progressTable tbody tr:hover .accountAvatar {
-    border-color: #d6dbe3;
-    background: #f8fafc;
+.progressTable tbody tr:last-child td {
+    border-bottom: 0;
 }
 
-.progressTable tbody tr:hover .accountMeta strong {
-    color: #111827;
+/* Column proportions aligned with the Email Queue table rhythm. */
+.progressTable th:nth-child(1),
+.progressTable td:nth-child(1) {
+    width: 22%;
 }
 
+.progressTable th:nth-child(2),
+.progressTable td:nth-child(2) {
+    width: 34%;
+}
 
-.panelTitleRow {
+.progressTable th:nth-child(3),
+.progressTable td:nth-child(3) {
+    width: 12%;
+}
+
+.progressTable th:nth-child(4),
+.progressTable td:nth-child(4) {
+    width: 13%;
+}
+
+.progressTable th:nth-child(5),
+.progressTable td:nth-child(5) {
+    width: 10%;
+}
+
+.progressTable th:nth-child(6),
+.progressTable td:nth-child(6) {
+    width: 9%;
+}
+
+.accountCell {
     display: flex;
     align-items: center;
     gap: 10px;
-    flex-wrap: wrap;
+    min-width: 0;
 }
 
-.topHeaderRow {
-    margin-bottom: 18px;
-}
-
-.activityTopBar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 14px;
-}
-
-.dateRangePill {
+/* Match Email Queue's simple account presentation. */
+.accountAvatar {
+    width: 32px;
     height: 32px;
-    padding: 0 13px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #fafafa;
+    color: #374151;
+    font-size: 11px;
+    font-weight: 500;
+    box-shadow: none;
+}
+
+.accountMeta strong {
+    margin-bottom: 3px;
+    color: #111827;
+    font-size: 12px;
+    line-height: 1.3;
+    font-weight: 500;
+}
+
+.accountMeta span {
+    color: #9ca3af;
+    font-size: 10.5px;
+    line-height: 1.3;
+}
+
+.reasoningCell strong {
+    margin-bottom: 3px;
+    color: #111827;
+    font-size: 12px;
+    line-height: 1.35;
+    font-weight: 500;
+}
+
+.reasoningCell p {
+    color: #9ca3af;
+    font-size: 10.5px;
+    line-height: 1.4;
+    -webkit-line-clamp: 2;
+}
+
+.signalRow {
+    gap: 4px;
+    margin-top: 5px;
+}
+
+.signalChip {
+    min-height: 20px;
+    padding: 0 7px;
     border-radius: 999px;
-    border: 1px solid #edf1f5;
-    background: #fefefe;
+    font-size: 9px;
+    font-weight: 600;
+}
+
+/* Email Queue-style status pills. */
+.outcomePill {
     display: inline-flex;
     align-items: center;
-    color: #667085;
-    font-size: 11px;
-    font-weight: 620;
-    white-space: nowrap;
-}
-
-.downloadCsvBtn {
-    height: 34px;
-    padding: 0 15px;
+    justify-content: center;
+    gap: 0;
+    width: fit-content;
+    min-height: 24px;
+    padding: 0 8px;
     border-radius: 999px;
-    border: 1px solid #e8edf2;
-    background: #ffffff;
-    color: #1d1a1a;
-    font-size: 10px;
-    font-weight: 620;
-    cursor: pointer;
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1;
     white-space: nowrap;
-    transition:
-        background 0.18s ease,
-        opacity 0.18s ease,
-        transform 0.18s ease;
 }
 
-.downloadCsvBtn:hover {
-    background: #fbfbfd;
-    transform: translateY(-1px);
+.statusDot {
+    display: none;
 }
 
-.downloadCsvBtn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    transform: none;
+.outcomeSuccess {
+    background: #ecfdf5;
+    color: #047857;
 }
 
-.topHeaderRow {
-    margin-bottom: 18px;
+.outcomePending {
+    background: #fff7ed;
+    color: #c2410c;
 }
 
-.activityTopBar {
-    display: flex;
+.outcomeFailed {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.mrrCell {
+    color: #374151;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Replace the circular progress ring with Email Queue-style risk pills. */
+.riskRing {
+    --risk-color: #6b7280;
+    --risk-score: 0%;
+
+    width: fit-content;
+    min-width: 38px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 999px;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    margin-bottom: 18px;
+    justify-content: center;
+    background: #f3f4f6;
+    border: 0;
+    box-shadow: none;
 }
 
-.headerLeftTools {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
+.riskRing span {
+    color: #4b5563;
+    font-size: 10.5px;
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: 0;
 }
 
-.dateRangePill {
+/* Respect the inline --risk-color already supplied by the component. */
+.riskRing[style*="#ef4444"],
+.riskRing[style*="#dc2626"],
+.riskRing[style*="239, 68, 68"] {
+    background: #fef2f2;
+}
+
+.riskRing[style*="#ef4444"] span,
+.riskRing[style*="#dc2626"] span,
+.riskRing[style*="239, 68, 68"] span {
+    color: #dc2626;
+}
+
+.riskRing[style*="#f97316"],
+.riskRing[style*="#c2410c"],
+.riskRing[style*="249, 115, 22"] {
+    background: #fff7ed;
+}
+
+.riskRing[style*="#f97316"] span,
+.riskRing[style*="#c2410c"] span,
+.riskRing[style*="249, 115, 22"] span {
+    color: #c2410c;
+}
+
+.riskRing[style*="#f59e0b"],
+.riskRing[style*="#d97706"],
+.riskRing[style*="245, 158, 11"] {
+    background: #fffbeb;
+}
+
+.riskRing[style*="#f59e0b"] span,
+.riskRing[style*="#d97706"] span,
+.riskRing[style*="245, 158, 11"] span {
+    color: #a16207;
+}
+
+.riskRing[style*="#10b981"],
+.riskRing[style*="#047857"],
+.riskRing[style*="16, 185, 129"] {
+    background: #ecfdf5;
+}
+
+.riskRing[style*="#10b981"] span,
+.riskRing[style*="#047857"] span,
+.riskRing[style*="16, 185, 129"] span {
+    color: #047857;
+}
+
+.dateCell {
+    color: #6b7280;
+    font-size: 11px;
+}
+
+.tableFooter {
+    margin-top: 0;
+    padding: 12px 14px;
+    border-top: 1px solid #e5e7eb;
+    background: #ffffff;
+}
+
+.paginationModern {
+    gap: 5px;
+}
+
+.paginationModern button {
+    width: 30px;
     height: 30px;
-    padding: 0 13px;
-    border-radius: 999px;
-    border: 1px solid #edf1f5;
+    padding: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
     background: #ffffff;
-    display: inline-flex;
-    align-items: center;
-    color: #667085;
+    color: #6b7280;
     font-size: 11px;
-    font-weight: 620;
-    white-space: nowrap;
+    font-weight: 500;
 }
 
-.searchWrap {
-    position: relative;
-    width: 340px;
-    max-width: 100%;
-}
-
-.searchInput {
-    width: 100%;
-    height: 42px;
-    border: 1px solid #edf1f5;
-    background: #ffffff;
-    border-radius: 14px;
-    padding: 0 42px 0 15px;
-    outline: none;
-    font-size: 12px;
+.paginationModern button:hover:not(:disabled) {
+    background: #f9fafb;
+    border-color: #d1d5db;
     color: #111827;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.015);
 }
 
-.searchInput::placeholder {
-    color: #98a2b3;
+.currentModernPage {
+    background: #f3f4f6 !important;
+    color: #111827 !important;
+    border-color: #e5e7eb !important;
 }
 
-.searchInput:focus {
-    border-color: #d8dee7;
-    box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.035);
-}
-
-.searchIcon {
-    position: absolute;
-    right: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #98a2b3;
-    font-size: 13px;
-    pointer-events: none;
-}
-
-.downloadCsvBtn {
-    height: 34px;
-    padding: 0 15px;
-    border-radius: 999px;
-    border: 1px solid #e8edf2;
-    background: #ffffff;
-    color: #111827;
-    font-size: 10px;
-    font-weight: 620;
-    cursor: pointer;
-    white-space: nowrap;
-    transition:
-        background 0.18s ease,
-        border-color 0.18s ease,
-        transform 0.18s ease;
-}
-
-.downloadCsvBtn:hover {
-    background: #f8fafc;
-    border-color: #d8dee7;
-    transform: translateY(-1px);
-}
-
-.downloadCsvBtn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    transform: none;
-}
-
-
-
-.headerControls {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 18px;
-    margin-bottom: 18px;
-}
-
-.headerRightControls {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
-}
-
-.searchWrap {
-    position: relative;
-    width: min(340px, 100%);
-}
-
-.searchInput {
-    width: 100%;
-    height: 42px;
-    border: 1px solid #edf1f5;
-    background: #ffffff;
-    border-radius: 14px;
-    padding: 0 42px 0 15px;
-    outline: none;
-    font-size: 12px;
-    color: #111827;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.015);
-}
-
-.searchInput::placeholder {
-    color: #98a2b3;
-}
-
-.searchInput:focus {
-    border-color: #d8dee7;
-    box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.035);
-}
-
-.searchIcon {
-    position: absolute;
-    right: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #98a2b3;
-    font-size: 13px;
-    pointer-events: none;
-}
-
-.dateRangePill {
-    height: 34px;
-    padding: 0 13px;
-    border-radius: 999px;
-    border: 1px solid #edf1f5;
-    background: #ffffff;
-    display: inline-flex;
-    align-items: center;
-    color: #667085;
-    font-size: 10px;
-    font-weight: 620;
-    white-space: nowrap;
-}
-
-.downloadCsvBtn {
-    height: 34px;
-    padding: 0 15px;
-    border-radius: 999px;
-    border: 1px solid #e8edf2;
-    background: #ffffff;
-    color: #667085;
-    font-size: 10px;
-    font-weight: 620;
-    cursor: pointer;
-    white-space: nowrap;
-    transition:
-        background 0.18s ease,
-        border-color 0.18s ease,
-        transform 0.18s ease;
-}
-
-.downloadCsvBtn:hover {
-    background: #f8fafc;
-    border-color: #d8dee7;
-    transform: translateY(-1px);
-}
-
-.downloadCsvBtn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    transform: none;
-}
-
-@media (max-width: 760px) {
-    .headerControls {
-        flex-direction: column;
-        align-items: flex-start;
+@media (max-width: 1200px) {
+    .progressTableWrap {
+        overflow-x: auto;
     }
 
-    .headerRightControls {
-        width: 100%;
-        justify-content: space-between;
-    }
-
-    .searchWrap {
-        width: 100%;
+    .progressTable {
+        min-width: 1080px;
     }
 }

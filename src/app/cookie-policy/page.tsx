@@ -1,36 +1,35 @@
-"use client";
+import type { Metadata } from "next";
+import Link from "next/link";
+import TermlyPolicy from "@/components/TermlyPolicy";
 
-import { useEffect, useRef } from "react";
+export const metadata: Metadata = {
+    title: "Cookie Policy | Cobrai",
+    description:
+        "Read Cobrai's cookie policy.",
+};
 
 export default function CookiePolicyPage() {
-    const termlyRef = useRef<HTMLDivElement | null>(null);
-
-    useEffect(() => {
-        // Set required attribute for Termly
-        if (termlyRef.current) {
-            termlyRef.current.setAttribute("name", "termly-embed");
-        }
-
-        // Load script once
-        const existingScript = document.getElementById("termly-jssdk");
-
-        if (!existingScript) {
-            const script = document.createElement("script");
-            script.id = "termly-jssdk";
-            script.src = "https://app.termly.io/embed-policy.min.js";
-            script.async = true;
-            document.body.appendChild(script);
-        }
-    }, []);
-
     return (
-        <main className="min-h-screen bg-white px-6 py-10 text-black">
-            <div className="mx-auto max-w-4xl">
-               
+        <main className="legalPage">
+            <div className="legalPageInner">
+                <header className="legalPageHeader">
+                    <Link
+                        href="/"
+                        className="legalBackLink"
+                    >
+                        ← Back to Cobrai
+                    </Link>
 
-                <div
-                    ref={termlyRef}
-                    data-id="3e188e15-88f8-4ab9-aa2b-ef56422dd785"
+                    <h1>Cookie Policy</h1>
+
+                    <p>
+                        Learn how Cobrai uses cookies and
+                        similar technologies.
+                    </p>
+                </header>
+
+                <TermlyPolicy
+                    policyId="3e188e15-88f8-4ab9-aa2b-ef56422dd785"
                 />
             </div>
         </main>

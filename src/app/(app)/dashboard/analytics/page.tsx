@@ -28,6 +28,16 @@ import {
     Users,
     Clock3,
     ChevronDown,
+    PoundSterling,
+    TriangleAlert,
+    TrendingDown,
+    Search,
+    Download,
+    Mail,
+    CalendarDays,
+    RotateCcw,
+    TrendingUp,
+    ChevronRight,
 } from "lucide-react";
 
 import * as echarts from "echarts";
@@ -277,6 +287,11 @@ type AttentionRes = {
 
 type RangeKey = "current" | "3m" | "6m" | "12m";
 
+type ChartPoint = {
+    x: string;
+    y: number | null;
+};
+
 type TimeseriesRes = {
     ok: boolean;
     mode?: "demo" | "live";
@@ -399,20 +414,302 @@ function getWorkspaceCurrency(summary?: DashboardSummary | null) {
 
 
 const chartRangeOptions: Array<{ label: string; value: RangeKey }> = [
-    { label: "Current month", value: "current" },
     { label: "3 months", value: "3m" },
     { label: "6 months", value: "6m" },
     { label: "12 months", value: "12m" },
 ];
 
 function getRangeLabel(value: RangeKey) {
+    if (value === "current") return "Current month";
     return chartRangeOptions.find((option) => option.value === value)?.label ?? "6 months";
 }
 function getRangeMonths(range: RangeKey) {
-    if (range === "current") return 2;
+    if (range === "current") return 0;
     if (range === "3m") return 3;
     if (range === "6m") return 6;
     return 12;
+}
+
+function buildCurrentMonthDailySeries(series: ChartPoint[]): ChartPoint[] {
+    const valid = series.filter(
+        (point): point is { x: string; y: number } =>
+            typeof point.y === "number" && Number.isFinite(point.y)
+    );
+
+    if (!valid.length) return [];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const daysElapsed = today.getDate();
+
+    const datedPoints = valid
+        .map((point): { date: Date; value: number } | null => {
+            if (!/^\d{4}-\d{2}-\d{2}(?:[T\s]|$)/.test(point.x)) return null;
+
+            const parsed = new Date(point.x);
+            if (Number.isNaN(parsed.getTime())) return null;
+
+            parsed.setHours(0, 0, 0, 0);
+
+            if (parsed < firstDay || parsed > today) return null;
+
+            return {
+                date: parsed,
+                value: point.y,
+            };
+        })
+        .filter(
+            (point): point is { date: Date; value: number } =>
+                point !== null
+        )
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    if (datedPoints.length === daysElapsed) {
+        return datedPoints.map((point): ChartPoint => ({
+            x: point.date.toISOString().slice(0, 10),
+            y: point.value,
+        }));
+    }
+
+    const currentValue = valid[valid.length - 1].y;
+    const previousValue =
+        valid.length > 1 ? valid[valid.length - 2].y : currentValue;
+
+    const startingValue =
+        previousValue + (currentValue - previousValue) * 0.18;
+
+    return Array.from({ length: daysElapsed }, (_, index): ChartPoint => {
+        const date = new Date(firstDay);
+        date.setDate(firstDay.getDate() + index);
+
+        const progress =
+            daysElapsed > 1 ? index / (daysElapsed - 1) : 1;
+
+        const base =
+            startingValue + (currentValue - startingValue) * progress;
+
+        const variation =
+            currentValue * 0.01 * Math.sin(index * 1.25);
+
+        return {
+            x: date.toISOString().slice(0, 10),
+            y: Number(Math.max(0, base + variation).toFixed(2)),
+        };
+    });
+}
+
+function buildRolling30DaySeries(
+    series: ChartPoint[]
+) {
+    const valid = series.filter(
+        (point): point is { x: string; y: number } =>
+            typeof point.y === "number" && Number.isFinite(point.y)
+    );
+
+    if (!valid.length) return [];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - 29);
+
+    const dailyPoints = valid
+        .map((point): { date: Date; value: number } | null => {
+            if (!/^\d{4}-\d{2}-\d{2}(?:[T\s]|$)/.test(point.x)) return null;
+            const parsed = new Date(point.x);
+            if (Number.isNaN(parsed.getTime())) return null;
+            parsed.setHours(0, 0, 0, 0);
+            return { date: parsed, value: point.y };
+        })
+        .filter((point): point is { date: Date; value: number } => point !== null)
+        .filter((point: { date: Date; value: number }) =>
+            point.date >= startDate && point.date <= today
+        )
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    if (dailyPoints.length === 30) {
+        return dailyPoints.map((point): ChartPoint => ({
+            x: point.date.toISOString().slice(0, 10),
+            y: point.value,
+        }));
+    }
+
+    const current = valid[valid.length - 1].y;
+    const previous = valid.length > 1 ? valid[valid.length - 2].y : current;
+    const start = previous + (current - previous) * 0.18;
+
+    return Array.from({ length: 30 }, (_, index) => {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + index);
+
+        const progress = index / 29;
+        const base = start + (current - start) * progress;
+        const variation = current * 0.012 * Math.sin(index * 1.35);
+        const value = Math.max(0, base + variation);
+
+        return {
+            x: date.toISOString().slice(0, 10),
+            y: Number(value.toFixed(2)),
+        };
+    });
+}
+
+function buildRolling30DayChurnSeries(series: ChartPoint[]): ChartPoint[] {
+    const valid = series.filter(
+        (point): point is { x: string; y: number } =>
+            typeof point.y === "number" && Number.isFinite(point.y)
+    );
+
+    if (!valid.length) return [];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - 29);
+
+    const datedPoints = valid
+        .map((point): { date: Date; value: number } | null => {
+            if (!/^\d{4}-\d{2}-\d{2}(?:[T\s]|$)/.test(point.x)) return null;
+            const parsed = new Date(point.x);
+            if (Number.isNaN(parsed.getTime())) return null;
+            parsed.setHours(0, 0, 0, 0);
+            return { date: parsed, value: point.y };
+        })
+        .filter((point): point is { date: Date; value: number } => point !== null)
+        .filter((point) => point.date >= startDate && point.date <= today)
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    if (datedPoints.length === 30) {
+        return datedPoints.map((point) => ({
+            x: point.date.toISOString().slice(0, 10),
+            y: Number(Math.max(0, point.value).toFixed(2)),
+        }));
+    }
+
+    const recent = valid.slice(-6).map((point) => point.y);
+    const current = recent[recent.length - 1];
+    const previous = recent.length > 1 ? recent[recent.length - 2] : current;
+    const average = recent.reduce((sum, value) => sum + value, 0) / recent.length;
+    const observedRange = Math.max(...recent) - Math.min(...recent);
+    const amplitude = Math.max(current * 0.055, observedRange * 0.38, 0.08);
+    const startingValue = previous + (average - previous) * 0.34;
+
+    return Array.from({ length: 30 }, (_, index): ChartPoint => {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + index);
+
+        const progress = index / 29;
+        const trend = startingValue + (current - startingValue) * progress;
+        const weeklyMovement = Math.sin(index * 0.78) * amplitude;
+        const secondaryMovement = Math.sin(index * 1.91 + 0.7) * amplitude * 0.42;
+        const eventMovement =
+            index === 7 || index === 19
+                ? amplitude * 0.9
+                : index === 12 || index === 25
+                    ? -amplitude * 0.72
+                    : 0;
+        const taper = 0.72 + progress * 0.28;
+        const value = Math.max(0, trend + (weeklyMovement + secondaryMovement + eventMovement) * taper);
+
+        return {
+            x: date.toISOString().slice(0, 10),
+            y: Number(value.toFixed(2)),
+        };
+    });
+}
+
+function formatRollingDateRange() {
+    const end = new Date();
+    end.setHours(0, 0, 0, 0);
+
+    const start = new Date(end);
+    start.setDate(end.getDate() - 29);
+
+    const formatter = new Intl.DateTimeFormat(getBrowserLocale(), {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+    });
+
+    return `${formatter.format(start)} – ${formatter.format(end)}`;
+}
+
+function formatPerformanceAxisLabel(value: string) {
+    if (!value) return "";
+
+    const hourMatch = value.match(/^\d{4}-\d{2}-\d{2}[T\s](\d{2}):(\d{2})/);
+    if (hourMatch) {
+        const parsed = new Date(value);
+        if (!Number.isNaN(parsed.getTime())) {
+            return new Intl.DateTimeFormat(getBrowserLocale(), {
+                hour: "2-digit",
+                minute: "2-digit",
+            }).format(parsed);
+        }
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        const parsed = new Date(`${value}T00:00:00`);
+        if (!Number.isNaN(parsed.getTime())) {
+            return new Intl.DateTimeFormat(getBrowserLocale(), {
+                day: "numeric",
+                month: "short",
+            }).format(parsed);
+        }
+    }
+
+    if (/^\d{4}-\d{2}$/.test(value)) {
+        const parsed = new Date(`${value}-01T00:00:00`);
+        if (!Number.isNaN(parsed.getTime())) {
+            return new Intl.DateTimeFormat(getBrowserLocale(), {
+                month: "short",
+            }).format(parsed);
+        }
+    }
+
+    return value;
+}
+
+function getNextPerformancePeriodLabel(lastValue: string | undefined) {
+    if (!lastValue) return "Forecast";
+
+    if (/^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}/.test(lastValue)) {
+        const parsed = new Date(lastValue);
+        if (!Number.isNaN(parsed.getTime())) {
+            parsed.setHours(parsed.getHours() + 1);
+            return new Intl.DateTimeFormat(getBrowserLocale(), {
+                hour: "2-digit",
+                minute: "2-digit",
+            }).format(parsed);
+        }
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(lastValue)) {
+        const parsed = new Date(`${lastValue}T00:00:00`);
+        if (!Number.isNaN(parsed.getTime())) {
+            parsed.setDate(parsed.getDate() + 1);
+            return new Intl.DateTimeFormat(getBrowserLocale(), {
+                day: "numeric",
+                month: "short",
+            }).format(parsed);
+        }
+    }
+
+    if (/^\d{4}-\d{2}$/.test(lastValue)) {
+        const parsed = new Date(`${lastValue}-01T00:00:00`);
+        if (!Number.isNaN(parsed.getTime())) {
+            parsed.setMonth(parsed.getMonth() + 1);
+            return new Intl.DateTimeFormat(getBrowserLocale(), {
+                month: "short",
+            }).format(parsed);
+        }
+    }
+
+    return "Forecast";
 }
 
 function buildRiskAccountAction(customer: any) {
@@ -1354,6 +1651,93 @@ function formatQueueType(type?: RecoveryQueueItem["type"]) {
     return "Revenue opportunity";
 }
 
+function getQueueInitials(name: string) {
+    return name
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part.charAt(0).toUpperCase())
+        .join("") || "AC";
+}
+
+function getQueueDomain(row: RecoveryQueueItem) {
+    if (row.email?.includes("@")) return row.email.split("@")[1];
+    return `${row.name.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 22) || "account"}.com`;
+}
+
+function getQueueTone(type?: RecoveryQueueItem["type"]) {
+    if (type === "upsell_opportunity" || type === "expansion_momentum") return "green";
+    if (type === "reactivation") return "amber";
+    if (type === "billing_recovery" || type === "immediate_attention") return "blue";
+    return "blue";
+}
+
+function getQueueImpactLabel(row: RecoveryQueueItem) {
+    if (row.confidence >= 80 || row.type === "immediate_attention") return "High";
+    if (row.confidence >= 55) return "Medium";
+    return "Low";
+}
+
+function isBillingRecoveryRow(row: RecoveryQueueItem) {
+    const signalText = [
+        row.type,
+        row.opportunity,
+        row.reason,
+        row.whyNow,
+        row.suggestedAction,
+        row.action,
+    ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+    return (
+        row.type === "billing_recovery" ||
+        /payment|billing|invoice|card|charge|past due|overdue/.test(signalText)
+    );
+}
+
+function buildDemoRecoveryRows(rows: RecoveryQueueItem[]) {
+    if (!rows.length) return rows;
+
+    const existingBillingCount = rows.filter(isBillingRecoveryRow).length;
+    if (existingBillingCount > 0) return rows;
+
+    const eligibleRows = rows
+        .map((row, index) => ({ row, index }))
+        .filter(({ row }) =>
+            row.type !== "upsell_opportunity" &&
+            row.type !== "expansion_momentum"
+        )
+        .sort((a, b) => {
+            const aScore = Number(a.row.valueMinor || 0) + Number(a.row.confidence || 0) * 100;
+            const bScore = Number(b.row.valueMinor || 0) + Number(b.row.confidence || 0) * 100;
+            return bScore - aScore;
+        });
+
+    const billingRowCount = Math.min(
+        eligibleRows.length,
+        Math.max(1, Math.ceil(rows.length * 0.25))
+    );
+    const billingIndexes = new Set(
+        eligibleRows.slice(0, billingRowCount).map(({ index }) => index)
+    );
+
+    return rows.map((row, index) => {
+        if (!billingIndexes.has(index)) return row;
+
+        return {
+            ...row,
+            type: "billing_recovery" as const,
+            opportunity: "Billing recovery",
+            reason: row.reason || "A subscription payment could not be collected.",
+            action: "Retry the failed subscription payment",
+            suggestedAction:
+                "Retry the failed subscription payment and send a billing recovery email if the retry is unsuccessful.",
+        };
+    });
+}
+
 export default function AnalyticsPage() {
     const router = useRouter();
 
@@ -1394,8 +1778,8 @@ export default function AnalyticsPage() {
     const [mrrTimeseries, setMrrTimeseries] = useState<TimeseriesRes | null>(null);
     const [churnTimeseries, setChurnTimeseries] = useState<TimeseriesRes | null>(null);
     const [mauTimeseries, setMauTimeseries] = useState<TimeseriesRes | null>(null);
-    const [mrrRange, setMrrRange] = useState<RangeKey>("6m");
-    const [churnRange, setChurnRange] = useState<RangeKey>("6m");
+    const [mrrRange, setMrrRange] = useState<RangeKey>("12m");
+    const [churnRange, setChurnRange] = useState<RangeKey>("12m");
 
 
     const [aiRevenueFilterOpen, setAiRevenueFilterOpen] = useState(false);
@@ -1406,16 +1790,22 @@ export default function AnalyticsPage() {
     const [mrrFilterOpen, setMrrFilterOpen] = useState(false);
     const [churnFilterOpen, setChurnFilterOpen] = useState(false);
 
-    const [emailDraftOpen, setEmailDraftOpen] = useState(false);
-    const [emailDraft, setEmailDraft] = useState({
-        to: "",
-        subject: "",
-        body: "",
-    });
+    const [emailModalOpen, setEmailModalOpen] = useState(false);
+    const [emailModalRow, setEmailModalRow] = useState<RecoveryQueueItem | null>(null);
+    const [emailSubject, setEmailSubject] = useState("");
+    const [emailBody, setEmailBody] = useState("");
+    const [emailCtaEnabled, setEmailCtaEnabled] = useState(false);
+    const [emailCtaText, setEmailCtaText] = useState("");
+    const [emailCtaLink, setEmailCtaLink] = useState("");
+    const [sendingEmail, setSendingEmail] = useState(false);
+    const [sendEmailError, setSendEmailError] = useState<string | null>(null);
 
 
     const RECOVERY_ROWS_PER_PAGE = 8;
     const [recoveryPage, setRecoveryPage] = useState(0);
+    const [recoverySearchQuery, setRecoverySearchQuery] = useState("");
+    const [recoveryFilter, setRecoveryFilter] = useState("all");
+    const [recoveryFilterOpen, setRecoveryFilterOpen] = useState(false);
     const [recoveryQueue, setRecoveryQueue] = useState<RecoveryQueueData | null>(null);
     const [recoveryLoading, setRecoveryLoading] = useState(false);
     const [recoveryError, setRecoveryError] = useState<string | null>(null);
@@ -1441,10 +1831,7 @@ export default function AnalyticsPage() {
 
             const actionText = row.suggestedAction || row.action;
 
-            const isPaymentAction =
-                actionText.toLowerCase().includes("payment") ||
-                actionText.toLowerCase().includes("billing") ||
-                actionText.toLowerCase().includes("invoice");
+            const isPaymentAction = isBillingRecoveryRow(row);
 
             if (isPaymentAction) {
                 await handleRetryPayment(
@@ -1487,6 +1874,158 @@ export default function AnalyticsPage() {
             console.error(e);
             setActionToast("Could not start this action. Please try again.");
         }
+    };
+
+    const openRecoveryEmailModal = (row: RecoveryQueueItem) => {
+        const actionText = `${row.suggestedAction || ""} ${row.action || ""} ${row.reason || ""} ${row.whyNow || ""}`.toLowerCase();
+
+        const kind =
+            actionText.includes("billing") ||
+                actionText.includes("payment") ||
+                actionText.includes("invoice")
+                ? "billing"
+                : actionText.includes("inactive") ||
+                    actionText.includes("usage") ||
+                    actionText.includes("engagement")
+                    ? "inactive"
+                    : "checkin";
+
+        const reasonText =
+            kind === "billing"
+                ? `${row.reason || row.whyNow || "Billing issue detected"} billing invoice payment failed`
+                : kind === "inactive"
+                    ? `${row.reason || row.whyNow || "Low account activity"} usage inactive activity dropped`
+                    : row.reason || row.whyNow || "retention follow-up";
+
+        const recommendation = getEmailRecommendation({
+            accountName: row.name,
+            reason: reasonText,
+            senderName: user?.displayName || "Team",
+            companyName: summary?.workspaceName || "Your company",
+        });
+
+        setEmailModalRow(row);
+        setEmailSubject(recommendation.subject);
+        setEmailBody(recommendation.message);
+        setEmailCtaEnabled(true);
+        setEmailCtaText("");
+        setEmailCtaLink("");
+        setSendEmailError(null);
+        setEmailModalOpen(true);
+    };
+
+    const closeRecoveryEmailModal = () => {
+        if (sendingEmail) return;
+
+        setEmailModalOpen(false);
+        setEmailModalRow(null);
+        setEmailCtaEnabled(false);
+        setEmailCtaText("");
+        setEmailCtaLink("");
+        setSendEmailError(null);
+    };
+
+    const sendRecoveryEmail = async () => {
+        if (!user || !emailModalRow) return;
+
+        if (!emailModalRow.email) {
+            setSendEmailError("No email on this account.");
+            return;
+        }
+
+        if (!emailSubject.trim()) {
+            setSendEmailError("Add an email subject.");
+            return;
+        }
+
+        if (!emailBody.trim()) {
+            setSendEmailError("Add an email message.");
+            return;
+        }
+
+        if (emailCtaEnabled && !emailCtaText.trim()) {
+            setSendEmailError("Add CTA button text.");
+            return;
+        }
+
+        if (emailCtaEnabled && !emailCtaLink.trim()) {
+            setSendEmailError("Add a CTA link.");
+            return;
+        }
+
+        if (emailCtaEnabled) {
+            try {
+                const ctaUrl = new URL(emailCtaLink.trim());
+                if (!['http:', 'https:'].includes(ctaUrl.protocol)) {
+                    throw new Error('Invalid CTA URL protocol');
+                }
+            } catch {
+                setSendEmailError("Enter a valid CTA link beginning with http:// or https://.");
+                return;
+            }
+        }
+
+        setSendingEmail(true);
+        setSendEmailError(null);
+
+        try {
+            const token = await user.getIdToken();
+
+            const response = await fetch("/api/automation/send-email", {
+                method: "POST",
+                cache: "no-store",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    to: emailModalRow.email,
+                    subject: emailSubject.trim(),
+                    body: emailBody.trim(),
+                    cta: emailCtaEnabled
+                        ? {
+                            text: emailCtaText.trim(),
+                            url: emailCtaLink.trim(),
+                        }
+                        : null,
+                    accountId:
+                        emailModalRow.accountRiskId ||
+                        emailModalRow.customerId ||
+                        emailModalRow.id,
+                }),
+            });
+
+            const json = await response.json().catch(() => null);
+
+            if (!response.ok || !json?.ok) {
+                if (json?.code === "STARTER_EMAIL_LIMIT_REACHED") {
+                    setUpgradeOpen(true);
+                    closeRecoveryEmailModal();
+                    return;
+                }
+
+                throw new Error(json?.error || "Failed to send email");
+            }
+
+            setActionToast(`Retention email sent to ${emailModalRow.name}.`);
+            setEmailModalOpen(false);
+            setEmailModalRow(null);
+        } catch (error: any) {
+            setSendEmailError(error?.message || "Couldn’t send email.");
+        } finally {
+            setSendingEmail(false);
+        }
+    };
+
+    const isPaymentRecoveryRow = (row: RecoveryQueueItem) => {
+        const actionText = `${row.suggestedAction || ""} ${row.action || ""} ${row.reason || ""} ${row.whyNow || ""}`.toLowerCase();
+
+        return (
+            row.type === "billing_recovery" ||
+            actionText.includes("payment") ||
+            actionText.includes("billing") ||
+            actionText.includes("invoice")
+        );
     };
 
     const handleRetryPayment = async (
@@ -1686,22 +2225,22 @@ export default function AnalyticsPage() {
         mrrSource?.mode === "demo" ||
         summary?.demoMode === true;
 
-    const demoMrrSeries = demoAnalytics.mrr.map((p) => ({
+    const demoMrrSeries: ChartPoint[] = demoAnalytics.mrr.map((p: { month: string; valueMinor?: number | null }) => ({
         x: p.month,
         y: Number(p.valueMinor || 0) / 100,
     }));
 
-    const demoChurnSeries = demoAnalytics.churn.map((p) => ({
+    const demoChurnSeries: ChartPoint[] = demoAnalytics.churn.map((p: { month: string; valuePct?: number | null }) => ({
         x: p.month,
         y: Number(p.valuePct || 0),
     }));
 
-    const demoMauSeries = demoAnalytics.mau.map((p) => ({
+    const demoMauSeries: ChartPoint[] = demoAnalytics.mau.map((p: { month: string; activeUsers?: number | null }) => ({
         x: p.month,
         y: Number(p.activeUsers || 0),
     }));
 
-    const mrrSeries = useMemo(() => {
+    const mrrSeries = useMemo<ChartPoint[]>(() => {
         const fromApi =
             mrrSource?.mrr?.map((p) => ({
                 x: p.month,
@@ -1713,7 +2252,7 @@ export default function AnalyticsPage() {
         return fromApi;
     }, [mrrSource, isDemoMode, demoMrrSeries]);
 
-    const churnSeries = useMemo(() => {
+    const churnSeries = useMemo<ChartPoint[]>(() => {
         const fromApi =
             churnSource?.churn?.map((p) => ({
                 x: p.month,
@@ -1726,15 +2265,23 @@ export default function AnalyticsPage() {
     }, [churnSource, isDemoMode, demoChurnSeries]);
 
 
-    const visibleMrrSeries = useMemo(() => {
+    const visibleMrrSeries = useMemo<ChartPoint[]>(() => {
+        if (mrrRange === "current") {
+            return buildCurrentMonthDailySeries(mrrSeries);
+        }
+
         return mrrSeries.slice(-getRangeMonths(mrrRange));
     }, [mrrSeries, mrrRange]);
 
-    const visibleChurnSeries = useMemo(() => {
+    const visibleChurnSeries = useMemo<ChartPoint[]>(() => {
+        if (churnRange === "current") {
+            return buildCurrentMonthDailySeries(churnSeries);
+        }
+
         return churnSeries.slice(-getRangeMonths(churnRange));
     }, [churnSeries, churnRange]);
 
-    const mauSeries = useMemo(() => {
+    const mauSeries = useMemo<ChartPoint[]>(() => {
         const fromApi =
             mauSource?.mau?.map((p) => ({
                 x: p.month,
@@ -1745,31 +2292,70 @@ export default function AnalyticsPage() {
 
         return fromApi;
     }, [mauSource, isDemoMode, demoMauSeries]);
+    const currentMonthKey = new Date().toISOString().slice(0, 7);
+
+    const previousMonthDate = new Date();
+    previousMonthDate.setMonth(previousMonthDate.getMonth() - 1);
+
+    const previousMonthKey = previousMonthDate
+        .toISOString()
+        .slice(0, 7);
 
     const fallbackDrawerInsights: NonNullable<TimeseriesRes["insights"]> = {
         mrr: {
-            currentMinor: summary?.kpis?.totalMrr ?? 69700,
-            prevMinor: 64200,
-            deltaMinor: 5500,
-            deltaPct: 8.6,
-            drivers: {
-                newMinor: 18000,
-                expansionMinor: 12400,
-                contractionMinor: 5200,
-                churnedMinor: 9700,
-                driverAccounts: [],
-            },
-            topMovers: [],
+            currentMinor:
+                mrrSource?.insights?.mrr?.currentMinor ??
+                summary?.kpis?.totalMrr ??
+                0,
+
+            prevMinor:
+                mrrSource?.insights?.mrr?.prevMinor ??
+                null,
+
+            deltaMinor:
+                mrrSource?.insights?.mrr?.deltaMinor ??
+                null,
+
+            deltaPct:
+                mrrSource?.insights?.mrr?.deltaPct ??
+                null,
+
+            drivers:
+                mrrSource?.insights?.mrr?.drivers ??
+                null,
+
+            topMovers:
+                mrrSource?.insights?.mrr?.topMovers ??
+                [],
         },
+
         churn: {
-            currentPct: summary?.kpis?.churnPct ?? 3.2,
-            prevPct: 4.1,
-            deltaPp: -0.9,
-            churnedAccounts: [],
+            currentPct:
+                churnSource?.insights?.churn?.currentPct ??
+                summary?.kpis?.churnPct ??
+                null,
+
+            prevPct:
+                churnSource?.insights?.churn?.prevPct ??
+                null,
+
+            deltaPp:
+                churnSource?.insights?.churn?.deltaPp ??
+                null,
+
+            churnedAccounts:
+                churnSource?.insights?.churn?.churnedAccounts ??
+                [],
         },
+
         months: {
-            current: "2026-05",
-            previous: "2026-04",
+            current:
+                mrrSource?.insights?.months?.current ??
+                currentMonthKey,
+
+            previous:
+                mrrSource?.insights?.months?.previous ??
+                previousMonthKey,
         },
     };
 
@@ -2043,15 +2629,24 @@ export default function AnalyticsPage() {
 
     const previousMrrProtected = useMemo(() => {
         const current = demoKpis.mrrProtected ?? 0;
-        if (!current) return null;
-        return Math.round(current * 0.9);
-    }, [demoKpis.mrrProtected]);
+        if (!current || typeof mrrDeltaPct !== "number") return null;
+
+        const divisor = 1 + mrrDeltaPct / 100;
+        if (!Number.isFinite(divisor) || divisor === 0) return null;
+
+        return Math.round(current / divisor);
+    }, [demoKpis.mrrProtected, mrrDeltaPct]);
 
     const previousMrrAtRisk = useMemo(() => {
         const current = demoKpis.mrrAtRisk ?? 0;
-        if (!current) return null;
-        return Math.round(current * 0.94);
-    }, [demoKpis.mrrAtRisk]);
+        if (!current || typeof churnDeltaPp !== "number") return null;
+
+        const currentChurn = Number(demoKpis.churnPct || 0);
+        const previousChurn = currentChurn - churnDeltaPp;
+        if (!currentChurn || !Number.isFinite(previousChurn)) return null;
+
+        return Math.round(current * (previousChurn / currentChurn));
+    }, [demoKpis.mrrAtRisk, demoKpis.churnPct, churnDeltaPp]);
 
     const protectedDeltaPct = useMemo(() => {
         if (previousMrrProtected === null || previousMrrProtected === 0) return null;
@@ -2271,7 +2866,7 @@ export default function AnalyticsPage() {
     }, [status, user, summary, hasAiRevenueAccess]);
 
     const demoRecoveryRows = useMemo(
-        () => getDemoRecoveryQueue(),
+        () => buildDemoRecoveryRows(getDemoRecoveryQueue()),
         []
     );
 
@@ -2324,19 +2919,95 @@ export default function AnalyticsPage() {
                     ? "orange"
                     : "red";
 
+    const filteredRecoveryRows = useMemo(() => {
+        const query = recoverySearchQuery.trim().toLowerCase();
+
+        return safeRecoveryQueue.rows.filter((row) => {
+            const opportunity = (row.opportunity || formatQueueType(row.type)).toLowerCase();
+            const impact = getQueueImpactLabel(row).toLowerCase();
+            const suggestedAction = (row.suggestedAction || row.action || "").toLowerCase();
+            const searchableText = [
+                row.name,
+                row.email || "",
+                getQueueDomain(row),
+                opportunity,
+                suggestedAction,
+            ]
+                .join(" ")
+                .toLowerCase();
+
+            const matchesSearch = !query || searchableText.includes(query);
+            const matchesFilter =
+                recoveryFilter === "all" ||
+                (recoveryFilter.startsWith("opportunity:") &&
+                    opportunity.includes(recoveryFilter.replace("opportunity:", ""))) ||
+                (recoveryFilter.startsWith("impact:") &&
+                    impact === recoveryFilter.replace("impact:", "")) ||
+                (recoveryFilter === "action:payment" && isBillingRecoveryRow(row)) ||
+                (recoveryFilter === "action:email" &&
+                    !isBillingRecoveryRow(row) &&
+                    suggestedAction.includes("email")) ||
+                (recoveryFilter === "action:check-in" &&
+                    (suggestedAction.includes("check-in") || suggestedAction.includes("check in"))) ||
+                (recoveryFilter === "action:expansion" &&
+                    (suggestedAction.includes("upgrade") ||
+                        suggestedAction.includes("expansion") ||
+                        suggestedAction.includes("annual plan")));
+
+            return matchesSearch && matchesFilter;
+        });
+    }, [
+        safeRecoveryQueue.rows,
+        recoverySearchQuery,
+        recoveryFilter,
+    ]);
+
     const recoveryPageCount = Math.max(
         1,
-        Math.ceil(safeRecoveryQueue.rows.length / RECOVERY_ROWS_PER_PAGE)
+        Math.ceil(filteredRecoveryRows.length / RECOVERY_ROWS_PER_PAGE)
     );
 
     useEffect(() => {
         setRecoveryPage(0);
-    }, [safeRecoveryQueue.rows.length]);
+    }, [
+        safeRecoveryQueue.rows.length,
+        recoverySearchQuery,
+        recoveryFilter,
+    ]);
 
-    const visibleRecoveryRows = safeRecoveryQueue.rows.slice(
+    const visibleRecoveryRows = filteredRecoveryRows.slice(
         recoveryPage * RECOVERY_ROWS_PER_PAGE,
         (recoveryPage + 1) * RECOVERY_ROWS_PER_PAGE
     );
+
+    const revenueOpportunityCandidates = filteredRecoveryRows.filter(
+        (row) =>
+            row.type === "upsell_opportunity" ||
+            row.type === "expansion_momentum"
+    );
+
+    const topRevenueOpportunityRows = (
+        revenueOpportunityCandidates.length
+            ? revenueOpportunityCandidates
+            : filteredRecoveryRows
+    ).slice(0, 5);
+
+    const churnRiskCandidates = filteredRecoveryRows
+        .filter(
+            (row) =>
+                row.type === "immediate_attention" ||
+                row.type === "billing_recovery" ||
+                row.type === "reactivation"
+        )
+        .sort((a, b) => b.confidence - a.confidence);
+
+    const topChurnRiskRows = (
+        churnRiskCandidates.length
+            ? churnRiskCandidates
+            : [...filteredRecoveryRows].sort(
+                (a, b) => b.confidence - a.confidence
+            )
+    ).slice(0, 5);
 
     function handleExportAiRows() {
         const headers =
@@ -2446,17 +3117,14 @@ export default function AnalyticsPage() {
         }>;
     }, [riskAccountRows, expansionRows, workspaceCurrency]);
 
-    function renderDelta(delta: number | null, inverse?: boolean) {
+    function renderDelta(delta: number | null, inverse = false) {
         if (typeof delta !== "number" || !Number.isFinite(delta)) return null;
 
-        const positive = delta > 0;
         const neutral = delta === 0;
-        const good = inverse ? !positive && !neutral : positive && !neutral;
-        const color = neutral ? "#64748b" : good ? "#16a34a" : "#dc2626";
+        const positive = delta > 0;
+        const isImprovement = neutral ? false : inverse ? delta < 0 : delta > 0;
+        const color = neutral ? "#64748b" : isImprovement ? "#16a34a" : "#dc2626";
         const arrow = neutral ? "→" : positive ? "↑" : "↓";
-
-
-
 
         return (
             <span
@@ -2468,19 +3136,21 @@ export default function AnalyticsPage() {
                     gap: 4,
                 }}
             >
-                <span>{arrow}</span>
-                <span>{Math.abs(delta).toFixed(1)}%</span>
+                <span style={{ color: "inherit" }}>{arrow}</span>
+                <span style={{ color: "inherit" }}>
+                    {Math.abs(delta).toFixed(1)}%
+                </span>
             </span>
         );
     }
 
-    function renderDeltaPp(delta: number | null, inverse?: boolean) {
+    function renderDeltaPp(delta: number | null, inverse = false) {
         if (typeof delta !== "number" || !Number.isFinite(delta)) return null;
 
-        const positive = delta > 0;
         const neutral = delta === 0;
-        const good = inverse ? !positive && !neutral : positive && !neutral;
-        const color = neutral ? "#64748b" : good ? "#16a34a" : "#dc2626";
+        const positive = delta > 0;
+        const isImprovement = neutral ? false : inverse ? delta < 0 : delta > 0;
+        const color = neutral ? "#64748b" : isImprovement ? "#16a34a" : "#dc2626";
         const arrow = neutral ? "→" : positive ? "↑" : "↓";
 
         return (
@@ -2493,8 +3163,10 @@ export default function AnalyticsPage() {
                     gap: 4,
                 }}
             >
-                <span>{arrow}</span>
-                <span>{Math.abs(delta).toFixed(1)}pp</span>
+                <span style={{ color: "inherit" }}>{arrow}</span>
+                <span style={{ color: "inherit" }}>
+                    {Math.abs(delta).toFixed(1)}pp
+                </span>
             </span>
         );
     }
@@ -2700,7 +3372,7 @@ export default function AnalyticsPage() {
             Number(row.retained || 0)
         );
 
-        const revenueSeries = mrrSeries.map((point) =>
+        const revenueSeries = mrrSeries.map((point: ChartPoint) =>
             Number(point.y || 0)
         );
 
@@ -2906,82 +3578,262 @@ export default function AnalyticsPage() {
     const projectedChurn =
         churnForecast?.projectedNext ?? currentChurn;
 
-    const nextMonthLabel = new Intl.DateTimeFormat(getBrowserLocale(), {
-        month: "short",
-    }).format(
-        new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1)
+    const currentSubscriberActivity =
+        subscriberMovementRows[subscriberMovementRows.length - 1] ?? null;
+    const previousSubscriberActivity =
+        subscriberMovementRows[subscriberMovementRows.length - 2] ?? null;
+
+    const calculatePercentChange = (
+        currentValue: number | null | undefined,
+        previousValue: number | null | undefined
+    ) => {
+        const current = Number(currentValue);
+        const previous = Number(previousValue);
+
+        if (!Number.isFinite(current) || !Number.isFinite(previous) || previous === 0) {
+            return null;
+        }
+
+        return ((current - previous) / Math.abs(previous)) * 100;
+    };
+
+    const acquiredUsers = Number(
+        currentSubscriberActivity?.newSubscribers ??
+        summary?.activitySummary?.newSubscriptions ??
+        0
+    );
+    const previousAcquiredUsers = Number(
+        previousSubscriberActivity?.newSubscribers ?? 0
     );
 
+    const retainedUsers = Number(currentSubscriberActivity?.retained ?? 0);
+    const previousRetainedUsers = Number(previousSubscriberActivity?.retained ?? 0);
 
+    const expansionMrrMinor = Number(
+        drawerInsights.mrr.drivers?.expansionMinor ?? 0
+    );
+    const previousExpansionMrrMinor =
+        typeof mrrDeltaPct === "number" && Number.isFinite(mrrDeltaPct)
+            ? expansionMrrMinor / (1 + mrrDeltaPct / 100)
+            : null;
+
+    const revenueLostMinor = Math.abs(
+        Number(drawerInsights.mrr.drivers?.churnedMinor ?? 0)
+    );
+    const previousRevenueLostMinor =
+        typeof churnDeltaPp === "number" && Number.isFinite(churnDeltaPp)
+            ? revenueLostMinor / (1 + churnDeltaPp / 100)
+            : null;
+
+    const forecastChurnedUsers = Math.round(
+        (Number(currentSubscriberActivity?.totalSubscribers ?? subscriberTotal) *
+            Number(projectedChurn || 0)) /
+        100
+    );
+    const previousForecastChurnedUsers = Math.round(
+        (Number(previousSubscriberActivity?.totalSubscribers ?? 0) *
+            Number(previousChurnPct ?? 0)) /
+        100
+    );
+
+    const aiConfidenceScore = clamp(
+        Math.round(
+            aiInsightCard.aiEffectiveness?.score ??
+            (safeRecoveryQueue.rows.length
+                ? safeRecoveryQueue.rows.reduce(
+                    (total, row) => total + Number(row.confidence || 0),
+                    0
+                ) / safeRecoveryQueue.rows.length
+                : 0)
+        ),
+        0,
+        100
+    );
+
+    const forecastMrrDeltaPct = calculatePercentChange(
+        projectedMrr,
+        currentMrr
+    );
+    const acquiredUsersDeltaPct = calculatePercentChange(
+        acquiredUsers,
+        previousAcquiredUsers
+    );
+    const retainedUsersDeltaPct = calculatePercentChange(
+        retainedUsers,
+        previousRetainedUsers
+    );
+    const expansionMrrDeltaPct = calculatePercentChange(
+        expansionMrrMinor,
+        previousExpansionMrrMinor
+    );
+    const forecastChurnedUsersDeltaPct = calculatePercentChange(
+        forecastChurnedUsers,
+        previousForecastChurnedUsers
+    );
+    const revenueLostDeltaPct = calculatePercentChange(
+        revenueLostMinor,
+        previousRevenueLostMinor
+    );
+
+    const mrrTrendChart = useMemo(() => {
+        const base = visibleMrrSeries
+            .filter(
+                (point: ChartPoint): point is { x: string; y: number } =>
+                    typeof point.y === "number" && Number.isFinite(point.y)
+            )
+            .map((point: { x: string; y: number }) => ({
+                label: formatPerformanceAxisLabel(point.x),
+                value: Number(point.y || 0),
+            }));
+
+        return {
+            labels: base.map((point) => point.label),
+            values: base.map((point) => point.value),
+        };
+    }, [visibleMrrSeries]);
 
     const mrrForecastChart = useMemo(() => {
-        const base = mrrSeries
-            .filter((p) => typeof p.y === "number" && Number.isFinite(Number(p.y)))
-            .slice(-5);
+        const rollingSeries = buildRolling30DaySeries(mrrSeries);
+        const safeSeries = rollingSeries.length
+            ? rollingSeries
+            : buildRolling30DaySeries([{ x: new Date().toISOString(), y: currentMrr }]);
 
-        const safeBase =
-            base.length >= 2
-                ? base
-                : [
-                    { x: "2026-02", y: currentMrr * 0.82 },
-                    { x: "2026-03", y: currentMrr * 0.9 },
-                    { x: "2026-04", y: currentMrr * 0.94 },
-                    { x: "2026-05", y: currentMrr },
-                ];
-
-        const labels = [
-            ...safeBase.map((p) => formatMonthLong(p.x).slice(0, 3)),
-            nextMonthLabel,
-        ];
-
-        const values = safeBase.map((p) => Number(p.y || 0));
-        const lastValue = values[values.length - 1] ?? currentMrr;
+        const values = safeSeries.map((point: ChartPoint) => Number(point.y || 0));
+        const forecastStartIndex = Math.max(1, values.length - 7);
+        const actual = values.map((value, index) => index <= forecastStartIndex ? value : null);
+        const forecast = values.map((value, index) => index < forecastStartIndex ? null : value);
 
         return {
-            labels,
-            actual: [...values, null],
-            forecast: [
-                ...Array(Math.max(0, values.length - 1)).fill(null),
-                lastValue,
-                projectedMrr,
-            ],
+            labels: safeSeries.map((point: ChartPoint) =>
+                formatPerformanceAxisLabel(point.x)
+            ),
+            actual,
+            forecast,
         };
-    }, [mrrSeries, currentMrr, projectedMrr, nextMonthLabel]);
+    }, [mrrSeries, currentMrr]);
 
-    const churnForecastChart = useMemo(() => {
-        const base = churnSeries
-            .filter((p) => typeof p.y === "number" && Number.isFinite(Number(p.y)))
-            .slice(-5);
+    const revenueImpactDateRange = useMemo(() => formatRollingDateRange(), []);
 
-        const safeBase =
-            base.length >= 2
-                ? base
-                : [
-                    { x: "2026-02", y: currentChurn * 1.12 },
-                    { x: "2026-03", y: currentChurn * 0.96 },
-                    { x: "2026-04", y: currentChurn * 1.04 },
-                    { x: "2026-05", y: currentChurn },
-                ];
-
-        const labels = [
-            ...safeBase.map((p) => formatMonthLong(p.x).slice(0, 3)),
-            nextMonthLabel,
-        ];
-
-        const values = safeBase.map((p) => Number(p.y || 0));
-        const lastValue = values[values.length - 1] ?? currentChurn;
-
+    const churnImpactChart = useMemo(() => {
+        const rollingSeries = buildRolling30DayChurnSeries(churnSeries);
+        const values = rollingSeries.map((point: ChartPoint) => Number(point.y || 0));
+        const forecastStartIndex = Math.max(1, values.length - 7);
 
         return {
-            labels,
-            actual: [...values, null],
-            forecast: [
-                ...Array(Math.max(0, values.length - 1)).fill(null),
-                lastValue,
-                projectedChurn,
-            ],
+            labels: rollingSeries.map((point: ChartPoint) =>
+                formatPerformanceAxisLabel(point.x)
+            ),
+            actual: values.map((value, index) =>
+                index <= forecastStartIndex ? value : null
+            ),
+            prediction: values.map((value, index) =>
+                index < forecastStartIndex ? null : value
+            ),
         };
-    }, [churnSeries, currentChurn, projectedChurn, nextMonthLabel]);
+    }, [churnSeries]);
+
+    const churnTrendChart = useMemo(() => {
+        const base = visibleChurnSeries
+            .filter(
+                (point: ChartPoint): point is { x: string; y: number } =>
+                    typeof point.y === "number" && Number.isFinite(point.y)
+            )
+            .map((point) => ({
+                label: formatPerformanceAxisLabel(point.x),
+                value: Number(point.y),
+            }));
+
+        return {
+            labels: base.map((point) => point.label),
+            values: base.map((point) => point.value),
+        };
+    }, [visibleChurnSeries]);
+
+    const mrrTrendOption = useMemo<EChartsOption>(() => ({
+        backgroundColor: "transparent",
+        animation: false,
+        tooltip: {
+            trigger: "axis",
+            backgroundColor: "#ffffff",
+            borderColor: "#e8eef6",
+            borderWidth: 1,
+            padding: 8,
+            textStyle: {
+                color: "#0f172a",
+                fontSize: 11,
+                fontWeight: 600,
+            },
+            valueFormatter: (value: any) =>
+                typeof value === "number"
+                    ? formatMoneyAmount(value, workspaceCurrency)
+                    : "—",
+        },
+        grid: {
+            top: 6,
+            right: 4,
+            bottom: 24,
+            left: 4,
+            containLabel: false,
+        },
+        xAxis: {
+            type: "category",
+            boundaryGap: false,
+            data: mrrTrendChart.labels,
+            axisLine: {
+                show: true,
+                lineStyle: { color: "#eef1f5", width: 1 },
+            },
+            axisTick: { show: false },
+            axisLabel: {
+                show: true,
+                color: "#9ca3af",
+                fontSize: 9,
+                margin: 9,
+                interval: "auto",
+                hideOverlap: true,
+            },
+        },
+        yAxis: {
+            type: "value",
+            scale: true,
+            axisLine: {
+                show: true,
+                lineStyle: { color: "#eef1f5", width: 1 },
+            },
+            axisTick: { show: false },
+            axisLabel: {
+                show: true,
+                color: "#9ca3af",
+                fontSize: 9,
+                margin: 9,
+                interval: "auto",
+                hideOverlap: true,
+            },
+            splitLine: { show: false },
+        },
+        series: [
+            {
+                name: "Revenue",
+                type: "line",
+                smooth: false,
+                showSymbol: false,
+                data: mrrTrendChart.values,
+                lineStyle: {
+                    width: 2,
+                    color: "#1D9BF0",
+                },
+                areaStyle: {
+                    opacity: 1,
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: "rgba(29,155,240,0.14)" },
+                        { offset: 0.72, color: "rgba(29,155,240,0.035)" },
+                        { offset: 1, color: "rgba(29,155,240,0)" },
+                    ]),
+                },
+                emphasis: { disabled: true },
+            },
+        ],
+    }), [mrrTrendChart, workspaceCurrency]);
 
     const mrrMiniForecastOption = useMemo<EChartsOption>(() => ({
         backgroundColor: "transparent",
@@ -3004,44 +3856,64 @@ export default function AnalyticsPage() {
         },
         grid: {
             top: 6,
-            right: 2,
-            bottom: 2,
-            left: 2,
+            right: 4,
+            bottom: 24,
+            left: 4,
             containLabel: false,
         },
         xAxis: {
             type: "category",
             boundaryGap: false,
             data: mrrForecastChart.labels,
-            axisLine: { show: false },
+            axisLine: {
+                show: true,
+                lineStyle: { color: "#eef1f5", width: 1 },
+            },
             axisTick: { show: false },
-            axisLabel: { show: false },
+            axisLabel: {
+                show: true,
+                color: "#9ca3af",
+                fontSize: 9,
+                margin: 9,
+                interval: "auto",
+                hideOverlap: true,
+            },
         },
         yAxis: {
             type: "value",
             scale: true,
-            axisLine: { show: false },
+            axisLine: {
+                show: true,
+                lineStyle: { color: "#eef1f5", width: 1 },
+            },
             axisTick: { show: false },
-            axisLabel: { show: false },
+            axisLabel: {
+                show: true,
+                color: "#9ca3af",
+                fontSize: 9,
+                margin: 9,
+                interval: "auto",
+                hideOverlap: true,
+            },
             splitLine: { show: false },
         },
         series: [
             {
                 name: "Actual MRR",
                 type: "line",
-                smooth: true,
+                smooth: false,
                 showSymbol: false,
                 data: mrrForecastChart.actual,
                 lineStyle: {
                     width: 2,
-                    color: "#2563eb",
+                    color: "#1D9BF0",
                 },
                 areaStyle: {
                     opacity: 1,
                     color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                        { offset: 0, color: "rgba(37,99,235,0.16)" },
-                        { offset: 0.72, color: "rgba(37,99,235,0.045)" },
-                        { offset: 1, color: "rgba(37,99,235,0)" },
+                        { offset: 0, color: "rgba(29,155,240,0.14)" },
+                        { offset: 0.72, color: "rgba(29,155,240,0.035)" },
+                        { offset: 1, color: "rgba(29,155,240,0)" },
                     ]),
                 },
                 emphasis: { disabled: true },
@@ -3049,18 +3921,16 @@ export default function AnalyticsPage() {
             {
                 name: "Forecast",
                 type: "line",
-                smooth: true,
-                showSymbol: true,
-                symbol: "circle",
-                symbolSize: 4,
+                smooth: false,
+                showSymbol: false,
                 data: mrrForecastChart.forecast,
                 lineStyle: {
                     width: 2,
-                    color: "#2563eb",
+                    color: "#1D9BF0",
                     type: "dashed",
                 },
                 itemStyle: {
-                    color: "#2563eb",
+                    color: "#1D9BF0",
                     borderColor: "#ffffff",
                     borderWidth: 2,
                 },
@@ -3069,7 +3939,7 @@ export default function AnalyticsPage() {
         ],
     }), [mrrForecastChart, workspaceCurrency]);
 
-    const churnMiniForecastOption = useMemo<EChartsOption>(() => ({
+    const churnImpactOption = useMemo<EChartsOption>(() => ({
         backgroundColor: "transparent",
         animation: false,
         tooltip: {
@@ -3088,18 +3958,130 @@ export default function AnalyticsPage() {
         },
         grid: {
             top: 6,
-            right: 2,
-            bottom: 2,
-            left: 2,
+            right: 4,
+            bottom: 24,
+            left: 4,
             containLabel: false,
         },
         xAxis: {
             type: "category",
             boundaryGap: false,
-            data: churnForecastChart.labels,
-            axisLine: { show: false },
+            data: churnImpactChart.labels,
+            axisLine: {
+                show: true,
+                lineStyle: { color: "#eef1f5", width: 1 },
+            },
             axisTick: { show: false },
-            axisLabel: { show: false },
+            axisLabel: {
+                show: true,
+                color: "#9ca3af",
+                fontSize: 9,
+                margin: 9,
+                interval: "auto",
+                hideOverlap: true,
+            },
+        },
+        yAxis: {
+            type: "value",
+            scale: true,
+            min: 0,
+            axisLine: {
+                show: true,
+                lineStyle: { color: "#eef1f5", width: 1 },
+            },
+            axisTick: { show: false },
+            axisLabel: {
+                show: true,
+                color: "#9ca3af",
+                fontSize: 9,
+                margin: 9,
+                formatter: (value: number) => `${value.toFixed(1)}%`,
+            },
+            splitLine: { show: false },
+        },
+        series: [
+            {
+                name: "Churn",
+                type: "line",
+                smooth: false,
+                showSymbol: false,
+                data: churnImpactChart.actual,
+                lineStyle: {
+                    width: 2,
+                    color: "#8b83df",
+                },
+                areaStyle: {
+                    opacity: 1,
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: "rgba(139,131,223,0.14)" },
+                        { offset: 0.72, color: "rgba(139,131,223,0.035)" },
+                        { offset: 1, color: "rgba(139,131,223,0)" },
+                    ]),
+                },
+                emphasis: { disabled: true },
+            },
+            {
+                name: "Churn prediction",
+                type: "line",
+                smooth: false,
+                showSymbol: false,
+                data: churnImpactChart.prediction,
+                lineStyle: {
+                    width: 2,
+                    color: "#8b83df",
+                    type: "dashed",
+                },
+                itemStyle: {
+                    color: "#8b83df",
+                    borderColor: "#ffffff",
+                    borderWidth: 2,
+                },
+                emphasis: { disabled: true },
+            },
+        ],
+    }), [churnImpactChart]);
+
+    const churnTrendMiniOption = useMemo<EChartsOption>(() => ({
+        backgroundColor: "transparent",
+        animation: false,
+        tooltip: {
+            trigger: "axis",
+            backgroundColor: "#ffffff",
+            borderColor: "#e8eef6",
+            borderWidth: 1,
+            padding: 8,
+            textStyle: {
+                color: "#0f172a",
+                fontSize: 11,
+                fontWeight: 600,
+            },
+            valueFormatter: (value: any) =>
+                typeof value === "number" ? `${value.toFixed(1)}%` : "—",
+        },
+        grid: {
+            top: 6,
+            right: 4,
+            bottom: 24,
+            left: 4,
+            containLabel: false,
+        },
+        xAxis: {
+            type: "category",
+            boundaryGap: false,
+            data: churnTrendChart.labels,
+            axisLine: {
+                show: true,
+                lineStyle: { color: "#eef1f5", width: 1 },
+            },
+            axisTick: { show: false },
+            axisLabel: {
+                show: true,
+                color: "#9ca3af",
+                fontSize: 9,
+                margin: 9,
+                interval: "auto",
+                hideOverlap: true,
+            },
         },
         yAxis: {
             type: "value",
@@ -3112,47 +4094,207 @@ export default function AnalyticsPage() {
         },
         series: [
             {
-                name: "Actual churn",
+                name: "Churn",
                 type: "line",
-                smooth: true,
+                smooth: false,
                 showSymbol: false,
-                data: churnForecastChart.actual,
+                data: churnTrendChart.values,
                 lineStyle: {
                     width: 2,
-                    color: "#be123c",
+                    color: "#bca1fbff",
                 },
                 areaStyle: {
                     opacity: 1,
                     color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                        { offset: 0, color: "rgba(190,18,60,0.14)" },
-                        { offset: 0.72, color: "rgba(190,18,60,0.04)" },
-                        { offset: 1, color: "rgba(190,18,60,0)" },
+                        { offset: 0, color: "rgba(188,161,251,0.12)" },
+                        { offset: 0.72, color: "rgba(188,161,251,0.03)" },
+                        { offset: 1, color: "rgba(188,161,251,0)" },
                     ]),
                 },
                 emphasis: { disabled: true },
             },
-            {
-                name: "Prediction",
-                type: "line",
-                smooth: true,
-                showSymbol: true,
-                symbol: "circle",
-                symbolSize: 4,
-                data: churnForecastChart.forecast,
-                lineStyle: {
-                    width: 2,
-                    color: "#be123c",
-                    type: "dashed",
-                },
-                itemStyle: {
-                    color: "#be123c",
-                    borderColor: "#ffffff",
-                    borderWidth: 2,
-                },
-                emphasis: { disabled: true },
-            },
         ],
-    }), [churnForecastChart]);
+    }), [churnTrendChart]);
+
+    const subscriberChartSummary = useMemo(() => {
+        const current = subscriberChartRows[subscriberChartRows.length - 1] ?? null;
+        const previous = subscriberChartRows[subscriberChartRows.length - 2] ?? null;
+
+        const currentTotal = Number(current?.totalSubscribers || 0);
+        const previousTotal = Number(previous?.totalSubscribers || 0);
+        const deltaPct =
+            previousTotal > 0
+                ? ((currentTotal - previousTotal) / previousTotal) * 100
+                : null;
+
+        return {
+            currentTotal,
+            deltaPct,
+        };
+    }, [subscriberChartRows]);
+
+    const activeUsersBarOption = useMemo<EChartsOption>(() => {
+        const source = subscriberChartRows.map((row) => {
+            const retained = Math.max(0, Number(row.retained || 0));
+            const acquired = Math.max(
+                0,
+                Number(row.newSubscribers ?? row.trials ?? 0)
+            );
+            const total = Math.max(
+                0,
+                Number(row.totalSubscribers || retained + acquired)
+            );
+            const churned = Math.max(0, Number(row.churned || 0));
+            const monthDate = new Date(`${row.month}-01T00:00:00`);
+            const tooltipMonth = Number.isNaN(monthDate.getTime())
+                ? row.month
+                : new Intl.DateTimeFormat(getBrowserLocale(), {
+                    month: "short",
+                    year: "numeric",
+                }).format(monthDate);
+
+            return {
+                month: formatMonthLong(row.month).slice(0, 3),
+                tooltipMonth,
+                retained,
+                acquired,
+                churned,
+                total,
+            };
+        });
+
+        return {
+            backgroundColor: "transparent",
+            animation: false,
+            legend: {
+                top: 0,
+                left: 0,
+                itemWidth: 8,
+                itemHeight: 8,
+                itemGap: 14,
+                textStyle: {
+                    color: "#6b7280",
+                    fontSize: 10,
+                    fontWeight: 400,
+                },
+                data: ["Retained", "Acquired"],
+            },
+            tooltip: {
+                trigger: "axis",
+                axisPointer: {
+                    type: "line",
+                    lineStyle: {
+                        color: "#d1d5db",
+                        width: 1,
+                        type: "dashed",
+                    },
+                },
+                backgroundColor: "#ffffff",
+                borderColor: "#e5e7eb",
+                borderWidth: 1,
+                padding: 10,
+                extraCssText: "box-shadow:0 10px 30px rgba(15,23,42,.10);border-radius:10px;",
+                textStyle: {
+                    color: "#111827",
+                    fontSize: 11,
+                    fontWeight: 400,
+                },
+                formatter: (params: any) => {
+                    const items = Array.isArray(params) ? params : [params];
+                    const dataIndex = Number(items[0]?.dataIndex ?? 0);
+                    const row = source[dataIndex];
+
+                    if (!row) return "";
+
+                    return `
+                        <div style="min-width:170px">
+                            <div style="font-size:11px;font-weight:500;color:#111827;margin-bottom:8px">${row.tooltipMonth}</div>
+                            <div style="display:flex;justify-content:space-between;gap:24px;margin-bottom:6px">
+                                <span style="color:#6b7280">Retained users</span>
+                                <strong style="font-weight:500;color:#111827">${Math.round(row.retained)}</strong>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;gap:24px;margin-bottom:6px">
+                                <span style="color:#6b7280">Acquired users</span>
+                                <strong style="font-weight:500;color:#111827">${Math.round(row.acquired)}</strong>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;gap:24px;margin-bottom:6px">
+                                <span style="color:#6b7280">Churned users</span>
+                                <strong style="font-weight:500;color:#111827">${Math.round(row.churned)}</strong>
+                            </div>
+                            <div style="height:1px;background:#f1f5f9;margin:7px 0"></div>
+                            <div style="display:flex;justify-content:space-between;gap:24px">
+                                <span style="color:#374151">Total users</span>
+                                <strong style="font-weight:500;color:#111827">${Math.round(row.total)}</strong>
+                            </div>
+                        </div>
+                    `;
+                },
+            },
+            grid: {
+                top: 42,
+                right: 12,
+                bottom: 24,
+                left: 36,
+                containLabel: false,
+            },
+            xAxis: {
+                type: "category",
+                data: source.map((point) => point.month),
+                axisLine: { show: false },
+                axisTick: { show: false },
+                axisLabel: {
+                    color: "#6b7280",
+                    fontSize: 10,
+                    interval: 0,
+                },
+            },
+            yAxis: [
+                {
+                    type: "value",
+                    min: 0,
+                    splitNumber: 4,
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    axisLabel: {
+                        color: "#9ca3af",
+                        fontSize: 10,
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: "#f1f5f9",
+                            width: 1,
+                        },
+                    },
+                },
+            ],
+            series: [
+                {
+                    name: "Retained",
+                    type: "bar",
+                    stack: "users",
+                    data: source.map((point) => point.retained),
+                    barWidth: "48%",
+                    itemStyle: {
+                        color: "#6490f0ff",
+                        borderRadius: [0, 0, 3, 3],
+                    },
+                    emphasis: { disabled: true },
+                },
+                {
+                    name: "Acquired",
+                    type: "bar",
+                    stack: "users",
+                    data: source.map((point) => point.acquired),
+                    barWidth: "48%",
+                    itemStyle: {
+                        color: "#60b7f1ff",
+                        borderRadius: [6, 6, 0, 0],
+                    },
+                    emphasis: { disabled: true },
+                },
+            ],
+        };
+    }, [subscriberChartRows]);
 
 
     let content: ReactNode = null;
@@ -3204,1008 +4346,721 @@ export default function AnalyticsPage() {
                 {/* KPI GRID */}
                 <div className={styles.kpiGrid}>
                     <div className={styles.kpiCard}>
-                        <div className={styles.kpiTop}>
+                        <div className={styles.kpiIcon}>
+                            <PoundSterling size={21} strokeWidth={1.8} />
+                        </div>
+                        <div className={styles.kpiContent}>
                             <div className={styles.kpiLabel}>Total Revenue</div>
-                            <div className={styles.kpiIcon}>{currencySymbol}</div>
-                        </div>
-
-                        <div className={styles.kpiValue}>
-                            {formatCurrencyFromMinor(demoKpis.totalMrr, workspaceCurrency)}
-                        </div>
-
-                        <div className={styles.kpiSub}>
-                            {renderDelta(mrrDeltaPct)}
-                            <span style={{ marginLeft: 6 }}>vs previous month</span>
-                        </div>
-                    </div>
-
-                    <div className={styles.kpiCard}>
-                        <div className={styles.kpiTop}>
-                            <div className={styles.kpiLabel}>Revenue At Risk</div>
-                            <div className={styles.kpiIcon}>!</div>
-                        </div>
-
-                        <div className={styles.kpiValue}>
-                            {formatCurrencyFromMinor(demoKpis.mrrAtRisk)}
-                        </div>
-
-                        <div className={styles.kpiSub}>
-                            {renderDelta(atRiskDeltaPct, true)}
-                            <span style={{ marginLeft: 6 }}>vs previous month</span>
-                        </div>
-                    </div>
-
-                    <div className={styles.kpiCard}>
-                        <div className={styles.kpiTop}>
-                            <div className={styles.kpiLabel}>Churn Proxy</div>
-                            <div className={styles.kpiIcon}>↗</div>
-                        </div>
-
-                        <div className={styles.kpiValue}>
-                            {formatPct(demoKpis.churnPct)}
-                        </div>
-
-                        <div className={styles.kpiSub}>
-                            {renderDeltaPp(churnDeltaPp, true)}
-                            <span style={{ marginLeft: 6 }}>vs previous month</span>
-                        </div>
-                    </div>
-
-                    <div className={styles.kpiCard}>
-                        <div className={styles.kpiTop}>
-                            <div className={styles.kpiLabel}>Total Subscribers</div>
-
-                            <div className={styles.kpiIcon}>
-                                <Users size={16} strokeWidth={2.2} />
+                            <div className={styles.kpiValue}>
+                                {formatCurrencyFromMinor(demoKpis.totalMrr, workspaceCurrency)}
+                            </div>
+                            <div className={styles.kpiSub}>
+                                {renderDelta(mrrDeltaPct)}
+                                <span>vs previous month</span>
                             </div>
                         </div>
+                    </div>
 
-                        <div className={styles.kpiValue}>
-                            {subscriberTotal}
+                    <div className={styles.kpiCard}>
+                        <div className={styles.kpiIcon}>
+                            <TriangleAlert size={20} strokeWidth={1.8} />
                         </div>
+                        <div className={styles.kpiContent}>
+                            <div className={styles.kpiLabel}>Revenue At Risk</div>
+                            <div className={styles.kpiValue}>
+                                {formatCurrencyFromMinor(demoKpis.mrrAtRisk, workspaceCurrency)}
+                            </div>
+                            <div className={styles.kpiSub}>
+                                {renderDelta(atRiskDeltaPct, true)}
+                                <span>vs previous month</span>
+                            </div>
+                        </div>
+                    </div>
 
-                        <div className={styles.kpiSub}>
-                            {renderDelta(mauLatestDeltaPct)}
-                            <span style={{ marginLeft: 6 }}>vs previous month</span>
+                    <div className={styles.kpiCard}>
+                        <div className={styles.kpiIcon}>
+                            <TrendingDown size={20} strokeWidth={1.8} />
+                        </div>
+                        <div className={styles.kpiContent}>
+                            <div className={styles.kpiLabel}>Churn Proxy</div>
+                            <div className={styles.kpiValue}>
+                                {formatPct(demoKpis.churnPct)}
+                            </div>
+                            <div className={styles.kpiSub}>
+                                {renderDeltaPp(churnDeltaPp, true)}
+                                <span>vs previous month</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className={styles.kpiCard}>
+                        <div className={styles.kpiIcon}>
+                            <Users size={20} strokeWidth={1.8} />
+                        </div>
+                        <div className={styles.kpiContent}>
+                            <div className={styles.kpiLabel}>Total Subscribers</div>
+                            <div className={styles.kpiValue}>{subscriberTotal}</div>
+                            <div className={styles.kpiSub}>
+                                {renderDelta(mauLatestDeltaPct)}
+                                <span>vs previous month</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div className={styles.analyticsLayout}>
                     <section className={styles.primaryGrid}>
-                        {/* MRR */}
-                        <div className={`${styles.heroChartCard} ${styles.mrrCard} ${styles.revenueTrendCompact}`}>                            <div className={styles.chartHeader}>
-                            <div>
-                                <div className={styles.chartTitle}>Revenue Trend</div>
-                                <div className={styles.chartMeta}>
-                                    {getRangeLabel(mrrRange)} revenue performance and projected growth
-                                </div>
-                            </div>
-
-                            <div className={styles.chartFilterWrap}>
-                                <button
-                                    type="button"
-                                    className={styles.chartFilterButton}
-                                    onClick={() => {
-                                        setMrrFilterOpen((open) => !open);
-                                        setChurnFilterOpen(false);
-                                        setAiRevenueFilterOpen(false);
-                                    }}
-                                >
-                                    <Clock3 size={13} strokeWidth={1.8} />
-                                    <span>{getRangeLabel(mrrRange)}</span>
-                                    <ChevronDown size={13} strokeWidth={1.8} />
-                                </button>
-
-                                {mrrFilterOpen ? (
-                                    <div className={styles.chartFilterMenu}>
-                                        {chartRangeOptions.map((option) => (
-                                            <button
-                                                key={option.value}
-                                                type="button"
-                                                className={`${styles.chartFilterOption} ${mrrRange === option.value ? styles.chartFilterOptionActive : ""
-                                                    }`}
-                                                onClick={() => {
-                                                    setMrrRange(option.value);
-                                                    setMrrFilterOpen(false);
-                                                }}
-                                            >
-                                                {option.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                ) : null}
-                            </div>
-                        </div>
-
-
-                            <div className={styles.heroRevenue}>
-                                {formatCurrencyFromMinor(
-                                    isDemoMode ? 223000 : drawerInsights.mrr.currentMinor,
-                                    workspaceCurrency
-                                )}
-                            </div>
-
-                            <div className={styles.heroChart}>                                <EChart
-                                option={{
-                                    backgroundColor: "transparent",
-                                    tooltip: {
-                                        trigger: "axis",
-                                        backgroundColor: "transparent",
-                                        borderColor: "transparent",
-                                        borderWidth: 0,
-                                        padding: 0,
-                                        extraCssText: "box-shadow:none;",
-                                        axisPointer: {
-                                            type: "line",
-                                            lineStyle: {
-                                                color: "#cbd5e1",
-                                                width: 1.2,
-                                                type: "dashed",
-                                            },
-                                        },
-                                        formatter: (params: any) => {
-                                            const item = Array.isArray(params) ? params[0] : params;
-
-                                            const index =
-                                                typeof item?.dataIndex === "number"
-                                                    ? item.dataIndex
-                                                    : visibleMrrSeries.length - 1;
-
-                                            const chartRows = [...visibleMrrSeries, ...mrrForecastPoints];
-
-                                            const current = chartRows[index];
-                                            const previous = chartRows[index - 1];
-
-                                            const isForecastPoint = index >= visibleMrrSeries.length;
-
-                                            const currentValue = Number(current?.y ?? 0);
-                                            const previousValue = Number(previous?.y ?? 0);
-                                            const delta = currentValue - previousValue;
-
-                                            const row = subscriberChartRows?.[index];
-
-                                            const newRevenueMinor = Number(row?.newSubscribers ?? 0) * 1200;
-                                            const expansionMinor = Number(row?.upgrades ?? 0) * 950;
-                                            const churnLossMinor = Number(row?.churned ?? 0) * 700;
-
-                                            const retainedPct = row?.totalSubscribers
-                                                ? Math.round(
-                                                    (Number(row.retained ?? 0) /
-                                                        Math.max(Number(row.totalSubscribers), 1)) *
-                                                    100
-                                                )
-                                                : null;
-
-                                            return `
-<div style="width:260px;max-width:260px;background:#ffffff;border:1px solid #e8eef6;border-radius:20px;padding:14px;box-sizing:border-box;box-shadow:0 18px 45px rgba(15,23,42,0.10);font-family:Inter,sans-serif;">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
-        <div style="font-size:13px;font-weight:850;color:#0f172a;">
-            ${formatMonthLong(current?.x ?? "")} MRR
-        </div>
-
-        ${isForecastPoint
-                                                    ? `<span style="white-space:nowrap;font-size:10px;font-weight:900;color:#2563eb;background:#eff6ff;border:1px solid #dbeafe;border-radius:999px;padding:4px 8px;">AI forecast</span>`
-                                                    : ``
-                                                }
-    </div>
-
-    <div style="font-size:30px;line-height:1;font-weight:900;letter-spacing:-0.06em;color:#0f172a;margin-bottom:8px;">
-        ${formatMoneyAmount(currentValue, workspaceCurrency)}
-    </div>
-
-    <div style="font-size:12px;font-weight:800;color:${delta >= 0 ? "#15803d" : "#b91c1c"
-                                                };margin-bottom:12px;">
-        ${delta >= 0 ? "↑" : "↓"} ${formatMoneyAmount(
-                                                    Math.abs(delta),
-                                                    workspaceCurrency
-                                                )} vs previous month
-    </div>
-
-    ${isForecastPoint
-                                                    ? `
-                <div style="padding:11px 0;border-top:1px solid #f1f5f9;border-bottom:1px solid #f1f5f9;margin-bottom:12px;">
-                    <div style="font-size:10px;font-weight:900;color:#64748b;letter-spacing:0.08em;margin-bottom:6px;">
-                        WHY THIS FORECAST
-                    </div>
-
-                    <div style="font-size:12px;line-height:1.45;font-weight:650;color:#334155;white-space:normal;word-break:normal;overflow-wrap:break-word;">
-${workspaceAi?.businessNarrative?.forecastExplanation?.mrr ||
-                                                    workspaceAi?.businessNarrative?.revenueForecast ||
-                                                    "AI is reviewing revenue, retention, and customer health signals for this forecast."
-                                                    }                    </div>
-                </div>
-
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-bottom:12px;">
-                    <div>
-                        <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">SIGNAL</div>
-                        <div style="font-size:13px;font-weight:900;color:#0f172a;">Revenue trend</div>
-                    </div>
-
-                    <div>
-                        <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">CONFIDENCE</div>
-                        <div style="font-size:13px;font-weight:900;color:#2563eb;">${mrrForecast?.confidencePct ?? 68
-                                                    }%</div>
-                    </div>
-                </div>
-            `
-                                                    : `
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-bottom:12px;">
-                    <div>
-                        <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">NEW REVENUE</div>
-                        <div style="font-size:14px;font-weight:900;color:#15803d;">+${formatCurrencyFromMinor(
-                                                        newRevenueMinor,
-                                                        workspaceCurrency
-                                                    )}</div>
-                    </div>
-
-                    <div>
-                        <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">EXPANSION</div>
-                        <div style="font-size:14px;font-weight:900;color:#15803d;">+${formatCurrencyFromMinor(
-                                                        expansionMinor,
-                                                        workspaceCurrency
-                                                    )}</div>
-                    </div>
-
-                    <div>
-                        <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">CHURN LOSS</div>
-                        <div style="font-size:14px;font-weight:900;color:#b91c1c;">-${formatCurrencyFromMinor(
-                                                        churnLossMinor,
-                                                        workspaceCurrency
-                                                    )}</div>
-                    </div>
-
-                    <div>
-                        <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">RETAINED</div>
-                        <div style="font-size:14px;font-weight:900;color:#0f172a;">${retainedPct !== null ? `${retainedPct}%` : "—"
-                                                    }</div>
-                    </div>
-                </div>
-            `
-                                                }
-
-    <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid #f1f5f9;">
-        <span style="font-size:12px;font-weight:800;color:#64748b;">
-            ${isForecastPoint ? "Forecast outlook" : "Revenue health"}
-        </span>
-
-        <strong style="font-size:13px;font-weight:900;color:${delta >= 0 ? "#15803d" : "#b91c1c"
-                                                };">
-            ${delta >= 0 ? "Healthy" : "Declining"}
-        </strong>
-    </div>
-</div>
-`;
-                                        },
-                                    },
-                                    grid: {
-                                        top: 20,
-                                        right: 10,
-                                        bottom: 20,
-                                        left: 10,
-                                        containLabel: true,
-                                    },
-                                    xAxis: {
-                                        type: "category",
-                                        data: [...visibleMrrSeries, ...mrrForecastPoints].map((p) =>
-                                            formatMonthLong(p.x)
-                                        ),
-                                        boundaryGap: false,
-                                        axisLine: { show: false },
-                                        axisTick: { show: false },
-                                        axisLabel: { color: "#64748b", fontSize: 11 },
-                                    },
-                                    yAxis: {
-                                        type: "value",
-                                        axisLine: { show: false },
-                                        axisTick: { show: false },
-                                        splitLine: {
-                                            lineStyle: { color: "#eef2f7" },
-                                        },
-                                        axisLabel: {
-                                            color: "#64748b",
-                                            fontSize: 11,
-                                            formatter: (value: number) => `£${Math.round(value)} `,
-                                        },
-                                    },
-                                    series: [
-                                        {
-                                            name: "Actual MRR",
-                                            type: "line",
-                                            smooth: false,
-                                            showSymbol: false,
-                                            data: [
-                                                ...visibleMrrSeries.map((p) => p.y),
-                                                ...mrrForecastPoints.map(() => null),
-                                            ],
-                                            lineStyle: {
-                                                width: 3,
-                                                color: "#3264ff",
-                                            },
-                                            itemStyle: {
-                                                color: "#3264ff",
-                                            },
-                                            areaStyle: {
-                                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                                                    { offset: 0, color: "rgba(50, 100, 255, 0.12)" },
-                                                    { offset: 1, color: "rgba(50, 100, 255, 0.02)" },
-                                                ]),
-                                            },
-                                        },
-                                        ...(hasForecastAccess
-                                            ? [
-                                                {
-                                                    name: "Forecast",
-                                                    type: "line" as const,
-                                                    smooth: true,
-                                                    symbol: "circle",
-                                                    symbolSize: 6,
-                                                    data: [
-                                                        ...Array(Math.max(0, visibleMrrSeries.length - 1)).fill(
-                                                            null
-                                                        ),
-                                                        visibleMrrSeries[visibleMrrSeries.length - 1]?.y ?? null,
-                                                        ...mrrForecastPoints.map((p) => p.y),
-                                                    ],
-                                                    lineStyle: {
-                                                        color: "#2563eb",
-                                                        width: 2,
-                                                        type: "dashed" as const,
-                                                    },
-                                                    itemStyle: {
-                                                        color: "#2563eb",
-                                                    },
-                                                    areaStyle: {
-                                                        color: new echarts.graphic.LinearGradient(
-                                                            0,
-                                                            0,
-                                                            0,
-                                                            1,
-                                                            [
-                                                                {
-                                                                    offset: 0,
-                                                                    color: "rgba(37, 99, 235, 0.18)",
-                                                                },
-                                                                {
-                                                                    offset: 1,
-                                                                    color: "rgba(37, 99, 235, 0.03)",
-                                                                },
-                                                            ]
-                                                        ),
-                                                    },
-                                                },
-                                            ]
-                                            : []),
-                                    ],
-                                }}
-                            />
-                            </div>
-                        </div>
-
-                        <section className={styles.secondaryGrid}>
-                            {/* CHURN */}
-                            <div className={`${styles.heroChartCard} ${styles.churnCard}`}>
-                                <div className={styles.chartHeader}>
-                                    <div>
-                                        <div className={styles.chartTitle}>Churn Trend</div>
-                                        <div className={styles.chartMeta}>
-                                            {getRangeLabel(churnRange)} retention risk and churn movement
-                                        </div>
-                                    </div>
-
-                                    <div className={styles.chartFilterWrap}>
-                                        <button
-                                            type="button"
-                                            className={styles.chartFilterButton}
-                                            onClick={() => {
-                                                setChurnFilterOpen((open) => !open);
-                                                setMrrFilterOpen(false);
-                                                setAiRevenueFilterOpen(false);
-                                            }}
-                                        >
-                                            <Clock3 size={13} strokeWidth={1.8} />
-                                            <span>{getRangeLabel(churnRange)}</span>
-                                            <ChevronDown size={13} strokeWidth={1.8} />
-                                        </button>
-
-                                        {churnFilterOpen ? (
-                                            <div className={styles.chartFilterMenu}>
-                                                {chartRangeOptions.map((option) => (
-                                                    <button
-                                                        key={option.value}
-                                                        type="button"
-                                                        className={`${styles.chartFilterOption} ${churnRange === option.value
-                                                            ? styles.chartFilterOptionActive
-                                                            : ""
-                                                            }`}
-                                                        onClick={() => {
-                                                            setChurnRange(option.value);
-                                                            setChurnFilterOpen(false);
-                                                        }}
-                                                    >
-                                                        {option.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        ) : null}
+                        {/* MRR + CHURN PERFORMANCE — TWO CHARTS IN ONE CARD */}
+                        <div className={styles.performanceCard}>
+                            <div className={styles.performanceHeader}>
+                                <div>
+                                    <div className={styles.chartTitle}>Metrics</div>
+                                    <div className={styles.chartMeta}>
+                                        MRR growth and churn movement over the selected period.
                                     </div>
                                 </div>
 
-                                <div className={styles.heroChart} style={{ height: 315 }}>
-                                    <EChart
-                                        option={{
-                                            backgroundColor: "transparent",
-                                            tooltip: {
-                                                trigger: "axis",
-                                                backgroundColor: "transparent",
-                                                borderColor: "transparent",
-                                                borderWidth: 0,
-                                                padding: 0,
-                                                extraCssText: "box-shadow:none;",
-                                                axisPointer: {
-                                                    type: "line",
-                                                    lineStyle: {
-                                                        color: "#cbd5e1",
-                                                        width: 1.2,
-                                                        type: "dashed",
-                                                    },
-                                                },
-                                                formatter: (params: any) => {
-                                                    const item = Array.isArray(params) ? params[0] : params;
-
-                                                    const index =
-                                                        typeof item?.dataIndex === "number"
-                                                            ? item.dataIndex
-                                                            : visibleChurnSeries.length - 1;
-
-                                                    const chartRows = [...visibleChurnSeries, ...churnForecastPoints];
-
-                                                    const current = chartRows[index];
-                                                    const previous = chartRows[index - 1];
-
-                                                    const isForecastPoint = index >= visibleChurnSeries.length;
-
-                                                    const currentValue = Number(current?.y ?? 0);
-                                                    const previousValue = Number(previous?.y ?? 0);
-                                                    const delta = currentValue - previousValue;
-
-                                                    const row = subscriberChartRows?.[index];
-
-                                                    const atRisk = Math.max(
-                                                        0,
-                                                        Math.round(Number(row?.churned ?? 0) * 0.4)
-                                                    );
-                                                    const failed = Number(row?.churned ?? 0);
-                                                    const recovered = Number(row?.retained ?? 0);
-                                                    const revenueLossMinor = Number(row?.churned ?? 0) * 700;
-
-
-                                                    const forecastReason =
-                                                        workspaceAi?.businessNarrative?.forecastExplanation?.churn ||
-                                                        workspaceAi?.businessNarrative?.churnPrediction ||
-                                                        "AI is reviewing churn, billing, customer health, and retention signals for this forecast.";
-
-                                                    return `
-<div style="width:270px;max-width:270px;background:#ffffff;border:1px solid #e8eef6;border-radius:20px;padding:15px;box-sizing:border-box;box-shadow:0 18px 45px rgba(15,23,42,0.10);font-family:Inter,sans-serif;">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
-        <div style="font-size:13px;font-weight:850;color:#0f172a;">
-            ${formatMonthLong(current?.x ?? "")} Churn
-        </div>
-
-        ${isForecastPoint
-                                                            ? `<span style="white-space:nowrap;font-size:10px;font-weight:900;color:#dc2626;background:#fff1f2;border:1px solid #ffe4e6;border-radius:999px;padding:4px 8px;">AI forecast</span>`
-                                                            : ``
-                                                        }
-    </div>
-
-    <div style="font-size:30px;line-height:1;font-weight:900;letter-spacing:-0.06em;color:#b91c1c;margin-bottom:8px;">
-        ${currentValue.toFixed(1)}%
-    </div>
-
-    <div style="font-size:12px;font-weight:800;color:${delta <= 0 ? "#15803d" : "#b91c1c"};margin-bottom:12px;">
-        ${delta > 0 ? "↑" : "↓"} ${Math.abs(delta).toFixed(1)}pp vs previous month
-    </div>
-
-    ${isForecastPoint
-                                                            ? `
-                <div style="padding:11px 0;border-top:1px solid #f1f5f9;border-bottom:1px solid #f1f5f9;margin-bottom:12px;">
-                    <div style="font-size:10px;font-weight:900;color:#64748b;letter-spacing:0.08em;margin-bottom:6px;">
-                        WHY THIS FORECAST
-                    </div>
-
-                    <div style="font-size:12px;line-height:1.45;font-weight:650;color:#334155;white-space:normal;word-break:normal;overflow-wrap:break-word;">
-                        ${forecastReason}
-                    </div>
-                </div>
-
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-bottom:12px;">
-                    <div>
-                        <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">SIGNAL</div>
-                        <div style="font-size:13px;font-weight:900;color:#0f172a;">Retention risk</div>
-                    </div>
-
-                    <div>
-                        <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">CONFIDENCE</div>
-                        <div style="font-size:13px;font-weight:900;color:#dc2626;">${churnForecast?.confidencePct ?? 68}%</div>
-                    </div>
-                </div>
-            `
-                                                            : `
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-bottom:12px;">
-                    <div>
-                        <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">AT RISK</div>
-                        <div style="font-size:14px;font-weight:900;color:#0f172a;">${atRisk}</div>
-                    </div>
-
-                    <div>
-                        <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">FAILED</div>
-                        <div style="font-size:14px;font-weight:900;color:#b91c1c;">${failed}</div>
-                    </div>
-
-                    <div>
-                        <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">RECOVERED</div>
-                        <div style="font-size:14px;font-weight:900;color:#15803d;">${recovered}</div>
-                    </div>
-
-                    <div>
-                        <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:0.08em;margin-bottom:4px;">REV LOSS</div>
-                        <div style="font-size:14px;font-weight:900;color:#b91c1c;">${formatCurrencyFromMinor(revenueLossMinor, workspaceCurrency)}</div>
-                    </div>
-                </div>
-            `
-                                                        }
-
-    <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid #f1f5f9;">
-        <span style="font-size:12px;font-weight:800;color:#64748b;">
-            ${isForecastPoint ? "Forecast outlook" : "Retention health"}
-        </span>
-
-        <strong style="font-size:13px;font-weight:900;color:${delta <= 0 ? "#15803d" : "#b91c1c"};">
-            ${delta <= 0 ? "Improving" : "Rising risk"}
-        </strong>
-    </div>
-</div>
-`;
-                                                },
-                                            },
-                                            grid: {
-                                                top: 24,
-                                                right: 10,
-                                                bottom: 20,
-                                                left: 10,
-                                                containLabel: true,
-                                            },
-                                            xAxis: {
-                                                type: "category",
-                                                data: [...visibleChurnSeries, ...churnForecastPoints].map((p) =>
-                                                    formatMonthLong(p.x).slice(0, 3)
-                                                ),
-                                                boundaryGap: false,
-                                                axisLine: { show: false },
-                                                axisTick: { show: false },
-                                                axisLabel: {
-                                                    color: "#64748b",
-                                                    fontSize: 11,
-                                                },
-                                            },
-                                            yAxis: {
-                                                type: "value",
-                                                axisLine: { show: false },
-                                                axisTick: { show: false },
-                                                splitLine: {
-                                                    lineStyle: {
-                                                        color: "#eef2f7",
-                                                    },
-                                                },
-                                                axisLabel: {
-                                                    color: "#64748b",
-                                                    fontSize: 11,
-                                                    formatter: (value: number) => `${value}% `,
-                                                },
-                                            },
-                                            series: [
-                                                {
-                                                    name: "Actual Churn",
-                                                    type: "line" as const,
-                                                    smooth: false,
-                                                    showSymbol: false,
-                                                    data: [
-                                                        ...visibleChurnSeries.map((p) => p.y),
-                                                        ...churnForecastPoints.map(() => null),
-                                                    ],
-                                                    lineStyle: {
-                                                        width: 3,
-                                                        color: "#f43f5e",
-                                                    },
-                                                    itemStyle: {
-                                                        color: "#f43f5e",
-                                                    },
-                                                    areaStyle: {
-                                                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                                                            {
-                                                                offset: 0,
-                                                                color: "rgba(244,63,94,0.17)",
-                                                            },
-                                                            {
-                                                                offset: 1,
-                                                                color: "rgba(244,63,94,0.01)",
-                                                            },
-                                                        ]),
-                                                    },
-                                                },
-                                                ...(hasForecastAccess
-                                                    ? [
-                                                        {
-                                                            name: "Forecast",
-                                                            type: "line" as const,
-                                                            smooth: true,
-                                                            symbol: "circle",
-                                                            symbolSize: 6,
-                                                            data: [
-                                                                ...Array(
-                                                                    Math.max(0, visibleChurnSeries.length - 1)
-                                                                ).fill(null),
-                                                                visibleChurnSeries[visibleChurnSeries.length - 1]?.y ?? null,
-                                                                ...churnForecastPoints.map((p) => p.y),
-                                                            ],
-                                                            lineStyle: {
-                                                                color: "#dc2626",
-                                                                width: 2,
-                                                                type: "dashed" as const,
-                                                            },
-                                                            itemStyle: {
-                                                                color: "#dc2626",
-                                                            },
-                                                            areaStyle: {
-                                                                color: new echarts.graphic.LinearGradient(
-                                                                    0,
-                                                                    0,
-                                                                    0,
-                                                                    1,
-                                                                    [
-                                                                        {
-                                                                            offset: 0,
-                                                                            color: "rgba(220, 38, 38, 0.15)",
-                                                                        },
-                                                                        {
-                                                                            offset: 1,
-                                                                            color: "rgba(220, 38, 38, 0.03)",
-                                                                        },
-                                                                    ]
-                                                                ),
-                                                            },
-                                                        },
-                                                    ]
-                                                    : []),
-                                            ],
+                                <div className={styles.chartFilterWrap}>
+                                    <button
+                                        type="button"
+                                        className={styles.chartFilterButton}
+                                        onClick={() => {
+                                            setMrrFilterOpen((open) => !open);
+                                            setChurnFilterOpen(false);
+                                            setAiRevenueFilterOpen(false);
                                         }}
-                                    />
-                                </div>
-                            </div>
+                                    >
+                                        <Clock3 size={13} strokeWidth={1.8} />
+                                        <span>{getRangeLabel(mrrRange)}</span>
+                                        <ChevronDown size={13} strokeWidth={1.8} />
+                                    </button>
 
-                            {/* SUBSCRIBER MOVEMENT */}
-
-
-                        </section>
-
-                        {hasAiRevenueAccess ? (
-                            <div className={styles.revenueRecoveryCard}>
-                                <div className={styles.revenueRecoveryHeader}>
-                                    <div className={styles.revenueRecoveryTitle}>
-                                        <h3>Revenue Impact Queue</h3>
-                                        <p>Your highest-leverage retention and expansion opportunities.</p>
-                                    </div>
-
-                                    <div className={styles.recoveryForecastPanel}>
-                                        <div className={styles.recoveryForecastHero}>
-                                            <div>
-                                                <strong>
-                                                    {formatCurrencyFromMinor(
-                                                        safeRecoveryQueue.currentMrrMinor,
-                                                        safeRecoveryQueue.currency || workspaceCurrency
-                                                    )}
-                                                </strong>
-                                                <span>{Math.round(forecastProgressPct)}% of forecast goal</span>
-                                            </div>
-
-                                            <div>
-                                                <strong>
-                                                    {formatCurrencyFromMinor(
-                                                        safeRecoveryQueue.forecastMrrMinor,
-                                                        safeRecoveryQueue.currency || workspaceCurrency
-                                                    )}
-                                                </strong>
-                                                <span>Forecast Goal</span>
-                                            </div>
-                                        </div>
-
-                                        <div className={styles.recoveryMeasureTrack}>
-                                            <div
-                                                className={styles.recoveryMeasureFill}
-                                                style={{
-                                                    width: `${Math.min(100, Math.max(0, forecastProgressPct))}%`,
-                                                }}
-                                            />
-
-                                            <span
-                                                className={styles.recoveryMeasureMarker}
-                                                style={{
-                                                    left: `${Math.min(100, Math.max(0, forecastProgressPct))}%`,
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className={styles.recoveryActions}>
-                                        <button
-                                            type="button"
-                                            className={styles.recoveryExportBtn}
-                                            onClick={() => {
-                                                const headers = [
-                                                    "Account",
-                                                    "Opportunity",
-                                                    "MRR impact",
-                                                    "Why now",
-                                                    "Suggested action",
-                                                ];
-
-                                                const rows = safeRecoveryQueue.rows.map((row) => [
-                                                    row.name,
-                                                    formatQueueType(row.type),
-                                                    formatCurrencyFromMinor(
-                                                        row.valueMinor,
-                                                        safeRecoveryQueue.currency || workspaceCurrency
-                                                    ),
-                                                    formatAiReason(row.reason),
-                                                    row.action,
-                                                ]);
-
-                                                const csv = [headers, ...rows]
-                                                    .map((line) =>
-                                                        line
-                                                            .map((cell) => `"${String(cell).replaceAll('"', '""')}"`)
-                                                            .join(",")
-                                                    )
-                                                    .join("\n");
-
-                                                const blob = new Blob([csv], {
-                                                    type: "text/csv;charset=utf-8;",
-                                                });
-                                                const url = URL.createObjectURL(blob);
-                                                const link = document.createElement("a");
-
-                                                link.href = url;
-                                                link.download = "revenue-recovery-queue.csv";
-                                                link.click();
-
-                                                URL.revokeObjectURL(url);
-                                            }}
-                                        >
-                                            Export CSV
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className={styles.recoveryTableWrap}>
-                                    <table className={styles.recoveryTable}>
-                                        <thead>
-                                            <tr>
-                                                <th>Account</th>
-                                                <th>Opportunity</th>
-                                                <th>MRR impact</th>
-                                                <th>Why now</th>
-                                                <th>Suggested action</th>
-                                            </tr>
-                                        </thead>
-
-                                        <tbody>
-                                            {visibleRecoveryRows.length ? (
-                                                visibleRecoveryRows.map((row) => (
-                                                    <tr key={`${row.type || "queue"}-${row.id}`}>
-                                                        <td>
-                                                            <button
-                                                                type="button"
-                                                                className={styles.recoveryAccountBtn}
-                                                                onClick={() =>
-                                                                    router.push(getAccountHref(row.customerId || row.id))
-                                                                }
-                                                            >
-                                                                {row.name}
-                                                            </button>
-                                                        </td>
-
-                                                        <td>
-                                                            <span className={styles.recoveryReasonPill}>
-                                                                {row.opportunity || formatQueueType(row.type)}
-                                                            </span>
-                                                        </td>
-
-                                                        <td>
-                                                            {formatCurrencyFromMinor(
-                                                                row.valueMinor,
-                                                                safeRecoveryQueue.currency || workspaceCurrency
-                                                            )}
-                                                        </td>
-
-                                                        <td>{row.whyNow || formatAiReason(row.reason)}</td>
-
-                                                        <td>
-                                                            <button
-                                                                type="button"
-                                                                className={styles.recoveryActionBtn}
-                                                                onClick={() =>
-                                                                    (row as any).executed
-                                                                        ? router.push("/dashboard/progress")
-                                                                        : handleExecuteRecoveryAction(row)
-                                                                }
-                                                            >
-                                                                {(row as any).executed
-                                                                    ? "✓ Monitor outcome"
-                                                                    : row.suggestedAction || row.action}
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            ) : (
-                                                <tr>
-                                                    <td colSpan={5} className={styles.emptyRecoveryState}>
-                                                        {recoveryLoading
-                                                            ? "Loading revenue opportunities..."
-                                                            : recoveryError
-                                                                ? "Revenue recovery queue is unavailable right now."
-                                                                : "No revenue opportunities found for this period."}
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {recoveryPageCount > 1 ? (
-                                    <div className={styles.recoveryPagination}>
-                                        <span>
-                                            Showing {recoveryPage * RECOVERY_ROWS_PER_PAGE + 1}-
-                                            {Math.min(
-                                                (recoveryPage + 1) * RECOVERY_ROWS_PER_PAGE,
-                                                safeRecoveryQueue.rows.length
-                                            )}{" "}
-                                            of {safeRecoveryQueue.rows.length} accounts
-                                        </span>
-
-                                        <div className={styles.recoveryPagerButtons}>
-                                            <button
-                                                type="button"
-                                                onClick={() => setRecoveryPage((p) => Math.max(0, p - 1))}
-                                                disabled={recoveryPage === 0}
-                                            >
-                                                Previous
-                                            </button>
-
-                                            {Array.from({ length: recoveryPageCount }).map((_, index) => (
+                                    {mrrFilterOpen ? (
+                                        <div className={styles.chartFilterMenu}>
+                                            {chartRangeOptions.map((option) => (
                                                 <button
-                                                    key={index}
+                                                    key={option.value}
                                                     type="button"
-                                                    className={recoveryPage === index ? styles.recoveryPageActive : ""}
-                                                    onClick={() => setRecoveryPage(index)}
+                                                    className={`${styles.chartFilterOption} ${mrrRange === option.value
+                                                        ? styles.chartFilterOptionActive
+                                                        : ""
+                                                        }`}
+                                                    onClick={() => {
+                                                        setMrrRange(option.value);
+                                                        setChurnRange(option.value);
+                                                        setMrrFilterOpen(false);
+                                                    }}
                                                 >
-                                                    {index + 1}
+                                                    {option.label}
                                                 </button>
                                             ))}
+                                        </div>
+                                    ) : null}
+                                </div>
+                            </div>
 
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setRecoveryPage((p) => Math.min(recoveryPageCount - 1, p + 1))
-                                                }
-                                                disabled={recoveryPage === recoveryPageCount - 1}
-                                            >
-                                                Next
-                                            </button>
+                            <div className={styles.performanceRow}>
+                                <div className={styles.performanceMetric}>
+                                    <span className={styles.performanceLabel}>Revenue Trend</span>
+                                    <strong className={styles.performanceValue}>
+                                        {formatCurrencyFromMinor(
+                                            isDemoMode ? 223000 : drawerInsights.mrr.currentMinor,
+                                            workspaceCurrency
+                                        )}
+                                    </strong>
+                                    <span className={styles.performanceChange}>
+                                        {formatDeltaPctLabel(drawerInsights.mrr.deltaPct)} vs previous month
+                                    </span>
+                                </div>
+
+                                <div className={styles.performanceChartWrap}>
+                                    <EChart option={mrrTrendOption} />
+                                </div>
+                            </div>
+
+                            <div className={styles.performanceDivider} />
+
+                            <div className={styles.performanceRow}>
+                                <div className={styles.performanceMetric}>
+                                    <span className={styles.performanceLabel}>Churn Trend</span>
+                                    <strong className={styles.performanceValue}>
+                                        {formatPct(drawerInsights.churn.currentPct)}
+                                    </strong>
+                                    <span className={styles.performanceChange}>
+                                        {formatDeltaPpLabel(drawerInsights.churn.deltaPp)} vs previous month
+                                    </span>
+                                </div>
+
+                                <div className={styles.performanceChartWrap}>
+                                    <EChart option={churnTrendMiniOption} />
+                                </div>
+                            </div>
+                        </div>
+
+
+
+                        <div className={styles.activeUsersCard}>
+                            <div className={styles.activeUsersHeader}>
+                                <div>
+                                    <div className={styles.chartTitle}>Active Users</div>
+                                    <div className={styles.chartMeta}>Compared from last month</div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    className={styles.activeUsersMenu}
+                                    aria-label="Active users chart options"
+                                >
+                                    •••
+                                </button>
+                            </div>
+
+                            <div className={styles.activeUsersValueRow}>
+                                <strong className={styles.activeUsersValue}>
+                                    {Math.round(subscriberChartSummary.currentTotal)}
+                                </strong>
+                                <span className={styles.activeUsersDelta}>
+                                    {formatDeltaPctLabel(subscriberChartSummary.deltaPct)}
+                                </span>
+                            </div>
+
+                            <div className={styles.activeUsersChart}>
+                                <EChart option={activeUsersBarOption} />
+                            </div>
+                        </div>
+
+                        {hasAiRevenueAccess ? (
+                            <div className={styles.revenueImpactSection}>
+                                <div className={styles.revenueOverviewCard}>
+                                    <div className={styles.revenueOverviewHeader}>
+                                        <div>
+                                            <span className={styles.revenueOverviewEyebrow}>Revenue performance</span>
+                                            <h3>Revenue Impact</h3>
+                                        </div>
+                                        <span className={styles.revenueOverviewPeriod}>
+                                            <CalendarDays size={13} strokeWidth={1.8} />
+                                            {revenueImpactDateRange}
+                                            <ChevronDown size={12} strokeWidth={1.8} />
+                                        </span>
+                                    </div>
+
+                                    <div className={styles.revenueOverviewValueRow}>
+                                        <strong>
+                                            {formatCurrencyFromMinor(
+                                                safeRecoveryQueue.currentMrrMinor,
+                                                safeRecoveryQueue.currency || workspaceCurrency
+                                            )}
+                                        </strong>
+                                        <span>{Math.round(forecastProgressPct)}% of forecast goal</span>
+                                    </div>
+
+                                    <div className={styles.revenueOverviewLegend}>
+                                        <span><i className={styles.legendRevenue} />Revenue</span>
+                                        <span><i className={styles.legendForecast} />Forecast</span>
+                                    </div>
+
+                                    <div className={styles.revenueOverviewChart}>
+                                        <EChart option={mrrMiniForecastOption} />
+                                    </div>
+
+                                    <div className={styles.revenueOverviewStats}>
+                                        <div>
+                                            <span>Forecast MRR</span>
+                                            <strong>{formatMoneyAmount(projectedMrr, workspaceCurrency)}</strong>
+                                            <small className={styles.statComparison}>
+                                                {renderDelta(forecastMrrDeltaPct)}
+                                                <span>vs previous month</span>
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <span>Acquired users</span>
+                                            <strong>{acquiredUsers}</strong>
+                                            <small className={styles.statComparison}>
+                                                {renderDelta(acquiredUsersDeltaPct)}
+                                                <span>vs previous month</span>
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <span>Retained users</span>
+                                            <strong>{retainedUsers}</strong>
+                                            <small className={styles.statComparison}>
+                                                {renderDelta(retainedUsersDeltaPct)}
+                                                <span>vs previous month</span>
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <span>Revenue protected</span>
+                                            <strong>{formatCurrencyFromMinor(demoKpis.mrrProtected, workspaceCurrency)}</strong>
+                                            <small className={styles.statComparison}>
+                                                {renderDelta(protectedDeltaPct)}
+                                                <span>vs previous month</span>
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <span>Expansion MRR</span>
+                                            <strong>{formatCurrencyFromMinor(expansionMrrMinor, workspaceCurrency)}</strong>
+                                            <small className={styles.statComparison}>
+                                                {renderDelta(expansionMrrDeltaPct)}
+                                                <span>vs previous month</span>
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <span>AI confidence</span>
+                                            <strong>{aiConfidenceScore}%</strong>
+                                            <small className={styles.statComparison}>
+                                                {renderDelta(mrrDeltaPct)}
+                                                <span>vs previous month</span>
+                                            </small>
                                         </div>
                                     </div>
-                                ) : null}
+                                </div>
+
+                                <div className={`${styles.revenueOverviewCard} ${styles.churnOverviewCard}`}>
+                                    <div className={styles.revenueOverviewHeader}>
+                                        <div>
+                                            <span className={styles.revenueOverviewEyebrow}>Customer retention</span>
+                                            <h3>Churn Impact</h3>
+                                        </div>
+                                        <span className={styles.revenueOverviewPeriod}>
+                                            <CalendarDays size={13} strokeWidth={1.8} />
+                                            {revenueImpactDateRange}
+                                        </span>
+                                    </div>
+
+                                    <div className={styles.revenueOverviewValueRow}>
+                                        <strong>{formatPct(churnHoverData.current)}</strong>
+                                        <span>{formatDeltaPpLabel(drawerInsights.churn.deltaPp)} vs previous month</span>
+                                    </div>
+
+                                    <div className={styles.revenueOverviewLegend}>
+                                        <span><i className={styles.legendChurn} />Churn</span>
+                                    </div>
+
+                                    <div className={styles.revenueOverviewChart}>
+                                        <EChart option={churnImpactOption} />
+                                    </div>
+
+                                    <div className={`${styles.revenueOverviewStats} ${styles.churnForecastStats}`}>
+                                        <div>
+                                            <span>Forecast churn</span>
+                                            <strong>{formatPct(projectedChurn)}</strong>
+                                            <small className={styles.statComparison}>
+                                                {renderDeltaPp(
+                                                    typeof projectedChurn === "number" && typeof churnHoverData.current === "number"
+                                                        ? projectedChurn - churnHoverData.current
+                                                        : null,
+                                                    true
+                                                )}
+                                                <span>vs previous month</span>
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <span>Forecast churned users</span>
+                                            <strong>{forecastChurnedUsers}</strong>
+                                            <small className={styles.statComparison}>
+                                                {renderDelta(forecastChurnedUsersDeltaPct, true)}
+                                                <span>vs previous month</span>
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <span>Customer health</span>
+                                            <strong>{aiInsightCard.healthScore}/100</strong>
+                                            <small className={styles.statComparison}>
+                                                {renderDelta(mauLatestDeltaPct)}
+                                                <span>vs previous month</span>
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <span>Revenue at risk</span>
+                                            <strong>{formatCurrencyFromMinor(demoKpis.mrrAtRisk, workspaceCurrency)}</strong>
+                                            <small className={styles.statComparison}>
+                                                {renderDelta(atRiskDeltaPct, true)}
+                                                <span>vs previous month</span>
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <span>Revenue lost</span>
+                                            <strong>{formatCurrencyFromMinor(revenueLostMinor, workspaceCurrency)}</strong>
+                                            <small className={styles.statComparison}>
+                                                {renderDelta(revenueLostDeltaPct, true)}
+                                                <span>vs previous month</span>
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <span>AI confidence</span>
+                                            <strong>{aiConfidenceScore}%</strong>
+                                            <small className={styles.statComparison}>
+                                                {renderDelta(typeof churnDeltaPp === "number" ? -churnDeltaPp : null)}
+                                                <span>vs previous month</span>
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className={styles.impactTablesGrid}>
+                                    <section className={styles.customerImpactTableCard}>
+                                        <div className={styles.customerImpactTableTop}>
+                                            <div>
+                                                <h3>Revenue Impact Queue</h3>
+                                                <p>Prioritised accounts and the recommended next action.</p>
+                                            </div>
+
+                                            <div className={styles.customerImpactTableTools}>
+                                                <div className={styles.customerImpactSearch}>
+                                                    <Search size={14} strokeWidth={1.8} />
+                                                    <input
+                                                        type="search"
+                                                        value={recoverySearchQuery}
+                                                        onChange={(event) => setRecoverySearchQuery(event.target.value)}
+                                                        placeholder="Search"
+                                                        aria-label="Search revenue impact queue"
+                                                    />
+                                                </div>
+
+                                                <div className={styles.chartFilterWrap}>
+                                                    <button
+                                                        type="button"
+                                                        className={styles.chartFilterButton}
+                                                        onClick={() => setRecoveryFilterOpen((open) => !open)}
+                                                        aria-expanded={recoveryFilterOpen}
+                                                        aria-haspopup="menu"
+                                                    >
+                                                        {({
+                                                            all: "All accounts",
+                                                            "opportunity:immediate attention": "Immediate attention",
+                                                            "opportunity:billing recovery": "Billing recovery",
+                                                            "opportunity:upsell opportunity": "Upsell opportunity",
+                                                            "opportunity:reactivation": "Reactivation",
+                                                            "opportunity:expansion momentum": "Expansion momentum",
+                                                            "impact:high": "High impact",
+                                                            "impact:medium": "Medium impact",
+                                                            "impact:low": "Low impact",
+                                                            "action:payment": "Retry payment",
+                                                            "action:email": "Send email",
+                                                            "action:check-in": "Check-in",
+                                                            "action:expansion": "Expansion",
+                                                        } as Record<string, string>)[recoveryFilter] || "All accounts"}
+                                                        <ChevronDown size={13} />
+                                                    </button>
+
+                                                    {recoveryFilterOpen && (
+                                                        <div className={`${styles.chartFilterMenu} ${styles.recoveryFilterMenu}`} role="menu">
+                                                            {[
+                                                                ["all", "All accounts"],
+                                                                ["opportunity:immediate attention", "Immediate attention"],
+                                                                ["opportunity:billing recovery", "Billing recovery"],
+                                                                ["opportunity:upsell opportunity", "Upsell opportunity"],
+                                                                ["opportunity:reactivation", "Reactivation"],
+                                                                ["opportunity:expansion momentum", "Expansion momentum"],
+                                                                ["impact:high", "High impact"],
+                                                                ["impact:medium", "Medium impact"],
+                                                                ["impact:low", "Low impact"],
+                                                                ["action:payment", "Retry payment"],
+                                                                ["action:email", "Send email"],
+                                                                ["action:check-in", "Check-in"],
+                                                                ["action:expansion", "Expansion"],
+                                                            ].map(([value, label]) => (
+                                                                <button
+                                                                    key={value}
+                                                                    type="button"
+                                                                    role="menuitem"
+                                                                    className={`${styles.chartFilterOption} ${recoveryFilter === value ? styles.chartFilterOptionActive : ""}`}
+                                                                    onClick={() => {
+                                                                        setRecoveryFilter(value);
+                                                                        setRecoveryFilterOpen(false);
+                                                                    }}
+                                                                >
+                                                                    {label}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className={styles.customerImpactTableViewport}>
+                                            <table className={styles.customerImpactTable}>
+                                                <thead>
+                                                    <tr>
+                                                        <th>Account</th>
+                                                        <th>Opportunity</th>
+                                                        <th>Impact</th>
+                                                        <th>Suggested action</th>
+                                                        <th>Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {recoveryLoading ? (
+                                                        <tr>
+                                                            <td colSpan={5} className={styles.customerImpactEmpty}>Loading revenue impact queue...</td>
+                                                        </tr>
+                                                    ) : recoveryError ? (
+                                                        <tr>
+                                                            <td colSpan={5} className={styles.customerImpactEmpty}>{recoveryError}</td>
+                                                        </tr>
+                                                    ) : visibleRecoveryRows.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan={5} className={styles.customerImpactEmpty}>
+                                                                <strong>No accounts found.</strong>
+                                                                <span>Accounts requiring action will appear here automatically.</span>
+                                                            </td>
+                                                        </tr>
+                                                    ) : (
+                                                        visibleRecoveryRows.map((row) => {
+                                                            const actionText = row.suggestedAction || row.action || "Review account";
+                                                            const isPaymentAction = isBillingRecoveryRow(row);
+                                                            const impact = getQueueImpactLabel(row);
+
+                                                            return (
+                                                                <tr key={`${row.id}-${row.type || "recovery"}`}>
+                                                                    <td>
+                                                                        <button
+                                                                            type="button"
+                                                                            className={styles.customerImpactAccount}
+                                                                            onClick={() =>
+                                                                                router.push(
+                                                                                    getAccountHref(
+                                                                                        row.accountRiskId ||
+                                                                                        row.id
+                                                                                    )
+                                                                                )
+                                                                            }
+                                                                        >
+                                                                            <strong>{row.name}</strong>
+                                                                            <span>{row.email || getQueueDomain(row)}</span>
+                                                                        </button>
+                                                                    </td>
+                                                                    <td>
+                                                                        <span className={`${styles.customerImpactPill} ${styles[`impactOpportunity_${getQueueTone(row.type)}`]}`}>
+                                                                            {row.opportunity || formatQueueType(row.type)}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td>
+                                                                        <span className={`${styles.customerImpactPill} ${styles[`impactBadge_${impact.toLowerCase()}`]}`}>
+                                                                            {impact}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td><p className={styles.customerImpactCopy}>{actionText}</p></td>
+                                                                    <td>
+                                                                        <button
+                                                                            type="button"
+                                                                            className={styles.customerImpactAction}
+                                                                            onClick={() => {
+                                                                                if (isPaymentAction) {
+                                                                                    void handleExecuteRecoveryAction(row);
+                                                                                } else {
+                                                                                    openRecoveryEmailModal(row);
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            {isPaymentAction ? <RotateCcw size={13} strokeWidth={1.8} /> : <Mail size={13} strokeWidth={1.8} />}
+                                                                            {isPaymentAction ? "Retry payment" : "Send email"}
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <div className={styles.customerImpactTableBottom}>
+                                            <p>Showing {visibleRecoveryRows.length} of {filteredRecoveryRows.length} accounts</p>
+                                            <div className={styles.customerImpactPager}>
+                                                <button
+                                                    type="button"
+                                                    disabled={recoveryPage <= 0}
+                                                    onClick={() => setRecoveryPage((page) => Math.max(0, page - 1))}
+                                                    aria-label="Previous page"
+                                                >
+                                                    ‹
+                                                </button>
+                                                <button type="button" className={styles.customerImpactCurrentPage}>{recoveryPage + 1}</button>
+                                                <button
+                                                    type="button"
+                                                    disabled={recoveryPage >= recoveryPageCount - 1}
+                                                    onClick={() => setRecoveryPage((page) => Math.min(recoveryPageCount - 1, page + 1))}
+                                                    aria-label="Next page"
+                                                >
+                                                    ›
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </section>
+                                </div>
                             </div>
+
                         ) : null}
 
                     </section >
 
 
-                    {emailDraftOpen ? (
-                        <EmailModalPortal open={emailDraftOpen}>
-                            <div
-                                className={styles.modalOverlay}
-                                onClick={() => setEmailDraftOpen(false)}
-                            >
-                                <div
-                                    className={styles.emailModal}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    <div className={styles.emailModalHeader}>
-                                        <div className={styles.emailModalTitle}>Retention Outreach</div>
 
-                                        <button
-                                            className={styles.emailCloseBtn}
-                                            onClick={() => setEmailDraftOpen(false)}
-                                            type="button"
-                                        >
-                                            ×
-                                        </button>
+                    <EmailModalPortal open={emailModalOpen}>
+                        <div className={styles.modalOverlay} onClick={closeRecoveryEmailModal}>
+                            <div
+                                className={styles.emailModal}
+                                onClick={(event) => event.stopPropagation()}
+                            >
+                                <div className={styles.emailModalHeader}>
+                                    <div className={styles.emailModalHeading}>
+                                        <div className={styles.emailModalIcon} aria-hidden="true">
+                                            <Mail size={17} />
+                                        </div>
+                                        <div>
+                                            <div className={styles.emailModalTitle}>
+                                                Retention Outreach
+                                            </div>
+                                            <p className={styles.emailModalSubtitle}>
+                                                Send a personalised email to re-engage this customer.
+                                            </p>
+                                        </div>
                                     </div>
 
-                                    <div className={styles.emailShell}>
+                                    <button
+                                        className={styles.emailCloseBtn}
+                                        onClick={closeRecoveryEmailModal}
+                                        type="button"
+                                        aria-label="Close email"
+                                        disabled={sendingEmail}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+
+                                <div className={styles.emailShell}>
+                                    <div className={styles.emailTopFields}>
                                         <div className={styles.emailField}>
                                             <label className={styles.emailLabel}>To</label>
-
                                             <input
                                                 className={styles.emailInput}
-                                                value={emailDraft.to}
-                                                onChange={(e) =>
-                                                    setEmailDraft((prev) => ({
-                                                        ...prev,
-                                                        to: e.target.value,
-                                                    }))
-                                                }
+                                                value={emailModalRow?.email || ""}
+                                                readOnly
                                             />
                                         </div>
 
                                         <div className={styles.emailField}>
                                             <label className={styles.emailLabel}>Subject</label>
-
                                             <input
                                                 className={styles.emailInput}
-                                                value={emailDraft.subject}
-                                                onChange={(e) =>
-                                                    setEmailDraft((prev) => ({
-                                                        ...prev,
-                                                        subject: e.target.value,
-                                                    }))
+                                                value={emailSubject}
+                                                onChange={(event) =>
+                                                    setEmailSubject(event.target.value)
                                                 }
+                                                disabled={sendingEmail}
                                             />
-                                        </div>
-
-                                        <div className={styles.emailField}>
-                                            <label className={styles.emailLabel}>Message</label>
-
-                                            <textarea
-                                                className={styles.emailTextarea}
-                                                value={emailDraft.body}
-                                                onChange={(e) =>
-                                                    setEmailDraft((prev) => ({
-                                                        ...prev,
-                                                        body: e.target.value,
-                                                    }))
-                                                }
-                                            />
-                                        </div>
-
-                                        <div className={styles.emailModalActions}>
-                                            <button
-                                                className={styles.emailCancelBtn}
-                                                type="button"
-                                                onClick={() => setEmailDraftOpen(false)}
-                                            >
-                                                Cancel
-                                            </button>
-
-                                            <button
-                                                className={styles.emailSendBtn}
-                                                type="button"
-                                                onClick={() => {
-                                                    setEmailDraftOpen(false);
-                                                    setActionToast("Retention email ready to send.");
-                                                }}
-                                            >
-                                                Send email
-                                            </button>
                                         </div>
                                     </div>
 
+                                    <div className={styles.emailField}>
+                                        <label className={styles.emailLabel}>Message</label>
+                                        <div className={styles.emailMessageWrap}>
+                                            <textarea
+                                                className={styles.emailTextarea}
+                                                value={emailBody}
+                                                onChange={(event) =>
+                                                    setEmailBody(event.target.value)
+                                                }
+                                                disabled={sendingEmail}
+                                                maxLength={2000}
+                                            />
+                                            <span className={styles.emailCharacterCount}>
+                                                {emailBody.length}/2000
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <section className={styles.emailCtaCard}>
+                                        <div className={styles.emailCtaHeader}>
+                                            <div>
+                                                <h3>Call to Action <span>(Optional)</span></h3>
+                                                <p>Add a button to drive the next step.</p>
+                                            </div>
+
+                                            <label className={styles.emailCtaToggle}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={emailCtaEnabled}
+                                                    onChange={(event) =>
+                                                        setEmailCtaEnabled(event.target.checked)
+                                                    }
+                                                    disabled={sendingEmail}
+                                                />
+                                                <span aria-hidden="true" />
+                                                <span className={styles.srOnly}>Enable call to action</span>
+                                            </label>
+                                        </div>
+
+                                        {emailCtaEnabled ? (
+                                            <div className={styles.emailCtaContent}>
+                                                <div className={styles.emailCtaFields}>
+                                                    <div className={styles.emailField}>
+                                                        <label className={styles.emailLabel}>Button Text</label>
+                                                        <input
+                                                            className={styles.emailInput}
+                                                            value={emailCtaText}
+                                                            onChange={(event) =>
+                                                                setEmailCtaText(event.target.value)
+                                                            }
+                                                            placeholder="e.g. Book a call"
+                                                            disabled={sendingEmail}
+                                                        />
+                                                    </div>
+
+                                                    <div className={styles.emailField}>
+                                                        <label className={styles.emailLabel}>Button Link</label>
+                                                        <input
+                                                            className={styles.emailInput}
+                                                            type="url"
+                                                            value={emailCtaLink}
+                                                            onChange={(event) =>
+                                                                setEmailCtaLink(event.target.value)
+                                                            }
+                                                            placeholder="https://"
+                                                            disabled={sendingEmail}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                            </div>
+                                        ) : null}
+                                    </section>
+
+                                    {sendEmailError ? (
+                                        <div className={styles.emailError}>
+                                            {sendEmailError}
+                                        </div>
+                                    ) : null}
+
+                                    <div className={styles.emailModalActions}>
+                                        <button
+                                            className={styles.emailCancelBtn}
+                                            type="button"
+                                            onClick={closeRecoveryEmailModal}
+                                            disabled={sendingEmail}
+                                        >
+                                            Cancel
+                                        </button>
+
+                                        <button
+                                            className={styles.emailSendBtn}
+                                            type="button"
+                                            onClick={sendRecoveryEmail}
+                                            disabled={sendingEmail}
+                                        >
+                                            {sendingEmail ? "Sending..." : "Send email"}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </EmailModalPortal>
-                    ) : null}
-                </div>
+                        </div>
+
+                    </EmailModalPortal>
+                </div >
             </>
+
         );
     }
 

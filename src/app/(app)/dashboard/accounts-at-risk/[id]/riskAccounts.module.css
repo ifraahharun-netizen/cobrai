@@ -1,13 +1,9 @@
-/* ========================================
-   PAGE
-======================================== */
-
 .page {
   min-height: 100vh;
-  padding: 20px;
+  padding: 24px;
   background: #ffffff;
   color: #111827;
-  font-family: inherit;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .mainGrid {
@@ -17,104 +13,109 @@
   align-items: start;
 }
 
+.leftColumn,
 .sideStack {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-/* ========================================
-   TOP BAR
-======================================== */
-
 .topBar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 14px;
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
 .topRightActions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .backBtn,
 .downloadBtn {
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 12px;
-  border: 1px solid #ececf1;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-  color: #111827;
-  font-size: 12px;
+  color: #374151;
+  font-size: 11px;
   font-weight: 500;
-  transition: all 0.15s ease;
+  cursor: pointer;
+  transition: 0.16s ease;
 }
 
 .backBtn:hover,
 .downloadBtn:hover {
-  background: #fafafa;
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #111827;
 }
-
-/* ========================================
-   GENERIC CARD
-======================================== */
 
 .card {
-  background: #ffffff;
-  border: 1px solid #efeff1;
-  border-radius: 24px;
   padding: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: none;
 }
 
-/* ========================================
-   PAGE HEADING
-======================================== */
-
 .pageHeadingWrap {
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .sectionLabel {
+  margin-bottom: 6px;
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #9ca3af;
-  margin-bottom: 6px;
 }
 
 .pageTitle {
-  font-size: 30px;
-  line-height: 1;
-  font-weight: 650;
-  letter-spacing: -0.05em;
-  color: #111827;
   margin: 0;
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: #111827;
 }
 
-/* ========================================
-   KPI GRID
-======================================== */
+.accountHeading {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.accountEmail {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #6b7280;
+  letter-spacing: -0.01em;
+}
 
 .modernKpiGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .modernKpiCard {
-  min-height: 100px;
+  min-height: 86px;
   padding: 14px;
-  border-radius: 18px;
-  border: 1px solid #ececf1;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 
 .kpiTop {
@@ -126,23 +127,21 @@
 
 .kpiTop span {
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #9ca3af;
 }
 
 .kpiIcon {
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
-  border: 1px solid #ececf1;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
   background: #fafafa;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   color: #6b7280;
 }
 
@@ -151,35 +150,28 @@
   height: 13px;
 }
 
-/* MAIN VALUES */
-
 .modernKpiCard strong {
   font-size: 15px;
   line-height: 1.1;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: -0.03em;
   color: #111827;
 }
 
-/* BIG VALUES ONLY */
-
 .kpiLarge {
-  font-size: 18px !important;
-  font-weight: 650 !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
   letter-spacing: -0.04em !important;
 }
 
-/* DATE + STATUS */
-
 .kpiSmall {
-  font-size: 14px !important;
-  font-weight: 600 !important;
-  line-height: 1.2 !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  line-height: 1.15 !important;
 }
 
 .inlineTrend {
   margin-top: 8px;
-
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -206,31 +198,6 @@
   color: #a1a1aa;
 }
 
-.trendUp,
-.trendDown {
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.trendUp {
-  color: #16a34a;
-}
-
-.trendDown {
-  color: #dc2626;
-}
-
-.inlineTrendText {
-  font-size: 9px;
-  line-height: 1.4;
-  text-transform: uppercase;
-  color: #a1a1aa;
-}
-
-/* ========================================
-   AI CARD
-======================================== */
-
 .cleanAiCard {
   display: flex;
   flex-direction: column;
@@ -239,17 +206,17 @@
 
 .cleanAiContent strong {
   display: block;
+  margin-bottom: 7px;
   font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 8px;
+  font-weight: 500;
   color: #111827;
 }
 
 .cleanAiContent p {
   margin: 0;
   font-size: 12px;
-  line-height: 1.6;
-  color: #4b5563;
+  line-height: 1.55;
+  color: #6b7280;
 }
 
 .cleanActionButtons {
@@ -260,19 +227,22 @@
 }
 
 .cleanActionBtn {
-  height: 36px;
+  height: 34px;
   padding: 0 12px;
-  border-radius: 11px;
-  border: 1px solid #ececf1;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-  color: #111827;
+  color: #374151;
   font-size: 11px;
   font-weight: 500;
-  transition: all 0.15s ease;
+  cursor: pointer;
+  transition: 0.16s ease;
 }
 
 .cleanActionBtn:hover {
-  background: #fafafa;
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #111827;
 }
 
 .cleanEmailLimitText {
@@ -282,110 +252,75 @@
   color: #9ca3af;
 }
 
-/* ========================================
-   NOTES CARD
-======================================== */
-
 .notesCard {
   padding: 18px;
-
-  border: 1px solid #efeff1;
-  border-radius: 24px;
-
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
   background: #ffffff;
-
   display: flex;
   flex-direction: column;
 }
 
 .accountLogTitle {
   margin-top: 2px;
-
   font-size: 16px;
-  line-height: 1.1;
-
-  font-weight: 600;
+  line-height: 1.15;
+  font-weight: 500;
   letter-spacing: -0.03em;
-
   color: #111827;
 }
 
 .accountLogSub {
   margin-top: 4px;
   margin-bottom: 16px;
-
   font-size: 12px;
   line-height: 1.5;
-
   color: #6b7280;
 }
 
 .notesTextarea {
   width: 100%;
-
   min-height: 100px;
-
-  padding: 14px 15px;
-
-  border-radius: 18px;
-  border: 1px solid #ececf1;
-
+  padding: 13px 14px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-
-  font-size: 13px;
-  line-height: 1.6;
-
+  font-size: 12px;
+  line-height: 1.55;
   color: #111827;
-
   resize: none;
   outline: none;
-
-  transition:
-    border-color 0.15s ease,
-    background 0.15s ease;
+  transition: border-color 0.16s ease;
 }
 
 .notesTextarea:focus {
-  border-color: #dbe3ee;
-  background: #fcfcfd;
+  border-color: #d1d5db;
+  background: #ffffff;
 }
 
 .notesTextarea::placeholder {
-  color: #a1a1aa;
+  color: #9ca3af;
 }
 
 .notesActions {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-
   gap: 8px;
-
   margin-top: 12px;
 }
 
-/* ========================================
-   NOTE BUTTONS
-======================================== */
-
 .notePrimaryBtn,
 .noteSecondaryBtn {
-  height: 36px;
-
-  padding: 0 14px;
-
-  border-radius: 12px;
-  border: 1px solid #ececf1;
-
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
+  cursor: pointer;
+  transition: 0.16s ease;
 }
 
 .notePrimaryBtn {
@@ -398,103 +333,72 @@
 
 .notePrimaryBtn:hover,
 .noteSecondaryBtn:hover {
-  background: #fafafa;
-  border-color: #dbe3ee;
+  background: #f9fafb;
+  border-color: #d1d5db;
 }
-
-/* ========================================
-   NOTES LIST
-======================================== */
 
 .notesList {
   display: flex;
   flex-direction: column;
-
-  gap: 12px;
-
-  margin-top: 18px;
+  gap: 10px;
+  margin-top: 16px;
 }
 
 .noteItem {
-  padding: 14px 14px 12px;
-
-  border: 1px solid #ececf1;
-  border-radius: 18px;
-
+  padding: 13px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
   background: #ffffff;
-
   display: flex;
   flex-direction: column;
-
-  gap: 10px;
+  gap: 9px;
 }
 
 .noteItem p {
   margin: 0;
-
-  font-size: 13px;
-  line-height: 1.7;
-
+  font-size: 12px;
+  line-height: 1.6;
   color: #111827;
-
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .noteItem span {
-  font-size: 11px;
+  font-size: 10.5px;
   line-height: 1;
-
   color: #9ca3af;
 }
 
 .noteItemActions {
   display: flex;
   align-items: center;
-
   gap: 8px;
-
   margin-top: 2px;
 }
 
 .noteItemActions button {
   height: 28px;
-
-  padding: 0 10px;
-
-  border-radius: 10px;
-  border: 1px solid #ececf1;
-
+  padding: 0 9px;
+  border-radius: 9px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 500;
-
   color: #52525b;
-
-  transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
+  cursor: pointer;
+  transition: 0.16s ease;
 }
 
 .noteItemActions button:hover {
-  background: #fafafa;
-  border-color: #dbe3ee;
+  background: #f9fafb;
+  border-color: #d1d5db;
 }
-
-/* ========================================
-   TIMELINE
-======================================== */
-
-/* THIS FIXES THE HUGE EMPTY SPACE */
 
 .accountLogCard {
   margin-top: -2px;
   min-height: unset;
   padding-top: 18px;
 }
-
-/* PULL TIMELINE UP */
 
 .timelineSection {
   margin-top: -4px;
@@ -504,13 +408,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 18px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .activityTitle {
   margin: 4px 0 2px;
   font-size: 18px;
-  font-weight: 650;
+  font-weight: 500;
   letter-spacing: -0.03em;
   color: #111827;
 }
@@ -526,21 +431,19 @@
   padding: 0 10px;
   border-radius: 999px;
   background: #fafafa;
-  border: 1px solid #ececf1;
+  border: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 10.5px;
   color: #52525b;
 }
 
 .modernTimeline {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
-
-/* TIGHTER ITEMS */
 
 .timelineItem {
   display: flex;
@@ -554,8 +457,8 @@
 }
 
 .timelineDot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
   background: #60a5fa;
   margin-top: 5px;
@@ -564,7 +467,7 @@
 .timelineLine {
   width: 1px;
   flex: 1;
-  background: #ececf1;
+  background: #e5e7eb;
   margin-top: 6px;
 }
 
@@ -578,42 +481,39 @@
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 
 .timelineTop strong {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 500;
   color: #111827;
 }
 
 .timelineDescription {
   margin: 0;
-  font-size: 12px;
-  line-height: 1.55;
+  font-size: 11.5px;
+  line-height: 1.5;
   color: #6b7280;
 }
 
 .timelineDate {
   display: block;
-  margin-top: 8px;
+  margin-top: 7px;
   font-size: 10px;
-  color: #a1a1aa;
+  color: #9ca3af;
 }
-
-/* ========================================
-   TIMELINE BADGES
-======================================== */
 
 .timelineBadge {
   height: 24px;
-  padding: 0 9px;
+  padding: 0 8px;
   border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .badgeDanger {
@@ -623,7 +523,7 @@
 
 .badgeSuccess {
   background: #ecfdf5;
-  color: #16a34a;
+  color: #047857;
 }
 
 .badgeInfo {
@@ -637,41 +537,44 @@
 }
 
 .badgeNeutral {
-  background: #f5f5f5;
+  background: #f3f4f6;
   color: #52525b;
 }
 
-/* ========================================
-   PAGINATION
-======================================== */
+.badgeWarning {
+  background: #fff7ed;
+  color: #c2410c;
+}
 
 .pagination {
-  margin-top: 18px;
+  margin-top: 16px;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .pagination button {
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 10px;
-  border: 1px solid #ececf1;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
   color: #52525b;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 500;
+  cursor: pointer;
+}
+
+.pagination button:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
 }
 
 .pagination span {
-  font-size: 11px;
+  font-size: 10.5px;
   color: #71717a;
 }
-
-/* ========================================
-   EMPTY STATES
-======================================== */
 
 .empty,
 .accountLogEmpty {
@@ -681,9 +584,138 @@
   color: #9ca3af;
 }
 
-/* ========================================
-   RESPONSIVE
-======================================== */
+.modalOverlay {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 24px !important;
+  background: rgba(15, 23, 42, 0.38) !important;
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+  z-index: 999999 !important;
+}
+
+.emailModal {
+  position: relative !important;
+  width: 100% !important;
+  max-width: 680px !important;
+  max-height: 92vh !important;
+  overflow-y: auto !important;
+  margin: 0 auto !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 22px !important;
+  background: #ffffff !important;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18) !important;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.emailModalHeader {
+  padding: 22px 22px 18px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  gap: 18px !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+.emailModalTitle {
+  margin: 0 !important;
+  font-size: 20px !important;
+  line-height: 1.15 !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.03em !important;
+  color: #111827 !important;
+}
+
+.emailModalSub {
+  margin-top: 7px !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  color: #6b7280 !important;
+}
+
+.emailModal input,
+.emailModal textarea,
+.emailModal button {
+  font-family: inherit !important;
+}
+
+.emailShell {
+  padding: 22px !important;
+}
+
+.emailField {
+  margin-bottom: 16px !important;
+}
+
+.emailLabel {
+  display: block !important;
+  margin-bottom: 7px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: #6b7280 !important;
+}
+
+.emailInput {
+  width: 100% !important;
+  height: 42px !important;
+  padding: 0 13px !important;
+  border-radius: 11px !important;
+  border: 1px solid #e5e7eb !important;
+  background: #ffffff !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  color: #111827 !important;
+  outline: none !important;
+  display: block !important;
+}
+
+.emailTextarea {
+  width: 100% !important;
+  min-height: 220px !important;
+  padding: 13px !important;
+  border-radius: 11px !important;
+  border: 1px solid #e5e7eb !important;
+  background: #ffffff !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+  color: #111827 !important;
+  resize: vertical !important;
+  outline: none !important;
+  display: block !important;
+}
+
+.emailInput:focus,
+.emailTextarea:focus {
+  border-color: #d1d5db !important;
+}
+
+.emailCancelBtn,
+.emailSendBtn {
+  height: 36px !important;
+  padding: 0 14px !important;
+  border-radius: 10px !important;
+  border: 1px solid #e5e7eb !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: 0.16s ease !important;
+}
+
+.emailCancelBtn:hover,
+.emailSendBtn:hover {
+  background: #f9fafb !important;
+  border-color: #d1d5db !important;
+}
 
 @media (max-width: 1200px) {
   .modernKpiGrid {
@@ -707,245 +739,40 @@
 
 @media (max-width: 700px) {
   .page {
-    padding: 14px;
+    padding: 22px 18px;
+  }
+
+  .topBar,
+  .activityHeader,
+  .timelineTop {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .topRightActions {
+    width: 100%;
+  }
+
+  .backBtn,
+  .downloadBtn {
+    flex: 1;
   }
 
   .modernKpiGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .pageTitle {
-    font-size: 26px;
+    font-size: 24px;
   }
 
-  .activityHeader {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
+  .modalOverlay {
+    padding: 14px !important;
   }
 
-  .timelineTop {
-    flex-direction: column;
-    align-items: flex-start;
+  .emailModalHeader,
+  .emailShell {
+    padding-left: 18px !important;
+    padding-right: 18px !important;
   }
-}
-
-.leftColumn {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.kpiSmall {
-  font-size: 17px !important;
-  font-weight: 600 !important;
-  line-height: 1.1 !important;
-}
-
-.accountHeading {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.accountEmail {
-  margin: 0;
-
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.4;
-
-  color: #6b7280;
-
-  letter-spacing: -0.01em;
-}
-
-/* FIX MODAL TITLE + SUBTEXT */
-
-.emailModalTitle {
-  font-size: 26px !important;
-  line-height: 1 !important;
-
-  font-weight: 700 !important;
-  letter-spacing: -0.05em !important;
-
-  color: #111827 !important;
-
-  margin: 0 !important;
-}
-
-.emailModalSub {
-  margin-top: 10px !important;
-
-  font-size: 13px !important;
-  line-height: 1.6 !important;
-
-  color: #6b7280 !important;
-}
-
-/* FIX HEADER SPACING */
-
-.emailModalHeader {
-  padding: 24px 24px 20px !important;
-
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: flex-start !important;
-
-  gap: 18px !important;
-
-  border-bottom: 1px solid #f3f4f6 !important;
-}
-
-/* WHITE BUTTONS */
-
-.emailCancelBtn,
-.emailSendBtn {
-  height: 42px !important;
-
-  padding: 0 18px !important;
-
-  border-radius: 12px !important;
-
-  border: 1px solid #ececf1 !important;
-
-  background: #ffffff !important;
-
-  color: #111827 !important;
-
-  font-size: 13px !important;
-  font-weight: 600 !important;
-
-  transition: all 0.15s ease !important;
-}
-
-.emailCancelBtn:hover,
-.emailSendBtn:hover {
-  background: #fafafa !important;
-}
-
-
-/* FINAL MODAL FIX */
-
-.modalOverlay {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-
-  width: 100vw !important;
-  height: 100vh !important;
-
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-
-  padding: 24px !important;
-
-  background: rgba(17, 24, 39, 0.45) !important;
-
-  backdrop-filter: blur(6px) !important;
-  -webkit-backdrop-filter: blur(6px) !important;
-
-  z-index: 999999 !important;
-}
-
-.emailModal {
-  position: relative !important;
-
-  width: 100% !important;
-  max-width: 680px !important;
-
-  background: #ffffff !important;
-
-  border-radius: 28px !important;
-  border: 1px solid #ececf1 !important;
-
-  overflow: hidden !important;
-
-  margin: 0 auto !important;
-}
-
-body.modal-open {
-  overflow: hidden;
-}
-
-/* FORCE MODAL FORM STYLES */
-
-.emailModal input,
-.emailModal textarea,
-.emailModal button {
-  font-family: inherit !important;
-}
-
-.emailInput {
-  width: 100% !important;
-
-  height: 52px !important;
-
-  padding: 0 16px !important;
-
-  border-radius: 16px !important;
-  border: 1px solid #e5e7eb !important;
-
-  background: #ffffff !important;
-
-  font-size: 14px !important;
-  line-height: 1 !important;
-
-  color: #111827 !important;
-
-  outline: none !important;
-
-  display: block !important;
-}
-
-.emailTextarea {
-  width: 100% !important;
-
-  min-height: 220px !important;
-
-  padding: 16px !important;
-
-  border-radius: 16px !important;
-  border: 1px solid #e5e7eb !important;
-
-  background: #ffffff !important;
-
-  font-size: 14px !important;
-  line-height: 1.7 !important;
-
-  color: #111827 !important;
-
-  resize: vertical !important;
-
-  outline: none !important;
-
-  display: block !important;
-}
-
-.emailField {
-  margin-bottom: 18px !important;
-}
-
-.emailShell {
-  padding: 24px !important;
-}
-
-.emailLabel {
-  display: block !important;
-
-  margin-bottom: 8px !important;
-
-  font-size: 12px !important;
-  font-weight: 600 !important;
-
-  color: #6b7280 !important;
-}
-
-.badgeWarning {
-  background: #fff7ed;
-  color: #c2410c;
-
 }

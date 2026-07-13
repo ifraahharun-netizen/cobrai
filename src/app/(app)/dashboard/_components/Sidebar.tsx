@@ -13,13 +13,13 @@ type NavItem = {
 
 const nav: NavItem[] = [
     { label: "Overview", href: "/dashboard", icon: "fi fi-rr-apps" },
-    { label: "Subscribers", href: "/dashboard/accounts-at-risk", icon: "fi fi-rr-users-alt" },
+    { label: "Accounts", href: "/dashboard/accounts-at-risk", icon: "fi fi-rr-users-alt" },
     {
         label: "Retention Impact",
         href: "/dashboard/progress",
         icon: "fi fi-rr-shield-check",
     },
-    { label: "Analytics", href: "/dashboard/analytics", icon: "fi fi-rr-chart-line-up" },
+    { label: "Metrics", href: "/dashboard/analytics", icon: "fi fi-rr-chart-line-up" },
 ];
 
 export default function Sidebar() {

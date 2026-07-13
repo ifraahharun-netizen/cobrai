@@ -1,186 +1,223 @@
-export type DemoSeriesPoint = {
+/**
+ * Realistic, deterministic demo analytics used by the analytics dashboard.
+ *
+ * Nothing in this file calls an API and the values do not change between
+ * renders. The dashboard page can continue importing `buildDemoSeries`
+ * exactly as it already does.
+ */
+
+export type DemoMrrPoint = {
     month: string;
-    valueMinor?: number;
-    valuePct?: number;
-    activeUsers?: number;
+    valueMinor: number;
 };
 
-export type ActivityByMonthPoint = {
+export type DemoChurnPoint = {
     month: string;
-    retained: number;
+    valuePct: number;
+};
+
+export type DemoMauPoint = {
+    month: string;
+    activeUsers: number;
+};
+
+export type DemoActivityPoint = {
+    month: string;
     churned: number;
-    newSubscribers: number;
+    retained: number;
     trials: number;
     totalSubscribers: number;
-    upgrades?: number;
+    newSubscribers: number;
+    upgrades: number;
 };
 
-export type ExpansionRow = {
-    id: string;
-    name: string;
-    email: string | null;
-    upsideMinor: number;
-    action: string;
-    reason?: string;
-    confidence?: "High" | "Medium" | "Low";
-    lastEventAt?: string | null;
+export type DemoAnalyticsSeries = {
+    mrr: DemoMrrPoint[];
+    churn: DemoChurnPoint[];
+    mau: DemoMauPoint[];
+    activityByMonth: DemoActivityPoint[];
 };
 
-export type InsightItem = {
-    title: string;
-    body: string;
-    severity?: "low" | "medium" | "high";
+/**
+ * Twelve-month B2B SaaS demo history ending in June 2026.
+ *
+ * The values intentionally include slower months, small contractions,
+ * recoveries and uneven growth so the charts feel like operating data rather
+ * than a perfectly generated trend.
+ */
+const DEMO_ANALYTICS: DemoAnalyticsSeries = {
+    mrr: [
+        { month: "2025-07", valueMinor: 146800 },
+        { month: "2025-08", valueMinor: 151200 },
+        { month: "2025-09", valueMinor: 149500 },
+        { month: "2025-10", valueMinor: 157900 },
+        { month: "2025-11", valueMinor: 163400 },
+        { month: "2025-12", valueMinor: 171800 },
+        { month: "2026-01", valueMinor: 168900 },
+        { month: "2026-02", valueMinor: 179600 },
+        { month: "2026-03", valueMinor: 187300 },
+        { month: "2026-04", valueMinor: 183700 },
+        { month: "2026-05", valueMinor: 207600 },
+        { month: "2026-06", valueMinor: 223000 },
+    ],
+
+    churn: [
+        { month: "2025-07", valuePct: 4.2 },
+        { month: "2025-08", valuePct: 3.9 },
+        { month: "2025-09", valuePct: 4.4 },
+        { month: "2025-10", valuePct: 3.7 },
+        { month: "2025-11", valuePct: 3.5 },
+        { month: "2025-12", valuePct: 3.8 },
+        { month: "2026-01", valuePct: 4.1 },
+        { month: "2026-02", valuePct: 3.4 },
+        { month: "2026-03", valuePct: 3.2 },
+        { month: "2026-04", valuePct: 3.6 },
+        { month: "2026-05", valuePct: 2.9 },
+        { month: "2026-06", valuePct: 2.6 },
+    ],
+
+    mau: [
+        { month: "2025-07", activeUsers: 147 },
+        { month: "2025-08", activeUsers: 152 },
+        { month: "2025-09", activeUsers: 149 },
+        { month: "2025-10", activeUsers: 158 },
+        { month: "2025-11", activeUsers: 166 },
+        { month: "2025-12", activeUsers: 174 },
+        { month: "2026-01", activeUsers: 170 },
+        { month: "2026-02", activeUsers: 181 },
+        { month: "2026-03", activeUsers: 191 },
+        { month: "2026-04", activeUsers: 186 },
+        { month: "2026-05", activeUsers: 211 },
+        { month: "2026-06", activeUsers: 229 },
+    ],
+
+    activityByMonth: [
+        {
+            month: "2025-07",
+            churned: 6,
+            retained: 136,
+            trials: 18,
+            totalSubscribers: 147,
+            newSubscribers: 11,
+            upgrades: 4,
+        },
+        {
+            month: "2025-08",
+            churned: 6,
+            retained: 141,
+            trials: 20,
+            totalSubscribers: 152,
+            newSubscribers: 11,
+            upgrades: 5,
+        },
+        {
+            month: "2025-09",
+            churned: 7,
+            retained: 137,
+            trials: 16,
+            totalSubscribers: 149,
+            newSubscribers: 4,
+            upgrades: 3,
+        },
+        {
+            month: "2025-10",
+            churned: 6,
+            retained: 147,
+            trials: 22,
+            totalSubscribers: 158,
+            newSubscribers: 15,
+            upgrades: 6,
+        },
+        {
+            month: "2025-11",
+            churned: 6,
+            retained: 154,
+            trials: 24,
+            totalSubscribers: 166,
+            newSubscribers: 14,
+            upgrades: 7,
+        },
+        {
+            month: "2025-12",
+            churned: 7,
+            retained: 162,
+            trials: 26,
+            totalSubscribers: 174,
+            newSubscribers: 15,
+            upgrades: 7,
+        },
+        {
+            month: "2026-01",
+            churned: 7,
+            retained: 157,
+            trials: 19,
+            totalSubscribers: 170,
+            newSubscribers: 3,
+            upgrades: 4,
+        },
+        {
+            month: "2026-02",
+            churned: 6,
+            retained: 168,
+            trials: 27,
+            totalSubscribers: 181,
+            newSubscribers: 17,
+            upgrades: 8,
+        },
+        {
+            month: "2026-03",
+            churned: 6,
+            retained: 178,
+            trials: 29,
+            totalSubscribers: 191,
+            newSubscribers: 16,
+            upgrades: 9,
+        },
+        {
+            month: "2026-04",
+            churned: 7,
+            retained: 172,
+            trials: 21,
+            totalSubscribers: 186,
+            newSubscribers: 2,
+            upgrades: 5,
+        },
+        {
+            month: "2026-05",
+            churned: 6,
+            retained: 197,
+            trials: 33,
+            totalSubscribers: 211,
+            newSubscribers: 31,
+            upgrades: 12,
+        },
+        {
+            month: "2026-06",
+            churned: 6,
+            retained: 214,
+            trials: 35,
+            totalSubscribers: 229,
+            newSubscribers: 24,
+            upgrades: 14,
+        },
+    ],
 };
 
-export type DemoAnalyticsResponse = {
-    ok: boolean;
-    mode: "demo";
-    mrr: DemoSeriesPoint[];
-    churn: DemoSeriesPoint[];
-    mau: DemoSeriesPoint[];
-    activityByMonth: ActivityByMonthPoint[];
-    expansionRows: ExpansionRow[];
-    insights: InsightItem[];
-};
-
-export function buildDemoSeries(): DemoAnalyticsResponse {
-    const months = [
-        "2025-06",
-        "2025-07",
-        "2025-08",
-        "2025-09",
-        "2025-10",
-        "2025-11",
-        "2025-12",
-        "2026-01",
-        "2026-02",
-        "2026-03",
-        "2026-04",
-        "2026-05",
-    ];
-
-    const retained = [30, 34, 37, 39, 41, 40, 42, 40, 42, 44, 49, 51];
-    const churned = [6, 7, 6, 8, 7, 9, 8, 4, 3, 5, 7, 8];
-    const newSubscribers = [15, 18, 19, 21, 24, 20, 21, 20, 21, 19, 20, 34];
-    const trials = [8, 9, 10, 11, 12, 13, 13, 11, 9, 7, 10, 17];
-    const totalSubscribers = [138, 164, 182, 201, 224, 246, 238, 212, 229, 251, 278, 312];
-
+function cloneDemoAnalytics(): DemoAnalyticsSeries {
     return {
-        ok: true,
-        mode: "demo",
-
-        mrr: [
-            820,
-            910,
-            1040,
-            1180,
-            1320,
-            1490,
-            1380,
-            1570,
-            1210,
-            1360,
-            1290,
-            2230,
-        ].map((v, i) => ({
-            month: months[i],
-            valueMinor: v * 100,
+        mrr: DEMO_ANALYTICS.mrr.map((point) => ({ ...point })),
+        churn: DEMO_ANALYTICS.churn.map((point) => ({ ...point })),
+        mau: DEMO_ANALYTICS.mau.map((point) => ({ ...point })),
+        activityByMonth: DEMO_ANALYTICS.activityByMonth.map((point) => ({
+            ...point,
         })),
-
-        churn: [
-            2.1,
-            2.4,
-            1.8,
-            2.7,
-            3.6,
-            2.9,
-            4.4,
-            5.2,
-            3.7,
-            4.1,
-            3.4,
-            2.6,
-        ].map((v, i) => ({
-            month: months[i],
-            valuePct: v,
-        })),
-
-        mau: [
-            120,
-            138,
-            164,
-            182,
-            201,
-            224,
-            246,
-            238,
-            212,
-            229,
-            251,
-            278,
-        ].map((v, i) => ({
-            month: months[i],
-            activeUsers: v,
-        })),
-
-        activityByMonth: months.map((month, i) => ({
-            month,
-            retained: retained[i],
-            churned: churned[i],
-            newSubscribers: newSubscribers[i],
-            trials: trials[i],
-            totalSubscribers: totalSubscribers[i],
-        })),
-
-        expansionRows: [
-            {
-                id: "cus_1",
-                name: "Nova Studio",
-                email: "team@novastudio.io",
-                upsideMinor: 240000,
-                action: "Sent re-engagement sequence",
-                reason: "Usage dropped 34% over the last 14 days",
-                confidence: "High",
-                lastEventAt: "2026-05-10",
-            },
-            {
-                id: "cus_2",
-                name: "GrowthLoop",
-                email: "ops@growthloop.ai",
-                upsideMinor: 180000,
-                action: "Retried failed billing payment",
-                reason: "Card retry succeeded after failed renewal",
-                confidence: "Medium",
-                lastEventAt: "2026-05-14",
-            },
-            {
-                id: "cus_3",
-                name: "Elevate CRM",
-                email: "success@elevatecrm.com",
-                upsideMinor: 320000,
-                action: "Triggered retention workflow",
-                reason: "High churn probability detected from inactivity",
-                confidence: "High",
-                lastEventAt: "2026-05-18",
-            },
-        ],
-
-        insights: [
-            {
-                title: "Revenue growth accelerating",
-                body: "MRR increased 18% compared to the previous period driven by stronger subscriber retention.",
-                severity: "low",
-            },
-            {
-                title: "Churn spike detected in February",
-                body: "Customer cancellations rose sharply after reduced platform engagement across enterprise accounts.",
-                severity: "high",
-            },
-            {
-                title: "Subscriber acquisition improving",
-                body: "New subscriber growth continues trending upward with trial conversions improving month over month.",
-                severity: "medium",
-            },
-        ],
     };
+}
+
+/**
+ * Keep this export name unchanged because the current analytics page already
+ * imports and uses it.
+ */
+export function buildDemoSeries(): DemoAnalyticsSeries {
+    return cloneDemoAnalytics();
 }

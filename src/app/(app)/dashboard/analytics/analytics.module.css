@@ -1,27 +1,29 @@
 .page {
   min-height: 100vh;
-  padding: 24px 28px 32px;
+  padding: 24px;
   background: #ffffff;
-  color: #111827;
+  color: #ffffff;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .header {
-  margin-bottom: 10px;
+  margin-bottom: 18px;
 }
 
 .title {
   margin: 0;
-  font-size: 22px;
-  font-weight: 560;
-  letter-spacing: -0.04em;
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: -0.03em;
   color: #111827;
 }
 
 .subtitle {
-  margin: 5px 0 0;
-  font-size: 12px;
-  font-weight: 420;
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 400;
   color: #6b7280;
 }
 
@@ -30,69 +32,86 @@
 .kpiGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
 .kpiCard,
 .heroChartCard,
 .sideCard {
   background: #ffffff;
-  border: 1px solid #edf0f4;
+  border: 1px solid #e5e7eb;
   border-radius: 16px;
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.018);
+  box-shadow: none;
 }
 
 .kpiCard {
-  min-height: 86px;
-  padding: 14px 15px;
+  min-height: 104px;
+  padding: 17px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.kpiContent {
+  min-width: 0;
+  flex: 1;
 }
 
 .kpiTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 9px;
+  display: contents;
 }
 
 .kpiLabel {
+  margin-bottom: 5px;
   font-size: 11px;
-  font-weight: 470;
-  color: #667085;
+  line-height: 1.3;
+  font-weight: 500;
+  color: #6b7280;
 }
 
 .kpiIcon {
-  width: 24px;
-  height: 24px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #fafafa;
-  color: #667085;
+  width: 4px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: 999px;
+  border: 0;
+  display: grid;
+  place-items: center;
+  background: #eef5ff;
+  color: #2563eb;
 }
 
 .kpiIcon svg {
-  width: 13px;
-  height: 13px;
-  stroke-width: 1.7;
+  width: 21px;
+  height: 21px;
+  stroke-width: 1.8;
 }
 
 .kpiValue {
-  font-size: 15px;
-  line-height: 1;
-  font-weight: 560;
-  letter-spacing: -0.045em;
+  font-size: 10px;
+  line-height: 1.08;
+  font-weight: 900;
+  letter-spacing: -0.035em;
   color: #111827;
+  white-space: nowrap;
 }
 
 .kpiSub {
   display: flex;
   align-items: center;
-  margin-top: 8px;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
   font-size: 10.5px;
-  font-weight: 430;
-  color: #8a94a6;
+  line-height: 1.3;
+  font-weight: 400;
+  color: #9ca3af;
+}
+
+.kpiSub>span:last-child {
+  margin-left: 0 !important;
+  color: #9ca3af;
 }
 
 /* LAYOUT */
@@ -100,27 +119,27 @@
 .analyticsLayout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
+  gap: 16px;
   align-items: start;
 }
 
 .primaryGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
   min-width: 0;
 }
 
 .secondaryGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
+  gap: 16px;
 }
 
 /* CHART CARDS */
 
 .heroChartCard {
-  padding: 18px 18px 16px;
+  padding: 18px;
   overflow: visible;
 }
 
@@ -128,30 +147,27 @@
 .kpiCard:hover,
 .sideCard:hover,
 .aiRevenueCard:hover {
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.025);
+  box-shadow: none;
 }
 
 .mrrCard,
 .churnCard,
 .revenueTrendCompact {
-  min-height: 310px !important;
+  min-height: 300px !important;
 }
 
 .mrrCard .heroChart,
 .churnCard .heroChart,
-.revenueTrendCompact .heroChart {
-  height: 220px !important;
-  min-height: 220px !important;
-}
-
+.revenueTrendCompact .heroChart,
 .mrrCard canvas,
 .churnCard canvas,
 .revenueTrendCompact canvas {
-  height: 220px !important;
+  height: 210px !important;
+  min-height: 210px !important;
 }
 
 .subscriberCard {
-  min-height: 360px;
+  min-height: 350px;
 }
 
 .chartHeader {
@@ -163,26 +179,27 @@
 }
 
 .chartTitle {
-  font-size: 12px;
-  font-weight: 540;
-  letter-spacing: -0.02em;
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   color: #111827;
 }
 
 .chartMeta {
   margin-top: 4px;
-  font-size: 10.5px;
-  font-weight: 420;
-  color: #8a94a6;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 400;
+  color: #9ca3af;
 }
 
 .heroRevenue {
-  margin-top: 10px;
-  margin-bottom: 2px;
-  font-size: 15px;
+  margin: 10px 0 2px;
+  font-size: 18px;
   line-height: 1;
-  font-weight: 560;
-  letter-spacing: -0.045em;
+  font-weight: 500;
+  letter-spacing: -0.04em;
   color: #111827;
 }
 
@@ -205,31 +222,33 @@
 }
 
 .chartFilterButton {
-  height: 32px;
+  height: 34px;
   padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid #e8edf4;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
   display: inline-flex;
   align-items: center;
   gap: 7px;
   cursor: pointer;
-  color: #64748b;
+  color: #6b7280;
   font-size: 11px;
-  font-weight: 470;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  font-weight: 500;
+  box-shadow: none;
   font-family: inherit;
+  transition: 0.16s ease;
 }
 
 .chartFilterButton:hover {
-  background: #fafafa;
-  border-color: #dfe5ec;
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #111827;
 }
 
 .chartFilterButton svg {
   width: 13px;
   height: 13px;
-  color: #94a3b8;
+  color: #9ca3af;
 }
 
 .chartFilterMenu {
@@ -237,12 +256,12 @@
   top: calc(100% + 8px);
   right: 0;
   width: 150px;
-  padding: 8px;
+  padding: 6px;
   background: #ffffff;
-  border: 1px solid #edf0f4;
-  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
   z-index: 999;
-  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 14px 35px rgba(15, 23, 42, 0.1);
 }
 
 .chartFilterOption {
@@ -250,25 +269,25 @@
   border: none;
   background: transparent;
   text-align: left;
-  border-radius: 12px;
-  padding: 11px 12px;
+  border-radius: 9px;
+  padding: 9px 10px;
   color: #475569;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
 }
 
 .chartFilterOption:hover {
-  background: #f8fafc;
+  background: #f9fafb;
 }
 
 .chartFilterOptionActive {
-  background: #eef4ff;
-  color: #3264ff;
+  background: #f3f4f6;
+  color: #111827;
   font-weight: 600;
 }
 
-/* REVENUE RECOVERY QUEUE */
+/* REVENUE RECOVERY */
 
 .revenueRecoveryCard {
   grid-column: 1 / -1;
@@ -277,9 +296,9 @@
   margin-top: 0;
   padding: 18px;
   border-radius: 18px;
-  border: 1px solid #edf0f4;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.035);
+  box-shadow: none;
 }
 
 .revenueRecoveryTop {
@@ -294,20 +313,22 @@
   display: none;
 }
 
-.revenueRecoveryTop h3 {
+.revenueRecoveryTop h3,
+.revenueRecoveryTitle h3 {
   margin: 0;
   font-size: 18px;
   line-height: 1.2;
-  font-weight: 650;
-  letter-spacing: -0.035em;
+  font-weight: 500;
+  letter-spacing: -0.03em;
   color: #111827;
 }
 
-.revenueRecoveryTop p {
+.revenueRecoveryTop p,
+.revenueRecoveryTitle p {
   margin: 6px 0 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6b7280;
 }
 
 .recoveryActions {
@@ -315,24 +336,31 @@
 }
 
 .recoveryExportBtn {
-  height: 38px;
-  padding: 0 14px;
-  border-radius: 12px;
-  border: 1px solid #e5eaf1;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-  color: #344054;
-  font-size: 12px;
-  font-weight: 550;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
   font-family: inherit;
+  transition: 0.16s ease;
 }
 
 .recoveryExportBtn:hover {
-  background: #fafafa;
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #111827;
 }
 
 .recoveryStatsGrid,
-.goalProgressTrack {
+.goalProgressTrack,
+.recoveryForecastInsight,
+.recoveryMeasureValues,
+.recoveryMeasureStripe,
+.recoveryMeasureBar {
   display: none;
 }
 
@@ -358,65 +386,79 @@
   background: #dc2626;
 }
 
+.revenueRecoveryHeader {
+  display: grid;
+  grid-template-columns: minmax(190px, 240px) minmax(320px, 520px) auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  margin-bottom: 18px;
+}
+
 .recoveryForecastPanel {
-  width: min(760px, 100%);
-  margin: 0 auto 18px;
-  padding: 0;
-}
-
-.recoveryMeasureBar {
   width: 100%;
+  max-width: 520px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
-.recoveryMeasureLabel {
-  display: none;
-}
-
-.recoveryMeasureValues {
+.recoveryForecastHero {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  margin: 0 0 10px;
+  gap: 20px;
+  margin-bottom: 8px;
 }
 
-.recoveryMeasureValues div:last-child {
-  text-align: right;
-}
-
-.recoveryMeasureValues strong {
+.recoveryForecastHero div:first-child strong {
   display: block;
-  font-size: 28px;
+  font-size: 18px;
   line-height: 1;
-  font-weight: 650;
-  letter-spacing: -0.05em;
+  font-weight: 400;
+  letter-spacing: -0.04em;
   color: #111827;
 }
 
-.recoveryMeasureValues span {
+.recoveryForecastHero div:first-child span {
   display: block;
-  margin-top: 6px;
-  font-size: 12px;
+  margin-top: 5px;
+  font-size: 10.5px;
+  line-height: 1;
   font-weight: 600;
-  color: #3264ff;
+  color: #2563eb;
 }
 
-.recoveryMeasureValues div:last-child strong {
-  font-size: 16px;
-  font-weight: 650;
-  letter-spacing: -0.04em;
+.recoveryForecastHero div:last-child {
+  text-align: right;
 }
 
-.recoveryMeasureValues div:last-child span {
-  color: #667085;
+.recoveryForecastHero div:last-child strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1;
   font-weight: 500;
+  letter-spacing: -0.03em;
+  color: #111827;
+}
+
+.recoveryForecastHero div:last-child span {
+  display: block;
+  margin-top: 4px;
+  font-size: 9.5px;
+  line-height: 1;
+  font-weight: 400;
+  color: #6b7280;
 }
 
 .recoveryMeasureTrack {
   position: relative;
   width: 100%;
-  height: 8px;
+  height: 6px;
   border-radius: 999px;
-  background: #e5e9f6;
+  background: #e5e7eb;
   overflow: visible;
 }
 
@@ -424,60 +466,25 @@
   position: absolute;
   inset: 0 auto 0 0;
   border-radius: 999px;
-  background: #3264ff;
-}
-
-.recoveryMeasureStripe {
-  display: none;
+  background: #86efac;
 }
 
 .recoveryMeasureMarker {
   position: absolute;
   top: 50%;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 999px;
   background: #ffffff;
-  border: 3px solid #3264ff;
+  border: 3px solid #e5e7eb;
   transform: translate(-50%, -50%);
-  box-shadow: 0 2px 8px rgba(50, 100, 255, 0.18);
-}
-
-.recoveryForecastInsight {
-  position: relative;
-  margin: 14px 0 0;
-  padding-left: 34px;
-  text-align: left;
-  font-size: 12px;
-  line-height: 1.5;
-  font-weight: 500;
-  color: #111827;
-}
-
-.recoveryForecastInsight::before {
-  content: "✦";
-  position: absolute;
-  left: 0;
-  top: -1px;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  background: #f0e9ff;
-  color: #6d5dfc;
-  font-size: 12px;
-}
-
-.recoveryForecastInsight strong {
-  color: #3264ff;
-  font-weight: 700;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.12);
 }
 
 .recoveryTableWrap {
   width: 100%;
   overflow-x: auto;
-  border: 1px solid #edf0f4;
+  border: 1px solid #e5e7eb;
   border-radius: 14px;
   background: #ffffff;
 }
@@ -490,26 +497,26 @@
 }
 
 .recoveryTable th {
-  height: 38px;
-  padding: 0 16px;
+  height: 46px;
+  padding: 0 14px;
   text-align: left;
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #98a2b3;
-  background: #fbfcfe;
-  border-bottom: 1px solid #edf0f4;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #6b7280;
+  background: #fafafa;
+  border-bottom: 1px solid #e5e7eb;
   white-space: nowrap;
 }
 
 .recoveryTable td {
-  height: 48px;
-  padding: 0 16px;
-  border-bottom: 1px solid #f0f2f5;
-  font-size: 11px;
+  height: 62px;
+  padding: 0 14px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 12px;
   font-weight: 400;
-  color: #475467;
+  color: #6b7280;
   vertical-align: middle;
 }
 
@@ -527,14 +534,15 @@
   padding: 0;
   text-align: left;
   color: #111827;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
 }
 
 .recoveryAccountBtn:hover {
-  color: #3264ff;
+  color: #111827;
+  text-decoration: underline;
 }
 
 .recoveryReasonPill {
@@ -544,10 +552,10 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #667085;
+  color: #6b7280;
   font-size: 11px;
   font-weight: 400;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .recoveryActionBtn {
@@ -555,7 +563,7 @@
   background: transparent;
   padding: 0;
   text-align: left;
-  color: #3264ff;
+  color: #2563eb;
   font-size: 11.5px;
   font-weight: 500;
   cursor: pointer;
@@ -569,7 +577,7 @@
 .emptyRecoveryState {
   height: 120px;
   text-align: center;
-  color: #98a2b3 !important;
+  color: #9ca3af !important;
   font-weight: 500 !important;
 }
 
@@ -579,8 +587,8 @@
   justify-content: space-between;
   gap: 14px;
   margin-top: 12px;
-  font-size: 11.5px;
-  color: #667085;
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .recoveryPagerButtons {
@@ -590,16 +598,22 @@
 }
 
 .recoveryPagerButtons button {
-  min-width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  border: 1px solid #e5eaf1;
+  min-width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-  color: #344054;
-  font-size: 11.5px;
+  color: #6b7280;
+  font-size: 11px;
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
+}
+
+.recoveryPagerButtons button:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #111827;
 }
 
 .recoveryPagerButtons button:disabled {
@@ -608,8 +622,8 @@
 }
 
 .recoveryPagerButtons .recoveryPageActive {
-  background: #3264ff;
-  border-color: #3264ff;
+  background: #111827;
+  border-color: #111827;
   color: #ffffff;
 }
 
@@ -626,7 +640,7 @@
 .aiRevenueCard {
   padding: 0;
   border-radius: 18px;
-  border: 1px solid #edf0f4;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
   box-shadow: none;
   overflow: hidden;
@@ -641,31 +655,32 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 18px;
-  padding: 22px 24px 14px;
+  padding: 18px;
 }
 
 .aiRevenueTitle {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1.2;
-  font-weight: 620;
+  font-weight: 500;
   color: #111827;
 }
 
 .aiRevenueSubtitle {
-  margin: 7px 0 0;
-  font-size: 13px;
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
   color: #6b7280;
 }
 
 .aiCoveragePill {
-  border: 1px solid #edf0f4;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-  color: #475569;
+  color: #6b7280;
   border-radius: 999px;
-  padding: 8px 13px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -673,10 +688,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #334155;
-  font-size: 11px;
-  font-weight: 560;
-  letter-spacing: 0.065em;
+  color: #374151;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
@@ -685,22 +700,22 @@
 .aiTabs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  padding: 5px;
+  gap: 6px;
+  padding: 4px;
   margin-bottom: 14px;
-  border-radius: 18px;
-  border: 1px solid #edf0f4;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
   background: #fafafa;
 }
 
 .aiTab {
-  height: 38px;
+  height: 34px;
   border: 1px solid transparent;
   background: transparent;
-  border-radius: 14px;
-  color: #667085;
-  font-size: 12px;
-  font-weight: 520;
+  border-radius: 9px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
   font-family: inherit;
   box-shadow: none;
@@ -714,8 +729,8 @@
 .aiTabActive {
   background: #ffffff;
   color: #111827;
-  border-color: #edf0f4;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.035);
+  border-color: #e5e7eb;
+  box-shadow: none;
 }
 
 .aiPanel {
@@ -741,8 +756,8 @@
   width: 100%;
   min-width: 0;
   overflow: hidden;
-  border-radius: 18px;
-  border: 1px solid #edf0f4;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
 }
 
@@ -751,14 +766,15 @@
   display: grid;
   align-items: center;
   gap: 12px;
-  padding: 13px 18px;
-  background: #fcfcfd;
-  border-bottom: 1px solid #edf0f4;
-  color: #98a2b3;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  padding: 0 14px;
+  height: 46px;
+  background: #fafafa;
+  border-bottom: 1px solid #e5e7eb;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .aiDriverTableHead,
@@ -776,10 +792,10 @@
   display: grid;
   align-items: center;
   gap: 12px;
-  min-height: 68px;
-  padding: 14px 18px;
+  min-height: 62px;
+  padding: 0 14px;
   border: 0;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid #f1f5f9;
   background: #ffffff;
   text-align: left;
   cursor: pointer;
@@ -792,44 +808,44 @@
 
 .aiDriverRow:hover,
 .aiChurnRow:hover {
-  background: #fbfcfd;
+  background: #fafafa;
 }
 
 .aiDriverAccount {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
 }
 
 .aiAccountInitial,
 .aiAccountInitialRed {
-  width: 31px;
-  height: 31px;
-  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   display: grid;
   place-items: center;
   font-size: 11px;
-  font-weight: 560;
+  font-weight: 500;
   flex-shrink: 0;
 }
 
 .aiAccountInitial {
-  background: #eef4ff;
+  background: #eff6ff;
   color: #2563eb;
 }
 
 .aiAccountInitialRed {
-  background: #fff1f2;
-  color: #be123c;
+  background: #fef2f2;
+  color: #dc2626;
 }
 
 .aiDriverAccount strong {
   display: block;
   color: #111827;
   font-size: 12px;
-  line-height: 1.2;
-  font-weight: 560;
+  line-height: 1.25;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -837,11 +853,11 @@
 
 .aiDriverAccount span {
   display: block;
-  margin-top: 4px;
-  color: #9aa3b2;
+  margin-top: 3px;
+  color: #9ca3af;
   font-size: 10px;
   line-height: 1;
-  font-weight: 430;
+  font-weight: 400;
   white-space: nowrap;
 }
 
@@ -850,10 +866,10 @@
 .aiReasonText {
   min-width: 0;
   margin: 0;
-  color: #334155;
-  font-size: 12px;
-  line-height: 1.35;
-  font-weight: 440;
+  color: #374151;
+  font-size: 11.5px;
+  line-height: 1.4;
+  font-weight: 400;
   letter-spacing: -0.01em;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -868,11 +884,10 @@
 
 .aiReasonActionCell strong {
   min-width: 0;
-  color: #334155;
-  font-size: 12px;
-  line-height: 1.35;
+  color: #374151;
+  font-size: 11.5px;
+  line-height: 1.4;
   font-weight: 500;
-  letter-spacing: -0.01em;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -884,16 +899,16 @@
 .aiActionBadge {
   width: fit-content;
   max-width: 100%;
-  min-height: 30px;
+  min-height: 28px;
   display: inline-flex;
   align-items: center;
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: 999px;
-  border: 1px solid #e8edf4;
+  border: 1px solid #e5e7eb;
   background: #fafafa;
   color: #475569;
-  font-size: 11px;
-  line-height: 1.15;
+  font-size: 10.5px;
+  line-height: 1.2;
   font-weight: 500;
   white-space: normal;
 }
@@ -904,16 +919,16 @@
   white-space: nowrap;
   font-size: 12px;
   line-height: 1;
-  font-weight: 560;
+  font-weight: 500;
   letter-spacing: -0.02em;
 }
 
 .aiDriverValue {
-  color: #0f766e;
+  color: #047857;
 }
 
 .aiDriverValueRed {
-  color: #be123c;
+  color: #dc2626;
 }
 
 .aiRiskScore {
@@ -924,24 +939,24 @@
   width: 32px;
   height: 32px;
   border-radius: 999px;
-  border: 1px solid #f3d4da;
-  background: #fff8f8;
-  color: #b42318;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
   display: grid;
   place-items: center;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
 }
 
 .aiLockedNote {
   margin-top: 10px;
-  border-radius: 12px;
-  border: 1px solid #edf0f4;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
   background: #fafafa;
-  color: #667085;
+  color: #6b7280;
   padding: 10px 12px;
   text-align: center;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -963,49 +978,50 @@
 .tableSearch {
   width: 100%;
   height: 38px;
-  border: 1px solid #edf0f4;
-  border-radius: 12px;
-  padding: 0 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0 12px;
   background: #ffffff;
   color: #111827;
   font-size: 12px;
-  font-weight: 430;
+  font-weight: 400;
   outline: none;
   font-family: inherit;
 }
 
 .tableSearch::placeholder {
-  color: #9aa3b2;
+  color: #9ca3af;
 }
 
 .tableSearch:focus {
-  border-color: #dbe3ee;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.025);
+  border-color: #d1d5db;
+  box-shadow: none;
 }
 
 .exportButton {
   height: 38px;
-  padding: 0 14px;
-  border-radius: 12px;
-  border: 1px solid #edf0f4;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-  color: #334155;
-  font-size: 12px;
+  color: #374151;
+  font-size: 11px;
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
 }
 
 .exportButton:hover {
-  background: #fafafa;
+  background: #f9fafb;
+  border-color: #d1d5db;
 }
 
 /* ACCOUNT ROWS */
 
 .aiAccountsCard {
   min-width: 0;
-  border-radius: 16px;
-  border: 1px solid #edf0f4;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
   padding: 12px;
   box-shadow: none;
@@ -1016,23 +1032,23 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 7px;
+  margin-bottom: 8px;
 }
 
 .aiAccountsHeader strong {
   display: block;
   color: #111827;
   font-size: 14px;
-  font-weight: 560;
-  letter-spacing: -0.03em;
+  font-weight: 500;
+  letter-spacing: -0.02em;
 }
 
 .aiAccountsHeader span {
   display: block;
   margin-top: 4px;
-  color: #667085;
+  color: #6b7280;
   font-size: 10.5px;
-  font-weight: 420;
+  font-weight: 400;
 }
 
 .aiAccountsList {
@@ -1042,9 +1058,9 @@
 
 .aiAccountRow {
   width: 100%;
-  border: 1px solid #edf0f4;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 8px;
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr) auto;
@@ -1055,8 +1071,8 @@
 }
 
 .aiAccountRow:hover {
-  border-color: #e5e7eb;
-  background: #fbfcfd;
+  border-color: #d1d5db;
+  background: #fafafa;
 }
 
 .aiAccountMain {
@@ -1067,7 +1083,7 @@
   display: block;
   color: #111827;
   font-size: 12px;
-  font-weight: 560;
+  font-weight: 500;
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1077,17 +1093,17 @@
 .aiAccountMain span {
   display: block;
   margin-top: 3px;
-  color: #8a94a6;
+  color: #9ca3af;
   font-size: 9.5px;
-  font-weight: 430;
+  font-weight: 400;
 }
 
 .aiAccountMain p {
   margin: 4px 0 0;
-  color: #475569;
+  color: #6b7280;
   font-size: 10.5px;
-  line-height: 1.2;
-  font-weight: 420;
+  line-height: 1.25;
+  font-weight: 400;
   display: -webkit-box;
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
@@ -1106,23 +1122,23 @@
   display: block;
   font-size: 11.5px;
   line-height: 1;
-  font-weight: 560;
+  font-weight: 500;
   white-space: nowrap;
 }
 
 .aiAccountValue strong {
-  color: #0f766e;
+  color: #047857;
 }
 
 .aiAccountValueRed strong {
-  color: #be123c;
+  color: #dc2626;
 }
 
 .aiAccountValue span,
 .aiAccountValueRed span {
   display: block;
   margin-top: 5px;
-  color: #667085;
+  color: #6b7280;
   font-size: 9px;
   font-weight: 500;
 }
@@ -1130,46 +1146,46 @@
 .aiViewAllButton {
   width: 100%;
   margin-top: 10px;
-  border-radius: 12px;
-  border: 1px solid #edf0f4;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
   color: #111827;
-  font-size: 12px;
-  font-weight: 560;
-  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 9px 12px;
   cursor: pointer;
   box-shadow: none;
   font-family: inherit;
 }
 
 .aiViewAllButton:hover {
-  background: #fafafa;
+  background: #f9fafb;
 }
 
 .aiPagination {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
+  gap: 8px;
   margin-top: 14px;
 }
 
 .aiPagination button {
   min-width: 30px;
   height: 30px;
-  padding: 0 10px;
-  border-radius: 999px;
-  border: 1px solid #edf0f4;
+  padding: 0 9px;
+  border-radius: 9px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-  color: #667085;
-  font-size: 12px;
-  font-weight: 540;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
   font-family: inherit;
 }
 
 .aiPagination button:hover:not(:disabled) {
-  background: #fafafa;
+  background: #f9fafb;
   color: #111827;
 }
 
@@ -1179,19 +1195,19 @@
 }
 
 .aiPagination span {
-  color: #667085;
+  color: #6b7280;
   font-size: 11px;
   font-weight: 500;
 }
 
 .aiEmpty {
-  border-radius: 18px;
-  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  border: 1px dashed #d1d5db;
   background: #fafafa;
-  color: #667085;
+  color: #6b7280;
   padding: 18px;
-  font-size: 13px;
-  font-weight: 520;
+  font-size: 12px;
+  font-weight: 500;
   text-align: center;
 }
 
@@ -1208,20 +1224,20 @@
 }
 
 .aiActionButton {
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: 1px solid #e5e7eb;
   background: #ffffff;
   color: #475569;
   border-radius: 999px;
   padding: 6px 10px;
-  font-size: 11px;
-  font-weight: 520;
+  font-size: 10.5px;
+  font-weight: 500;
   cursor: pointer;
   font-family: inherit;
 }
 
 .aiActionButton:hover {
-  background: rgba(29, 155, 240, 0.05);
-  border-color: rgba(29, 155, 240, 0.18);
+  background: #f9fafb;
+  border-color: #d1d5db;
   color: #111827;
 }
 
@@ -1230,7 +1246,7 @@
 .subscriberTitleRow {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -1238,24 +1254,24 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 10px;
+  padding: 6px 9px;
   border-radius: 999px;
   background: #fafafa;
-  border: 1px solid #edf0f4;
-  color: #667085;
-  font-size: 11px;
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
+  font-size: 10.5px;
   font-weight: 500;
   white-space: nowrap;
 }
 
 .subscriberTotalPill strong {
   color: #111827;
-  font-size: 12px;
-  font-weight: 580;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .subscriberTotalPill span {
-  color: #667085;
+  color: #6b7280;
 }
 
 /* EMAIL MODAL */
@@ -1268,75 +1284,79 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(17, 24, 39, 0.36);
-  backdrop-filter: blur(6px);
+  background: rgba(15, 23, 42, 0.38);
+  backdrop-filter: blur(5px);
 }
 
 .emailModal {
   width: min(760px, 100%);
   max-height: 90vh;
-  overflow: hidden;
+  overflow-y: auto;
   background: #ffffff;
-  border: 1px solid #edf0f4;
-  border-radius: 28px;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
+  border: 1px solid #e5e7eb;
+  border-radius: 22px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
 }
 
 .emailModalHeader {
-  padding: 24px;
-  border-bottom: 1px solid #f3f4f6;
+  padding: 22px;
+  border-bottom: 1px solid #f1f5f9;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 18px;
 }
 
 .emailModalTitle {
-  font-size: 27px;
-  line-height: 1;
-  font-weight: 620;
-  letter-spacing: -0.05em;
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: -0.03em;
   color: #111827;
 }
 
 .emailCloseBtn {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 10px;
-  border: 1px solid #edf0f4;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
-  color: #475569;
+  color: #6b7280;
   cursor: pointer;
 }
 
 .emailCloseBtn:hover {
-  background: #fafafa;
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #111827;
 }
 
 .emailShell {
-  padding: 24px;
+  padding: 22px;
 }
 
 .emailField {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .emailLabel {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 7px;
   font-size: 11px;
-  font-weight: 470;
-  color: #667085;
+  font-weight: 500;
+  color: #6b7280;
 }
 
 .emailInput {
   width: 100%;
-  height: 52px;
-  padding: 0 16px;
-  border-radius: 16px;
+  height: 42px;
+  padding: 0 13px;
+  border-radius: 11px;
   border: 1px solid #e5e7eb;
   color: #111827;
-  font-size: 14px;
-  font-weight: 430;
+  font-size: 12px;
+  font-weight: 400;
   outline: none;
   font-family: inherit;
 }
@@ -1344,13 +1364,13 @@
 .emailTextarea {
   width: 100%;
   min-height: 220px;
-  padding: 16px;
-  border-radius: 16px;
+  padding: 13px;
+  border-radius: 11px;
   border: 1px solid #e5e7eb;
   color: #111827;
-  font-size: 14px;
-  line-height: 1.7;
-  font-weight: 430;
+  font-size: 12px;
+  line-height: 1.6;
+  font-weight: 400;
   resize: vertical;
   outline: none;
   font-family: inherit;
@@ -1358,8 +1378,8 @@
 
 .emailInput:focus,
 .emailTextarea:focus {
-  border-color: rgba(29, 155, 240, 0.35);
-  box-shadow: 0 0 0 3px rgba(29, 155, 240, 0.08);
+  border-color: #d1d5db;
+  box-shadow: none;
 }
 
 .emailModalActions {
@@ -1370,21 +1390,22 @@
 
 .emailCancelBtn,
 .emailSendBtn {
-  height: 42px;
-  padding: 0 18px;
-  border-radius: 12px;
-  border: 1px solid #edf0f4;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
   background: #ffffff;
   color: #111827;
-  font-size: 13px;
-  font-weight: 540;
+  font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
   font-family: inherit;
 }
 
 .emailCancelBtn:hover,
 .emailSendBtn:hover {
-  background: #fafafa;
+  background: #f9fafb;
+  border-color: #d1d5db;
 }
 
 /* STATES */
@@ -1394,25 +1415,25 @@
   display: grid;
   place-items: center;
   gap: 10px;
-  color: #667085;
+  color: #6b7280;
 }
 
 .loader {
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  border: 3px solid #e2e8f0;
-  border-top-color: #2563eb;
+  border: 3px solid #e5e7eb;
+  border-top-color: #111827;
   animation: spin 0.8s linear infinite;
 }
 
 .errorBox,
 .toast {
-  border-radius: 16px;
-  padding: 14px 16px;
+  border-radius: 14px;
+  padding: 13px 14px;
   margin-bottom: 16px;
-  font-size: 13px;
-  font-weight: 520;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .errorBox {
@@ -1442,25 +1463,25 @@
   z-index: 80;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 16px;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
   background: #ffffff;
   box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 600;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .actionToastBtn {
   border: 0;
-  border-radius: 999px;
-  padding: 8px 11px;
-  background: #0f172a;
+  border-radius: 9px;
+  padding: 7px 10px;
+  background: #111827;
   color: #ffffff;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -1481,6 +1502,17 @@
 
   .revenueRecoveryCard {
     grid-column: auto;
+  }
+}
+
+@media (max-width: 1000px) {
+  .revenueRecoveryHeader {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .recoveryForecastPanel {
+    max-width: none;
   }
 }
 
@@ -1516,10 +1548,7 @@
     align-items: stretch;
   }
 
-  .tableSearchWrap {
-    width: 100%;
-  }
-
+  .tableSearchWrap,
   .exportButton {
     width: 100%;
   }
@@ -1537,26 +1566,15 @@
     width: 100%;
     margin: 0 0 18px;
   }
-
-  .recoveryForecastInsight {
-    text-align: left;
-  }
 }
 
 @media (max-width: 760px) {
   .page {
-    padding: 18px;
+    padding: 22px 18px;
   }
 
   .kpiGrid {
     grid-template-columns: 1fr;
-  }
-
-  .heroChartCard,
-  .sideCard,
-  .kpiCard,
-  .aiRevenueCard {
-    border-radius: 22px;
   }
 
   .chartHeader {
@@ -1564,8 +1582,8 @@
     align-items: flex-start;
   }
 
-  .aiRevenueCard {
-    padding: 14px;
+  .aiRevenueTop {
+    flex-direction: column;
   }
 
   .aiTabs {
@@ -1588,7 +1606,11 @@
   }
 
   .emailModalTitle {
-    font-size: 23px;
+    font-size: 18px;
+  }
+
+  .modalOverlay {
+    padding: 14px;
   }
 }
 
@@ -1597,12 +1619,13 @@
     padding: 16px;
   }
 
-  .recoveryMeasureValues strong {
-    font-size: 24px;
+  .recoveryForecastHero {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
-  .recoveryMeasureValues div:last-child strong {
-    font-size: 14px;
+  .recoveryForecastHero div:last-child {
+    text-align: left;
   }
 
   .recoveryPagination {
@@ -1614,33 +1637,1962 @@
   }
 }
 
+/* ========================================================================== */
+/* REFERENCE DASHBOARD VISUAL REFINEMENT                                      */
+/* Keeps the analytics component behaviour and data flow unchanged.           */
+/* ========================================================================== */
+
+.page {
+  min-height: 100vh;
+  padding: 34px 28px 40px;
+  background: #ffffff;
+  color: #202124;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.header {
+  margin-bottom: 18px;
+}
+
+.title {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #202124;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.kpiGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.kpiCard,
+.heroChartCard,
+.sideCard,
+.aiRevenueCard,
+.revenueRecoveryCard {
+  background: #ffffff;
+  border: 1px solid #e8e8ea;
+  border-radius: 18px;
+  box-shadow: none;
+}
+
+.kpiCard {
+  min-height: 96px;
+  padding: 16px;
+}
+
+.kpiTop {
+  margin-bottom: 10px;
+}
+
+.kpiLabel {
+  font-size: 12px;
+  line-height: 1.35;
+  color: #6b7280;
+}
+
+.kpiIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  border-color: #e8e8ea;
+  background: #f8f8f9;
+  color: #7764e8;
+}
+
+.kpiValue {
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  color: #202124;
+}
+
+.kpiSub {
+  margin-top: 7px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.analyticsLayout,
+.primaryGrid,
+.secondaryGrid {
+  gap: 16px;
+}
+
+.primaryGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.heroChartCard {
+  padding: 20px 20px 14px;
+  overflow: visible;
+}
+
+.mrrCard,
+.churnCard,
+.revenueTrendCompact {
+  min-height: 320px !important;
+}
+
+.mrrCard .heroChart,
+.churnCard .heroChart,
+.revenueTrendCompact .heroChart,
+.mrrCard canvas,
+.churnCard canvas,
+.revenueTrendCompact canvas {
+  height: 220px !important;
+  min-height: 220px !important;
+}
+
+.subscriberCard {
+  min-height: 360px;
+}
+
+.chartHeader {
+  margin-bottom: 10px;
+}
+
+.chartTitle {
+  font-size: 14px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: #202124;
+}
+
+.chartMeta {
+  margin-top: 5px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.heroRevenue {
+  margin: 10px 0 4px;
+  font-size: 22px;
+  font-weight: 600;
+  color: #202124;
+}
+
+.chartFilterButton,
+.recoveryExportBtn,
+.exportButton,
+.tableToolbar button {
+  min-height: 34px;
+  border-radius: 9px;
+  border: 1px solid #e2e2e5;
+  background: #ffffff;
+  color: #374151;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.chartFilterButton:hover,
+.recoveryExportBtn:hover,
+.exportButton:hover,
+.tableToolbar button:hover {
+  background: #f7f7f8;
+  border-color: #d7d7dc;
+  color: #202124;
+}
+
+.chartFilterMenu {
+  border-color: #e8e8ea;
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.1);
+}
+
+.chartFilterOption {
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.chartFilterOptionActive {
+  background: #f0f0f3;
+  color: #202124;
+}
+
+.revenueRecoveryCard {
+  padding: 20px;
+}
+
+.revenueRecoveryTop h3,
+.revenueRecoveryTitle h3,
+.aiRevenueTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #202124;
+}
+
+.revenueRecoveryTop p,
+.revenueRecoveryTitle p,
+.aiRevenueSubtitle {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.recoveryTableWrap,
+.aiTableWrap {
+  border: 1px solid #e8e8ea;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.recoveryTable th,
+.aiDriverTableHead,
+.aiChurnTableHead {
+  background: #fbfbfc;
+  color: #6b7280;
+  border-bottom-color: #ededf0;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.recoveryTable td,
+.aiDriverRow,
+.aiChurnRow {
+  border-bottom-color: #f0f0f2;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.recoveryTable tbody tr:hover,
+.aiDriverRow:hover,
+.aiChurnRow:hover,
+.aiAccountRow:hover {
+  background: #f8f8f9;
+}
+
+.recoveryAccountBtn,
+.aiAccountName,
+.aiDriverAccount {
+  color: #202124;
+  font-weight: 700;
+}
+
+.recoveryActionBtn,
+.aiActionButton,
+.aiEmailButton,
+.viewButton {
+  color: #6b5cf6;
+  font-family: inherit;
+  font-weight: 700;
+}
+
+.recoveryPagerButtons button {
+  border-color: #e2e2e5;
+  border-radius: 9px;
+  font-family: inherit;
+}
+
+.recoveryPagerButtons .recoveryPageActive,
+.recoveryPageActive {
+  background: #705cf6;
+  border-color: #705cf6;
+  color: #ffffff;
+}
+
+.aiRevenueCard {
+  overflow: hidden;
+}
+
+.aiRevenueTop {
+  padding: 20px;
+}
+
+.aiCoveragePill,
+.aiPill,
+.aiStatusPill,
+.aiConfidencePill {
+  border-color: #e8e8ea;
+  background: #fafafa;
+  color: #6b7280;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.aiTabs {
+  border-color: #e8e8ea;
+  background: #f8f8f9;
+}
+
+.aiTab {
+  font-family: inherit;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.aiTabActive {
+  background: #ffffff;
+  color: #202124;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.aiMetricCard,
+.aiNarrativeCard,
+.aiForecastCard,
+.aiInsightCard,
+.aiAccountRow,
+.insightMetricCard {
+  border-color: #eeeeee;
+  background: #fafafa;
+  border-radius: 14px;
+}
+
+.aiMetricValue,
+.aiForecastValue,
+.insightMetricValue {
+  color: #202124;
+  font-weight: 700;
+}
+
+.tableToolbar {
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.tableSearchWrap input,
+.tableToolbar input,
+.searchInput {
+  min-height: 38px;
+  border: 1px solid #e2e2e5;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #202124;
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.tableSearchWrap input:focus,
+.tableToolbar input:focus,
+.searchInput:focus {
+  border-color: #b8b0f5;
+  box-shadow: 0 0 0 3px rgba(112, 92, 246, 0.1);
+}
+
+.modalOverlay {
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(4px);
+}
+
+.emailModal,
+.drawer,
+.modalCard {
+  border: 1px solid #e8e8ea;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.18);
+}
+
+.emailModalHeader,
+.drawerHeader {
+  border-bottom-color: #ededf0;
+}
+
+.emailModalTitle,
+.drawerTitle {
+  color: #202124;
+  font-weight: 700;
+}
+
+@media (max-width: 1180px) {
+  .page {
+    padding: 28px 24px 36px;
+  }
+
+  .kpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .primaryGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .page {
+    padding: 20px 16px 28px;
+  }
+
+  .title {
+    font-size: 22px;
+  }
+
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .heroChartCard,
+  .revenueRecoveryCard,
+  .aiRevenueTop {
+    padding: 16px;
+  }
+}
+
+/* ========================================================================== */
+/* PREMIUM GRADIENT ANALYTICS REDESIGN                                        */
+/* Visual/layout-only overrides. Existing data, handlers and backend remain.  */
+/* ========================================================================== */
+
+.page {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 30px 40px 44px;
+  background:
+    radial-gradient(circle at 82% 8%, rgba(255, 255, 255, 0.92), transparent 14%),
+    radial-gradient(circle at 18% 48%, rgba(69, 54, 255, 0.96), transparent 31%),
+    radial-gradient(circle at 5% 92%, rgba(255, 255, 255, 0.48), transparent 20%),
+    linear-gradient(135deg, #8265ff 0%, #2c2baf 35%, #11145b 61%, #070817 100%);
+  color: #ffffff;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.page::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.32), transparent 25%),
+    radial-gradient(circle at 70% 35%, rgba(188, 201, 255, 0.28), transparent 24%),
+    radial-gradient(circle at 45% 65%, rgba(255, 255, 255, 0.11), transparent 20%);
+}
+
+.header,
+.kpiGrid,
+.analyticsLayout {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 1380px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.header {
+  margin-bottom: 22px;
+}
+
+.title {
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+.subtitle {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.kpiGrid {
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.kpiCard,
+.heroChartCard,
+.sideCard,
+.aiRevenueCard,
+.revenueRecoveryCard {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 55px rgba(4, 5, 32, 0.18);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.kpiCard {
+  min-height: 102px;
+  padding: 16px;
+  border-radius: 18px;
+}
+
+.kpiIcon {
+  border-color: rgba(110, 92, 246, 0.13);
+  background: rgba(112, 92, 246, 0.08);
+  color: #5944dc;
+}
+
+.primaryGrid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.combinedChartCard {
+  position: relative;
+  min-height: 520px;
+  padding: 24px 24px 18px;
+  overflow: visible;
+  border-color: rgba(255, 255, 255, 0.19);
+  background:
+    linear-gradient(145deg, rgba(20, 21, 75, 0.96), rgba(7, 8, 23, 0.94)),
+    rgba(7, 8, 23, 0.94);
+  box-shadow: 0 28px 80px rgba(3, 4, 28, 0.36);
+}
+
+.combinedChartCard::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 10% 5%, rgba(126, 102, 255, 0.25), transparent 31%),
+    radial-gradient(circle at 85% 12%, rgba(255, 255, 255, 0.1), transparent 22%);
+}
+
+.combinedChartCard>* {
+  position: relative;
+  z-index: 1;
+}
+
+.combinedChartCard .chartTitle {
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.combinedChartCard .chartMeta {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.combinedChartCard .chartFilterButton {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.combinedChartCard .chartFilterButton:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.13);
+  color: #ffffff;
+}
+
+.combinedChartSummary {
+  display: flex;
+  align-items: flex-end;
+  gap: 34px;
+  margin: 24px 0 10px;
+}
+
+.combinedChartSummary div {
+  min-width: 0;
+}
+
+.combinedChartSummary span {
+  display: block;
+  margin-bottom: 7px;
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.combinedChartSummary strong {
+  display: block;
+  color: #ffffff;
+  font-size: 25px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+.chartLegend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 18px 0 4px;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chartLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.chartLegend i {
+  width: 22px;
+  height: 3px;
+  border-radius: 999px;
+}
+
+.legendRevenue {
+  background: #7ea2ff;
+}
+
+.legendChurn {
+  background: #ff6f91;
+}
+
+.legendForecast {
+  background: repeating-linear-gradient(90deg, #d8dde9 0 5px, transparent 5px 8px);
+}
+
+.combinedChart {
+  width: 100%;
+  height: 350px !important;
+  min-height: 350px !important;
+  margin-top: 2px;
+}
+
+.combinedChart canvas,
+.combinedChart svg {
+  height: 350px !important;
+  min-height: 350px !important;
+}
+
+@media (max-width: 980px) {
+  .page {
+    padding: 26px 22px 36px;
+  }
+
+  .combinedChartSummary {
+    gap: 22px;
+  }
+
+  .combinedChartSummary strong {
+    font-size: 21px;
+  }
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 20px 14px 30px;
+  }
+
+  .combinedChartCard {
+    min-height: 470px;
+    padding: 18px 14px 12px;
+  }
+
+  .combinedChartSummary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .combinedChart {
+    height: 300px !important;
+    min-height: 300px !important;
+  }
+
+  .combinedChart canvas,
+  .combinedChart svg {
+    height: 300px !important;
+    min-height: 300px !important;
+  }
+}
 
 
 
+
+
+.page,
+.page *,
+.page *::before,
+.page *::after {
+  box-sizing: border-box;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 28px 30px 34px;
+  background: #ffffff;
+  color: #1f2937;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.title {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.15;
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  color: #111827;
+}
+
+.subtitle {
+  margin: 7px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  font-weight: 400;
+  color: #8a94a6;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.kpiCard {
+  min-height: 102px;
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid #edf1f6;
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.035);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.kpiCard:hover {
+  transform: translateY(-1px);
+  border-color: #e3e9f1;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+}
+
+.kpiTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.kpiLabel {
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 400;
+  color: #8791a2;
+}
+
+.kpiIcon {
+  width: 31px;
+  height: 31px;
+  border-radius: 11px;
+  border: 1px solid #edf1f6;
+  background: #fafbfc;
+  color: #98a2b3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kpiIcon svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.6;
+}
+
+.kpiValue {
+  font-size: 27px;
+  line-height: 1;
+  font-weight: 400;
+  letter-spacing: -0.045em;
+  color: #111827;
+}
+
+.kpiSub {
+  margin-top: 9px;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 400;
+  color: #9aa3b2;
+}
+
+.analyticsLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.primaryGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  min-width: 0;
+}
+
+.secondaryGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+
+.heroChartCard {
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #edf1f6;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+  overflow: visible;
+}
+
+.chartHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.chartTitle {
+  font-size: 15px;
+  line-height: 1.35;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: #111827;
+}
+
+.chartMeta {
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #98a2b3;
+}
+
+.heroRevenue {
+  margin: 10px 0 3px;
+  font-size: 31px;
+  line-height: 1;
+  font-weight: 400;
+  letter-spacing: -0.05em;
+  color: #111827;
+}
+
+.heroChart {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.chartFilterButton {
+  height: 35px;
+  padding: 0 13px;
+  border-radius: 11px;
+  border: 1px solid #e8edf3;
+  background: #ffffff;
+  color: #667085;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 400;
+  cursor: pointer;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.chartFilterButton:hover {
+  background: #fafbfc;
+  border-color: #dfe5ec;
+  color: #344054;
+}
+
+.revenueRecoveryCard,
+.aiRevenueCard,
+.sideCard {
+  background: #ffffff;
+  border: 1px solid #edf1f6;
+  border-radius: 20px;
+  box-shadow: 0 8px 26px rgba(15, 23, 42, 0.035);
+}
+
+.recoveryTable th,
+.aiDriverTableHead,
+.aiChurnTableHead {
+  font-size: 11px;
+  font-weight: 400;
+  color: #8b95a5;
+  background: #fafbfc;
+}
+
+.recoveryTable td,
+.aiDriverRow,
+.aiChurnRow {
+  font-size: 12px;
+  font-weight: 400;
+  color: #4b5563;
+}
+
+.page button,
+.page input,
+.page select,
+.page textarea {
+  font-family: inherit;
+}
+
+.page button {
+  font-weight: 400;
+}
+
+@media (max-width: 1100px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .page {
+    padding: 20px 16px 28px;
+  }
+
+  .kpiGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .title {
+    font-size: 23px;
+  }
+
+  .heroChartCard {
+    padding: 18px;
+  }
+
+  .chartHeader {
+    flex-direction: column;
+  }
+}
+
+/* =========================================================
+   FINAL ANALYTICS CHART REFINEMENT
+   Keeps the existing component logic and only refines layout.
+   ========================================================= */
+
+.combinedChartCard {
+  position: relative;
+  min-height: 410px;
+  padding: 20px 22px 16px;
+  overflow: visible;
+  border: 1px solid #edf1f6;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+
+.combinedChartCard::before {
+  display: none;
+}
+
+.combinedChartCard .chartTitle {
+  color: #111827;
+  font-size: 15px;
+  line-height: 1.35;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.combinedChartCard .chartMeta {
+  color: #98a2b3;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.combinedChartCard .chartFilterButton {
+  border-color: #e8edf3;
+  background: #ffffff;
+  color: #667085;
+}
+
+.combinedChartCard .chartFilterButton:hover {
+  border-color: #dfe5ec;
+  background: #fafbfc;
+  color: #344054;
+}
+
+.combinedChartSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, max-content));
+  align-items: end;
+  gap: 34px;
+  margin: 14px 0 8px;
+}
+
+.combinedChartSummary span {
+  display: block;
+  margin-bottom: 5px;
+  color: #98a2b3;
+  font-size: 10.5px;
+  line-height: 1.3;
+  font-weight: 400;
+}
+
+.combinedChartSummary strong {
+  display: block;
+  color: #111827;
+  font-size: 19px;
+  line-height: 1;
+  font-weight: 400;
+  letter-spacing: -0.04em;
+}
+
+.chartLegend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 13px 0 1px;
+  color: #7f8998;
+  font-size: 10.5px;
+  font-weight: 400;
+}
+
+.chartLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chartLegend i {
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+}
+
+.legendRevenue {
+  background: #5577d8;
+}
+
+.legendChurn {
+  background: #d15b78;
+}
+
+.legendForecast {
+  background: repeating-linear-gradient(90deg, #aab4c3 0 4px, transparent 4px 7px);
+}
+
+.combinedChart {
+  width: 100%;
+  height: 255px !important;
+  min-height: 255px !important;
+  margin-top: 0;
+}
+
+.combinedChart canvas,
+.combinedChart svg {
+  height: 255px !important;
+  min-height: 255px !important;
+}
+
+@media (max-width: 980px) {
+  .combinedChartSummary {
+    gap: 24px;
+  }
+}
+
+@media (max-width: 720px) {
+  .combinedChartCard {
+    min-height: 430px;
+    padding: 18px 15px 14px;
+  }
+
+  .combinedChartSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 15px 20px;
+  }
+
+  .combinedChartSummary strong {
+    font-size: 18px;
+  }
+
+  .combinedChart {
+    height: 230px !important;
+    min-height: 230px !important;
+  }
+
+  .combinedChart canvas,
+  .combinedChart svg {
+    height: 230px !important;
+    min-height: 230px !important;
+  }
+}
+
+/* =========================================================
+   IMAGE-2 MATCH — COMPACT PRICE-HISTORY STYLE CHART
+   Visual-only overrides. Existing data, logic and actions stay intact.
+   ========================================================= */
+
+.primaryGrid {
+  justify-items: center;
+}
+
+.combinedChartCard {
+  width: min(100%, 760px);
+  min-height: 0;
+  justify-self: center;
+  padding: 20px 26px 20px;
+  border: 1px solid #e7e9ee;
+  border-radius: 3px;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.09);
+  overflow: visible;
+}
+
+.combinedChartCard .chartHeader {
+  margin-bottom: 2px;
+}
+
+.combinedChartCard .chartTitle {
+  color: #303846;
+  font-size: 17px;
+  line-height: 1.25;
+  font-weight: 400;
+  letter-spacing: -0.025em;
+}
+
+.combinedChartCard .chartMeta {
+  margin-top: 3px;
+  color: #7e8795;
+  font-size: 10.5px;
+  line-height: 1.35;
+  font-weight: 400;
+}
+
+.combinedChartCard .chartFilterButton {
+  height: 31px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border-color: #e5e7eb;
+  background: #ffffff;
+  color: #687386;
+  font-size: 10px;
+}
+
+.combinedChartSummary {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  align-items: end;
+  gap: 30px;
+  margin: 14px 0 8px;
+}
+
+.combinedChartSummary span {
+  margin-bottom: 4px;
+  color: #8993a1;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 400;
+}
+
+.combinedChartSummary strong {
+  color: #364152;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 400;
+  letter-spacing: -0.035em;
+}
+
+.chartLegend {
+  gap: 15px;
+  margin: 12px 0 3px;
+  color: #7d8795;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.chartLegend i {
+  width: 17px;
+  height: 2px;
+}
+
+.legendRevenue {
+  background: #5874cf;
+}
+
+.legendChurn {
+  background: #c95372;
+}
+
+.legendForecast {
+  background: repeating-linear-gradient(90deg, #9aa5b5 0 4px, transparent 4px 7px);
+}
+
+.combinedChart {
+  width: 100%;
+  height: 286px !important;
+  min-height: 286px !important;
+  margin-top: 0;
+}
+
+.combinedChart canvas,
+.combinedChart svg {
+  height: 286px !important;
+  min-height: 286px !important;
+}
+
+@media (max-width: 920px) {
+  .combinedChartCard {
+    width: min(100%, 700px);
+  }
+}
+
+@media (max-width: 720px) {
+  .combinedChartCard {
+    width: 100%;
+    padding: 17px 14px 15px;
+  }
+
+  .combinedChartSummary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .combinedChartSummary strong {
+    font-size: 16px;
+  }
+
+  .combinedChart {
+    height: 245px !important;
+    min-height: 245px !important;
+  }
+
+  .combinedChart canvas,
+  .combinedChart svg {
+    height: 245px !important;
+    min-height: 245px !important;
+  }
+}
+
+/* =========================================================
+   SHARED MRR + CHURN PERFORMANCE CARD
+   ========================================================= */
+.performanceCard {
+  grid-column: auto;
+  width: 100%;
+  margin: 0;
+  padding: 18px 20px 16px;
+  border: 1px solid #e7ebf1;
+  border-radius: 16px;
+  background: #ffffff;
+  overflow: visible;
+}
+
+.performanceHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 10px;
+}
+
+.performanceRow {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  align-items: center;
+  gap: 22px;
+  min-height: 160px;
+  padding: 8px 0;
+}
+
+.performanceMetric {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.performanceLabel {
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.performanceValue {
+  margin-top: 7px;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  color: #111827;
+}
+
+.performanceChange {
+  display: inline-flex;
+  margin-top: 9px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: #f7f9fc;
+  color: #7b8494;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+.performanceChartWrap {
+  width: 100%;
+  height: 142px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.performanceChartWrap :global(canvas),
+.performanceChartWrap :global(svg) {
+  width: 100% !important;
+  height: 142px !important;
+}
+
+.performanceDivider {
+  height: 1px;
+  background: #edf0f4;
+}
+
+
+.activeUsersCard {
+  width: 100%;
+  min-width: 0;
+  padding: 18px 20px 16px;
+  border: 1px solid #e7ebf1;
+  border-radius: 16px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.activeUsersHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.activeUsersMenu {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e5e7eb;
+  border-radius: 11px;
+  background: #ffffff;
+  color: #6b7280;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 1px;
+  cursor: default;
+}
+
+.activeUsersValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.activeUsersValue {
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  color: #111827;
+}
+
+.activeUsersDelta {
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 500;
+  color: #16a34a;
+}
+
+.activeUsersChart {
+  width: 100%;
+  height: 260px;
+  min-width: 0;
+  margin-top: 14px;
+}
+
+.activeUsersChart :global(canvas),
+.activeUsersChart :global(svg) {
+  width: 100% !important;
+  height: 260px !important;
+}
+
+@media (max-width: 900px) {
+  .primaryGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .performanceCard,
+  .activeUsersCard {
+    width: 100%;
+  }
+}
+
+@media (max-width: 680px) {
+
+  .performanceCard,
+  .activeUsersCard {
+    padding: 16px;
+  }
+
+  .performanceHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .performanceRow {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    min-height: 0;
+    padding: 16px 0;
+  }
+
+  .performanceValue {
+    font-size: 22px;
+  }
+
+  .performanceChartWrap,
+  .performanceChartWrap :global(canvas),
+  .performanceChartWrap :global(svg) {
+    height: 132px !important;
+  }
+
+  .activeUsersChart,
+  .activeUsersChart :global(canvas),
+  .activeUsersChart :global(svg) {
+    height: 230px !important;
+  }
+}
+
+/* =========================================================
+   FINAL ANALYTICS STRUCTURE — MATCHES APPROVED REFERENCE
+   Layout-only correction. No data, API, state or action changes.
+   ========================================================= */
+@media (min-width: 901px) {
+  .analyticsLayout {
+    width: 100%;
+    display: block;
+  }
+
+  .primaryGrid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1.42fr) minmax(330px, 0.78fr);
+    gap: 18px;
+    align-items: stretch;
+    justify-items: stretch;
+  }
+
+  .performanceCard {
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
+    min-height: 438px;
+    height: 438px;
+    padding: 20px 22px 18px;
+  }
+
+  .activeUsersCard {
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
+    min-height: 438px;
+    height: 438px;
+    padding: 20px 22px 18px;
+  }
+
+  .revenueRecoveryCard {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .performanceHeader {
+    margin-bottom: 6px;
+  }
+
+  .performanceRow {
+    grid-template-columns: 170px minmax(0, 1fr);
+    min-height: 174px;
+    height: 174px;
+    gap: 20px;
+    padding: 5px 0;
+  }
+
+  .performanceChartWrap,
+  .performanceChartWrap :global(canvas),
+  .performanceChartWrap :global(svg) {
+    height: 154px !important;
+    min-height: 154px !important;
+  }
+
+  .activeUsersValueRow {
+    margin-top: 18px;
+  }
+
+  .activeUsersChart,
+  .activeUsersChart :global(canvas),
+  .activeUsersChart :global(svg) {
+    height: 302px !important;
+    min-height: 302px !important;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  .primaryGrid {
+    grid-template-columns: minmax(0, 1.3fr) minmax(300px, 0.82fr);
+    gap: 14px;
+  }
+
+  .performanceCard,
+  .activeUsersCard {
+    height: 420px;
+    min-height: 420px;
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .performanceRow {
+    grid-template-columns: 150px minmax(0, 1fr);
+    height: 166px;
+    min-height: 166px;
+    gap: 14px;
+  }
+
+  .performanceChartWrap,
+  .performanceChartWrap :global(canvas),
+  .performanceChartWrap :global(svg) {
+    height: 146px !important;
+    min-height: 146px !important;
+  }
+
+  .activeUsersChart,
+  .activeUsersChart :global(canvas),
+  .activeUsersChart :global(svg) {
+    height: 284px !important;
+    min-height: 284px !important;
+  }
+}
+
+/* KPI reference-layout refinements */
+@media (max-width: 1180px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .kpiGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kpiCard {
+    min-height: 96px;
+    padding: 15px 16px;
+  }
+}
+
+
+/* ==========================================================================
+   EMAIL QUEUE TYPOGRAPHY SYNC
+   Typography-only final overrides. Layout, chart sizing and component logic
+   remain unchanged.
+   ========================================================================== */
+
+.page,
+.page *,
+.page *::before,
+.page *::after {
+  box-sizing: border-box;
+}
+
+.page {
+  color: #111827;
+  font-family: "Inter", sans-serif;
+}
+
+.page button,
+.page input,
+.page select,
+.page textarea {
+  font-family: inherit;
+}
+
+/* Page heading */
+
+.title {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: #111827;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+/* KPI cards */
+
+.kpiLabel {
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: #6b7280;
+}
+
+.kpiValue {
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  color: #111827;
+}
+
+.kpiSub {
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: #9ca3af;
+}
+
+/* Chart headings and metrics */
+
+.chartTitle,
+.performanceHeader .chartTitle {
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: #111827;
+}
+
+.chartMeta,
+.performanceHeader .chartMeta {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: #9ca3af;
+}
+
+.heroRevenue,
+.performanceValue,
+.activeUsersValue {
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  color: #111827;
+}
+
+.performanceLabel,
+.activeUsersLabel {
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.performanceChange,
+.activeUsersChange {
+  font-size: 10.5px;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+/* Filters, buttons and controls */
+
+.chartFilterButton,
+.recoveryExportBtn,
+.exportButton,
+.aiTab,
+.aiViewAllButton,
+.aiActionButton,
+.recoveryActionBtn,
+.recoveryPagerButtons button,
+.emailCancelBtn,
+.emailSendBtn,
+.emailCloseBtn,
+.actionToastBtn {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.chartFilterOption {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.chartFilterOptionActive {
+  font-weight: 600;
+}
+
+.tableSearch,
+.emailInput,
+.emailTextarea {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* Revenue impact section */
+
+.revenueRecoveryTop h3,
+.revenueRecoveryTitle h3,
+.aiRevenueTitle {
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: #111827;
+}
+
+.revenueRecoveryTop p,
+.revenueRecoveryTitle p,
+.aiRevenueSubtitle {
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.recoveryForecastHero div:first-child strong {
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  color: #111827;
+}
+
+.recoveryForecastHero div:first-child span {
+  font-size: 10.5px;
+  line-height: 1;
+  font-weight: 600;
+}
+
+.recoveryForecastHero div:last-child strong {
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: #111827;
+}
+
+.recoveryForecastHero div:last-child span {
+  font-size: 9.5px;
+  line-height: 1;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+/* Tables */
+
+.recoveryTable th,
+.aiDriverTableHead,
+.aiChurnTableHead {
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #6b7280;
+}
+
+.recoveryTable td,
+.aiDriverRow,
+.aiChurnRow {
+  font-size: 12px;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.recoveryAccountBtn,
+.aiDriverAccount strong,
+.aiAccountMain strong {
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: #111827;
+}
+
+.recoveryReasonPill,
+.aiDriverReason,
+.aiRecommendedAction,
+.aiReasonText,
+.aiReasonActionCell strong {
+  font-size: 11.5px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.aiDriverValue,
+.aiDriverValueRed {
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 500;
+}
+
+.aiReasonActionCell span,
+.aiRecommendedAction,
+.aiActionBadge {
+  font-size: 10.5px;
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+/* AI cards and tabs */
+
+.aiAccountsHeader strong {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.aiAccountsHeader span {
+  font-size: 10.5px;
+  font-weight: 400;
+}
+
+.aiAccountMain span {
+  font-size: 9.5px;
+  font-weight: 400;
+}
+
+.aiAccountMain p {
+  font-size: 10.5px;
+  line-height: 1.25;
+  font-weight: 400;
+}
+
+.aiAccountValue strong,
+.aiAccountValueRed strong {
+  font-size: 11.5px;
+  line-height: 1;
+  font-weight: 500;
+}
+
+.aiAccountValue span,
+.aiAccountValueRed span {
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.aiCoveragePill,
+.subscriberTotalPill {
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+/* Modal */
+
+.emailModalTitle {
+  font-size: 20px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: #111827;
+}
+
+.emailLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.emailTextarea {
+  line-height: 1.6;
+}
+
+/* Feedback states */
+
+.errorBox,
+.toast,
+.actionToast {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+@media (max-width: 760px) {
+  .title {
+    font-size: 22px;
+  }
+
+  .emailModalTitle {
+    font-size: 18px;
+  }
+}
+
+/* ==========================================================================
+   REVENUE IMPACT QUEUE — EMAIL QUEUE TABLE STYLING
+   Only this section is overridden. All analytics logic and other styling stay
+   unchanged.
+   ========================================================================== */
+
+.revenueRecoveryCard {
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #ffffff;
+  overflow: hidden;
+  box-shadow: none;
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
 
 .revenueRecoveryHeader {
   display: grid;
-  grid-template-columns: minmax(190px, 240px) minmax(320px, 520px) auto;
+  grid-template-columns: minmax(210px, 250px) minmax(320px, 520px) auto;
   align-items: center;
   justify-content: space-between;
   gap: 22px;
-  margin-bottom: 18px;
+  margin: 0;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
 }
 
 .revenueRecoveryTitle h3 {
   margin: 0;
   font-size: 18px;
   line-height: 1.2;
-  font-weight: 650;
-  letter-spacing: -0.035em;
+  font-weight: 500;
+  letter-spacing: -0.03em;
   color: #111827;
 }
 
 .revenueRecoveryTitle p {
   margin: 6px 0 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #6b7280;
 }
 
 .recoveryForecastPanel {
@@ -1665,8 +3617,8 @@
   display: block;
   font-size: 18px;
   line-height: 1;
-  font-weight: 400;
-  letter-spacing: -0.055em;
+  font-weight: 500;
+  letter-spacing: -0.04em;
   color: #111827;
 }
 
@@ -1674,9 +3626,9 @@
   display: block;
   margin-top: 5px;
   font-size: 10.5px;
-  line-height: 1;
-  font-weight: 650;
-  color: #3264ff;
+  line-height: 1.2;
+  font-weight: 600;
+  color: #047857;
 }
 
 .recoveryForecastHero div:last-child {
@@ -1685,20 +3637,20 @@
 
 .recoveryForecastHero div:last-child strong {
   display: block;
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1;
-  font-weight: 450;
-  letter-spacing: -0.035em;
+  font-weight: 500;
+  letter-spacing: -0.03em;
   color: #111827;
 }
 
 .recoveryForecastHero div:last-child span {
   display: block;
   margin-top: 4px;
-  font-size: 9.5px;
-  line-height: 1;
-  font-weight: 420;
-  color: #667085;
+  font-size: 10.5px;
+  line-height: 1.2;
+  font-weight: 400;
+  color: #6b7280;
 }
 
 .recoveryMeasureTrack {
@@ -1706,15 +3658,15 @@
   width: 100%;
   height: 6px;
   border-radius: 999px;
-  background: #e8ecf8;
+  background: #e5e7eb;
   overflow: visible;
 }
 
 .recoveryMeasureFill {
   position: absolute;
   inset: 0 auto 0 0;
-  border-radius: 999px;
-  background: #79e8a0;
+  border-radius: inherit;
+  background: #86efac;
 }
 
 .recoveryMeasureMarker {
@@ -1724,25 +3676,5269 @@
   height: 14px;
   border-radius: 999px;
   background: #ffffff;
-  border: 3px solid #f2f3f4;
+  border: 3px solid #e5e7eb;
   transform: translate(-50%, -50%);
-  box-shadow: 0 4px 10px rgba(50, 100, 255, 0.18);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.12);
 }
 
-.recoveryForecastInsight,
-.recoveryMeasureValues,
-.recoveryMeasureStripe,
-.recoveryMeasureBar {
-  display: none;
+.recoveryActions {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
 }
 
-@media (max-width: 1000px) {
+.recoveryExportBtn {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 400;
+  color: #374151;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.recoveryExportBtn:hover {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #374151;
+}
+
+.recoveryTableWrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 0;
+  border-radius: 0;
+  background: #ffffff;
+}
+
+.recoveryTable {
+  width: 100%;
+  min-width: 1080px;
+  border-collapse: collapse;
+  border-spacing: 0;
+  background: #ffffff;
+  table-layout: fixed;
+}
+
+.recoveryTable th {
+  height: 46px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fafafa;
+  color: #6b7280;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-align: left;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.recoveryTable th:nth-child(1) {
+  width: 15%;
+}
+
+.recoveryTable th:nth-child(2) {
+  width: 15%;
+}
+
+.recoveryTable th:nth-child(3) {
+  width: 12%;
+}
+
+.recoveryTable th:nth-child(4) {
+  width: 30%;
+}
+
+.recoveryTable th:nth-child(5) {
+  width: 28%;
+}
+
+.recoveryTable td {
+  min-height: 62px;
+  height: 62px;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 1px solid #f1f5f9;
+  background: transparent;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 400;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.recoveryTable tbody tr {
+  background: #ffffff;
+  transition: background 0.14s ease;
+}
+
+.recoveryTable tbody tr:hover {
+  background: #fafafa;
+}
+
+.recoveryTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.recoveryAccountBtn {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #111827;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recoveryAccountBtn:hover {
+  color: #111827;
+  text-decoration: underline;
+}
+
+.recoveryReasonPill {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 24px;
+  align-items: center;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 10.5px;
+  line-height: 1.2;
+  font-weight: 500;
+  white-space: normal;
+}
+
+.recoveryTable td:nth-child(3) {
+  color: #111827;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.recoveryTable td:nth-child(4) {
+  color: #6b7280;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.recoveryActionBtn {
+  min-height: 28px;
+  max-width: 100%;
+  padding: 5px 9px;
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #374151;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+}
+
+.recoveryActionBtn:hover {
+  background: #f9fafb;
+  color: #374151;
+  text-decoration: none;
+}
+
+.recoveryActionBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.emptyRecoveryState {
+  height: 120px !important;
+  text-align: center;
+  color: #9ca3af !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+}
+
+.recoveryPagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 55px;
+  margin: 0;
+  padding: 12px 14px;
+  border-top: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.recoveryPagerButtons {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.recoveryPagerButtons button {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #6b7280;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.recoveryPagerButtons button:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #374151;
+}
+
+.recoveryPagerButtons button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.recoveryPagerButtons .recoveryPageActive {
+  border-color: #111827;
+  background: #111827;
+  color: #ffffff;
+}
+
+@media (max-width: 1100px) {
+  .revenueRecoveryHeader {
+    grid-template-columns: minmax(210px, 1fr) minmax(300px, 1.25fr);
+  }
+
+  .recoveryActions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 760px) {
   .revenueRecoveryHeader {
     grid-template-columns: 1fr;
-    align-items: stretch;
+    gap: 16px;
+    padding: 16px;
   }
 
   .recoveryForecastPanel {
     max-width: none;
   }
+
+  .recoveryActions {
+    grid-column: auto;
+    justify-content: flex-start;
+  }
+
+  .recoveryPagination {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
+
+/* Revenue Impact Queue — compact responsive table */
+.recoveryTableShell {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid #e7ebf1;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.recoveryToolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid #edf0f4;
+  background: #ffffff;
+}
+
+.recoverySearch {
+  position: relative;
+  flex: 1 1 260px;
+  min-width: 210px;
+  display: flex;
+  align-items: center;
+}
+
+.recoverySearch svg {
+  position: absolute;
+  left: 12px;
+  width: 14px;
+  height: 14px;
+  color: #8b95a7;
+  pointer-events: none;
+}
+
+.recoverySearch input {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px 0 35px;
+  border: 1px solid #e1e6ed;
+  border-radius: 9px;
+  outline: none;
+  background: #ffffff;
+  color: #182033;
+  font: inherit;
+  font-size: 11px;
+}
+
+.recoverySearch input::placeholder {
+  color: #98a1b2;
+}
+
+.recoverySearch input:focus {
+  border-color: #b9c6d8;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.06);
+}
+
+.recoveryFilters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.recoveryFilterBtn,
+.recoveryToolbarExport {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 1px solid #e1e6ed;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #4b5568;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.recoveryFilterBtn svg,
+.recoveryToolbarExport svg {
+  width: 13px;
+  height: 13px;
+}
+
+.recoveryToolbarExport {
+  margin-left: auto;
+  color: #2563eb;
+}
+
+.recoveryFilterBtn:hover,
+.recoveryToolbarExport:hover {
+  border-color: #cfd6e0;
+  background: #f9fafb;
+}
+
+.recoveryTableWrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #ffffff;
+}
+
+.recoveryTable {
+  width: 100%;
+  min-width: 900px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  background: #ffffff;
+}
+
+.recoveryTable th {
+  height: 42px !important;
+  padding: 0 12px !important;
+  border-bottom: 1px solid #e9edf2 !important;
+  background: #fbfcfd !important;
+  color: #7b8495 !important;
+  font-size: 10px !important;
+  line-height: 1 !important;
+  font-weight: 500 !important;
+  text-align: left !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap;
+}
+
+.recoveryTable th:nth-child(1) {
+  width: 20%;
+}
+
+.recoveryTable th:nth-child(2) {
+  width: 18%;
+}
+
+.recoveryTable th:nth-child(3) {
+  width: 14%;
+}
+
+.recoveryTable th:nth-child(4) {
+  width: 11%;
+}
+
+.recoveryTable th:nth-child(5) {
+  width: 33%;
+}
+
+.recoveryTable th:nth-child(6) {
+  width: 4%;
+}
+
+.recoveryTable td {
+  height: 62px !important;
+  padding: 8px 12px !important;
+  border-bottom: 1px solid #eef1f5 !important;
+  background: #ffffff;
+  color: #566174 !important;
+  font-size: 10.5px !important;
+  line-height: 1.35;
+  vertical-align: middle !important;
+  overflow: hidden;
+}
+
+.recoveryTable tbody tr:last-child td {
+  border-bottom: 0 !important;
+}
+
+.recoveryTable tbody tr:hover td {
+  background: #fbfcfe !important;
+}
+
+.recoveryAccountBtn {
+  width: 100%;
+  min-width: 0;
+  display: flex !important;
+  align-items: center;
+  gap: 9px;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none !important;
+}
+
+.recoveryAvatar {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 10.5px;
+  line-height: 1;
+  font-weight: 600;
+}
+
+.recoveryAvatar1 {
+  background: #edf4ff;
+  color: #2563eb;
+}
+
+.recoveryAvatar2 {
+  background: #f4edff;
+  color: #8b5cf6;
+}
+
+.recoveryAvatar3 {
+  background: #fff6df;
+  color: #d98b00;
+}
+
+.recoveryAvatar4 {
+  background: #e9f9f2;
+  color: #079669;
+}
+
+.recoveryAvatar5 {
+  background: #f3ecff;
+  color: #7c3aed;
+}
+
+.recoveryAvatar6 {
+  background: #eef5ff;
+  color: #2d6cdf;
+}
+
+.recoveryAccountCopy {
+  min-width: 0;
+  display: block;
+}
+
+.recoveryAccountCopy strong {
+  display: block;
+  overflow: hidden;
+  color: #182033;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recoveryAccountCopy small {
+  display: block;
+  overflow: hidden;
+  margin-top: 3px;
+  color: #929bab;
+  font-size: 9.5px;
+  line-height: 1.15;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recoveryOpportunityPill {
+  max-width: 100%;
+  min-height: 23px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  font-size: 9.5px;
+  line-height: 1.15;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recoveryOpportunity_blue {
+  background: #edf5ff;
+  color: #2766b5;
+}
+
+.recoveryOpportunity_amber {
+  background: #fff7e5;
+  color: #bd7900;
+}
+
+.recoveryOpportunity_green {
+  background: #eaf9f1;
+  color: #07805b;
+}
+
+.recoveryImpact {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.recoveryImpact strong {
+  color: #182033;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 600;
+}
+
+.recoveryImpact span {
+  display: none;
+}
+
+.recoveryRiskPill {
+  min-width: 46px;
+  height: 23px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 9.5px;
+  line-height: 1;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.recoveryRiskHigh {
+  border-color: #fee2e2;
+  background: #fff5f5;
+  color: #dc2626;
+}
+
+.recoveryRiskMedium {
+  border-color: #fdecc8;
+  background: #fff9ec;
+  color: #c77a00;
+}
+
+.recoveryRiskLow {
+  border-color: #d9f3e7;
+  background: #f1fbf6;
+  color: #07875f;
+}
+
+.recoveryActionBtn {
+  width: 100%;
+  min-height: 38px;
+  display: grid !important;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  text-align: left !important;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none !important;
+}
+
+.recoveryActionBtn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.recoveryActionBtn span {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 9.8px;
+  line-height: 1.3;
+  font-weight: 500;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.recoveryAction_blue {
+  background: #eef5ff !important;
+  color: #2d619a !important;
+}
+
+.recoveryAction_amber {
+  background: #fff7e8 !important;
+  color: #ad7000 !important;
+}
+
+.recoveryAction_green {
+  background: #edf9f3 !important;
+  color: #087858 !important;
+}
+
+.recoveryActionBtn:hover {
+  filter: brightness(0.985);
+}
+
+.recoveryRowOpen {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #536075;
+  cursor: pointer;
+}
+
+.recoveryRowOpen:hover {
+  background: #f1f4f8;
+}
+
+.recoveryRowOpen svg {
+  width: 14px;
+  height: 14px;
+}
+
+.recoveryPagination {
+  margin-top: 0 !important;
+  padding: 11px 12px;
+  border: 1px solid #e7ebf1;
+  border-top: 0;
+  border-radius: 0 0 14px 14px;
+  background: #ffffff;
+  color: #7b8495 !important;
+  font-size: 10px !important;
+}
+
+.recoveryPagerButtons button {
+  min-width: 28px !important;
+  height: 28px !important;
+  border-radius: 8px !important;
+  color: #677286 !important;
+  font-size: 10px !important;
+}
+
+.recoveryPagerButtons .recoveryPageActive {
+  border-color: #2563eb !important;
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+
+@media (max-width: 1180px) {
+  .recoveryToolbar {
+    flex-wrap: wrap;
+  }
+
+  .recoverySearch {
+    flex: 1 1 100%;
+  }
+
+  .recoveryFilters {
+    flex: 1 1 auto;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .recoveryToolbar {
+    align-items: stretch;
+  }
+
+  .recoveryFilters {
+    width: 100%;
+  }
+
+  .recoveryToolbarExport {
+    margin-left: 0;
+  }
+}
+
+
+/* =========================================================
+   REVENUE IMPACT QUEUE — EMAIL QUEUE TABLE VISUAL SYSTEM
+   Design-only overrides. Existing data, actions and logic stay unchanged.
+   ========================================================= */
+
+.revenueRecoveryCard {
+  overflow: hidden;
+  padding: 0 !important;
+  border: 1px solid #e7e9ee !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
+.revenueRecoveryHeader {
+  margin: 0 !important;
+  padding: 18px 18px 16px !important;
+  border-bottom: 1px solid #eceef2;
+  background: #ffffff;
+}
+
+.revenueRecoveryTitle h3 {
+  margin: 0 !important;
+  color: #171923 !important;
+  font-size: 16px !important;
+  line-height: 1.25 !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.025em !important;
+}
+
+.revenueRecoveryTitle p {
+  margin: 5px 0 0 !important;
+  color: #7b8190 !important;
+  font-size: 11px !important;
+  line-height: 1.45 !important;
+  font-weight: 400 !important;
+}
+
+.recoveryForecastPanel {
+  max-width: 480px !important;
+}
+
+.recoveryForecastHero div:first-child strong,
+.recoveryForecastHero div:last-child strong {
+  color: #171923 !important;
+  font-weight: 500 !important;
+}
+
+.recoveryForecastHero div:first-child span,
+.recoveryForecastHero div:last-child span {
+  color: #8a91a0 !important;
+  font-size: 9.5px !important;
+  font-weight: 400 !important;
+}
+
+.recoveryMeasureTrack {
+  height: 4px !important;
+  background: #edf0f3 !important;
+}
+
+.recoveryMeasureFill {
+  background: #8ed1a7 !important;
+}
+
+.recoveryMeasureMarker {
+  width: 11px !important;
+  height: 11px !important;
+  border-width: 2px !important;
+  border-color: #dfe4e9 !important;
+  box-shadow: none !important;
+}
+
+.recoveryExportBtn {
+  height: 34px !important;
+  padding: 0 12px !important;
+  border: 1px solid #e1e5eb !important;
+  border-radius: 9px !important;
+  background: #ffffff !important;
+  color: #5f6675 !important;
+  font-size: 10.5px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+.recoveryTableShell {
+  width: auto !important;
+  margin: 0 14px 14px !important;
+  overflow: hidden !important;
+  border: 1px solid #e7e9ee !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.recoveryToolbar {
+  min-height: 58px !important;
+  padding: 10px 12px !important;
+  gap: 9px !important;
+  border-bottom: 1px solid #eceef2 !important;
+  background: #ffffff !important;
+}
+
+.recoverySearch {
+  flex: 0 1 290px !important;
+  min-width: 220px !important;
+}
+
+.recoverySearch svg {
+  left: 11px !important;
+  width: 13px !important;
+  height: 13px !important;
+  color: #9aa1ad !important;
+}
+
+.recoverySearch input {
+  height: 34px !important;
+  padding: 0 11px 0 33px !important;
+  border: 1px solid #e3e6eb !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  color: #272a33 !important;
+  font-family: inherit !important;
+  font-size: 10.5px !important;
+  line-height: 1 !important;
+  font-weight: 400 !important;
+  box-shadow: none !important;
+}
+
+.recoverySearch input::placeholder {
+  color: #a2a8b3 !important;
+}
+
+.recoverySearch input:focus {
+  border-color: #cfd4dc !important;
+  box-shadow: none !important;
+}
+
+.recoveryFilters {
+  gap: 8px !important;
+}
+
+.recoveryFilterBtn,
+.recoveryToolbarExport {
+  height: 34px !important;
+  padding: 0 11px !important;
+  gap: 6px !important;
+  border: 1px solid #e3e6eb !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  color: #646b79 !important;
+  font-family: inherit !important;
+  font-size: 10px !important;
+  line-height: 1 !important;
+  font-weight: 400 !important;
+  box-shadow: none !important;
+}
+
+.recoveryFilterBtn svg,
+.recoveryToolbarExport svg {
+  width: 12px !important;
+  height: 12px !important;
+}
+
+.recoveryToolbarExport {
+  margin-left: auto !important;
+  color: #5f6675 !important;
+}
+
+.recoveryFilterBtn:hover,
+.recoveryToolbarExport:hover,
+.recoveryExportBtn:hover {
+  border-color: #d4d8df !important;
+  background: #fafafa !important;
+  color: #272a33 !important;
+}
+
+.recoveryTableWrap {
+  width: 100% !important;
+  overflow-x: auto !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+.recoveryTable {
+  width: 100% !important;
+  min-width: 860px !important;
+  table-layout: fixed !important;
+  border-collapse: collapse !important;
+  background: #ffffff !important;
+  font-family: inherit !important;
+}
+
+.recoveryTable th {
+  height: 40px !important;
+  padding: 0 12px !important;
+  border-bottom: 1px solid #eceef2 !important;
+  background: #fbfbfc !important;
+  color: #8b909c !important;
+  font-family: inherit !important;
+  font-size: 9.5px !important;
+  line-height: 1 !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-align: left !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+}
+
+.recoveryTable th:nth-child(1) {
+  width: 21% !important;
+}
+
+.recoveryTable th:nth-child(2) {
+  width: 18% !important;
+}
+
+.recoveryTable th:nth-child(3) {
+  width: 14% !important;
+}
+
+.recoveryTable th:nth-child(4) {
+  width: 11% !important;
+}
+
+.recoveryTable th:nth-child(5) {
+  width: 32% !important;
+}
+
+.recoveryTable th:nth-child(6) {
+  width: 4% !important;
+}
+
+.recoveryTable td {
+  height: 58px !important;
+  padding: 7px 12px !important;
+  overflow: hidden !important;
+  border-bottom: 1px solid #eff0f3 !important;
+  background: #ffffff !important;
+  color: #626977 !important;
+  font-family: inherit !important;
+  font-size: 10px !important;
+  line-height: 1.35 !important;
+  font-weight: 400 !important;
+  vertical-align: middle !important;
+}
+
+.recoveryTable tbody tr:last-child td {
+  border-bottom: 0 !important;
+}
+
+.recoveryTable tbody tr:hover td {
+  background: #fbfbfc !important;
+}
+
+.recoveryAccountBtn {
+  width: 100% !important;
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  font-family: inherit !important;
+  text-align: left !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+}
+
+.recoveryAvatar {
+  width: 28px !important;
+  height: 28px !important;
+  flex: 0 0 28px !important;
+  border-radius: 8px !important;
+  font-size: 9px !important;
+  line-height: 1 !important;
+  font-weight: 500 !important;
+}
+
+.recoveryAccountCopy {
+  min-width: 0 !important;
+}
+
+.recoveryAccountCopy strong {
+  display: block !important;
+  overflow: hidden !important;
+  color: #2b2e37 !important;
+  font-size: 10.5px !important;
+  line-height: 1.2 !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.recoveryAccountCopy small {
+  display: block !important;
+  overflow: hidden !important;
+  margin-top: 3px !important;
+  color: #9a9fab !important;
+  font-size: 8.8px !important;
+  line-height: 1.1 !important;
+  font-weight: 400 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.recoveryOpportunityPill,
+.recoveryRiskPill {
+  width: fit-content !important;
+  max-width: 100% !important;
+  min-height: 24px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 4px 8px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  font-family: inherit !important;
+  font-size: 9px !important;
+  line-height: 1.15 !important;
+  font-weight: 400 !important;
+  white-space: nowrap !important;
+}
+
+.recoveryOpportunity_blue {
+  background: #eef4ff !important;
+  color: #5270a7 !important;
+}
+
+.recoveryOpportunity_amber {
+  background: #fff6e5 !important;
+  color: #a57528 !important;
+}
+
+.recoveryOpportunity_green {
+  background: #eaf8f1 !important;
+  color: #4f856b !important;
+}
+
+.recoveryImpact {
+  min-width: 0 !important;
+  display: block !important;
+}
+
+.recoveryImpact strong {
+  display: block !important;
+  color: #323640 !important;
+  font-size: 10.5px !important;
+  line-height: 1.15 !important;
+  font-weight: 500 !important;
+  white-space: nowrap !important;
+}
+
+.recoveryImpact>span {
+  display: none !important;
+}
+
+.recoveryRiskPill {
+  min-width: 45px !important;
+}
+
+.recoveryRiskHigh {
+  background: #fff0f0 !important;
+  color: #bc6767 !important;
+}
+
+.recoveryRiskMedium {
+  background: #fff7e8 !important;
+  color: #a97a31 !important;
+}
+
+.recoveryRiskLow {
+  background: #eef7f2 !important;
+  color: #5c886f !important;
+}
+
+.recoveryActionBtn {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 34px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 6px 9px !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: #f7f8fa !important;
+  color: #626977 !important;
+  font-family: inherit !important;
+  font-size: 9.5px !important;
+  line-height: 1.3 !important;
+  font-weight: 400 !important;
+  text-align: left !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+
+.recoveryActionBtn svg {
+  width: 14px !important;
+  height: 14px !important;
+  flex: 0 0 14px !important;
+  stroke-width: 1.7 !important;
+}
+
+.recoveryActionBtn span {
+  min-width: 0 !important;
+  display: -webkit-box !important;
+  overflow: hidden !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+}
+
+.recoveryAction_blue {
+  background: #f2f6fc !important;
+  color: #5f7190 !important;
+}
+
+.recoveryAction_amber {
+  background: #fff8ec !important;
+  color: #92733e !important;
+}
+
+.recoveryAction_green {
+  background: #eef8f3 !important;
+  color: #5e806d !important;
+}
+
+.recoveryActionBtn:hover {
+  filter: brightness(0.985);
+}
+
+.recoveryRowOpen {
+  width: 26px !important;
+  height: 26px !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  color: #a1a7b2 !important;
+  cursor: pointer !important;
+}
+
+.recoveryRowOpen svg {
+  width: 13px !important;
+  height: 13px !important;
+  stroke-width: 1.7 !important;
+}
+
+.recoveryRowOpen:hover {
+  background: #f2f3f5 !important;
+  color: #555c69 !important;
+}
+
+.emptyRecoveryState {
+  height: 116px !important;
+  color: #9298a4 !important;
+  font-size: 10.5px !important;
+  font-weight: 400 !important;
+  text-align: center !important;
+}
+
+.recoveryPagination {
+  margin: 0 !important;
+  padding: 0 16px 15px !important;
+  color: #8a909c !important;
+  font-family: inherit !important;
+  font-size: 9.5px !important;
+  font-weight: 400 !important;
+}
+
+.recoveryPagerButtons {
+  gap: 5px !important;
+}
+
+.recoveryPagerButtons button {
+  min-width: 28px !important;
+  height: 28px !important;
+  padding: 0 8px !important;
+  border: 1px solid #e2e5ea !important;
+  border-radius: 7px !important;
+  background: #ffffff !important;
+  color: #777e8b !important;
+  font-family: inherit !important;
+  font-size: 9.5px !important;
+  font-weight: 400 !important;
+  box-shadow: none !important;
+}
+
+.recoveryPagerButtons button:hover:not(:disabled) {
+  border-color: #d4d8de !important;
+  background: #fafafa !important;
+  color: #2d3139 !important;
+}
+
+.recoveryPagerButtons .recoveryPageActive {
+  border-color: #d9dde3 !important;
+  background: #f1f3f6 !important;
+  color: #333741 !important;
+}
+
+@media (max-width: 1050px) {
+  .recoveryToolbar {
+    flex-wrap: wrap !important;
+  }
+
+  .recoverySearch {
+    flex: 1 1 100% !important;
+    min-width: 100% !important;
+  }
+
+  .recoveryToolbarExport {
+    margin-left: 0 !important;
+  }
+}
+
+/* Revenue impact split layout — chart left, queue right */
+.revenueImpactSection {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(360px, 0.92fr) minmax(620px, 1.48fr);
+  gap: 16px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.revenueOverviewCard,
+.revenueRecoveryCard {
+  min-width: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.revenueOverviewCard {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.revenueOverviewHeader,
+.revenueQueueHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.revenueOverviewEyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: #6b7280;
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+.revenueOverviewHeader h3,
+.revenueQueueHeading h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 15px;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.revenueQueueHeading {
+  padding: 20px 20px 14px;
+}
+
+.revenueQueueHeading p {
+  margin: 5px 0 0;
+  color: #9ca3af;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.revenueOverviewPeriod {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  color: #6b7280;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.revenueOverviewPeriod svg {
+  width: 13px;
+  height: 13px;
+  color: #9ca3af;
+  flex: 0 0 auto;
+}
+
+.revenueOverviewValueRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 9px;
+  margin-top: 18px;
+}
+
+.revenueOverviewValueRow strong {
+  color: #111827;
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+}
+
+.revenueOverviewValueRow span {
+  margin-bottom: 2px;
+  color: #16a34a;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.revenueOverviewLegend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 18px;
+  color: #6b7280;
+  font-size: 10.5px;
+}
+
+.revenueOverviewLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.revenueOverviewLegend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.legendRevenue {
+  background: #5b9be6;
+}
+
+.legendForecast {
+  background: #d7dee8;
+}
+
+.revenueOverviewChart {
+  height: 250px;
+  min-height: 250px;
+  margin: 2px -4px 8px;
+}
+
+.revenueOverviewChart>div,
+.revenueOverviewChart canvas,
+.revenueOverviewChart svg {
+  height: 250px !important;
+  min-height: 250px !important;
+}
+
+.revenueOverviewStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: auto;
+}
+
+.revenueOverviewStats>div {
+  min-width: 0;
+  min-height: 74px;
+  padding: 12px;
+  border: 1px solid #edf0f4;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.revenueOverviewStats span,
+.revenueOverviewStats strong {
+  display: block;
+}
+
+.revenueOverviewStats span {
+  color: #8b95a5;
+  font-size: 9.5px;
+  line-height: 1.25;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .025em;
+}
+
+.revenueOverviewStats strong {
+  margin-top: 8px;
+  color: #111827;
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.revenueImpactSection .revenueRecoveryCard {
+  grid-column: auto;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.revenueImpactSection .recoveryTableShell {
+  border-top: 1px solid #f0f2f5;
+  background: #ffffff;
+}
+
+.revenueImpactSection .recoveryToolbar {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 16px;
+  margin: 0;
+  border-bottom: 1px solid #eef1f4;
+}
+
+.revenueImpactSection .recoveryFilters {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.revenueImpactSection .recoverySearch,
+.revenueImpactSection .recoverySearch input,
+.revenueImpactSection .recoveryFilterBtn,
+.revenueImpactSection .recoveryToolbarExport {
+  height: 34px;
+}
+
+.revenueImpactSection .recoverySearch input {
+  font-size: 10.5px;
+}
+
+.revenueImpactSection .recoveryFilterBtn,
+.revenueImpactSection .recoveryToolbarExport {
+  padding: 0 9px;
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #667085;
+  font-size: 9.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.revenueImpactSection .recoveryTableWrap {
+  border: 0;
+  border-radius: 0;
+  overflow: auto;
+}
+
+.revenueImpactSection .recoveryTable {
+  min-width: 760px;
+  table-layout: fixed;
+}
+
+.revenueImpactSection .recoveryTable th {
+  height: 40px;
+  padding: 0 12px;
+  background: #fbfcfd;
+  color: #7c8798;
+  font-size: 9.5px;
+  font-weight: 500;
+}
+
+.revenueImpactSection .recoveryTable td {
+  height: 59px;
+  padding: 0 12px;
+  color: #667085;
+  font-size: 10.5px;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(1),
+.revenueImpactSection .recoveryTable td:nth-child(1) {
+  width: 20%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(2),
+.revenueImpactSection .recoveryTable td:nth-child(2) {
+  width: 18%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(3),
+.revenueImpactSection .recoveryTable td:nth-child(3) {
+  width: 12%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(4),
+.revenueImpactSection .recoveryTable td:nth-child(4) {
+  width: 11%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(5),
+.revenueImpactSection .recoveryTable td:nth-child(5) {
+  width: 34%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(6),
+.revenueImpactSection .recoveryTable td:nth-child(6) {
+  width: 5%;
+}
+
+.revenueImpactSection .recoveryAccountBtn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.revenueImpactSection .recoveryAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 9px;
+}
+
+.revenueImpactSection .recoveryAccountCopy strong {
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.revenueImpactSection .recoveryAccountCopy small {
+  margin-top: 3px;
+  font-size: 8.5px;
+}
+
+.revenueImpactSection .recoveryOpportunityPill,
+.revenueImpactSection .recoveryRiskPill {
+  padding: 5px 8px;
+  font-size: 8.5px;
+  line-height: 1;
+}
+
+.revenueImpactSection .recoveryImpact strong {
+  color: #111827;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.revenueImpactSection .recoveryActionBtn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  color: #475467;
+  font-size: 9.5px;
+  line-height: 1.35;
+  font-weight: 400;
+  text-decoration: none;
+}
+
+.revenueImpactSection .recoveryActionBtn svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+}
+
+.revenueImpactSection .recoveryRowOpen svg {
+  width: 13px;
+  height: 13px;
+}
+
+.revenueImpactSection .recoveryPagination {
+  padding: 10px 16px 14px;
+  margin: 0;
+  border-top: 1px solid #f0f2f5;
+}
+
+@media (max-width: 1320px) {
+  .revenueImpactSection {
+    grid-template-columns: minmax(330px, .8fr) minmax(560px, 1.2fr);
+  }
+
+  .revenueImpactSection .recoveryToolbar {
+    grid-template-columns: minmax(180px, 1fr) auto;
+  }
+
+  .revenueImpactSection .recoveryFilters {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+@media (max-width: 1050px) {
+  .revenueImpactSection {
+    grid-template-columns: 1fr;
+  }
+
+  .revenueOverviewChart,
+  .revenueOverviewChart>div,
+  .revenueOverviewChart canvas,
+  .revenueOverviewChart svg {
+    height: 230px !important;
+    min-height: 230px !important;
+  }
+}
+
+@media (max-width: 680px) {
+  .revenueOverviewStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .revenueImpactSection .recoveryToolbar {
+    grid-template-columns: 1fr auto;
+  }
+
+  .revenueImpactSection .recoveryFilters {
+    overflow-x: auto;
+  }
+}
+
+
+/* ==========================================================================
+   FINAL EMAIL QUEUE TYPOGRAPHY MATCH
+   Visual-only overrides. Existing analytics layout, data and behaviour remain.
+   ========================================================================== */
+
+.page {
+  min-height: 100vh;
+  padding: 24px;
+  background: #ffffff;
+  color: #111827;
+  font-family: "Inter", sans-serif;
+}
+
+.header {
+  margin-bottom: 18px;
+}
+
+.title {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: #111827;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.kpiCard {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+.kpiLabel {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.kpiValue {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  color: #111827;
+}
+
+.kpiSub,
+.kpiSub span {
+  font-size: 10.5px;
+  line-height: 1.3;
+  font-weight: 400;
+  color: #9ca3af;
+}
+
+.kpiIcon {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fafafa;
+  color: #6b7280;
+}
+
+.chartTitle,
+.aiRevenueTitle,
+.revenueRecoveryTop h3,
+.revenueRecoveryTitle h3,
+.aiAccountsHeader strong {
+  color: #111827;
+  font-weight: 500;
+}
+
+.chartTitle {
+  font-size: 14px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.aiRevenueTitle,
+.revenueRecoveryTop h3,
+.revenueRecoveryTitle h3 {
+  font-size: 18px;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+
+.chartMeta,
+.aiRevenueSubtitle,
+.revenueRecoveryTop p,
+.revenueRecoveryTitle p {
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.heroRevenue,
+.performanceValue,
+.combinedChartSummary strong,
+.recoveryForecastHero div:first-child strong {
+  color: #111827;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+
+.heroRevenue {
+  font-size: 20px;
+}
+
+.performanceValue {
+  font-size: 20px;
+}
+
+.performanceLabel,
+.combinedChartSummary span,
+.chartLegend,
+.recoveryForecastHero div:first-child span,
+.recoveryForecastHero div:last-child span {
+  font-size: 10.5px;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.chartFilterButton,
+.recoveryExportBtn,
+.exportButton,
+.aiTab,
+.aiViewAllButton,
+.aiActionButton,
+.emailCancelBtn,
+.emailSendBtn,
+.actionToastBtn,
+.recoveryPagerButtons button,
+.aiPagination button {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.chartFilterButton,
+.recoveryExportBtn,
+.exportButton {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #374151;
+}
+
+.chartFilterButton:hover,
+.recoveryExportBtn:hover,
+.exportButton:hover,
+.aiViewAllButton:hover,
+.aiActionButton:hover {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #111827;
+}
+
+.chartFilterOption {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  color: #374151;
+}
+
+.chartFilterOptionActive {
+  background: #f3f4f6;
+  color: #111827;
+  font-weight: 500;
+}
+
+.tableSearch,
+.tableSearchWrap input,
+.tableToolbar input,
+.searchInput,
+.emailInput,
+.emailTextarea,
+.page input,
+.page select,
+.page textarea {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  color: #374151;
+}
+
+.tableSearch,
+.tableSearchWrap input,
+.tableToolbar input,
+.searchInput {
+  height: 38px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.tableSearch::placeholder,
+.tableSearchWrap input::placeholder,
+.tableToolbar input::placeholder,
+.searchInput::placeholder {
+  color: #9ca3af;
+}
+
+.tableSearch:focus,
+.tableSearchWrap input:focus,
+.tableToolbar input:focus,
+.searchInput:focus,
+.emailInput:focus,
+.emailTextarea:focus {
+  border-color: #d1d5db;
+  box-shadow: 0 0 0 3px rgba(209, 213, 219, 0.22);
+  outline: none;
+}
+
+.recoveryTable th,
+.aiDriverTableHead,
+.aiChurnTableHead {
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #6b7280;
+  background: #fafafa;
+}
+
+.recoveryTable td,
+.aiDriverRow,
+.aiChurnRow {
+  font-size: 12px;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.recoveryAccountBtn,
+.aiDriverAccount strong,
+.aiAccountMain strong,
+.aiReasonActionCell strong {
+  font-size: 12px;
+  font-weight: 500;
+  color: #111827;
+}
+
+.aiDriverAccount span,
+.aiAccountMain span,
+.aiAccountsHeader span {
+  font-size: 10.5px;
+  font-weight: 400;
+  color: #9ca3af;
+}
+
+.recoveryReasonPill,
+.aiDriverReason,
+.aiReasonText,
+.aiRecommendedAction {
+  font-size: 11.5px;
+  line-height: 1.4;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.recoveryActionBtn {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.aiCoveragePill,
+.aiReasonActionCell span,
+.aiRecommendedAction,
+.aiActionBadge,
+.subscriberTotalPill,
+.performanceChange {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #4b5563;
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.aiRiskScore span {
+  font-size: 10.5px;
+  font-weight: 500;
+}
+
+.recoveryPagination,
+.aiPagination span {
+  font-size: 12px;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.recoveryPagerButtons button,
+.aiPagination button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #374151;
+}
+
+.recoveryPagerButtons .recoveryPageActive {
+  background: #111827;
+  color: #ffffff;
+  border-color: #111827;
+}
+
+.emailModalTitle {
+  font-size: 20px;
+  font-weight: 500;
+  color: #111827;
+}
+
+.emailLabel {
+  font-size: 12px;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.actionToast {
+  font-size: 12px;
+  font-weight: 500;
+  color: #111827;
+}
+
+@media (max-width: 760px) {
+  .page {
+    padding: 20px 16px 28px;
+  }
+
+  .title {
+    font-size: 22px;
+  }
+}
+
+/* Revenue Impact Queue — compact table refinement */
+.revenueImpactSection .revenueRecoveryCard {
+  min-width: 0;
+}
+
+.revenueImpactSection .recoveryTableShell,
+.revenueImpactSection .recoveryTableWrap {
+  width: 100%;
+  min-width: 0;
+}
+
+.revenueImpactSection .recoveryTableWrap {
+  overflow-x: hidden;
+}
+
+.revenueImpactSection .recoveryTable {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.revenueImpactSection .recoveryTable th {
+  height: 38px;
+  padding: 0 10px;
+  font-size: 9px;
+  line-height: 1.2;
+  font-weight: 400;
+  color: #7b8493;
+  background: #fbfcfd;
+}
+
+.revenueImpactSection .recoveryTable td {
+  height: 56px;
+  padding: 8px 10px;
+  font-size: 10px;
+  line-height: 1.35;
+  font-weight: 400;
+  color: #667085;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(1),
+.revenueImpactSection .recoveryTable td:nth-child(1) {
+  width: 19%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(2),
+.revenueImpactSection .recoveryTable td:nth-child(2) {
+  width: 13%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(3),
+.revenueImpactSection .recoveryTable td:nth-child(3) {
+  width: 21%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(4),
+.revenueImpactSection .recoveryTable td:nth-child(4) {
+  width: 10%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(5),
+.revenueImpactSection .recoveryTable td:nth-child(5) {
+  width: 32%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(6),
+.revenueImpactSection .recoveryTable td:nth-child(6) {
+  width: 5%;
+}
+
+.revenueImpactSection .recoveryAccountBtn {
+  width: 100%;
+  min-width: 0;
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.revenueImpactSection .recoveryAccountCopy {
+  min-width: 0;
+  display: block;
+}
+
+.revenueImpactSection .recoveryAccountCopy strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 1.25;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.revenueImpactSection .recoveryAccountCopy small {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 8.5px;
+  line-height: 1.2;
+  font-weight: 400;
+  color: #98a2b3;
+}
+
+.revenueImpactSection .recoveryImpact strong {
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 500;
+  color: #344054;
+  white-space: nowrap;
+}
+
+.revenueImpactSection .recoveryOpportunityPill,
+.revenueImpactSection .recoveryRiskPill {
+  max-width: 100%;
+  padding: 4px 7px;
+  font-size: 8px;
+  line-height: 1.15;
+  font-weight: 400;
+  white-space: normal;
+}
+
+.revenueImpactSection .recoveryActionBtn {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  line-height: 1.3;
+  font-weight: 400;
+  color: #475467;
+}
+
+.revenueImpactSection .recoveryActionBtn svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 1.7;
+}
+
+.revenueImpactSection .recoveryActionBtn span {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.revenueImpactSection .recoveryRowOpen {
+  width: 24px;
+  height: 24px;
+}
+
+.revenueImpactSection .recoveryRowOpen svg {
+  width: 12px;
+  height: 12px;
+}
+
+.revenueImpactSection .recoveryToolbar {
+  grid-template-columns: minmax(150px, 1fr) auto auto;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.revenueImpactSection .recoverySearch,
+.revenueImpactSection .recoverySearch input,
+.revenueImpactSection .recoveryFilterBtn,
+.revenueImpactSection .recoveryToolbarExport {
+  height: 32px;
+}
+
+.revenueImpactSection .recoverySearch input,
+.revenueImpactSection .recoveryFilterBtn,
+.revenueImpactSection .recoveryToolbarExport {
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.revenueImpactSection .recoveryFilterBtn,
+.revenueImpactSection .recoveryToolbarExport {
+  padding: 0 8px;
+}
+
+@media (max-width: 1180px) {
+  .revenueImpactSection .recoveryTableWrap {
+    overflow-x: auto;
+  }
+
+  .revenueImpactSection .recoveryTable {
+    min-width: 700px;
+  }
+}
+
+/* Revenue Impact Queue — final compact fit and functional filters */
+.revenueImpactSection {
+  grid-template-columns: minmax(285px, 0.82fr) minmax(0, 1.62fr);
+  gap: 12px;
+}
+
+.revenueImpactSection .revenueRecoveryCard {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 14px;
+}
+
+.revenueImpactSection .revenueQueueHeading {
+  margin-bottom: 10px;
+}
+
+.revenueImpactSection .revenueQueueHeading h3 {
+  font-size: 15px;
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+.revenueImpactSection .revenueQueueHeading p {
+  margin-top: 3px;
+  font-size: 9.5px;
+  line-height: 1.35;
+}
+
+.revenueImpactSection .recoveryTableShell {
+  border-radius: 11px;
+}
+
+.revenueImpactSection .recoveryToolbar {
+  display: grid;
+  grid-template-columns: minmax(145px, 1fr) auto auto;
+  align-items: center;
+  gap: 5px;
+  padding: 8px;
+}
+
+.revenueImpactSection .recoverySearch {
+  min-width: 0;
+  height: 29px;
+}
+
+.revenueImpactSection .recoverySearch svg {
+  left: 9px;
+  width: 12px;
+  height: 12px;
+}
+
+.revenueImpactSection .recoverySearch input {
+  width: 100%;
+  height: 29px;
+  padding: 0 8px 0 27px;
+  border-radius: 8px;
+  font-size: 8.5px;
+  font-weight: 400;
+}
+
+.revenueImpactSection .recoveryFilters {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.recoveryFilterSelect {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 29px;
+  min-width: 0;
+}
+
+.recoveryFilterSelect select {
+  height: 29px;
+  max-width: 118px;
+  padding: 0 24px 0 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #667085;
+  font: inherit;
+  font-size: 8.5px;
+  font-weight: 400;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+}
+
+.recoveryFilterSelect select:focus {
+  border-color: #cbd5e1;
+}
+
+.recoveryFilterSelect svg {
+  position: absolute;
+  right: 7px;
+  width: 10px;
+  height: 10px;
+  color: #98a2b3;
+  pointer-events: none;
+}
+
+.revenueImpactSection .recoveryToolbarExport {
+  height: 29px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 8.5px;
+  white-space: nowrap;
+}
+
+.revenueImpactSection .recoveryToolbarExport svg {
+  width: 11px;
+  height: 11px;
+}
+
+.revenueImpactSection .recoveryTableWrap {
+  overflow: hidden;
+  border-radius: 0 0 10px 10px;
+}
+
+.revenueImpactSection .recoveryTable {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.revenueImpactSection .recoveryTable th {
+  height: 31px;
+  padding: 0 7px;
+  font-size: 7.8px;
+  line-height: 1.1;
+  font-weight: 400;
+}
+
+.revenueImpactSection .recoveryTable td {
+  height: 47px;
+  padding: 5px 7px;
+  font-size: 8.5px;
+  line-height: 1.22;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(1),
+.revenueImpactSection .recoveryTable td:nth-child(1) {
+  width: 18%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(2),
+.revenueImpactSection .recoveryTable td:nth-child(2) {
+  width: 12%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(3),
+.revenueImpactSection .recoveryTable td:nth-child(3) {
+  width: 21%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(4),
+.revenueImpactSection .recoveryTable td:nth-child(4) {
+  width: 9%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(5),
+.revenueImpactSection .recoveryTable td:nth-child(5) {
+  width: 35%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(6),
+.revenueImpactSection .recoveryTable td:nth-child(6) {
+  width: 5%;
+}
+
+.revenueImpactSection .recoveryAccountCopy strong,
+.revenueImpactSection .recoveryImpact strong {
+  font-size: 8.8px;
+  line-height: 1.15;
+  font-weight: 500;
+}
+
+.revenueImpactSection .recoveryAccountCopy small {
+  margin-top: 1px;
+  font-size: 7.2px;
+}
+
+.revenueImpactSection .recoveryOpportunityPill,
+.revenueImpactSection .recoveryRiskPill {
+  padding: 3px 5px;
+  border-radius: 999px;
+  font-size: 7px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.revenueImpactSection .recoveryActionBtn {
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 4px;
+  font-size: 7.8px;
+  line-height: 1.2;
+}
+
+.revenueImpactSection .recoveryActionBtn svg {
+  width: 11px;
+  height: 11px;
+}
+
+.revenueImpactSection .recoveryActionBtn span {
+  -webkit-line-clamp: 2;
+}
+
+.revenueImpactSection .recoveryRowOpen {
+  width: 18px;
+  height: 18px;
+}
+
+.revenueImpactSection .recoveryRowOpen svg {
+  width: 9px;
+  height: 9px;
+}
+
+.revenueImpactSection .recoveryPagination {
+  margin-top: 7px;
+  font-size: 8px;
+}
+
+.revenueImpactSection .recoveryPagerButtons button {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 7px;
+  font-size: 8px;
+}
+
+@media (max-width: 1280px) {
+  .revenueImpactSection {
+    grid-template-columns: minmax(275px, 0.78fr) minmax(0, 1.55fr);
+  }
+
+  .recoveryFilterSelect select {
+    max-width: 105px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .revenueImpactSection {
+    grid-template-columns: 1fr;
+  }
+
+  .revenueImpactSection .recoveryTableWrap {
+    overflow-x: auto;
+  }
+
+  .revenueImpactSection .recoveryTable {
+    min-width: 680px;
+  }
+}
+
+
+
+
+
+
+.recoveryTable td {
+  height: 42px !important;
+  padding: 6px 12px !important;
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+  vertical-align: middle !important;
+}
+
+.recoveryTable th {
+  height: 36px !important;
+  padding: 0 12px !important;
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+}
+
+.recoveryAccountBtn {
+  font-size: 11.5px !important;
+  line-height: 1.1 !important;
+  font-weight: 500 !important;
+}
+
+.accountSubtext {
+  font-size: 9px !important;
+  margin-top: 1px !important;
+  line-height: 1.1 !important;
+}
+
+.reasonPill,
+.riskPill {
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 8px !important;
+  font-size: 10px !important;
+  line-height: 22px !important;
+}
+
+.actionCell {
+  font-size: 10.5px !important;
+  line-height: 1.2 !important;
+}
+
+.tableToolbar {
+  margin-bottom: 8px !important;
+}
+
+/* Analytics revenue/churn layout: two matching charts above the full-width queue */
+.revenueImpactSection {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+
+.revenueImpactSection .revenueOverviewCard,
+.revenueImpactSection .churnOverviewCard {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+}
+
+.revenueImpactSection .revenueRecoveryCard {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+}
+
+.legendChurn {
+  background: #8b83df;
+}
+
+.revenueImpactSection .recoveryTableWrap {
+  overflow-x: auto;
+}
+
+.revenueImpactSection .recoveryTable {
+  min-width: 960px;
+  table-layout: auto;
+}
+
+.revenueImpactSection .recoveryTable th,
+.revenueImpactSection .recoveryTable td {
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(1),
+.revenueImpactSection .recoveryTable td:nth-child(1) {
+  width: 18%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(2),
+.revenueImpactSection .recoveryTable td:nth-child(2) {
+  width: 13%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(3),
+.revenueImpactSection .recoveryTable td:nth-child(3) {
+  width: 19%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(4),
+.revenueImpactSection .recoveryTable td:nth-child(4) {
+  width: 10%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(5),
+.revenueImpactSection .recoveryTable td:nth-child(5) {
+  width: 35%;
+}
+
+.revenueImpactSection .recoveryTable th:nth-child(6),
+.revenueImpactSection .recoveryTable td:nth-child(6) {
+  width: 5%;
+}
+
+.revenueImpactSection .recoveryAccountCopy strong,
+.revenueImpactSection .recoveryImpact strong {
+  font-size: 10.5px;
+}
+
+.revenueImpactSection .recoveryAccountCopy small {
+  font-size: 8.5px;
+}
+
+.revenueImpactSection .recoveryOpportunityPill,
+.revenueImpactSection .recoveryRiskPill {
+  font-size: 8.5px;
+}
+
+.revenueImpactSection .recoveryActionBtn {
+  font-size: 9px;
+}
+
+@media (max-width: 1080px) {
+  .revenueImpactSection {
+    grid-template-columns: 1fr;
+  }
+
+  .revenueImpactSection .revenueRecoveryCard {
+    grid-column: auto;
+  }
+}
+
+/* Detailed churn forecast summary cards */
+.churnForecastStats>div {
+  min-height: 78px;
+  align-content: start;
+}
+
+.churnForecastStats small {
+  display: block;
+  margin-top: 5px;
+  color: #9ca3af;
+  font-size: 8.5px;
+  line-height: 1.35;
+  font-weight: 400;
+}
+
+
+/* TOP REVENUE OPPORTUNITIES + TOP CHURN RISKS */
+
+.impactTablesGrid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+.impactTableCard {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+.impactTableHeader {
+  min-height: 58px;
+  padding: 12px 14px 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.impactTableHeader h3 {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: #111827;
+}
+
+.impactTableHeader p {
+  margin: 4px 0 0;
+  font-size: 10.5px;
+  line-height: 1.4;
+  font-weight: 400;
+  color: #9ca3af;
+}
+
+.impactViewAllButton {
+  height: 28px;
+  flex: 0 0 auto;
+  padding: 0 9px;
+  border: 1px solid #dbe5f2;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #2563eb;
+  font-family: inherit;
+  font-size: 10.5px;
+  line-height: 1;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.impactViewAllButton:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.impactTableWrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.impactTable {
+  width: 100%;
+  min-width: 660px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: #ffffff;
+}
+
+.impactTable th {
+  height: 36px;
+  padding: 0 12px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fafafa;
+  color: #6b7280;
+  text-align: left;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.impactTable th:nth-child(1) {
+  width: 26%;
+}
+
+.impactTable th:nth-child(2) {
+  width: 15%;
+}
+
+.impactTable th:nth-child(3) {
+  width: 17%;
+}
+
+.impactTable th:nth-child(4) {
+  width: 25%;
+}
+
+.impactTable th:nth-child(5) {
+  width: 17%;
+}
+
+.impactTable td {
+  height: 52px;
+  padding: 7px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #6b7280;
+  vertical-align: middle;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 400;
+}
+
+.impactTable tbody tr {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.impactTable tbody tr:hover {
+  background: #fafafa;
+}
+
+.impactTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.impactAccountButton {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: block;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.impactAccountInitial {
+  width: 25px;
+  height: 25px;
+  flex: 0 0 25px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #eaf1ff;
+  color: #2563eb;
+  font-size: 9.5px;
+  line-height: 1;
+  font-weight: 500;
+}
+
+.impactAccountInitialRisk {
+  background: #f1edff;
+  color: #7c3aed;
+}
+
+.impactAccountCopy {
+  min-width: 0;
+  display: block;
+}
+
+.impactAccountCopy strong {
+  display: block;
+  overflow: hidden;
+  color: #374151;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.impactAccountCopy small {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #9ca3af;
+  font-size: 8.5px;
+  line-height: 1.2;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.impactRiskBadge {
+  width: fit-content;
+  min-height: 20px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  line-height: 1;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.impactRiskHigh {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.impactRiskMedium {
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.impactRiskLow {
+  border: 1px solid #bbf7d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.impactMoney,
+.impactMoneyRisk {
+  color: #374151;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.impactMoneyRisk {
+  color: #4b5563;
+}
+
+.impactOpportunityText,
+.impactReasonText {
+  min-width: 0;
+  color: #6b7280;
+  font-size: 10.5px;
+  line-height: 1.35;
+  font-weight: 400;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.impactRecoveryButton {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #059669;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.impactRecoveryButton:hover {
+  text-decoration: underline;
+}
+
+.impactProbability {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.impactProbabilityTrack {
+  width: 54px;
+  height: 4px;
+  flex: 0 0 54px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+
+.impactProbabilityFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #8b5cf6;
+}
+
+.impactProbability strong {
+  min-width: 28px;
+  color: #4b5563;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 500;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.impactEmptyState {
+  height: 104px !important;
+  color: #9ca3af !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  text-align: center;
+  cursor: default;
+}
+
+@media (max-width: 1180px) {
+  .impactTablesGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .impactTablesGrid {
+    gap: 12px;
+  }
+
+  .impactTableHeader {
+    padding: 12px;
+  }
+}
+
+
+/* Compact table actions */
+
+.impactAccountInitial,
+.impactAccountInitialRisk {
+  display: none !important;
+}
+
+.impactActionButton {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #374151;
+  font-family: inherit;
+  font-size: 10.5px;
+  line-height: 1;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.impactActionButton:hover {
+  border-color: #d1d5db;
+  background: #f9fafb;
+  color: #111827;
+}
+
+/* Retention outreach modal — matches the risk-account email popup */
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.38);
+  backdrop-filter: blur(5px);
+}
+
+.emailModal {
+  width: min(620px, calc(100vw - 48px));
+  max-height: 92vh;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.18);
+}
+
+.emailModalHeader {
+  min-height: 66px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.emailModalTitle {
+  margin: 0;
+  color: #111827;
+  font-size: 20px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.emailCloseBtn {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #6b7280;
+  display: grid;
+  place-items: center;
+  font-family: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.emailCloseBtn:hover:not(:disabled) {
+  background: #f9fafb;
+  color: #111827;
+}
+
+.emailShell {
+  padding: 20px;
+}
+
+.emailField {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 15px;
+}
+
+.emailLabel {
+  color: #6b7280;
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+.emailInput,
+.emailTextarea {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #111827;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  outline: none;
+}
+
+.emailInput {
+  height: 42px;
+  padding: 0 12px;
+}
+
+.emailTextarea {
+  min-height: 250px;
+  padding: 12px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.emailInput:focus,
+.emailTextarea:focus {
+  border-color: #d1d5db;
+  box-shadow: 0 0 0 3px rgba(209, 213, 219, 0.22);
+}
+
+.emailInput:read-only {
+  background: #fafafa;
+  color: #6b7280;
+}
+
+.emailInput:disabled,
+.emailTextarea:disabled,
+.emailCloseBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.emailError {
+  margin: 2px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.emailModalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.emailCancelBtn,
+.emailSendBtn {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.emailCancelBtn {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
+}
+
+.emailCancelBtn:hover:not(:disabled) {
+  background: #f9fafb;
+}
+
+.emailSendBtn {
+  border: 1px solid #111827;
+  background: #111827;
+  color: #ffffff;
+}
+
+.emailSendBtn:hover:not(:disabled) {
+  background: #1f2937;
+}
+
+.emailCancelBtn:disabled,
+.emailSendBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .modalOverlay {
+    padding: 14px;
+  }
+
+  .emailModal {
+    width: min(100%, calc(100vw - 28px));
+    border-radius: 18px;
+  }
+
+  .emailModalHeader,
+  .emailShell {
+    padding: 16px;
+  }
+
+  .emailTextarea {
+    min-height: 220px;
+  }
+}
+
+/* ========================================================================== */
+/* FINAL COMPACT IMPACT TABLE FIT                                              */
+/* Keeps the existing markup, data, handlers and backend logic unchanged.     */
+/* ========================================================================== */
+
+.impactTablesGrid {
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.impactTableCard {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.impactTableHeader {
+  min-height: 56px;
+  padding: 11px 12px 9px;
+  gap: 10px;
+}
+
+.impactTableHeader>div {
+  min-width: 0;
+}
+
+.impactTableHeader h3 {
+  font-size: 12.5px;
+  line-height: 1.25;
+}
+
+.impactTableHeader p {
+  margin-top: 3px;
+  font-size: 9.5px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.impactViewAllButton {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 9.5px;
+  border-radius: 7px;
+}
+
+.impactTableWrap {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.impactTable {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.impactTable th {
+  height: 34px;
+  padding: 0 7px;
+  font-size: 9px;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.impactTable td {
+  height: 48px;
+  padding: 6px 7px;
+  font-size: 10px;
+  line-height: 1.25;
+  overflow: hidden;
+}
+
+/* Balanced widths that remain usable in both four- and five-column tables. */
+.impactTable th:nth-child(1),
+.impactTable td:nth-child(1) {
+  width: 19%;
+}
+
+.impactTable th:nth-child(2),
+.impactTable td:nth-child(2) {
+  width: 15%;
+}
+
+.impactTable th:nth-child(3),
+.impactTable td:nth-child(3) {
+  width: 23%;
+}
+
+.impactTable th:nth-child(4),
+.impactTable td:nth-child(4) {
+  width: 27%;
+}
+
+.impactTable th:nth-child(5),
+.impactTable td:nth-child(5) {
+  width: 16%;
+}
+
+.impactAccountButton,
+.impactAccountCopy,
+.impactProbability,
+.impactActionButton,
+.impactOpportunityText,
+.impactReasonText {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.impactAccountCopy strong {
+  font-size: 10px;
+  line-height: 1.15;
+}
+
+.impactAccountCopy small {
+  margin-top: 1px;
+  font-size: 8px;
+}
+
+.impactRiskBadge {
+  min-height: 18px;
+  max-width: 100%;
+  padding: 3px 6px;
+  font-size: 8.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.impactMoney,
+.impactMoneyRisk {
+  font-size: 9.5px;
+  letter-spacing: -0.01em;
+}
+
+.impactOpportunityText,
+.impactReasonText {
+  font-size: 9.25px;
+  line-height: 1.25;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.impactProbability {
+  gap: 4px;
+}
+
+.impactProbabilityTrack {
+  width: min(38px, 55%);
+  flex-basis: min(38px, 55%);
+}
+
+.impactProbability strong {
+  min-width: 24px;
+  font-size: 8.5px;
+}
+
+.impactActionButton {
+  width: 100%;
+  min-height: 25px;
+  height: auto;
+  padding: 5px 6px;
+  border-radius: 7px;
+  font-size: 8.75px;
+  line-height: 1.15;
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.impactRecoveryButton {
+  max-width: 100%;
+  font-size: 9px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1280px) {
+  .impactTablesGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .impactTable th,
+  .impactTable td {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .impactTablesGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .impactTableHeader p {
+    white-space: normal;
+  }
+
+  .impactTable th {
+    font-size: 9.5px;
+  }
+
+  .impactTable td,
+  .impactAccountCopy strong,
+  .impactMoney,
+  .impactMoneyRisk {
+    font-size: 10.5px;
+  }
+
+  .impactOpportunityText,
+  .impactReasonText,
+  .impactActionButton {
+    font-size: 9.5px;
+  }
+}
+
+@media (max-width: 680px) {
+  .impactTableWrap {
+    overflow-x: auto;
+  }
+
+  .impactTable {
+    min-width: 560px;
+  }
+}
+
+/* ========================================================================== */
+/* PREMIUM RETENTION OUTREACH + OPTIONAL CTA — FINAL OVERRIDES                */
+/* ========================================================================== */
+
+.modalOverlay {
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+.emailModal {
+  width: min(920px, calc(100vw - 48px));
+  max-height: 94vh;
+  overflow-y: auto;
+  border: 1px solid #e6eaf0;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 30px 90px rgba(15, 23, 42, 0.2);
+}
+
+.emailModalHeader {
+  min-height: 86px;
+  padding: 20px 24px;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.emailModalHeading {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.emailModalIcon {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e7ebf1;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.emailModalTitle {
+  font-size: 18px;
+  line-height: 1.25;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+
+.emailModalSubtitle {
+  margin: 4px 0 0;
+  color: #8a94a6;
+  font-size: 11.5px;
+  line-height: 1.45;
+  font-weight: 400;
+}
+
+.emailCloseBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: 19px;
+}
+
+.emailShell {
+  padding: 22px 24px 20px;
+}
+
+.emailTopFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.emailField {
+  min-width: 0;
+  gap: 7px;
+  margin-bottom: 15px;
+}
+
+.emailLabel {
+  color: #475569;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.emailInput,
+.emailTextarea {
+  border-color: #e3e8ef;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #172033;
+  font-size: 12.5px;
+}
+
+.emailInput {
+  height: 44px;
+  padding: 0 13px;
+}
+
+.emailInput:read-only {
+  background: #fbfcfd;
+  color: #64748b;
+}
+
+.emailMessageWrap {
+  position: relative;
+}
+
+.emailTextarea {
+  display: block;
+  min-height: 238px;
+  padding: 14px 14px 34px;
+  resize: vertical;
+  line-height: 1.65;
+}
+
+.emailCharacterCount {
+  position: absolute;
+  right: 13px;
+  bottom: 11px;
+  color: #98a2b3;
+  font-size: 10.5px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.emailInput:focus,
+.emailTextarea:focus {
+  border-color: #b8c1cf;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.13);
+}
+
+.emailCtaCard {
+  margin-top: 4px;
+  padding: 17px;
+  border: 1px solid #e4e9f0;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.emailCtaHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.emailCtaHeader h3 {
+  margin: 0;
+  color: #172033;
+  font-size: 12.5px;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+.emailCtaHeader h3 span {
+  color: #8a94a6;
+  font-weight: 400;
+}
+
+.emailCtaHeader p {
+  margin: 4px 0 0;
+  color: #8a94a6;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.emailCtaToggle {
+  position: relative;
+  width: 36px;
+  height: 21px;
+  flex: 0 0 36px;
+  cursor: pointer;
+}
+
+.emailCtaToggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.emailCtaToggle>span:not(.srOnly) {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: #d6dce5;
+  transition: background 0.18s ease;
+}
+
+.emailCtaToggle>span:not(.srOnly)::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.2);
+  transition: transform 0.18s ease;
+}
+
+.emailCtaToggle input:checked+span {
+  background: #2563eb;
+}
+
+.emailCtaToggle input:checked+span::after {
+  transform: translateX(15px);
+}
+
+.emailCtaToggle input:focus-visible+span {
+  outline: 3px solid rgba(37, 99, 235, 0.16);
+  outline-offset: 2px;
+}
+
+.emailCtaToggle input:disabled+span {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.emailCtaContent {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #edf0f4;
+}
+
+.emailCtaFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.emailCtaPreviewBlock {
+  display: grid;
+  gap: 8px;
+}
+
+.emailCtaPreview {
+  min-height: 44px;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border: 1px solid #dfe5ec;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #172033;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.emailCtaPreview:hover {
+  border-color: #cfd6df;
+  background: #fafbfc;
+}
+
+.emailError {
+  margin-top: 14px;
+}
+
+.emailModalActions {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #edf0f4;
+}
+
+.emailCancelBtn,
+.emailSendBtn {
+  min-width: 92px;
+  height: 39px;
+  border: 1px solid #dfe5ec;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #172033;
+  font-size: 11.5px;
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.emailCancelBtn:hover:not(:disabled),
+.emailSendBtn:hover:not(:disabled) {
+  border-color: #cfd6df;
+  background: #fafbfc;
+  color: #111827;
+}
+
+.srOnly {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+@media (max-width: 760px) {
+  .modalOverlay {
+    padding: 12px;
+  }
+
+  .emailModal {
+    width: min(100%, calc(100vw - 24px));
+    border-radius: 17px;
+  }
+
+  .emailModalHeader,
+  .emailShell {
+    padding: 16px;
+  }
+
+  .emailTopFields,
+  .emailCtaFields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .emailTextarea {
+    min-height: 210px;
+  }
+
+  .emailModalSubtitle {
+    display: none;
+  }
+}
+
+/* ========================================================================== */
+/* EXACT PREMIUM EMAIL MODAL — FINAL CASCADE OVERRIDES                        */
+/* ========================================================================== */
+
+.modalOverlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 999999 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 28px !important;
+  overflow-y: auto !important;
+  background: rgba(28, 36, 52, 0.38) !important;
+  backdrop-filter: blur(9px) !important;
+  -webkit-backdrop-filter: blur(9px) !important;
+}
+
+.emailModal {
+  width: min(930px, calc(100vw - 56px)) !important;
+  max-height: calc(100vh - 56px) !important;
+  margin: auto !important;
+  overflow-y: auto !important;
+  color: #172033 !important;
+  background: #ffffff !important;
+  border: 1px solid #e5eaf0 !important;
+  border-radius: 20px !important;
+  box-shadow: 0 30px 90px rgba(15, 23, 42, 0.2) !important;
+}
+
+.emailModalHeader {
+  min-height: 94px !important;
+  padding: 22px 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 20px !important;
+  border-bottom: 1px solid #edf0f4 !important;
+}
+
+.emailModalHeading {
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+}
+
+.emailModalIcon {
+  width: 46px !important;
+  height: 46px !important;
+  flex: 0 0 46px !important;
+  display: grid !important;
+  place-items: center !important;
+  border: 1px solid #e7ebf1 !important;
+  border-radius: 13px !important;
+  background: #f8fafc !important;
+  color: #172033 !important;
+}
+
+.emailModalIcon svg {
+  width: 19px !important;
+  height: 19px !important;
+  stroke-width: 1.7 !important;
+}
+
+.emailModalTitle {
+  margin: 0 !important;
+  color: #172033 !important;
+  font-size: 19px !important;
+  line-height: 1.25 !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.025em !important;
+}
+
+.emailModalSubtitle {
+  margin: 5px 0 0 !important;
+  color: #8a94a6 !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+  font-weight: 400 !important;
+}
+
+.emailCloseBtn {
+  width: 36px !important;
+  height: 36px !important;
+  flex: 0 0 36px !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border: 1px solid #dfe5ec !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  color: #475569 !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+  font-weight: 300 !important;
+  box-shadow: none !important;
+}
+
+.emailCloseBtn:hover:not(:disabled) {
+  background: #fafbfc !important;
+  border-color: #cfd6df !important;
+  color: #111827 !important;
+}
+
+.emailShell {
+  padding: 22px 28px 24px !important;
+}
+
+.emailTopFields {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 20px !important;
+}
+
+.emailField {
+  min-width: 0 !important;
+  margin-bottom: 17px !important;
+}
+
+.emailLabel {
+  display: block !important;
+  margin-bottom: 8px !important;
+  color: #344054 !important;
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+  font-weight: 500 !important;
+}
+
+.emailInput,
+.emailTextarea {
+  width: 100% !important;
+  border: 1px solid #dfe5ec !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  color: #172033 !important;
+  font-family: inherit !important;
+  font-size: 12.5px !important;
+  font-weight: 400 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.emailInput {
+  height: 46px !important;
+  padding: 0 14px !important;
+}
+
+.emailInput:read-only {
+  background: #fbfcfd !important;
+  color: #667085 !important;
+}
+
+.emailInput:focus,
+.emailTextarea:focus {
+  border-color: #b8c1cf !important;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.13) !important;
+}
+
+.emailMessageWrap {
+  position: relative !important;
+}
+
+.emailTextarea {
+  display: block !important;
+  min-height: 232px !important;
+  padding: 15px 15px 36px !important;
+  resize: vertical !important;
+  line-height: 1.68 !important;
+}
+
+.emailCharacterCount {
+  position: absolute !important;
+  right: 14px !important;
+  bottom: 12px !important;
+  color: #98a2b3 !important;
+  font-size: 10.5px !important;
+  line-height: 1 !important;
+}
+
+.emailCtaCard {
+  margin-top: 2px !important;
+  padding: 18px !important;
+  border: 1px solid #e3e8ef !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+}
+
+.emailCtaHeader {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+}
+
+.emailCtaHeader h3 {
+  margin: 0 !important;
+  color: #172033 !important;
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+  font-weight: 500 !important;
+}
+
+.emailCtaHeader h3 span {
+  color: #8a94a6 !important;
+  font-weight: 400 !important;
+}
+
+.emailCtaHeader p {
+  margin: 5px 0 0 !important;
+  color: #8a94a6 !important;
+  font-size: 11px !important;
+  line-height: 1.45 !important;
+}
+
+.emailCtaToggle {
+  position: relative !important;
+  width: 37px !important;
+  height: 22px !important;
+  flex: 0 0 37px !important;
+  cursor: pointer !important;
+}
+
+.emailCtaToggle input {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+}
+
+.emailCtaToggle>span:not(.srOnly) {
+  position: absolute !important;
+  inset: 0 !important;
+  border-radius: 999px !important;
+  background: #d6dce5 !important;
+  transition: background 0.18s ease !important;
+}
+
+.emailCtaToggle>span:not(.srOnly)::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 3px !important;
+  left: 3px !important;
+  width: 16px !important;
+  height: 16px !important;
+  border-radius: 999px !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.2) !important;
+  transition: transform 0.18s ease !important;
+}
+
+.emailCtaToggle input:checked+span {
+  background: #2563eb !important;
+}
+
+.emailCtaToggle input:checked+span::after {
+  transform: translateX(15px) !important;
+}
+
+.emailCtaContent {
+  margin-top: 17px !important;
+  padding-top: 17px !important;
+  border-top: 1px solid #edf0f4 !important;
+}
+
+.emailCtaFields {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 20px !important;
+}
+
+.emailCtaPreviewBlock {
+  display: grid !important;
+  gap: 8px !important;
+}
+
+.emailCtaPreview {
+  width: 100% !important;
+  min-height: 46px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 10px 16px !important;
+  border: 1px solid #dfe5ec !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  color: #172033 !important;
+  font-size: 12px !important;
+  line-height: 1.2 !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  box-shadow: none !important;
+}
+
+.emailCtaPreview:hover {
+  background: #fafbfc !important;
+  border-color: #cfd6df !important;
+  color: #111827 !important;
+}
+
+.emailError {
+  margin-top: 14px !important;
+  padding: 11px 12px !important;
+  border: 1px solid #fecaca !important;
+  border-radius: 10px !important;
+  background: #fef2f2 !important;
+  color: #991b1b !important;
+  font-size: 11.5px !important;
+}
+
+.emailModalActions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+  margin-top: 18px !important;
+  padding-top: 18px !important;
+  border-top: 1px solid #edf0f4 !important;
+}
+
+.emailCancelBtn,
+.emailSendBtn {
+  min-width: 94px !important;
+  height: 40px !important;
+  padding: 0 15px !important;
+  border: 1px solid #dfe5ec !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  color: #172033 !important;
+  font-family: inherit !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+.emailCancelBtn:hover:not(:disabled),
+.emailSendBtn:hover:not(:disabled) {
+  background: #fafbfc !important;
+  border-color: #cfd6df !important;
+  color: #111827 !important;
+}
+
+.emailCancelBtn:disabled,
+.emailSendBtn:disabled,
+.emailCloseBtn:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+}
+
+@media (max-width: 760px) {
+  .modalOverlay {
+    align-items: flex-start !important;
+    padding: 12px !important;
+  }
+
+  .emailModal {
+    width: 100% !important;
+    max-height: calc(100vh - 24px) !important;
+    border-radius: 17px !important;
+  }
+
+  .emailModalHeader,
+  .emailShell {
+    padding: 16px !important;
+  }
+
+  .emailTopFields,
+  .emailCtaFields {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0 !important;
+  }
+
+  .emailTextarea {
+    min-height: 210px !important;
+  }
+
+  .emailModalSubtitle {
+    display: none !important;
+  }
+}
+
+/* ========================================================================== */
+/* REVENUE IMPACT — FULL-WIDTH EMAIL QUEUE TABLE                              */
+/* ========================================================================== */
+
+.impactTablesGrid {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+}
+
+.impactTablePanel {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.impactTableHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 14px 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.impactTableHeader h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.impactTableHeader p {
+  margin: 5px 0 0;
+  color: #6b7280;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.impactTableCount {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #fafafa;
+  color: #6b7280;
+  font-size: 10.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.impactTableFilters {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.8fr) 170px 145px 145px;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.impactSearchWrap {
+  position: relative;
+  min-width: 0;
+}
+
+.impactSearchWrap svg {
+  position: absolute;
+  top: 50%;
+  left: 11px;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.impactSearchWrap input,
+.impactTableFilters select {
+  width: 100%;
+  height: 38px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #374151;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  outline: none;
+}
+
+.impactSearchWrap input {
+  padding: 0 11px 0 34px;
+}
+
+.impactTableFilters select {
+  padding: 0 11px;
+}
+
+.impactSearchWrap input::placeholder {
+  color: #9ca3af;
+}
+
+.impactSearchWrap input:focus,
+.impactTableFilters select:focus {
+  border-color: #d1d5db;
+  box-shadow: 0 0 0 3px rgba(209, 213, 219, 0.22);
+}
+
+.impactTableScroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.impactTableHead,
+.impactTableRow {
+  display: grid;
+  grid-template-columns:
+    minmax(170px, 1.05fr) minmax(145px, 0.85fr) minmax(220px, 1.35fr) minmax(88px, 0.5fr) minmax(220px, 1.35fr) minmax(132px, 0.72fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 1120px;
+  padding: 0 14px;
+}
+
+.impactTableHead {
+  height: 46px;
+  background: #fafafa;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.impactTableHead span {
+  color: #6b7280;
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+.impactTableRow {
+  min-height: 62px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #ffffff;
+}
+
+.impactTableRow:last-child {
+  border-bottom: 0;
+}
+
+.impactTableRow:hover {
+  background: #fafafa;
+}
+
+.impactAccountButton {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.impactAccountButton strong {
+  display: block;
+  overflow: hidden;
+  color: #111827;
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.impactAccountButton span {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #9ca3af;
+  font-size: 10.5px;
+  line-height: 1.2;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.impactOpportunityBadge,
+.impactBadge {
+  width: fit-content;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  line-height: 1.2;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.impactOpportunity_blue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.impactOpportunity_green {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.impactOpportunity_amber {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.impactBadge_high {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.impactBadge_medium {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.impactBadge_low {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.impactReason,
+.impactSuggestedAction {
+  min-width: 0;
+  margin: 0;
+  color: #6b7280;
+  font-size: 11.5px;
+  line-height: 1.4;
+  font-weight: 400;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.impactSuggestedAction {
+  color: #374151;
+}
+
+.impactRowActions {
+  display: flex;
+  align-items: center;
+}
+
+.impactRowActions button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #374151;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.impactRowActions button:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  color: #111827;
+}
+
+.impactTableEmpty {
+  min-width: 1120px;
+  min-height: 124px;
+  padding: 24px;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.impactTableEmpty strong {
+  color: #111827;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.impactTableEmpty p {
+  margin: 5px 0 0;
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.impactTableFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border-top: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.impactTableFooter p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.impactTableFooter>div {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.impactTableFooter button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #374151;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.impactTableFooter button:hover:not(:disabled) {
+  background: #f9fafb;
+}
+
+.impactTableFooter button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.impactTableFooter .impactActivePage {
+  background: #111827;
+  border-color: #111827;
+  color: #ffffff;
+}
+
+@media (max-width: 1000px) {
+  .impactTableFilters {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+
+  .impactTableHeader,
+  .impactTableFooter {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .impactTableFilters {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ========================================================================== */
+/* CUSTOMER-LIST STYLE REVENUE IMPACT TABLE                                   */
+/* ========================================================================== */
+
+.customerImpactTableCard {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.035);
+}
+
+.customerImpactTableTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 16px 14px;
+  border-bottom: 1px solid #eef1f4;
+  background: #ffffff;
+}
+
+.customerImpactTableTop h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.customerImpactTableTop p {
+  margin: 5px 0 0;
+  color: #8a94a3;
+  font-size: 10.5px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.customerImpactTableTools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.customerImpactSearch {
+  position: relative;
+  width: 180px;
+}
+
+.customerImpactSearch svg {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  z-index: 1;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.customerImpactSearch input,
+.customerImpactTableTools select {
+  height: 34px;
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #4b5563;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 400;
+  outline: none;
+}
+
+.customerImpactSearch input {
+  width: 100%;
+  padding: 0 10px 0 31px;
+}
+
+.customerImpactSearch input::placeholder {
+  color: #a1a8b3;
+}
+
+.customerImpactTableTools select {
+  min-width: 108px;
+  padding: 0 27px 0 10px;
+  cursor: pointer;
+}
+
+.customerImpactSearch input:focus,
+.customerImpactTableTools select:focus {
+  border-color: #cfd5dd;
+  box-shadow: 0 0 0 3px rgba(209, 213, 219, 0.18);
+}
+
+.customerImpactTableViewport {
+  width: 100%;
+  overflow-x: auto;
+  background: #ffffff;
+}
+
+.customerImpactTable {
+  width: 100%;
+  min-width: 920px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  background: #ffffff;
+}
+
+.customerImpactTable th {
+  height: 42px;
+  padding: 0 14px;
+  text-align: left;
+  border-bottom: 1px solid #e8ecf1;
+  background: #fafbfc;
+  color: #7a8493;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.customerImpactTable td {
+  height: 58px;
+  padding: 0 14px;
+  vertical-align: middle;
+  border-bottom: 1px solid #f0f2f5;
+  background: #ffffff;
+  color: #667085;
+  font-size: 10.5px;
+  line-height: 1.35;
+  font-weight: 400;
+}
+
+.customerImpactTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.customerImpactTable tbody tr:hover td {
+  background: #fafbfc;
+}
+
+.customerImpactTable th:nth-child(1),
+.customerImpactTable td:nth-child(1) {
+  width: 20%;
+}
+
+.customerImpactTable th:nth-child(2),
+.customerImpactTable td:nth-child(2) {
+  width: 18%;
+}
+
+.customerImpactTable th:nth-child(3),
+.customerImpactTable td:nth-child(3) {
+  width: 11%;
+}
+
+.customerImpactTable th:nth-child(4),
+.customerImpactTable td:nth-child(4) {
+  width: 36%;
+}
+
+.customerImpactTable th:nth-child(5),
+.customerImpactTable td:nth-child(5) {
+  width: 15%;
+}
+
+.customerImpactAccount {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.customerImpactAccount strong {
+  display: block;
+  overflow: hidden;
+  color: #202632;
+  font-size: 10.8px;
+  line-height: 1.2;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customerImpactAccount span {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #9aa2ae;
+  font-size: 9px;
+  line-height: 1.2;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customerImpactPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 22px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.customerImpactCopy {
+  display: -webkit-box;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: #667085;
+  font-size: 10.2px;
+  line-height: 1.35;
+  font-weight: 400;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.customerImpactAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid #e4e7ec;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #475467;
+  font-family: inherit;
+  font-size: 9.5px;
+  line-height: 1;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.customerImpactAction:hover {
+  border-color: #d0d5dd;
+  background: #f9fafb;
+  color: #111827;
+}
+
+.customerImpactEmpty {
+  height: 120px !important;
+  text-align: center;
+  color: #8a94a3 !important;
+  font-size: 11px !important;
+}
+
+.customerImpactEmpty strong,
+.customerImpactEmpty span {
+  display: block;
+}
+
+.customerImpactEmpty strong {
+  margin-bottom: 5px;
+  color: #111827;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.customerImpactTableBottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 9px 14px;
+  border-top: 1px solid #eef1f4;
+  background: #ffffff;
+}
+
+.customerImpactTableBottom p {
+  margin: 0;
+  color: #8a94a3;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.customerImpactPager {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.customerImpactPager button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #667085;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.customerImpactPager button:hover:not(:disabled) {
+  background: #f9fafb;
+  color: #111827;
+}
+
+.customerImpactPager button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.customerImpactPager .customerImpactCurrentPage {
+  border-color: #5b61d6;
+  background: #5b61d6;
+  color: #ffffff;
+}
+
+@media (max-width: 1050px) {
+  .customerImpactTableTop {
+    flex-direction: column;
+  }
+
+  .customerImpactTableTools {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 700px) {
+
+  .customerImpactSearch,
+  .customerImpactTableTools select {
+    width: 100%;
+  }
+
+  .customerImpactTableTools {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .customerImpactTableBottom {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* ========================================================================== */
+/* FINAL FULL-WIDTH REVENUE IMPACT QUEUE                                      */
+/* Keeps all existing table data, handlers, filters and backend logic intact. */
+/* ========================================================================== */
+
+.revenueImpactSection {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.impactTablesGrid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  gap: 0;
+}
+
+.customerImpactTableCard {
+  grid-column: 1 / -1;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.customerImpactTableTop {
+  width: 100%;
+}
+
+.customerImpactTableTools {
+  margin-left: auto;
+}
+
+.customerImpactTableViewport {
+  width: 100%;
+  max-width: none;
+}
+
+.customerImpactTable {
+  width: 100%;
+  min-width: 1040px;
+}
+
+@media (min-width: 1200px) {
+  .customerImpactSearch {
+    width: 230px;
+  }
+
+  .customerImpactTableTools select {
+    min-width: 128px;
+  }
+}
+
+/* ========================================================================== */
+/* REVENUE IMPACT QUEUE — SINGLE FILTER                                       */
+/* Uses the same dropdown treatment as the Metrics range selector.            */
+/* ========================================================================== */
+
+.customerImpactTableTools {
+  flex-wrap: nowrap;
+}
+
+.customerImpactTableTools .chartFilterWrap {
+  flex-shrink: 0;
+}
+
+.customerImpactTableTools .chartFilterButton {
+  min-width: 154px;
+  justify-content: space-between;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+.recoveryFilterMenu {
+  width: 210px;
+  max-height: 340px;
+  overflow-y: auto;
+  z-index: 1200;
+}
+
+.recoveryFilterMenu .chartFilterOption {
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .customerImpactTableTools {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  .customerImpactSearch {
+    width: 100%;
+  }
+
+  .customerImpactTableTools .chartFilterWrap,
+  .customerImpactTableTools .chartFilterButton {
+    width: 100%;
+  }
+
+  .recoveryFilterMenu {
+    right: auto;
+    left: 0;
+    width: 100%;
+  }
+}
+
+.customerImpactTableCard {
+  overflow: visible;
+}
+
+.customerImpactTableTop {
+  position: relative;
+  z-index: 20;
+  border-radius: 16px 16px 0 0;
+}
+
+.customerImpactTableViewport {
+  border-radius: 0;
+}
+
+/* Revenue and churn impact stat cards */
+.revenueOverviewStats>div {
+  min-height: 92px;
+  padding: 12px 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.revenueOverviewStats strong {
+  margin-top: 7px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.statComparison {
+  display: flex !important;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px !important;
+  color: #8b95a5 !important;
+  font-size: 9px !important;
+  line-height: 1.25 !important;
+  font-weight: 400 !important;
+}
+
+.statComparison>span:last-child {
+  color: #8b95a5 !important;
+  font-size: 9px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.statComparison>span:first-child {
+  display: inline-flex !important;
+}
+
+@media (max-width: 760px) {
+  .revenueOverviewStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ==========================================================================
+   FINAL REVENUE + CHURN IMPACT TYPOGRAPHY
+   Keep this section at the absolute bottom of this file.
+   Typography only — trend and arrow colours are intentionally untouched.
+   ========================================================================== */
+
+.page .revenueImpactSection,
+.page .mrrCard,
+.page .churnCard,
+.page .revenueTrendCompact {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif !important;
+}
+
+/* Small context above each impact heading */
+.page .revenueImpactSection .chartMeta,
+.page .mrrCard .chartMeta,
+.page .churnCard .chartMeta,
+.page .revenueTrendCompact .chartMeta {
+  margin-top: 3px !important;
+  font-size: 9.5px !important;
+  line-height: 1.35 !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  color: #8b95a5 !important;
+}
+
+/* Revenue Impact / Churn Impact headings */
+.page .revenueImpactSection .chartTitle,
+.page .mrrCard .chartTitle,
+.page .churnCard .chartTitle,
+.page .revenueTrendCompact .chartTitle {
+  margin: 0 !important;
+  font-size: 12px !important;
+  line-height: 1.3 !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+  color: #111827 !important;
+}
+
+/* Main values such as £2,090.00 and 2.6% */
+.page .revenueImpactSection .heroRevenue,
+.page .mrrCard .heroRevenue,
+.page .churnCard .heroRevenue,
+.page .revenueTrendCompact .heroRevenue {
+  margin: 7px 0 2px !important;
+  font-size: 17px !important;
+  line-height: 1 !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.035em !important;
+  color: #111827 !important;
+}
+
+/* Plain supporting context beside or below the main value */
+.page .revenueImpactSection .heroRevenue+p,
+.page .revenueImpactSection .heroRevenue+span:not(.statComparison),
+.page .mrrCard .heroRevenue+p,
+.page .mrrCard .heroRevenue+span:not(.statComparison),
+.page .churnCard .heroRevenue+p,
+.page .churnCard .heroRevenue+span:not(.statComparison),
+.page .revenueTrendCompact .heroRevenue+p,
+.page .revenueTrendCompact .heroRevenue+span:not(.statComparison) {
+  font-size: 9.5px !important;
+  line-height: 1.35 !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  color: #8b95a5 !important;
+}
+
+/* Impact summary cards */
+.page .revenueImpactSection .revenueOverviewStats>div,
+.page .mrrCard .revenueOverviewStats>div,
+.page .churnCard .revenueOverviewStats>div,
+.page .revenueTrendCompact .revenueOverviewStats>div {
+  min-height: 88px !important;
+  padding: 12px 13px !important;
+}
+
+/* Summary labels only */
+.page .revenueImpactSection .revenueOverviewStats>div>span:first-child,
+.page .mrrCard .revenueOverviewStats>div>span:first-child,
+.page .churnCard .revenueOverviewStats>div>span:first-child,
+.page .revenueTrendCompact .revenueOverviewStats>div>span:first-child {
+  display: block !important;
+  margin: 0 !important;
+  font-size: 9px !important;
+  line-height: 1.25 !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: #8b95a5 !important;
+}
+
+/* Summary values only */
+.page .revenueImpactSection .revenueOverviewStats>div>strong,
+.page .mrrCard .revenueOverviewStats>div>strong,
+.page .churnCard .revenueOverviewStats>div>strong,
+.page .revenueTrendCompact .revenueOverviewStats>div>strong {
+  display: block !important;
+  margin-top: 6px !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.025em !important;
+  color: #111827 !important;
+}
+
+/* Comparison row layout and typography */
+.page .revenueImpactSection .statComparison,
+.page .mrrCard .statComparison,
+.page .churnCard .statComparison,
+.page .revenueTrendCompact .statComparison {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 4px !important;
+  margin-top: 7px !important;
+  font-size: 8.5px !important;
+  line-height: 1.25 !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+/*
+  Context text only.
+  The first child normally contains the coloured arrow/change value, so it is
+  deliberately excluded to preserve its existing green or red state.
+*/
+.page .revenueImpactSection .statComparison>span:last-child,
+.page .mrrCard .statComparison>span:last-child,
+.page .churnCard .statComparison>span:last-child,
+.page .revenueTrendCompact .statComparison>span:last-child {
+  font-size: 8.5px !important;
+  line-height: 1.25 !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: #98a1b2 !important;
+}
+
+/* Keep the coloured change indicator compact without changing its colour */
+.page .revenueImpactSection .statComparison>span:first-child,
+.page .mrrCard .statComparison>span:first-child,
+.page .churnCard .statComparison>span:first-child,
+.page .revenueTrendCompact .statComparison>span:first-child {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  font-size: 8.5px !important;
+  line-height: 1.25 !important;
+  font-weight: 500 !important;
+}
+
+/* Preserve arrow icon colour inherited from its positive/negative state */
+.page .revenueImpactSection .statComparison>span:first-child svg,
+.page .mrrCard .statComparison>span:first-child svg,
+.page .churnCard .statComparison>span:first-child svg,
+.page .revenueTrendCompact .statComparison>span:first-child svg {
+  width: 10px !important;
+  height: 10px !important;
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+
+/* External chart legend text only */
+.page .revenueImpactSection .chartLegend,
+.page .revenueImpactSection .chartLegend span,
+.page .mrrCard .chartLegend,
+.page .mrrCard .chartLegend span,
+.page .churnCard .chartLegend,
+.page .churnCard .chartLegend span,
+.page .revenueTrendCompact .chartLegend,
+.page .revenueTrendCompact .chartLegend span {
+  font-size: 9px !important;
+  line-height: 1.3 !important;
+  font-weight: 400 !important;
+}
+
+/*
+  Do not add colour overrides for:
+  .statComparison > span:first-child,
+  its SVG/path, positive/negative classes, or up/down classes.
+*/

@@ -27,6 +27,8 @@ model Workspace {
   demoMode                 Boolean   @default(false)
   demoSeededAt             DateTime?
   trialEndsAt              DateTime?
+  trialStartedAt           DateTime?
+  trialUsed                Boolean    @default(false)
 
   resendDomainId       String?
   sendingDomain        String?

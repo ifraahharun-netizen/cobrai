@@ -1,28 +1,35 @@
-"use client";
+import type { Metadata } from "next";
+import Link from "next/link";
+import TermlyPolicy from "@/components/TermlyPolicy";
 
-import { useEffect } from "react";
+export const metadata: Metadata = {
+    title: "Terms & Conditions | Cobrai",
+    description:
+        "Read Cobrai's terms and conditions.",
+};
 
 export default function TermsPage() {
-    useEffect(() => {
-        const scriptId = "termly-jssdk";
-
-        if (!document.getElementById(scriptId)) {
-            const script = document.createElement("script");
-            script.id = scriptId;
-            script.src = "https://app.termly.io/embed-policy.min.js";
-            script.async = true;
-            document.body.appendChild(script);
-        }
-    }, []);
-
     return (
-        <main className="min-h-screen bg-white text-black px-6 py-10">
-            <div className="mx-auto max-w-3xl">
-               
+        <main className="legalPage">
+            <div className="legalPageInner">
+                <header className="legalPageHeader">
+                    <Link
+                        href="/"
+                        className="legalBackLink"
+                    >
+                        ← Back to Cobrai
+                    </Link>
 
-                <div
-                    data-name="termly-embed"
-                    data-id="232e972c-8924-4d89-9111-0aa5cc2ce0a5"
+                    <h1>Terms &amp; Conditions</h1>
+
+                    <p>
+                        Read the terms governing your use of
+                        Cobrai.
+                    </p>
+                </header>
+
+                <TermlyPolicy
+                    policyId="232e972c-8924-4d89-9111-0aa5cc2ce0a5"
                 />
             </div>
         </main>
