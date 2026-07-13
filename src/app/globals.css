@@ -1,4 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap");
+
 
 :root {
     --cob-blue: #1d9bf0;
@@ -297,11 +298,11 @@ button {
 .heroCopy h1 {
     margin: 0;
     color: #101828;
-    font-family: "DM Serif Display", Georgia, serif;
-    font-size: clamp(62px, 5.8vw, 86px);
-    font-weight: 400;
-    letter-spacing: -0.045em;
-    line-height: 0.98;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: clamp(66px, 6vw, 92px);
+    font-weight: 500;
+    letter-spacing: -0.035em;
+    line-height: 0.92;
 }
 
 .heroCopy h1 span {
@@ -682,11 +683,11 @@ button {
 .sectionHeading h2 {
     margin: 18px 0 0;
     color: #101828;
-    font-family: "DM Serif Display", Georgia, serif;
-    font-size: clamp(42px, 4.6vw, 60px);
-    font-weight: 400;
-    letter-spacing: -0.035em;
-    line-height: 1.08;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: clamp(46px, 5vw, 64px);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
 }
 
 .benefitGrid {
@@ -765,11 +766,11 @@ button {
 .testimonialIntro h2 {
     margin: 16px 0 0;
     color: #101828;
-    font-family: "DM Serif Display", Georgia, serif;
-    font-size: 38px;
-    font-weight: 400;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 44px;
+    font-weight: 500;
     letter-spacing: -0.03em;
-    line-height: 1.08;
+    line-height: 1.05;
 }
 
 .testimonialIntro p {
@@ -1007,12 +1008,13 @@ button {
 .footerTopCta h2 {
     margin: 0;
     color: #ffffff;
-    font-family: "DM Serif Display", Georgia, serif;
-    font-size: clamp(32px, 3.4vw, 44px);
-    font-weight: 400;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: clamp(36px, 3.8vw, 48px);
+    font-weight: 500;
     letter-spacing: -0.03em;
-    line-height: 1.06;
+    line-height: 1.05;
 }
+
 
 .footerTopCta p {
     max-width: 550px;
@@ -1788,4 +1790,289 @@ button {
 
 .heroCopy h1 .headlineBlue {
     color: var(--cob-blue);
+}
+
+
+
+
+
+.heroCopy h1 {
+    margin: 0;
+    color: #101828;
+    font-family: "Instrument Serif", Georgia, serif;
+    font-size: clamp(62px, 5.8vw, 86px);
+    font-weight: 400;
+    letter-spacing: -0.045em;
+    line-height: 0.96;
+}
+
+.heroCopy h1 .headlineBlack {
+    color: #101828;
+    font-style: normal;
+}
+
+.heroCopy h1 .headlineBlue {
+    color: var(--cob-blue);
+    font-style: italic;
+    font-weight: 400;
+}
+
+
+
+
+
+
+
+/* Append this block to the global CSS file that already contains your header styles. */
+
+.headerGhostBtn,
+.headerPrimaryBtn,
+.headerMobileAuthButton,
+.headerMobilePrimary {
+    border: 0;
+    font-family: inherit;
+}
+
+.headerGhostBtn {
+    background: transparent;
+}
+
+.headerMobileAuthButton,
+.headerMobilePrimary {
+    width: 100%;
+    padding: 12px;
+    border-radius: 9px;
+    font-size: 13px;
+    text-align: left;
+}
+
+.headerMobileAuthButton {
+    background: transparent;
+    color: #344054;
+}
+
+.headerMobilePrimary {
+    background: var(--cob-blue);
+    color: #ffffff;
+    text-align: center;
+}
+
+.mobileMenuDivider {
+    height: 1px;
+    margin: 4px 0;
+    background: var(--cob-line);
+}
+
+.marketingAuthOverlay {
+    position: fixed;
+    z-index: 1200;
+    inset: 0;
+    padding: 24px;
+    overflow-y: auto;
+    background: rgba(15, 23, 42, 0.48);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: grid;
+    place-items: center;
+}
+
+.marketingAuthModal {
+    position: relative;
+    width: min(460px, 100%);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 20px;
+    background: #ffffff;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, 0.24);
+}
+
+.marketingAuthClose {
+    position: absolute;
+    z-index: 2;
+    top: 16px;
+    right: 16px;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 1px solid var(--cob-line);
+    border-radius: 10px;
+    background: #ffffff;
+    color: #475467;
+    display: grid;
+    place-items: center;
+}
+
+.marketingAuthClose:hover {
+    border-color: #b9dff8;
+    background: var(--cob-blue-pale);
+    color: var(--cob-blue);
+}
+
+.marketingAuthClose:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.marketingAuthContent {
+    padding: 42px;
+}
+
+.marketingAuthEyebrow {
+    margin: 0;
+    color: var(--cob-blue);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.marketingAuthContent h2 {
+    margin: 12px 48px 0 0;
+    color: #101828;
+    font-family: "Instrument Serif", "DM Serif Display", Georgia, serif;
+    font-size: 40px;
+    font-weight: 400;
+    letter-spacing: -0.035em;
+    line-height: 1;
+}
+
+.marketingAuthIntro {
+    margin: 13px 0 0;
+    color: #667085;
+    font-size: 13px;
+    line-height: 1.65;
+}
+
+.marketingAuthForm {
+    margin-top: 28px;
+    display: grid;
+    gap: 16px;
+}
+
+.marketingAuthField {
+    display: grid;
+    gap: 7px;
+}
+
+.marketingAuthField span {
+    color: #344054;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.marketingAuthField input {
+    width: 100%;
+    height: 46px;
+    padding: 0 13px;
+    border: 1px solid #d0d5dd;
+    border-radius: 9px;
+    outline: none;
+    background: #ffffff;
+    color: #101828;
+    font-size: 14px;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.marketingAuthField input:focus {
+    border-color: var(--cob-blue);
+    box-shadow: 0 0 0 3px rgba(29, 155, 240, 0.12);
+}
+
+.marketingAuthField input:disabled {
+    cursor: not-allowed;
+    background: #f9fafb;
+    color: #98a2b3;
+}
+
+.marketingAuthLegal {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    color: #667085;
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.marketingAuthLegal input {
+    width: 15px;
+    height: 15px;
+    margin: 1px 0 0;
+    flex: 0 0 auto;
+    accent-color: var(--cob-blue);
+}
+
+.marketingAuthLegal button,
+.marketingAuthSwitch button {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--cob-blue);
+    font: inherit;
+    font-weight: 600;
+}
+
+.marketingAuthLegal button:hover,
+.marketingAuthSwitch button:hover {
+    text-decoration: underline;
+}
+
+.marketingAuthError {
+    padding: 11px 12px;
+    border: 1px solid #fecdd3;
+    border-radius: 9px;
+    background: #fff1f2;
+    color: #be123c;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.marketingAuthSubmit {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 9px;
+    background: var(--cob-blue);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: 0 10px 24px rgba(29, 155, 240, 0.2);
+    transition: background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.marketingAuthSubmit:hover:not(:disabled) {
+    background: var(--cob-blue-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 14px 30px rgba(29, 155, 240, 0.24);
+}
+
+.marketingAuthSubmit:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.marketingAuthSwitch {
+    margin: 20px 0 0;
+    color: #667085;
+    font-size: 12px;
+    text-align: center;
+}
+
+@media (max-width: 560px) {
+    .marketingAuthOverlay {
+        padding: 14px;
+        align-items: start;
+    }
+
+    .marketingAuthModal {
+        margin-top: 20px;
+        border-radius: 16px;
+    }
+
+    .marketingAuthContent {
+        padding: 34px 22px 26px;
+    }
+
+    .marketingAuthContent h2 {
+        font-size: 34px;
+    }
 }

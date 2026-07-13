@@ -6,8 +6,6 @@ import {
     Check,
     CircleDollarSign,
     MousePointerClick,
-    Sparkles,
-    TrendingUp,
     Users,
     Zap,
 } from "lucide-react";
@@ -18,32 +16,7 @@ const inter = Inter({
     variable: "--font-inter",
 });
 
-const integrations = [
-    {
-        name: "Mixpanel",
-        logo: "https://cdn.simpleicons.org/mixpanel/111827",
-    },
-    {
-        name: "Pipedrive",
-        logo: "https://cdn.simpleicons.org/pipedrive/111827",
-    },
-    {
-        name: "Stripe",
-        logo: "https://cdn.simpleicons.org/stripe/635BFF",
-    },
-    {
-        name: "HubSpot",
-        logo: "https://cdn.simpleicons.org/hubspot/FF5C35",
-    },
-    {
-        name: "Intercom",
-        logo: "https://cdn.simpleicons.org/intercom/111827",
-    },
-    {
-        name: "Zendesk",
-        logo: "https://cdn.simpleicons.org/zendesk/111827",
-    },
-];
+
 
 const benefits = [
     {
@@ -72,26 +45,6 @@ const benefits = [
     },
 ];
 
-const testimonials = [
-    {
-        quote: "Cobrai helped us reduce churn by 28% in just 60 days.",
-        name: "James Carter",
-        role: "CEO, CloudSync",
-        initials: "JC",
-    },
-    {
-        quote: "The automated retention emails are insanely effective. Our MRR is finally predictable.",
-        name: "Sophie Lee",
-        role: "Founder, Datafy",
-        initials: "SL",
-    },
-    {
-        quote: "Finally, a tool that helps us act before customers churn, not after.",
-        name: "Arjun Patel",
-        role: "COO, GrowStack",
-        initials: "AP",
-    },
-];
 
 type RiskCardProps = {
     status: "high" | "medium" | "low";
@@ -312,32 +265,6 @@ export default function HomePage() {
                 </div>
             </section>
 
-            <section className="testimonialSection">
-                <div className="pageShell testimonialPanel">
-                    <div className="testimonialIntro">
-
-                        <h2>
-                            Founders love what
-                            <br />
-                            Cobrai does.
-                        </h2>
-
-                        <p>
-                            See how Cobrai helps SaaS teams protect revenue and
-                            scale faster.
-                        </p>
-                    </div>
-
-                    <div className="testimonialGrid">
-                        {testimonials.map((testimonial) => (
-                            <TestimonialCard
-                                key={testimonial.name}
-                                {...testimonial}
-                            />
-                        ))}
-                    </div>
-                </div>
-            </section>
 
 
 

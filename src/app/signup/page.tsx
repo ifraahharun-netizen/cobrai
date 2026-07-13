@@ -12,7 +12,7 @@ import TermsModal from "@/components/TermsModal";
 import { privacyContent, termsContent } from "@/lib/legalContent";
 
 type LegalView = "terms" | "privacy" | null;
-
+ 
 export default function SignupPage() {
     const router = useRouter();
 
