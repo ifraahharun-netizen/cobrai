@@ -240,3 +240,4 @@ export async function getOrStartWorkspaceTrial(
             makeFallbackSummary(impact, workspace.currency || "GBP"),
     };
 }
+
