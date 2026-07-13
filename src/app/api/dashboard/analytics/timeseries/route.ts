@@ -364,6 +364,18 @@ export async function GET(req: Request) {
             const demo =
                 buildDemoSeries();
 
+            const demoWithExtras = demo as typeof demo & {
+                expansionRows?: ExpansionRow[];
+                insights?: unknown;
+            };
+
+            const demoExpansionRows =
+                Array.isArray(
+                    demoWithExtras.expansionRows
+                )
+                    ? demoWithExtras.expansionRows
+                    : [];
+
             return NextResponse.json({
                 ok: true,
                 mode: "demo",
@@ -377,9 +389,9 @@ export async function GET(req: Request) {
                 activityByMonth:
                     demo.activityByMonth,
                 expansionRows:
-                    demo.expansionRows,
+                    demoExpansionRows,
                 insights:
-                    demo.insights,
+                    demoWithExtras.insights ?? null,
             });
         }
 
@@ -542,6 +554,18 @@ export async function GET(req: Request) {
         if (!hasLiveAnalyticsData) {
             const demo = buildDemoSeries();
 
+            const demoWithExtras = demo as typeof demo & {
+                expansionRows?: ExpansionRow[];
+                insights?: unknown;
+            };
+
+            const demoExpansionRows =
+                Array.isArray(
+                    demoWithExtras.expansionRows
+                )
+                    ? demoWithExtras.expansionRows
+                    : [];
+
             return NextResponse.json({
                 ok: true,
                 mode: "demo",
@@ -550,8 +574,8 @@ export async function GET(req: Request) {
                 churn: demo.churn,
                 mau: demo.mau,
                 activityByMonth: demo.activityByMonth,
-                expansionRows: demo.expansionRows,
-                insights: demo.insights,
+                expansionRows: demoExpansionRows,
+                insights: demoWithExtras.insights ?? null,
             });
         }
 
