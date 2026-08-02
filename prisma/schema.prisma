@@ -28,7 +28,7 @@ model Workspace {
   demoSeededAt             DateTime?
   trialEndsAt              DateTime?
   trialStartedAt           DateTime?
-  trialUsed                Boolean    @default(false)
+  trialUsed                Boolean   @default(false)
 
   resendDomainId       String?
   sendingDomain        String?
@@ -714,4 +714,219 @@ model ProviderEvent {
   @@index([provider])
   @@index([workspaceId])
   @@index([type])
+}
+
+enum RetentionAuditStatus {
+  NEW
+  DATA_UPLOADED
+  ANALYSING
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  FAILED
+}
+
+enum RetentionAuditEmailStatus {
+  NOT_SENT
+  PENDING
+  SENT
+  FAILED
+}
+
+enum RetentionAuditReviewAction {
+  APPROVED
+  REJECTED
+  APPROVAL_EMAIL_SENT
+  APPROVAL_EMAIL_FAILED
+  APPROVAL_EMAIL_RESENT
+  PUBLIC_LINK_REVOKED
+}
+
+model RetentionAuditRequest {
+  id       String @id @default(cuid())
+  name     String
+  email    String
+  website  String
+  mrrRange String
+
+  status RetentionAuditStatus @default(NEW)
+  source String               @default("retention-audit-landing-page")
+
+  locale   String?
+  timeZone String?
+  currency String?
+
+  uploadTokenHash String  @unique
+  publicTokenHash String? @unique
+
+  publicTokenCreatedAt DateTime?
+  publicTokenExpiresAt DateTime?
+  publicTokenRevokedAt DateTime?
+  publicReportViewedAt DateTime?
+
+  notes     String?
+  userAgent String?
+  ipAddress String?
+
+  uploadedAt DateTime?
+  analysedAt DateTime?
+  approvedAt DateTime?
+  rejectedAt DateTime?
+
+  approvedBy String?
+  rejectedBy String?
+
+  approvalEmailStatus    RetentionAuditEmailStatus @default(NOT_SENT)
+  approvalEmailSentAt    DateTime?
+  approvalEmailLastError String?
+  approvalEmailAttempts  Int                       @default(0)
+
+  failureReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dataset      RetentionAuditDataset?
+  report       RetentionAuditReport?
+  reviewEvents RetentionAuditReviewEvent[]
+  emailJobs    RetentionAuditEmailJob[]
+
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+  @@index([approvalEmailStatus])
+  @@index([publicTokenExpiresAt])
+  @@map("retention_audit_requests")
+}
+
+model RetentionAuditDataset {
+  id      String @id @default(cuid())
+  auditId String @unique
+
+  originalName String
+  rowCount     Int
+
+  columns  Json
+  rows     Json
+  warnings Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  audit RetentionAuditRequest @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@map("retention_audit_datasets")
+}
+
+model RetentionAuditReport {
+  id      String @id @default(cuid())
+  auditId String @unique
+
+  healthScore       Int
+  totalCustomers    Int
+  healthyCustomers  Int
+  atRiskCustomers   Int
+  criticalCustomers Int
+
+  totalMrrMinor      Int
+  revenueAtRiskMinor Int
+  failedPaymentMinor Int
+
+  deterministicData Json
+  narrative         Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  audit RetentionAuditRequest @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([healthScore])
+  @@index([revenueAtRiskMinor])
+  @@index([createdAt])
+  @@map("retention_audit_reports")
+}
+
+model RetentionAuditReviewEvent {
+  id      String @id @default(cuid())
+  auditId String
+
+  action RetentionAuditReviewAction
+
+  reviewerId String?
+
+  previousStatus RetentionAuditStatus?
+  newStatus      RetentionAuditStatus?
+
+  note         String?
+  errorMessage String?
+  metadata     Json?
+
+  createdAt DateTime @default(now())
+
+  audit RetentionAuditRequest @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([auditId, createdAt])
+  @@index([action, createdAt])
+  @@index([reviewerId])
+  @@map("retention_audit_review_events")
+}
+
+enum RetentionAuditEmailJobStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+}
+
+model RetentionAuditEmailJob {
+  id String @id @default(cuid())
+
+  auditId String
+
+  status RetentionAuditEmailJobStatus @default(PENDING)
+
+  tokenCiphertext String
+  tokenIv         String
+  tokenAuthTag    String
+
+  attempts    Int @default(0)
+  maxAttempts Int @default(5)
+
+  nextAttemptAt DateTime @default(now())
+
+  lockedAt DateTime?
+  lockedBy String?
+
+  sentAt    DateTime?
+  lastError String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  audit RetentionAuditRequest @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([auditId])
+  @@index([lockedAt])
+  @@map("retention_audit_email_jobs")
+}
+
+model RetentionAuditRateLimit {
+  id String @id @default(cuid())
+
+  key String
+
+  windowStart DateTime
+
+  count Int @default(1)
+
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([key, windowStart])
+  @@index([expiresAt])
+  @@map("retention_audit_rate_limits")
 }

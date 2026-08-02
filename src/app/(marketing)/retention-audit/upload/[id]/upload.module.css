@@ -1,0 +1,182 @@
+.page {
+    min-height: 100vh;
+    padding: 80px 24px;
+    background:
+        radial-gradient(circle at 50% 0%, rgba(29, 155, 240, 0.08), transparent 30%),
+        #ffffff;
+    color: var(--cob-navy);
+    font-family: var(--font-inter), Inter, Arial, sans-serif;
+}
+
+.shell {
+    width: min(1080px, 100%);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 0.78fr);
+    align-items: center;
+    gap: 72px;
+}
+
+.copy>span {
+    color: var(--cob-blue);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.copy h1 {
+    max-width: 650px;
+    margin: 14px 0 0;
+    color: #101828;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: clamp(46px, 5vw, 66px);
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+}
+
+.copy>p {
+    max-width: 610px;
+    margin: 20px 0 0;
+    color: #667085;
+    font-size: 14px;
+    line-height: 1.75;
+}
+
+.points {
+    margin-top: 26px;
+    display: grid;
+    gap: 9px;
+}
+
+.points p {
+    margin: 0;
+    color: #475467;
+    font-size: 11px;
+}
+
+.card {
+    padding: 28px;
+    border: 1px solid var(--cob-line);
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 24px 70px rgba(24, 75, 124, 0.12);
+}
+
+.card>div>span {
+    color: var(--cob-blue);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.card h2 {
+    margin: 7px 0 0;
+    color: #101828;
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+}
+
+.card>div>p {
+    margin: 9px 0 0;
+    color: #667085;
+    font-size: 11px;
+    line-height: 1.65;
+}
+
+.dropzone {
+    min-height: 160px;
+    margin-top: 22px;
+    padding: 22px;
+    border: 1px dashed #b9dff8;
+    border-radius: 13px;
+    background: var(--cob-blue-pale);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.dropzone input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.dropzone strong {
+    color: #101828;
+    font-size: 13px;
+}
+
+.dropzone span {
+    color: #667085;
+    font-size: 10px;
+}
+
+.card button {
+    width: 100%;
+    min-height: 48px;
+    margin-top: 14px;
+    border: 0;
+    border-radius: 9px;
+    background: var(--cob-blue);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: 0 10px 24px rgba(29, 155, 240, 0.2);
+}
+
+.card button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.status,
+.error {
+    margin: 14px 0 0;
+    padding: 11px 12px;
+    border-radius: 9px;
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.status {
+    border: 1px solid #d8f0e4;
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.error {
+    border: 1px solid #fecdd3;
+    background: #fff1f2;
+    color: #be123c;
+}
+
+@media (max-width: 860px) {
+    .shell {
+        grid-template-columns: 1fr;
+        gap: 44px;
+    }
+}
+
+@media (max-width: 560px) {
+    .page {
+        padding: 50px 14px;
+    }
+
+    .copy h1 {
+        font-size: 43px;
+    }
+
+    .card {
+        padding: 22px 18px;
+        border-radius: 15px;
+    }
+}

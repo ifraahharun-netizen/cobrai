@@ -1,0 +1,377 @@
+.page {
+    min-height: 100vh;
+    padding: 0 24px 60px;
+    background: #ffffff;
+    color: var(--cob-navy);
+    font-family: var(--font-inter), Inter, Arial, sans-serif;
+}
+
+.header {
+    width: min(1180px, 100%);
+    min-height: 78px;
+    margin: 0 auto;
+    border-bottom: 1px solid var(--cob-line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.header strong {
+    color: #101828;
+    font-size: 19px;
+    font-weight: 750;
+    letter-spacing: -0.035em;
+}
+
+.header span {
+    color: #98a2b3;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.hero {
+    width: min(960px, 100%);
+    margin: 0 auto;
+    padding: 82px 0 54px;
+    text-align: center;
+}
+
+.hero>span,
+.label {
+    color: var(--cob-blue);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.hero h1 {
+    margin: 15px 0 0;
+    color: #101828;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: clamp(48px, 6vw, 72px);
+    font-weight: 500;
+    letter-spacing: -0.045em;
+    line-height: 0.98;
+}
+
+.hero p {
+    max-width: 760px;
+    margin: 22px auto 0;
+    color: #667085;
+    font-size: 14px;
+    line-height: 1.75;
+}
+
+.metrics {
+    width: min(1180px, 100%);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.metrics article {
+    min-height: 126px;
+    padding: 19px;
+    border: 1px solid var(--cob-line);
+    border-radius: 13px;
+    background: #ffffff;
+}
+
+.metrics span {
+    color: #667085;
+    font-size: 10px;
+}
+
+.metrics strong {
+    margin-top: 13px;
+    color: #101828;
+    display: block;
+    font-size: 25px;
+    font-weight: 650;
+    letter-spacing: -0.045em;
+}
+
+.grid {
+    width: min(1180px, 100%);
+    margin: 52px auto 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.panel,
+.accounts {
+    border: 1px solid var(--cob-line);
+    border-radius: 15px;
+    background: #ffffff;
+}
+
+.panel {
+    padding: 26px;
+}
+
+.finding {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #edf1f5;
+}
+
+.finding h2,
+.action h2,
+.accountsHeader h2 {
+    margin: 0;
+    color: #101828;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.finding p,
+.action p,
+.accountsHeader p {
+    margin: 8px 0 0;
+    color: #667085;
+    font-size: 11px;
+    line-height: 1.7;
+}
+
+.action {
+    margin-top: 19px;
+    display: grid;
+    grid-template-columns: 35px 1fr;
+    gap: 11px;
+}
+
+.action>span {
+    width: 35px;
+    height: 35px;
+    border: 1px solid #dcecff;
+    border-radius: 9px;
+    background: var(--cob-blue-pale);
+    color: var(--cob-blue);
+    display: grid;
+    place-items: center;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.action small {
+    margin-top: 8px;
+    color: #98a2b3;
+    display: block;
+    font-size: 9px;
+    line-height: 1.5;
+}
+
+.accounts {
+    width: min(1180px, 100%);
+    margin: 14px auto 0;
+    overflow: hidden;
+}
+
+.accountsHeader {
+    padding: 24px;
+    border-bottom: 1px solid var(--cob-line);
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.accountsHeader h2 {
+    margin-top: 7px;
+    font-size: 18px;
+}
+
+.accountsHeader p {
+    max-width: 320px;
+    text-align: right;
+}
+
+.tableWrap {
+    overflow-x: auto;
+}
+
+.tableHead,
+.tableRow {
+    min-width: 980px;
+    padding: 13px 16px;
+    display: grid;
+    grid-template-columns: 1.1fr 0.6fr 0.45fr 1.35fr 1.5fr;
+    align-items: center;
+    gap: 12px;
+}
+
+.tableHead {
+    min-height: 38px;
+    background: #fbfdff;
+    color: #98a2b3;
+    font-size: 9px;
+}
+
+.tableRow {
+    min-height: 61px;
+    border-top: 1px solid #f0f3f6;
+    color: #667085;
+    font-size: 10px;
+    line-height: 1.45;
+}
+
+.tableRow strong {
+    color: #344054;
+    font-size: 11px;
+}
+
+.risk {
+    width: 29px;
+    height: 29px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 8px;
+    font-weight: 700;
+}
+
+.critical {
+    background: #fff0f2;
+    color: #e4455c;
+}
+
+.atRisk {
+    background: #fff5e8;
+    color: #e87e1c;
+}
+
+.healthy {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.cta {
+    position: relative;
+    width: min(1180px, 100%);
+    margin: 54px auto 0;
+    padding: 42px 48px;
+    overflow: hidden;
+    border-radius: 20px;
+    background:
+        radial-gradient(circle at 90% 20%, rgba(255, 255, 255, 0.18), transparent 34%),
+        linear-gradient(135deg, #1596e8 0%, #1d9bf0 55%, #1689d6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 40px;
+    box-shadow: 0 18px 46px rgba(29, 155, 240, 0.18);
+}
+
+.cta>div {
+    max-width: 680px;
+}
+
+.cta span {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.cta h2 {
+    margin: 10px 0 0;
+    color: #ffffff;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: clamp(36px, 4vw, 48px);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.03;
+}
+
+.cta p {
+    margin: 12px 0 0;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 12px;
+    line-height: 1.65;
+}
+
+.cta a {
+    min-height: 46px;
+    padding: 0 22px;
+    flex: 0 0 auto;
+    border-radius: 9px;
+    background: #ffffff;
+    color: var(--cob-blue-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.caveats {
+    width: min(1180px, 100%);
+    margin: 28px auto 0;
+    color: #98a2b3;
+    font-size: 9px;
+    line-height: 1.55;
+}
+
+.caveats strong {
+    color: #667085;
+}
+
+.caveats p {
+    margin: 5px 0 0;
+}
+
+@media (max-width: 860px) {
+    .metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cta {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 560px) {
+    .page {
+        padding-right: 14px;
+        padding-left: 14px;
+    }
+
+    .header span {
+        display: none;
+    }
+
+    .hero {
+        padding-top: 58px;
+    }
+
+    .metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .accountsHeader {
+        flex-direction: column;
+    }
+
+    .accountsHeader p {
+        text-align: left;
+    }
+
+    .cta {
+        padding: 32px 22px;
+    }
+
+    .cta a {
+        width: 100%;
+    }
+}
