@@ -1,18 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import {
-    Activity,
     BarChart3,
-    CalendarDays,
     Check,
-    ChevronDown,
-    CircleDollarSign,
-    Download,
     Gauge,
-    Mail,
-    Settings,
-    ShieldCheck,
     Sparkles,
     Users,
     Zap,
@@ -145,7 +136,11 @@ const benefits = [
 function RiskBadge({ value }: { value: number }) {
     const tone = value >= 85 ? "critical" : value >= 70 ? "high" : "medium";
 
-    return <span className={`dashboardRisk dashboardRisk-${tone}`}>{value}</span>;
+    return (
+        <span className={`dashboardRisk dashboardRisk-${tone}`}>
+            {value}
+        </span>
+    );
 }
 
 export default function HomePage() {
@@ -179,8 +174,10 @@ export default function HomePage() {
                             onClick={() => {
                                 window.dispatchEvent(
                                     new CustomEvent("cobrai:open-auth", {
-                                        detail: { view: "signup" },
-                                    })
+                                        detail: {
+                                            view: "signup",
+                                        },
+                                    }),
                                 );
                             }}
                         >
@@ -193,8 +190,10 @@ export default function HomePage() {
                             onClick={() => {
                                 window.dispatchEvent(
                                     new CustomEvent("cobrai:open-auth", {
-                                        detail: { view: "login" },
-                                    })
+                                        detail: {
+                                            view: "login",
+                                        },
+                                    }),
                                 );
                             }}
                         >
@@ -207,10 +206,12 @@ export default function HomePage() {
                             <Check size={14} />
                             14-day free trial
                         </span>
+
                         <span>
                             <Check size={14} />
                             No credit card required
                         </span>
+
                         <span>
                             <Check size={14} />
                             Cancel anytime
@@ -222,14 +223,17 @@ export default function HomePage() {
                             <strong>Predictive</strong>
                             <span>Churn detection</span>
                         </div>
+
                         <div>
                             <strong>Proactive</strong>
                             <span>Revenue protection</span>
                         </div>
+
                         <div>
                             <strong>Automated</strong>
                             <span>Retention workflows</span>
                         </div>
+
                         <div>
                             <strong>Actionable</strong>
                             <span>Customer intelligence</span>
@@ -259,7 +263,9 @@ export default function HomePage() {
                                     <span className="benefitIcon">
                                         <Icon size={22} />
                                     </span>
+
                                     <h3>{benefit.title}</h3>
+
                                     <p>{benefit.description}</p>
                                 </article>
                             );
