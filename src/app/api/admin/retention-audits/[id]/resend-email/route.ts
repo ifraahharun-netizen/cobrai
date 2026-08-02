@@ -29,9 +29,7 @@ function auditUrl(
         request.url,
     );
 
-    for (const [key, value] of Object.entries(
-        parameters ?? {},
-    )) {
+    for (const [key, value] of Object.entries(parameters ?? {})) {
         url.searchParams.set(key, value);
     }
 
@@ -41,14 +39,28 @@ function auditUrl(
 function errorRedirect(
     request: Request,
     auditId: string,
-    message: string,
+    errorCode: string,
 ) {
     return NextResponse.redirect(
         auditUrl(request, auditId, {
-            error: message,
+            error: errorCode,
         }),
         303,
     );
+}
+
+function reviewErrorCode(error: AuditReviewError) {
+    const codes: Record<
+        AuditReviewError["code"],
+        string
+    > = {
+        NOT_FOUND: "not_found",
+        REPORT_MISSING: "report_missing",
+        INVALID_STATUS: "invalid_status",
+        CONCURRENT_UPDATE: "concurrent_update",
+    };
+
+    return codes[error.code];
 }
 
 export async function POST(
@@ -73,12 +85,11 @@ export async function POST(
         await resendRetentionAuditApprovalEmail({
             auditId: id,
             reviewerId: null,
-            request,
         });
 
         return NextResponse.redirect(
             auditUrl(request, id, {
-                email: "resent",
+                email: "queued",
             }),
             303,
         );
@@ -104,33 +115,17 @@ export async function POST(
         }
 
         if (error instanceof AuditReviewError) {
-            const messages: Record<
-                AuditReviewError["code"],
-                string
-            > = {
-                NOT_FOUND:
-                    "The audit could not be found.",
-                REPORT_MISSING:
-                    "The report has not been generated.",
-                INVALID_STATUS:
-                    "Only an approved audit with an active report link can be emailed.",
-                CONCURRENT_UPDATE:
-                    "The audit changed while the email was being prepared. Refresh and try again.",
-                EMAIL_UNAVAILABLE:
-                    "The audit remains approved, but the email could not be sent.",
-            };
-
             return errorRedirect(
                 request,
                 id,
-                messages[error.code],
+                reviewErrorCode(error),
             );
         }
 
         return errorRedirect(
             request,
             id,
-            "The approval email could not be sent. Please try again.",
+            "email_failed",
         );
     }
 }
