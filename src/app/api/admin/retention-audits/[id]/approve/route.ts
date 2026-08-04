@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { isRetentionAuditAdmin } from "@/lib/retention-audit/admin-auth";
 import { retentionAuditConfig } from "@/lib/retention-audit/config";
+import { processRetentionAuditEmailJob } from "@/lib/retention-audit/email-jobs";
 import {
     approveRetentionAudit,
     AuditReviewError,
@@ -13,7 +14,7 @@ import {
 import { rateLimitAuditMutation } from "@/lib/retention-audit/route-rate-limit";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 type Context = {
     params: Promise<{
@@ -31,7 +32,9 @@ function auditUrl(
         request.url,
     );
 
-    for (const [key, value] of Object.entries(parameters ?? {})) {
+    for (const [key, value] of Object.entries(
+        parameters ?? {},
+    )) {
         url.searchParams.set(key, value);
     }
 
@@ -39,7 +42,10 @@ function auditUrl(
 }
 
 function errorCode(error: AuditReviewError) {
-    const codes: Record<AuditReviewError["code"], string> = {
+    const codes: Record<
+        AuditReviewError["code"],
+        string
+    > = {
         NOT_FOUND: "not_found",
         REPORT_MISSING: "report_missing",
         INVALID_STATUS: "invalid_status",
@@ -71,12 +77,13 @@ export async function POST(
         const rateConfig =
             retentionAuditConfig.approveRateLimit();
 
-        const rateLimit = await rateLimitAuditMutation({
-            request,
-            auditId: id,
-            operation: "approve",
-            ...rateConfig,
-        });
+        const rateLimit =
+            await rateLimitAuditMutation({
+                request,
+                auditId: id,
+                operation: "approve",
+                ...rateConfig,
+            });
 
         if (!rateLimit.allowed) {
             return new NextResponse(
@@ -93,7 +100,8 @@ export async function POST(
             );
         }
 
-        const formData = await request.formData();
+        const formData =
+            await request.formData();
 
         const notes = String(
             formData.get("notes") ?? "",
@@ -101,16 +109,32 @@ export async function POST(
             .trim()
             .slice(0, 1000);
 
-        await approveRetentionAudit({
-            auditId: id,
-            notes: notes || null,
-            reviewerId: null,
-        });
+        const approval =
+            await approveRetentionAudit({
+                auditId: id,
+                notes: notes || null,
+                reviewerId: null,
+            });
+
+        const emailResult =
+            await processRetentionAuditEmailJob(
+                approval.emailJobId,
+            );
+
+        if (emailResult?.status === "SENT") {
+            return NextResponse.redirect(
+                auditUrl(request, id, {
+                    approved: "1",
+                    email: "sent",
+                }),
+                303,
+            );
+        }
 
         return NextResponse.redirect(
             auditUrl(request, id, {
                 approved: "1",
-                email: "queued",
+                email: "failed",
             }),
             303,
         );
@@ -126,12 +150,15 @@ export async function POST(
             error instanceof Error &&
             error.message === "UNTRUSTED_ORIGIN"
         ) {
-            return new NextResponse("Forbidden", {
-                status: 403,
-                headers: {
-                    "Cache-Control": "no-store",
+            return new NextResponse(
+                "Forbidden",
+                {
+                    status: 403,
+                    headers: {
+                        "Cache-Control": "no-store",
+                    },
                 },
-            });
+            );
         }
 
         return NextResponse.redirect(

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { isRetentionAuditAdmin } from "@/lib/retention-audit/admin-auth";
+import { retentionAuditConfig } from "@/lib/retention-audit/config";
+import { processRetentionAuditEmailJob } from "@/lib/retention-audit/email-jobs";
 import {
     AuditReviewError,
     resendRetentionAuditApprovalEmail,
@@ -9,9 +11,10 @@ import {
     assertTrustedMutationRequest,
     logAuditReviewError,
 } from "@/lib/retention-audit/review-security";
+import { rateLimitAuditMutation } from "@/lib/retention-audit/route-rate-limit";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 type Context = {
     params: Promise<{
@@ -29,27 +32,16 @@ function auditUrl(
         request.url,
     );
 
-    for (const [key, value] of Object.entries(parameters ?? {})) {
+    for (const [key, value] of Object.entries(
+        parameters ?? {},
+    )) {
         url.searchParams.set(key, value);
     }
 
     return url;
 }
 
-function errorRedirect(
-    request: Request,
-    auditId: string,
-    errorCode: string,
-) {
-    return NextResponse.redirect(
-        auditUrl(request, auditId, {
-            error: errorCode,
-        }),
-        303,
-    );
-}
-
-function reviewErrorCode(error: AuditReviewError) {
+function errorCode(error: AuditReviewError) {
     const codes: Record<
         AuditReviewError["code"],
         string
@@ -82,14 +74,55 @@ export async function POST(
     try {
         assertTrustedMutationRequest(request);
 
-        await resendRetentionAuditApprovalEmail({
-            auditId: id,
-            reviewerId: null,
-        });
+        const rateConfig =
+            retentionAuditConfig.resendRateLimit();
+
+        const rateLimit =
+            await rateLimitAuditMutation({
+                request,
+                auditId: id,
+                operation: "resend",
+                ...rateConfig,
+            });
+
+        if (!rateLimit.allowed) {
+            return new NextResponse(
+                "Too many resend attempts.",
+                {
+                    status: 429,
+                    headers: {
+                        "Retry-After": String(
+                            rateLimit.retryAfterSeconds,
+                        ),
+                        "Cache-Control": "no-store",
+                    },
+                },
+            );
+        }
+
+        const resend =
+            await resendRetentionAuditApprovalEmail({
+                auditId: id,
+                reviewerId: null,
+            });
+
+        const emailResult =
+            await processRetentionAuditEmailJob(
+                resend.emailJobId,
+            );
+
+        if (emailResult?.status === "SENT") {
+            return NextResponse.redirect(
+                auditUrl(request, id, {
+                    email: "resent",
+                }),
+                303,
+            );
+        }
 
         return NextResponse.redirect(
             auditUrl(request, id, {
-                email: "queued",
+                email: "failed",
             }),
             303,
         );
@@ -105,27 +138,27 @@ export async function POST(
             error instanceof Error &&
             error.message === "UNTRUSTED_ORIGIN"
         ) {
-            return new NextResponse("Forbidden", {
-                status: 403,
-                headers: {
-                    "Cache-Control": "no-store",
-                    "X-Content-Type-Options": "nosniff",
+            return new NextResponse(
+                "Forbidden",
+                {
+                    status: 403,
+                    headers: {
+                        "Cache-Control": "no-store",
+                        "X-Content-Type-Options":
+                            "nosniff",
+                    },
                 },
-            });
-        }
-
-        if (error instanceof AuditReviewError) {
-            return errorRedirect(
-                request,
-                id,
-                reviewErrorCode(error),
             );
         }
 
-        return errorRedirect(
-            request,
-            id,
-            "email_failed",
+        return NextResponse.redirect(
+            auditUrl(request, id, {
+                error:
+                    error instanceof AuditReviewError
+                        ? errorCode(error)
+                        : "email_failed",
+            }),
+            303,
         );
     }
 }
