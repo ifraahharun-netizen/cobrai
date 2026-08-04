@@ -633,23 +633,25 @@ export default async function RetentionAuditReviewPage({
 
                     <RetentionAuditReport
                         website={audit.website}
+                        currencyCode={audit.currency}
+                        locale={audit.locale}
+                        timeZone={audit.timeZone}
+                        generatedAt={
+                            audit.analysedAt ??
+                            audit.approvedAt ??
+                            audit.report.createdAt
+                        }
                         report={{
                             healthScore:
-                                audit.report
-                                    .healthScore,
+                                audit.report.healthScore,
                             revenueAtRiskMinor:
-                                audit.report
-                                    .revenueAtRiskMinor,
+                                audit.report.revenueAtRiskMinor,
                             criticalCustomers:
-                                audit.report
-                                    .criticalCustomers,
+                                audit.report.criticalCustomers,
                             failedPaymentMinor:
-                                audit.report
-                                    .failedPaymentMinor,
+                                audit.report.failedPaymentMinor,
                         }}
-                        deterministic={
-                            deterministic
-                        }
+                        deterministic={deterministic}
                         narrative={narrative}
                     />
                 </section>
