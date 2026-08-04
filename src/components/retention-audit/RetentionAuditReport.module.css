@@ -95,6 +95,50 @@
     text-transform: uppercase;
 }
 
+.summaryRight {
+    min-width: 0;
+}
+
+.reportActions {
+    min-height: 38px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.exportButton {
+    min-height: 36px;
+    padding: 0 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 9px;
+    background: #ffffff;
+    color: #374151;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+        background-color 150ms ease,
+        border-color 150ms ease,
+        color 150ms ease;
+}
+
+.exportButton:hover {
+    border-color: #d1d5db;
+    background: #f9fafb;
+    color: #111827;
+}
+
+.exportButton:focus-visible {
+    outline: 2px solid #1d9bf0;
+    outline-offset: 2px;
+}
+
 .summaryMetrics {
     min-width: 0;
     display: grid;
@@ -416,6 +460,58 @@
     color: #047857;
 }
 
+.pagination {
+    min-height: 54px;
+    padding: 10px 14px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    color: #6b7280;
+    font-size: 10px;
+}
+
+.pagination>div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pagination button {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #374151;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition:
+        background-color 150ms ease,
+        border-color 150ms ease,
+        color 150ms ease;
+}
+
+.pagination button:hover:not(:disabled) {
+    border-color: #d1d5db;
+    background: #f9fafb;
+    color: #111827;
+}
+
+.pagination button:disabled {
+    color: #d1d5db;
+    cursor: not-allowed;
+}
+
+.pageNumber {
+    min-width: 84px;
+    color: #4b5563;
+    text-align: center;
+}
+
 .cta {
     position: relative;
     width: min(1180px, 100%);
@@ -564,6 +660,14 @@
         padding: 22px;
     }
 
+    .reportActions {
+        justify-content: flex-start;
+    }
+
+    .exportButton {
+        width: 100%;
+    }
+
     .summaryHeading h1 {
         font-size: clamp(27px, 8vw, 38px);
     }
@@ -611,6 +715,16 @@
 
     .executiveInsightCard {
         padding: 20px 18px;
+    }
+
+    .pagination {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .pagination>div {
+        width: 100%;
+        justify-content: space-between;
     }
 
     .cta {
@@ -709,5 +823,35 @@
 
     .cta {
         padding: 28px 20px;
+    }
+}
+
+@media print {
+    .report {
+        min-height: auto;
+        padding: 0;
+    }
+
+    .reportActions,
+    .pagination,
+    .cta {
+        display: none !important;
+    }
+
+    .summaryCard,
+    .panel,
+    .accounts,
+    .executiveInsights {
+        break-inside: avoid;
+        box-shadow: none;
+    }
+
+    .tableWrap {
+        overflow: visible;
+    }
+
+    .tableHead,
+    .tableRow {
+        min-width: 0;
     }
 }

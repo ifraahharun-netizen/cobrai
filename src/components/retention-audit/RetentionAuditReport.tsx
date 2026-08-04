@@ -1,7 +1,14 @@
+"use client";
+
+import { useState } from "react";
+
 import { Inter } from "next/font/google";
 import {
     ChartNoAxesCombined,
+    ChevronLeft,
+    ChevronRight,
     CircleDollarSign,
+    Download,
     Lightbulb,
     TrendingUp,
 } from "lucide-react";
@@ -12,6 +19,8 @@ import type {
 } from "@/lib/retention-audit/types";
 
 import styles from "./RetentionAuditReport.module.css";
+
+const ACCOUNTS_PER_PAGE = 10;
 
 const inter = Inter({
     subsets: ["latin"],
@@ -297,6 +306,43 @@ export default function RetentionAuditReport({
             locale,
         );
 
+    const priorityAccounts =
+        deterministic.priorityAccounts.slice(0, 12);
+
+    const [currentPage, setCurrentPage] =
+        useState(1);
+
+    const [isPrinting, setIsPrinting] =
+        useState(false);
+
+    const totalPages = Math.max(
+        1,
+        Math.ceil(
+            priorityAccounts.length /
+            ACCOUNTS_PER_PAGE,
+        ),
+    );
+
+    const pageStart =
+        (currentPage - 1) *
+        ACCOUNTS_PER_PAGE;
+
+    const visibleAccounts = isPrinting
+        ? priorityAccounts
+        : priorityAccounts.slice(
+            pageStart,
+            pageStart + ACCOUNTS_PER_PAGE,
+        );
+
+    function handleExportPdf() {
+        setIsPrinting(true);
+
+        window.setTimeout(() => {
+            window.print();
+            setIsPrinting(false);
+        }, 100);
+    }
+
     return (
         <div
             className={`${inter.className} ${styles.report}`}
@@ -354,58 +400,83 @@ export default function RetentionAuditReport({
 
                 <div
                     className={
-                        styles.summaryMetrics
+                        styles.summaryRight
                     }
                 >
-                    <article>
-                        <span>
-                            Retention health
-                        </span>
-
-                        <strong>
-                            {report.healthScore}%
-                        </strong>
-                    </article>
-
-                    <article>
-                        <span>
-                            Revenue at risk
-                        </span>
-
-                        <strong
+                    <div
+                        className={
+                            styles.reportActions
+                        }
+                    >
+                        <button
+                            type="button"
                             className={
-                                styles.revenueMetric
+                                styles.exportButton
+                            }
+                            onClick={
+                                handleExportPdf
                             }
                         >
-                            {money(
-                                report.revenueAtRiskMinor,
-                            )}
-                        </strong>
-                    </article>
+                            <Download size={14} />
+                            Export PDF
+                        </button>
+                    </div>
 
-                    <article>
-                        <span>
-                            Critical accounts
-                        </span>
+                    <div
+                        className={
+                            styles.summaryMetrics
+                        }
+                    >
+                        <article>
+                            <span>
+                                Retention health
+                            </span>
 
-                        <strong>
-                            {
-                                report.criticalCustomers
-                            }
-                        </strong>
-                    </article>
+                            <strong>
+                                {report.healthScore}%
+                            </strong>
+                        </article>
 
-                    <article>
-                        <span>
-                            Failed-payment exposure
-                        </span>
+                        <article>
+                            <span>
+                                Revenue at risk
+                            </span>
 
-                        <strong>
-                            {money(
-                                report.failedPaymentMinor,
-                            )}
-                        </strong>
-                    </article>
+                            <strong
+                                className={
+                                    styles.revenueMetric
+                                }
+                            >
+                                {money(
+                                    report.revenueAtRiskMinor,
+                                )}
+                            </strong>
+                        </article>
+
+                        <article>
+                            <span>
+                                Critical accounts
+                            </span>
+
+                            <strong>
+                                {
+                                    report.criticalCustomers
+                                }
+                            </strong>
+                        </article>
+
+                        <article>
+                            <span>
+                                Failed-payment exposure
+                            </span>
+
+                            <strong>
+                                {money(
+                                    report.failedPaymentMinor,
+                                )}
+                            </strong>
+                        </article>
+                    </div>
                 </div>
             </section>
 
@@ -616,62 +687,131 @@ export default function RetentionAuditReport({
                         </span>
                     </div>
 
-                    {deterministic.priorityAccounts
-                        .slice(0, 12)
-                        .map(
-                            (
-                                account,
-                                index,
-                            ) => (
-                                <div
-                                    className={
-                                        styles.tableRow
+                    {visibleAccounts.map(
+                        (
+                            account,
+                            index,
+                        ) => (
+                            <div
+                                className={
+                                    styles.tableRow
+                                }
+                                key={`${account.customerName}-${account.email ?? index}`}
+                            >
+                                <strong>
+                                    {
+                                        account.customerName
                                     }
-                                    key={`${account.customerName}-${account.email ?? index}`}
+                                </strong>
+
+                                <span>
+                                    {money(
+                                        account.mrrMinor,
+                                    )}
+                                </span>
+
+                                <span
+                                    className={`${styles.risk} ${account.riskBand ===
+                                        "CRITICAL"
+                                        ? styles.critical
+                                        : account.riskBand ===
+                                            "AT_RISK"
+                                            ? styles.atRisk
+                                            : styles.healthy
+                                        }`}
                                 >
-                                    <strong>
-                                        {
-                                            account.customerName
-                                        }
-                                    </strong>
+                                    {
+                                        account.riskScore
+                                    }
+                                </span>
 
-                                    <span>
-                                        {money(
-                                            account.mrrMinor,
-                                        )}
-                                    </span>
+                                <span>
+                                    {account
+                                        .reasons[0]
+                                        ?.evidence ??
+                                        "No material risk signal detected."}
+                                </span>
 
-                                    <span
-                                        className={`${styles.risk} ${account.riskBand ===
-                                                "CRITICAL"
-                                                ? styles.critical
-                                                : account.riskBand ===
-                                                    "AT_RISK"
-                                                    ? styles.atRisk
-                                                    : styles.healthy
-                                            }`}
-                                    >
-                                        {
-                                            account.riskScore
-                                        }
-                                    </span>
-
-                                    <span>
-                                        {account
-                                            .reasons[0]
-                                            ?.evidence ??
-                                            "No material risk signal detected."}
-                                    </span>
-
-                                    <span>
-                                        {
-                                            account.recommendedAction
-                                        }
-                                    </span>
-                                </div>
-                            ),
-                        )}
+                                <span>
+                                    {
+                                        account.recommendedAction
+                                    }
+                                </span>
+                            </div>
+                        ),
+                    )}
                 </div>
+
+                {priorityAccounts.length >
+                    ACCOUNTS_PER_PAGE ? (
+                    <div
+                        className={
+                            styles.pagination
+                        }
+                    >
+                        <span>
+                            Showing {pageStart + 1}–
+                            {Math.min(
+                                pageStart +
+                                ACCOUNTS_PER_PAGE,
+                                priorityAccounts.length,
+                            )} of {priorityAccounts.length}
+                        </span>
+
+                        <div>
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setCurrentPage(
+                                        (page) =>
+                                            Math.max(
+                                                1,
+                                                page - 1,
+                                            ),
+                                    )
+                                }
+                                disabled={
+                                    currentPage === 1
+                                }
+                                aria-label="Previous page"
+                            >
+                                <ChevronLeft
+                                    size={14}
+                                />
+                            </button>
+
+                            <span
+                                className={
+                                    styles.pageNumber
+                                }
+                            >
+                                Page {currentPage} of {totalPages}
+                            </span>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setCurrentPage(
+                                        (page) =>
+                                            Math.min(
+                                                totalPages,
+                                                page + 1,
+                                            ),
+                                    )
+                                }
+                                disabled={
+                                    currentPage ===
+                                    totalPages
+                                }
+                                aria-label="Next page"
+                            >
+                                <ChevronRight
+                                    size={14}
+                                />
+                            </button>
+                        </div>
+                    </div>
+                ) : null}
             </section>
 
             <section className={styles.cta}>
