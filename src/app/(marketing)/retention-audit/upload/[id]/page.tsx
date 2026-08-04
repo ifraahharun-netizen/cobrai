@@ -91,7 +91,7 @@ export default function RetentionAuditUploadPage() {
                     </p>
 
                     <div className={styles.points}>
-                        <p>Maximum file size: 5 MB</p>
+                        <p>Maximum file size: 20 MB</p>
                         <p>Maximum accounts: 5,000</p>
                         <p>Your raw CSV is not sent to OpenAI</p>
                     </div>

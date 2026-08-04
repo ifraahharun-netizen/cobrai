@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { retentionAuditConfig } from "@/lib/retention-audit/config";
 import { enqueueRetentionAuditApprovalEmail } from "@/lib/retention-audit/email-jobs";
+import { sendRetentionAuditRejectedEmail } from "@/lib/retention-audit/email";
 
 export type AuditReviewErrorCode =
     | "NOT_FOUND"
@@ -259,6 +260,9 @@ export async function rejectRetentionAudit(
             },
             select: {
                 id: true,
+                name: true,
+                email: true,
+                website: true,
                 status: true,
             },
         });
@@ -278,6 +282,15 @@ export async function rejectRetentionAudit(
     }
 
     const rejectedAt = new Date();
+
+    /*
+     * Rotate the upload token when the audit is rejected.
+     * Only the hash is stored in the database. The raw token
+     * is included in the private corrected-upload email.
+     */
+    const uploadToken = createSecureToken();
+    const uploadTokenHash =
+        hashToken(uploadToken);
 
     const updated = await prisma.$transaction(
         async (transaction) => {
@@ -301,6 +314,8 @@ export async function rejectRetentionAudit(
                             rejectedBy:
                                 input.reviewerId ??
                                 null,
+
+                            uploadTokenHash,
 
                             publicTokenHash: null,
                             publicTokenCreatedAt: null,
@@ -364,6 +379,13 @@ export async function rejectRetentionAudit(
                         newStatus: "REJECTED",
 
                         note: reason,
+
+                        metadata: {
+                            rejectedAt:
+                                rejectedAt.toISOString(),
+                            correctedUploadAvailable:
+                                true,
+                        },
                     },
                 },
             );
@@ -379,9 +401,46 @@ export async function rejectRetentionAudit(
         );
     }
 
-    return {
-        auditId: audit.id,
-    };
+    const uploadUrl =
+        `${retentionAuditConfig.appUrl()}` +
+        `/retention-audit/upload/${encodeURIComponent(audit.id)}` +
+        `?token=${encodeURIComponent(uploadToken)}`;
+
+    try {
+        await sendRetentionAuditRejectedEmail({
+            to: audit.email,
+            name: audit.name,
+            website: audit.website,
+            reason,
+            uploadUrl,
+        });
+
+        return {
+            auditId: audit.id,
+            emailSent: true as const,
+        };
+    } catch (error) {
+        const message =
+            error instanceof Error
+                ? error.message
+                    .trim()
+                    .slice(0, 500)
+                : "The rejection email could not be sent.";
+
+        console.error(
+            "Retention audit rejection email failed",
+            {
+                auditId: audit.id,
+                error: message,
+            },
+        );
+
+        return {
+            auditId: audit.id,
+            emailSent: false as const,
+            emailError: message,
+        };
+    }
 }
 
 export async function resendRetentionAuditApprovalEmail(

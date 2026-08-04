@@ -13,6 +13,7 @@ import {
 import { rateLimitAuditMutation } from "@/lib/retention-audit/route-rate-limit";
 
 export const runtime = "nodejs";
+export const maxDuration = 30;
 
 type Context = {
     params: Promise<{
@@ -39,6 +40,20 @@ function auditUrl(
     return url;
 }
 
+function errorCode(error: AuditReviewError) {
+    const codes: Record<
+        AuditReviewError["code"],
+        string
+    > = {
+        NOT_FOUND: "not_found",
+        REPORT_MISSING: "report_missing",
+        INVALID_STATUS: "invalid_status",
+        CONCURRENT_UPDATE: "concurrent_update",
+    };
+
+    return codes[error.code];
+}
+
 export async function POST(
     request: Request,
     context: Context,
@@ -60,6 +75,7 @@ export async function POST(
 
         const rateConfig =
             retentionAuditConfig.rejectRateLimit();
+
         const rateLimit =
             await rateLimitAuditMutation({
                 request,
@@ -83,22 +99,28 @@ export async function POST(
             );
         }
 
-        const formData = await request.formData();
+        const formData =
+            await request.formData();
+
         const reason = String(
             formData.get("reason") ?? "",
         )
             .trim()
             .slice(0, 1000);
 
-        await rejectRetentionAudit({
-            auditId: id,
-            reason,
-            reviewerId: null,
-        });
+        const result =
+            await rejectRetentionAudit({
+                auditId: id,
+                reason,
+                reviewerId: null,
+            });
 
         return NextResponse.redirect(
             auditUrl(request, id, {
                 rejected: "1",
+                email: result.emailSent
+                    ? "rejection-sent"
+                    : "rejection-failed",
             }),
             303,
         );
@@ -112,21 +134,27 @@ export async function POST(
 
         if (
             error instanceof Error &&
-            error.message === "UNTRUSTED_ORIGIN"
+            error.message ===
+            "UNTRUSTED_ORIGIN"
         ) {
-            return new NextResponse("Forbidden", {
-                status: 403,
-                headers: {
-                    "Cache-Control": "no-store",
+            return new NextResponse(
+                "Forbidden",
+                {
+                    status: 403,
+                    headers: {
+                        "Cache-Control":
+                            "no-store",
+                    },
                 },
-            });
+            );
         }
 
         return NextResponse.redirect(
             auditUrl(request, id, {
                 error:
-                    error instanceof AuditReviewError
-                        ? error.code.toLowerCase()
+                    error instanceof
+                        AuditReviewError
+                        ? errorCode(error)
                         : "rejection_failed",
             }),
             303,

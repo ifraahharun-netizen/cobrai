@@ -185,13 +185,12 @@ export default async function RetentionAuditReviewPage({
             ) : null}
 
             {notice.rejected ? (
-                <div
-                    className={
-                        styles.warningBanner
-                    }
-                >
+                <div className={styles.warningBanner}>
                     <X size={15} />
                     The audit was rejected.
+                    {notice.email === "rejection-sent"
+                        ? " The customer has been emailed with the rejection reason and instructions to submit a corrected dataset."
+                        : ""}
                 </div>
             ) : null}
 
