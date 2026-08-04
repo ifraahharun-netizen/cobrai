@@ -755,14 +755,14 @@ export default function RetentionAuditPage() {
                             Company website
 
                             <input
-                                type="url"
+                                type="text"
                                 name="website"
-                                placeholder="https://yourcompany.com"
+                                placeholder="yourcompany.com"
                                 autoComplete="url"
+                                inputMode="url"
                                 disabled={
                                     isWorking ||
-                                    status ===
-                                    "complete"
+                                    status === "complete"
                                 }
                                 required
                             />
