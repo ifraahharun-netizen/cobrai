@@ -1,67 +1,77 @@
 .page {
     min-height: 100vh;
-    padding: 0 24px 60px;
+    padding: 0 24px 64px;
     background: #ffffff;
-    color: var(--cob-navy);
-    font-family: var(--font-inter), Inter, Arial, sans-serif;
+    color: #111827;
+    font-family:
+        var(--font-inter),
+        Inter,
+        sans-serif;
 }
 
 .header {
     width: min(1180px, 100%);
     min-height: 78px;
     margin: 0 auto;
-    border-bottom: 1px solid var(--cob-line);
+    border-bottom: 1px solid #e5e7eb;
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
 
 .header strong {
-    color: #101828;
-    font-size: 19px;
-    font-weight: 750;
-    letter-spacing: -0.035em;
+    color: #111827;
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.03em;
 }
 
 .header span {
-    color: #98a2b3;
-    font-size: 10px;
-    text-transform: uppercase;
+    color: #9ca3af;
+    font-size: 11px;
+    font-weight: 500;
     letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .hero {
     width: min(960px, 100%);
     margin: 0 auto;
-    padding: 82px 0 54px;
+    padding: 78px 0 52px;
     text-align: center;
 }
 
 .hero>span,
 .label {
-    color: var(--cob-blue);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.09em;
+    color: #1d9bf0;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
 .hero h1 {
-    margin: 15px 0 0;
-    color: #101828;
-    font-family: "Cormorant Garamond", Georgia, serif;
-    font-size: clamp(48px, 6vw, 72px);
+    max-width: 900px;
+    margin: 16px auto 0;
+    color: #111827;
+    font-family:
+        var(--font-inter),
+        Inter,
+        sans-serif;
+    font-size: clamp(46px, 5.6vw, 68px);
     font-weight: 500;
-    letter-spacing: -0.045em;
-    line-height: 0.98;
+    letter-spacing: -0.055em;
+    line-height: 1.03;
+    text-wrap: balance;
 }
 
 .hero p {
     max-width: 760px;
     margin: 22px auto 0;
-    color: #667085;
+    color: #6b7280;
     font-size: 14px;
     line-height: 1.75;
+    text-wrap: pretty;
 }
 
 .metrics {
@@ -69,34 +79,39 @@
     margin: 0 auto;
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
+    gap: 10px;
 }
 
 .metrics article {
-    min-height: 126px;
-    padding: 19px;
-    border: 1px solid var(--cob-line);
-    border-radius: 13px;
+    min-height: 116px;
+    padding: 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
     background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 
 .metrics span {
-    color: #667085;
-    font-size: 10px;
+    display: block;
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 400;
 }
 
 .metrics strong {
-    margin-top: 13px;
-    color: #101828;
     display: block;
-    font-size: 25px;
-    font-weight: 650;
-    letter-spacing: -0.045em;
+    margin-top: 15px;
+    color: #111827;
+    font-size: clamp(28px, 2.8vw, 38px);
+    font-weight: 500;
+    letter-spacing: -0.05em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
 }
 
 .grid {
     width: min(1180px, 100%);
-    margin: 52px auto 0;
+    margin: 44px auto 0;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
@@ -104,9 +119,10 @@
 
 .panel,
 .accounts {
-    border: 1px solid var(--cob-line);
-    border-radius: 15px;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
     background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 
 .panel {
@@ -114,56 +130,61 @@
 }
 
 .finding {
+    margin-top: 22px;
+    padding-top: 22px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.finding:first-of-type {
     margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid #edf1f5;
 }
 
 .finding h2,
 .action h2,
 .accountsHeader h2 {
     margin: 0;
-    color: #101828;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    color: #111827;
+    font-size: 20px;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.3;
 }
 
 .finding p,
 .action p,
 .accountsHeader p {
     margin: 8px 0 0;
-    color: #667085;
-    font-size: 11px;
+    color: #6b7280;
+    font-size: 13px;
     line-height: 1.7;
 }
 
 .action {
-    margin-top: 19px;
+    margin-top: 22px;
     display: grid;
-    grid-template-columns: 35px 1fr;
-    gap: 11px;
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 12px;
 }
 
 .action>span {
-    width: 35px;
-    height: 35px;
-    border: 1px solid #dcecff;
-    border-radius: 9px;
-    background: var(--cob-blue-pale);
-    color: var(--cob-blue);
+    width: 38px;
+    height: 38px;
+    border: 1px solid #dbeafe;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #1d9bf0;
     display: grid;
     place-items: center;
-    font-size: 9px;
-    font-weight: 700;
+    font-size: 11px;
+    font-weight: 500;
 }
 
 .action small {
-    margin-top: 8px;
-    color: #98a2b3;
     display: block;
-    font-size: 9px;
-    line-height: 1.5;
+    margin-top: 8px;
+    color: #9ca3af;
+    font-size: 11px;
+    line-height: 1.55;
 }
 
 .accounts {
@@ -173,75 +194,98 @@
 }
 
 .accountsHeader {
-    padding: 24px;
-    border-bottom: 1px solid var(--cob-line);
+    min-height: 84px;
+    padding: 20px 22px;
+    border-bottom: 1px solid #e5e7eb;
     display: flex;
+    align-items: flex-end;
     justify-content: space-between;
     gap: 24px;
 }
 
 .accountsHeader h2 {
     margin-top: 7px;
-    font-size: 18px;
+    font-size: 22px;
 }
 
 .accountsHeader p {
     max-width: 320px;
+    margin-top: 0;
     text-align: right;
+    font-size: 12px;
 }
 
 .tableWrap {
+    width: 100%;
     overflow-x: auto;
 }
 
 .tableHead,
 .tableRow {
-    min-width: 980px;
-    padding: 13px 16px;
+    min-width: 1080px;
+    padding: 12px 14px;
     display: grid;
-    grid-template-columns: 1.1fr 0.6fr 0.45fr 1.35fr 1.5fr;
+    grid-template-columns:
+        minmax(170px, 1.1fr) minmax(95px, 0.6fr) minmax(70px, 0.45fr) minmax(240px, 1.35fr) minmax(270px, 1.5fr);
     align-items: center;
     gap: 12px;
 }
 
 .tableHead {
-    min-height: 38px;
-    background: #fbfdff;
-    color: #98a2b3;
-    font-size: 9px;
+    min-height: 42px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fafafa;
+}
+
+.tableHead span {
+    color: #6b7280;
+    font-size: 11px;
+    font-weight: 500;
 }
 
 .tableRow {
-    min-height: 61px;
-    border-top: 1px solid #f0f3f6;
-    color: #667085;
-    font-size: 10px;
-    line-height: 1.45;
+    min-height: 68px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.55;
+    transition: background-color 150ms ease;
+}
+
+.tableRow:last-child {
+    border-bottom: 0;
+}
+
+.tableRow:hover {
+    background: #fafafa;
 }
 
 .tableRow strong {
-    color: #344054;
-    font-size: 11px;
+    display: block;
+    color: #111827;
+    font-size: 12px;
+    font-weight: 500;
 }
 
 .risk {
-    width: 29px;
-    height: 29px;
-    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
     display: grid;
     place-items: center;
-    font-size: 8px;
-    font-weight: 700;
+    font-size: 10.5px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
 }
 
 .critical {
-    background: #fff0f2;
-    color: #e4455c;
+    background: #fef2f2;
+    color: #dc2626;
 }
 
 .atRisk {
-    background: #fff5e8;
-    color: #e87e1c;
+    background: #fff7ed;
+    color: #c2410c;
 }
 
 .healthy {
@@ -252,13 +296,18 @@
 .cta {
     position: relative;
     width: min(1180px, 100%);
-    margin: 54px auto 0;
+    margin: 52px auto 0;
     padding: 42px 48px;
     overflow: hidden;
     border-radius: 20px;
     background:
-        radial-gradient(circle at 90% 20%, rgba(255, 255, 255, 0.18), transparent 34%),
-        linear-gradient(135deg, #1596e8 0%, #1d9bf0 55%, #1689d6 100%);
+        radial-gradient(circle at 90% 20%,
+            rgba(255, 255, 255, 0.18),
+            transparent 34%),
+        linear-gradient(135deg,
+            #1596e8 0%,
+            #1d9bf0 55%,
+            #1689d6 100%);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -271,9 +320,9 @@
 }
 
 .cta span {
-    color: rgba(255, 255, 255, 0.75);
-    font-size: 10px;
-    font-weight: 700;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 11px;
+    font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -281,52 +330,71 @@
 .cta h2 {
     margin: 10px 0 0;
     color: #ffffff;
-    font-family: "Cormorant Garamond", Georgia, serif;
-    font-size: clamp(36px, 4vw, 48px);
+    font-family:
+        var(--font-inter),
+        Inter,
+        sans-serif;
+    font-size: clamp(36px, 4vw, 50px);
     font-weight: 500;
-    letter-spacing: -0.03em;
-    line-height: 1.03;
+    letter-spacing: -0.05em;
+    line-height: 1.05;
+    text-wrap: balance;
 }
 
 .cta p {
     margin: 12px 0 0;
-    color: rgba(255, 255, 255, 0.82);
-    font-size: 12px;
-    line-height: 1.65;
+    color: rgba(255, 255, 255, 0.84);
+    font-size: 13px;
+    line-height: 1.7;
 }
 
 .cta a {
     min-height: 46px;
     padding: 0 22px;
     flex: 0 0 auto;
-    border-radius: 9px;
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    border-radius: 10px;
     background: #ffffff;
-    color: var(--cob-blue-dark);
+    color: #1689d6;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 500;
     text-decoration: none;
+    white-space: nowrap;
+    transition:
+        transform 160ms ease,
+        background-color 160ms ease,
+        box-shadow 160ms ease;
+}
+
+.cta a:hover {
+    transform: translateY(-1px);
+    background: #f9fafb;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
 }
 
 .caveats {
     width: min(1180px, 100%);
     margin: 28px auto 0;
-    color: #98a2b3;
-    font-size: 9px;
-    line-height: 1.55;
+    color: #9ca3af;
+    font-size: 11px;
+    line-height: 1.6;
 }
 
 .caveats strong {
-    color: #667085;
+    display: block;
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 500;
 }
 
 .caveats p {
-    margin: 5px 0 0;
+    margin: 6px 0 0;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1000px) {
     .metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -341,10 +409,18 @@
     }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 700px) {
     .page {
-        padding-right: 14px;
-        padding-left: 14px;
+        padding-right: 18px;
+        padding-left: 18px;
+    }
+
+    .header {
+        min-height: 72px;
+    }
+
+    .header strong {
+        font-size: 22px;
     }
 
     .header span {
@@ -352,26 +428,91 @@
     }
 
     .hero {
-        padding-top: 58px;
+        padding: 58px 0 44px;
+    }
+
+    .hero h1 {
+        font-size: clamp(40px, 12vw, 56px);
+    }
+
+    .hero p {
+        font-size: 13px;
     }
 
     .metrics {
         grid-template-columns: 1fr;
     }
 
+    .metrics article {
+        min-height: 106px;
+    }
+
+    .panel {
+        padding: 22px;
+    }
+
     .accountsHeader {
+        align-items: flex-start;
         flex-direction: column;
+        padding: 20px;
     }
 
     .accountsHeader p {
+        max-width: none;
         text-align: left;
     }
 
     .cta {
-        padding: 32px 22px;
+        padding: 34px 26px;
+    }
+
+    .cta h2 {
+        font-size: clamp(34px, 10vw, 46px);
     }
 
     .cta a {
         width: 100%;
+    }
+}
+
+@media (max-width: 440px) {
+    .page {
+        padding-right: 14px;
+        padding-left: 14px;
+    }
+
+    .hero {
+        padding-top: 48px;
+    }
+
+    .hero h1 {
+        font-size: 38px;
+    }
+
+    .metrics strong {
+        font-size: 30px;
+    }
+
+    .finding h2,
+    .action h2 {
+        font-size: 18px;
+    }
+
+    .finding p,
+    .action p {
+        font-size: 13px;
+    }
+
+    .action {
+        grid-template-columns: 36px minmax(0, 1fr);
+    }
+
+    .action>span {
+        width: 36px;
+        height: 36px;
+    }
+
+    .cta {
+        padding: 30px 22px;
     }
 }

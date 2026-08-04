@@ -34,14 +34,83 @@ const statuses = [
     "FAILED",
 ] as const;
 
-function money(valueMinor: number) {
-    return new Intl.NumberFormat("en-GB", {
-        style: "currency",
-        currency: "GBP",
-        maximumFractionDigits: 0,
-    }).format(valueMinor / 100);
+function normaliseCurrencyCode(
+    currencyCode: string | null,
+) {
+    const normalised =
+        currencyCode?.trim().toUpperCase();
+
+    if (
+        normalised &&
+        /^[A-Z]{3}$/.test(normalised)
+    ) {
+        return normalised;
+    }
+
+    return "GBP";
 }
 
+function formatMoney(
+    valueMinor: number,
+    currencyCode: string,
+    locale: string | null,
+) {
+    try {
+        return new Intl.NumberFormat(
+            locale?.trim() || undefined,
+            {
+                style: "currency",
+                currency: currencyCode,
+                maximumFractionDigits: 0,
+            },
+        ).format(valueMinor / 100);
+    } catch {
+        return new Intl.NumberFormat("en-GB", {
+            style: "currency",
+            currency: currencyCode,
+            maximumFractionDigits: 0,
+        }).format(valueMinor / 100);
+    }
+}
+
+function formatAuditDate(
+    value: Date | string,
+    locale: string | null,
+    timeZone: string | null,
+) {
+    const date =
+        value instanceof Date
+            ? value
+            : new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "";
+    }
+
+    try {
+        return new Intl.DateTimeFormat(
+            locale?.trim() || undefined,
+            {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+                timeZone:
+                    timeZone?.trim() ||
+                    undefined,
+            },
+        ).format(date);
+    } catch {
+        return new Intl.DateTimeFormat(
+            "en-GB",
+            {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+                timeZone: "UTC",
+            },
+        ).format(date);
+    }
+}
 function dateTime(value: Date) {
     return new Intl.DateTimeFormat("en-GB", {
         dateStyle: "medium",
@@ -295,7 +364,7 @@ export default async function RetentionAuditsAdminPage({
                                 <span
                                     className={`${styles.status} ${styles[
                                         `status${audit.status}` as keyof typeof styles
-                                        ] ?? ""
+                                    ] ?? ""
                                         }`}
                                 >
                                     {statusLabel(audit.status)}
@@ -321,9 +390,13 @@ export default async function RetentionAuditsAdminPage({
 
                                 <strong className={styles.numeric}>
                                     {audit.report
-                                        ? money(
+                                        ? formatMoney(
                                             audit.report
                                                 .revenueAtRiskMinor,
+                                            normaliseCurrencyCode(
+                                                audit.currency,
+                                            ),
+                                            audit.locale,
                                         )
                                         : "—"}
                                 </strong>

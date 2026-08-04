@@ -752,9 +752,10 @@ model RetentionAuditRequest {
   status RetentionAuditStatus @default(NEW)
   source String               @default("retention-audit-landing-page")
 
-  locale   String?
-  timeZone String?
-  currency String?
+  countryCode String?
+  locale      String?
+  timeZone    String?
+  currency    String?
 
   uploadTokenHash String  @unique
   publicTokenHash String? @unique

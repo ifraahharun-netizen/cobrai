@@ -4,6 +4,11 @@ export type ProvidedRiskLevel =
     | "HIGH"
     | "CRITICAL";
 
+export type RiskBand =
+    | "HEALTHY"
+    | "AT_RISK"
+    | "CRITICAL";
+
 export type NormalisedCustomer = {
     customerName: string;
     email: string | null;
@@ -39,13 +44,22 @@ export type RiskReason = {
 
 export type AnalysedCustomer = NormalisedCustomer & {
     riskScore: number;
-    riskBand: "HEALTHY" | "AT_RISK" | "CRITICAL";
-    reasons: RiskReason[];
+    riskBand: RiskBand;
+    reasons: readonly RiskReason[];
     recommendedAction: string;
+};
+
+export type AuditRegionalContext = {
+    locale: string | null;
+    timeZone: string | null;
+    currencyCode: string;
 };
 
 export type DeterministicAudit = {
     generatedAt: string;
+
+    regionalContext: AuditRegionalContext;
+
     totals: {
         totalCustomers: number;
         totalMrrMinor: number;
@@ -56,34 +70,40 @@ export type DeterministicAudit = {
         failedPaymentMinor: number;
         healthScore: number;
     };
-    topSignals: Array<{
+
+    topSignals: readonly {
         code: string;
         label: string;
         affectedCustomers: number;
         affectedMrrMinor: number;
-    }>;
-    priorityAccounts: AnalysedCustomer[];
-    allAccounts: AnalysedCustomer[];
+    }[];
+
+    priorityAccounts: readonly AnalysedCustomer[];
+    allAccounts: readonly AnalysedCustomer[];
+
     dataQuality: {
         rowsReceived: number;
         rowsAnalysed: number;
         rowsExcluded: number;
-        warnings: string[];
+        warnings: readonly string[];
     };
 };
 
 export type AuditNarrative = {
     headline: string;
     executiveSummary: string;
-    keyFindings: Array<{
+
+    keyFindings: readonly {
         title: string;
         explanation: string;
-    }>;
-    immediateActions: Array<{
+    }[];
+
+    immediateActions: readonly {
         title: string;
         explanation: string;
-        accountNames: string[];
-    }>;
-    caveats: string[];
+        accountNames: readonly string[];
+    }[];
+
+    caveats: readonly string[];
     conversionMessage: string;
 };

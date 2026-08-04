@@ -15,12 +15,21 @@ function isAuthorised(request: Request) {
 
     const receivedSecret =
         authorisation?.startsWith("Bearer ")
-            ? authorisation.slice(7)
+            ? authorisation.slice(7).trim()
             : null;
 
     const expectedSecret =
-        process.env.CRON_SECRET ??
-        process.env.RETENTION_AUDIT_WORKER_SECRET;
+        retentionAuditConfig.workerSecret().trim();
+
+    console.log("Worker auth debug", {
+        hasAuthorisationHeader: Boolean(authorisation),
+        receivedLength: receivedSecret?.length ?? 0,
+        expectedLength: expectedSecret.length,
+        receivedPreview: receivedSecret
+            ? `${receivedSecret.slice(0, 4)}...${receivedSecret.slice(-4)}`
+            : null,
+        expectedPreview: `${expectedSecret.slice(0, 4)}...${expectedSecret.slice(-4)}`,
+    });
 
     return safelyCompareSecrets(
         receivedSecret,
@@ -68,19 +77,19 @@ async function runWorker(request: Request) {
                 error:
                     error instanceof Error
                         ? {
-                            name: error.name,
-                            message: error.message,
-                            stack:
-                                process.env.NODE_ENV ===
-                                    "development"
-                                    ? error.stack
-                                    : undefined,
-                        }
+                              name: error.name,
+                              message: error.message,
+                              stack:
+                                  process.env.NODE_ENV ===
+                                  "development"
+                                      ? error.stack
+                                      : undefined,
+                          }
                         : {
-                            name: "UnknownError",
-                            message:
-                                "An unknown worker error occurred.",
-                        },
+                              name: "UnknownError",
+                              message:
+                                  "An unknown worker error occurred.",
+                          },
             },
         );
 

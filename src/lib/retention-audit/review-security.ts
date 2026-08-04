@@ -21,6 +21,7 @@ function parseOrigin(value: string) {
 function isLocalOrigin(origin: string) {
     try {
         const url = new URL(origin);
+
         return LOCAL_HOSTS.has(url.hostname);
     } catch {
         return false;
@@ -58,13 +59,20 @@ function configuredApplicationUrl() {
 }
 
 export function getApplicationUrl(request: Request) {
+    const requestOrigin = new URL(request.url).origin;
+
+    if (
+        process.env.NODE_ENV !== "production" &&
+        isLocalOrigin(requestOrigin)
+    ) {
+        return requestOrigin;
+    }
+
     const configured = configuredApplicationUrl();
 
     if (configured) {
         return configured;
     }
-
-    const requestOrigin = new URL(request.url).origin;
 
     if (
         process.env.NODE_ENV === "production" &&
@@ -89,31 +97,47 @@ export function isTrustedMutationRequest(request: Request) {
         return true;
     }
 
+    const requestOrigin = new URL(request.url).origin;
     const expectedOrigin = getApplicationUrl(request);
+
+    const allowedOrigins = new Set<string>([
+        requestOrigin,
+        expectedOrigin,
+    ]);
+
+    const configuredOrigin = configuredApplicationUrl();
+
+    if (configuredOrigin) {
+        allowedOrigins.add(configuredOrigin);
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+        allowedOrigins.add("http://localhost:3000");
+        allowedOrigins.add("http://127.0.0.1:3000");
+    }
 
     const originHeader = request.headers.get("origin");
 
     if (originHeader) {
         const receivedOrigin = parseOrigin(originHeader);
 
-        return receivedOrigin === expectedOrigin;
+        return (
+            receivedOrigin !== null &&
+            allowedOrigins.has(receivedOrigin)
+        );
     }
 
-    /*
-     * Some clients omit Origin but provide Referer.
-     */
     const refererHeader = request.headers.get("referer");
 
     if (refererHeader) {
         const receivedOrigin = parseOrigin(refererHeader);
 
-        return receivedOrigin === expectedOrigin;
+        return (
+            receivedOrigin !== null &&
+            allowedOrigins.has(receivedOrigin)
+        );
     }
 
-    /*
-     * Modern browsers normally include Origin for POST/PATCH requests.
-     * Reject missing headers in production.
-     */
     return process.env.NODE_ENV !== "production";
 }
 
@@ -149,10 +173,12 @@ export function getRequestIp(request: Request) {
         request.headers.get("x-forwarded-for");
 
     if (forwardedFor) {
-        return forwardedFor
-            .split(",")[0]
-            ?.trim()
-            .slice(0, 100) || null;
+        return (
+            forwardedFor
+                .split(",")[0]
+                ?.trim()
+                .slice(0, 100) || null
+        );
     }
 
     return (
@@ -184,12 +210,15 @@ export function logAuditReviewError(input: {
                 message: "An unknown error occurred.",
             };
 
-    console.error("Retention audit review operation failed", {
-        operation: input.operation,
-        auditId: input.auditId,
-        method: input.request.method,
-        pathname: new URL(input.request.url).pathname,
-        ipAddress: getRequestIp(input.request),
-        error,
-    });
+    console.error(
+        "Retention audit review operation failed",
+        {
+            operation: input.operation,
+            auditId: input.auditId,
+            method: input.request.method,
+            pathname: new URL(input.request.url).pathname,
+            ipAddress: getRequestIp(input.request),
+            error,
+        },
+    );
 }
