@@ -20,7 +20,9 @@ function nextRetryDate(attempts: number) {
         30 * 2 ** Math.max(0, attempts - 1),
     );
 
-    return new Date(Date.now() + delaySeconds * 1000);
+    return new Date(
+        Date.now() + delaySeconds * 1000,
+    );
 }
 
 export async function enqueueRetentionAuditApprovalEmail(
@@ -32,14 +34,18 @@ export async function enqueueRetentionAuditApprovalEmail(
         reportToken: string;
     },
 ) {
-    const encrypted = encryptReportToken(input.reportToken);
+    const encrypted = encryptReportToken(
+        input.reportToken,
+    );
 
     return transaction.retentionAuditEmailJob.create({
         data: {
             auditId: input.auditId,
-            tokenCiphertext: encrypted.ciphertext,
+            tokenCiphertext:
+                encrypted.ciphertext,
             tokenIv: encrypted.iv,
-            tokenAuthTag: encrypted.authTag,
+            tokenAuthTag:
+                encrypted.authTag,
             maxAttempts:
                 retentionAuditConfig.emailMaxAttempts(),
         },
@@ -49,8 +55,11 @@ export async function enqueueRetentionAuditApprovalEmail(
     });
 }
 
-async function claimNextJob(workerId: string) {
+async function claimNextJob(
+    workerId: string,
+) {
     const now = new Date();
+
     const staleLock = new Date(
         now.getTime() -
         retentionAuditConfig.workerLockMinutes() *
@@ -62,7 +71,10 @@ async function claimNextJob(workerId: string) {
         await prisma.retentionAuditEmailJob.findFirst({
             where: {
                 status: {
-                    in: ["PENDING", "PROCESSING"],
+                    in: [
+                        "PENDING",
+                        "PROCESSING",
+                    ],
                 },
                 nextAttemptAt: {
                     lte: now,
@@ -96,32 +108,37 @@ async function claimNextJob(workerId: string) {
     }
 
     const claimed =
-        await prisma.retentionAuditEmailJob.updateMany({
-            where: {
-                id: candidate.id,
-                status: {
-                    in: ["PENDING", "PROCESSING"],
-                },
-                OR: [
-                    {
-                        lockedAt: null,
+        await prisma.retentionAuditEmailJob.updateMany(
+            {
+                where: {
+                    id: candidate.id,
+                    status: {
+                        in: [
+                            "PENDING",
+                            "PROCESSING",
+                        ],
                     },
-                    {
-                        lockedAt: {
-                            lte: staleLock,
+                    OR: [
+                        {
+                            lockedAt: null,
                         },
+                        {
+                            lockedAt: {
+                                lte: staleLock,
+                            },
+                        },
+                    ],
+                },
+                data: {
+                    status: "PROCESSING",
+                    lockedAt: now,
+                    lockedBy: workerId,
+                    attempts: {
+                        increment: 1,
                     },
-                ],
-            },
-            data: {
-                status: "PROCESSING",
-                lockedAt: now,
-                lockedBy: workerId,
-                attempts: {
-                    increment: 1,
                 },
             },
-        });
+        );
 
     if (claimed.count !== 1) {
         return null;
@@ -146,32 +163,117 @@ async function claimNextJob(workerId: string) {
     });
 }
 
+async function claimJobById(
+    jobId: string,
+    workerId: string,
+) {
+    const now = new Date();
+
+    const staleLock = new Date(
+        now.getTime() -
+        retentionAuditConfig.workerLockMinutes() *
+        60 *
+        1000,
+    );
+
+    const claimed =
+        await prisma.retentionAuditEmailJob.updateMany(
+            {
+                where: {
+                    id: jobId,
+                    status: {
+                        in: [
+                            "PENDING",
+                            "PROCESSING",
+                        ],
+                    },
+                    nextAttemptAt: {
+                        lte: now,
+                    },
+                    OR: [
+                        {
+                            lockedAt: null,
+                        },
+                        {
+                            lockedAt: {
+                                lte: staleLock,
+                            },
+                        },
+                    ],
+                },
+                data: {
+                    status: "PROCESSING",
+                    lockedAt: now,
+                    lockedBy: workerId,
+                    attempts: {
+                        increment: 1,
+                    },
+                },
+            },
+        );
+
+    if (claimed.count !== 1) {
+        return null;
+    }
+
+    return prisma.retentionAuditEmailJob.findUnique({
+        where: {
+            id: jobId,
+        },
+        include: {
+            audit: {
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    website: true,
+                    status: true,
+                    publicTokenHash: true,
+                },
+            },
+        },
+    });
+}
+
 async function processJob(
     job: NonNullable<
-        Awaited<ReturnType<typeof claimNextJob>>
+        Awaited<
+            ReturnType<
+                typeof claimNextJob
+            >
+        >
     >,
 ) {
     try {
-        if (job.audit.status !== "APPROVED") {
+        if (
+            job.audit.status !==
+            "APPROVED"
+        ) {
             throw new Error(
                 "The audit is no longer approved.",
             );
         }
 
-        const reportToken = decryptReportToken({
-            ciphertext: job.tokenCiphertext,
-            iv: job.tokenIv,
-            authTag: job.tokenAuthTag,
-        });
+        const reportToken =
+            decryptReportToken({
+                ciphertext:
+                    job.tokenCiphertext,
+                iv: job.tokenIv,
+                authTag:
+                    job.tokenAuthTag,
+            });
 
         const reportUrl =
             `${retentionAuditConfig.appUrl()}/retention-audit/report/` +
-            encodeURIComponent(reportToken);
+            encodeURIComponent(
+                reportToken,
+            );
 
         await sendRetentionAuditApprovedEmail({
             to: job.audit.email,
             name: job.audit.name,
-            website: job.audit.website,
+            website:
+                job.audit.website,
             reportUrl,
         });
 
@@ -198,27 +300,38 @@ async function processJob(
                     id: job.audit.id,
                 },
                 data: {
-                    approvalEmailStatus: "SENT",
-                    approvalEmailSentAt: sentAt,
-                    approvalEmailLastError: null,
+                    approvalEmailStatus:
+                        "SENT",
+                    approvalEmailSentAt:
+                        sentAt,
+                    approvalEmailLastError:
+                        null,
                 },
             }),
-            prisma.retentionAuditReviewEvent.create({
-                data: {
-                    auditId: job.audit.id,
-                    action:
-                        job.attempts > 1
-                            ? "APPROVAL_EMAIL_RESENT"
-                            : "APPROVAL_EMAIL_SENT",
-                    previousStatus: "APPROVED",
-                    newStatus: "APPROVED",
-                    metadata: {
-                        jobId: job.id,
-                        attempts: job.attempts,
-                        sentAt: sentAt.toISOString(),
+            prisma.retentionAuditReviewEvent.create(
+                {
+                    data: {
+                        auditId:
+                            job.audit.id,
+                        action:
+                            job.attempts >
+                                1
+                                ? "APPROVAL_EMAIL_RESENT"
+                                : "APPROVAL_EMAIL_SENT",
+                        previousStatus:
+                            "APPROVED",
+                        newStatus:
+                            "APPROVED",
+                        metadata: {
+                            jobId: job.id,
+                            attempts:
+                                job.attempts,
+                            sentAt:
+                                sentAt.toISOString(),
+                        },
                     },
                 },
-            }),
+            ),
         ]);
 
         return {
@@ -226,9 +339,12 @@ async function processJob(
             status: "SENT" as const,
         };
     } catch (error) {
-        const lastError = safeErrorMessage(error);
+        const lastError =
+            safeErrorMessage(error);
+
         const exhausted =
-            job.attempts >= job.maxAttempts;
+            job.attempts >=
+            job.maxAttempts;
 
         await prisma.$transaction([
             prisma.retentionAuditEmailJob.update({
@@ -239,9 +355,12 @@ async function processJob(
                     status: exhausted
                         ? "FAILED"
                         : "PENDING",
-                    nextAttemptAt: exhausted
-                        ? job.nextAttemptAt
-                        : nextRetryDate(job.attempts),
+                    nextAttemptAt:
+                        exhausted
+                            ? job.nextAttemptAt
+                            : nextRetryDate(
+                                job.attempts,
+                            ),
                     lockedAt: null,
                     lockedBy: null,
                     lastError,
@@ -252,26 +371,36 @@ async function processJob(
                     id: job.audit.id,
                 },
                 data: {
-                    approvalEmailStatus: exhausted
-                        ? "FAILED"
-                        : "PENDING",
-                    approvalEmailLastError: lastError,
+                    approvalEmailStatus:
+                        exhausted
+                            ? "FAILED"
+                            : "PENDING",
+                    approvalEmailLastError:
+                        lastError,
                 },
             }),
-            prisma.retentionAuditReviewEvent.create({
-                data: {
-                    auditId: job.audit.id,
-                    action: "APPROVAL_EMAIL_FAILED",
-                    previousStatus: "APPROVED",
-                    newStatus: "APPROVED",
-                    errorMessage: lastError,
-                    metadata: {
-                        jobId: job.id,
-                        attempts: job.attempts,
-                        exhausted,
+            prisma.retentionAuditReviewEvent.create(
+                {
+                    data: {
+                        auditId:
+                            job.audit.id,
+                        action:
+                            "APPROVAL_EMAIL_FAILED",
+                        previousStatus:
+                            "APPROVED",
+                        newStatus:
+                            "APPROVED",
+                        errorMessage:
+                            lastError,
+                        metadata: {
+                            jobId: job.id,
+                            attempts:
+                                job.attempts,
+                            exhausted,
+                        },
                     },
                 },
-            }),
+            ),
         ]);
 
         return {
@@ -283,25 +412,54 @@ async function processJob(
     }
 }
 
+export async function processRetentionAuditEmailJob(
+    jobId: string,
+) {
+    const workerId =
+        randomUUID();
+
+    const job = await claimJobById(
+        jobId,
+        workerId,
+    );
+
+    if (!job) {
+        return null;
+    }
+
+    return processJob(job);
+}
+
 export async function processRetentionAuditEmailJobs() {
-    const workerId = randomUUID();
+    const workerId =
+        randomUUID();
+
     const results: Array<{
         id: string;
-        status: "SENT" | "FAILED" | "RETRYING";
+        status:
+        | "SENT"
+        | "FAILED"
+        | "RETRYING";
     }> = [];
 
     for (
         let index = 0;
-        index < retentionAuditConfig.workerBatchSize();
+        index <
+        retentionAuditConfig.workerBatchSize();
         index += 1
     ) {
-        const job = await claimNextJob(workerId);
+        const job =
+            await claimNextJob(
+                workerId,
+            );
 
         if (!job) {
             break;
         }
 
-        results.push(await processJob(job));
+        results.push(
+            await processJob(job),
+        );
     }
 
     return results;

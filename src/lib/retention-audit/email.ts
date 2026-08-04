@@ -20,7 +20,7 @@ export async function sendRetentionAuditApprovedEmail(
     const apiKey = process.env.RESEND_API_KEY?.trim();
     const from =
         process.env.RETENTION_AUDIT_FROM_EMAIL?.trim() ||
-        "Cobrai <audits@cobrai.co.uk>";
+        "Cobrai <audits@cobrai.uk>";
 
     if (!apiKey) {
         throw new Error("RESEND_API_KEY is not configured.");
