@@ -49,16 +49,12 @@ export type AnalysedCustomer = NormalisedCustomer & {
     recommendedAction: string;
 };
 
-export type AuditRegionalContext = {
-    locale: string | null;
-    timeZone: string | null;
-    currencyCode: string;
-};
+
 
 export type DeterministicAudit = {
     generatedAt: string;
 
-    regionalContext: AuditRegionalContext;
+  
 
     totals: {
         totalCustomers: number;
