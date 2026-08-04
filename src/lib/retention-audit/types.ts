@@ -54,8 +54,6 @@ export type AnalysedCustomer = NormalisedCustomer & {
 export type DeterministicAudit = {
     generatedAt: string;
 
-  
-
     totals: {
         totalCustomers: number;
         totalMrrMinor: number;

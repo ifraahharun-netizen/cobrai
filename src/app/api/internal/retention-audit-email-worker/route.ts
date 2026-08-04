@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { retentionAuditConfig } from "@/lib/retention-audit/config";
 import { processRetentionAuditEmailJobs } from "@/lib/retention-audit/email-jobs";
 import { deleteExpiredRateLimits } from "@/lib/retention-audit/rate-limit";
 import { safelyCompareSecrets } from "@/lib/retention-audit/review-security";
@@ -9,54 +8,82 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
-function isAuthorised(request: Request) {
-    const authorisation =
+function getBearerToken(request: Request) {
+    const authorization =
         request.headers.get("authorization");
 
+    if (!authorization?.startsWith("Bearer ")) {
+        return null;
+    }
+
+    return authorization
+        .slice("Bearer ".length)
+        .trim();
+}
+
+function isAuthorised(request: Request) {
     const receivedSecret =
-        authorisation?.startsWith("Bearer ")
-            ? authorisation.slice(7).trim()
-            : null;
+        getBearerToken(request);
 
-    const expectedSecret =
-        retentionAuditConfig.workerSecret().trim();
+    if (!receivedSecret) {
+        return false;
+    }
 
-    console.log("Worker auth debug", {
-        hasAuthorisationHeader: Boolean(authorisation),
-        receivedLength: receivedSecret?.length ?? 0,
-        expectedLength: expectedSecret.length,
-        receivedPreview: receivedSecret
-            ? `${receivedSecret.slice(0, 4)}...${receivedSecret.slice(-4)}`
-            : null,
-        expectedPreview: `${expectedSecret.slice(0, 4)}...${expectedSecret.slice(-4)}`,
-    });
+    const cronSecret =
+        process.env.CRON_SECRET?.trim();
 
-    return safelyCompareSecrets(
-        receivedSecret,
-        expectedSecret,
+    const workerSecret =
+        process.env
+            .RETENTION_AUDIT_WORKER_SECRET
+            ?.trim();
+
+    const matchesCronSecret =
+        cronSecret
+            ? safelyCompareSecrets(
+                receivedSecret,
+                cronSecret,
+            )
+            : false;
+
+    const matchesWorkerSecret =
+        workerSecret
+            ? safelyCompareSecrets(
+                receivedSecret,
+                workerSecret,
+            )
+            : false;
+
+    return (
+        matchesCronSecret ||
+        matchesWorkerSecret
     );
 }
 
-async function runWorker(request: Request) {
-    if (!isAuthorised(request)) {
-        return NextResponse.json(
-            {
-                error: "Unauthorised.",
-            },
-            {
-                status: 401,
-                headers: {
-                    "Cache-Control": "no-store",
-                },
-            },
-        );
-    }
-
+async function runWorker(
+    request: Request,
+) {
     try {
-        const [results] = await Promise.all([
-            processRetentionAuditEmailJobs(),
-            deleteExpiredRateLimits(),
-        ]);
+        if (!isAuthorised(request)) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: "Unauthorised.",
+                },
+                {
+                    status: 401,
+                    headers: {
+                        "Cache-Control":
+                            "no-store",
+                    },
+                },
+            );
+        }
+
+        const [results] =
+            await Promise.all([
+                processRetentionAuditEmailJobs(),
+                deleteExpiredRateLimits(),
+            ]);
 
         return NextResponse.json(
             {
@@ -65,43 +92,32 @@ async function runWorker(request: Request) {
                 results,
             },
             {
+                status: 200,
                 headers: {
-                    "Cache-Control": "no-store",
+                    "Cache-Control":
+                        "no-store",
                 },
             },
         );
     } catch (error) {
         console.error(
             "Retention audit email worker failed",
-            {
-                error:
-                    error instanceof Error
-                        ? {
-                              name: error.name,
-                              message: error.message,
-                              stack:
-                                  process.env.NODE_ENV ===
-                                  "development"
-                                      ? error.stack
-                                      : undefined,
-                          }
-                        : {
-                              name: "UnknownError",
-                              message:
-                                  "An unknown worker error occurred.",
-                          },
-            },
+            error,
         );
 
         return NextResponse.json(
             {
+                success: false,
                 error:
-                    "The retention audit email worker failed.",
+                    error instanceof Error
+                        ? error.message
+                        : "The retention audit email worker failed.",
             },
             {
                 status: 500,
                 headers: {
-                    "Cache-Control": "no-store",
+                    "Cache-Control":
+                        "no-store",
                 },
             },
         );
@@ -109,15 +125,19 @@ async function runWorker(request: Request) {
 }
 
 /*
- * Vercel Cron invokes the configured path with GET.
+ * Vercel Cron calls the route with GET and uses CRON_SECRET.
  */
-export async function GET(request: Request) {
+export async function GET(
+    request: Request,
+) {
     return runWorker(request);
 }
 
 /*
- * POST is retained for manual and external scheduler calls.
+ * Manual calls can use RETENTION_AUDIT_WORKER_SECRET.
  */
-export async function POST(request: Request) {
+export async function POST(
+    request: Request,
+) {
     return runWorker(request);
 }
