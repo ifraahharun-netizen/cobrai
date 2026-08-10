@@ -2,11 +2,9 @@
     position: fixed;
     inset: 0;
     z-index: 10000;
-    display: grid;
-    place-items: start center;
-    padding: 24px;
     overflow-y: auto;
     overscroll-behavior: contain;
+    padding: 24px;
     font-family:
         Inter,
         ui-sans-serif,
@@ -20,63 +18,67 @@
 .backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(226, 232, 240, 0.72);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background: rgba(236, 240, 245, 0.82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     animation: backdropIn 180ms ease-out both;
 }
 
 .modal {
     position: relative;
     z-index: 1;
-    width: min(1040px, 100%);
-    margin: auto 0;
-    border: 1px solid rgba(226, 232, 240, 0.96);
+    width: min(1080px, 100%);
+    margin: 0 auto;
+    border: 1px solid #e7ebf0;
     border-radius: 24px;
-    background:
-        radial-gradient(circle at top left, rgba(239, 246, 255, 0.72), transparent 28%),
-        #ffffff;
+    background: #ffffff;
     box-shadow:
-        0 36px 100px rgba(15, 23, 42, 0.16),
-        0 10px 34px rgba(15, 23, 42, 0.07);
-    padding: 48px 38px 26px;
+        0 32px 90px rgba(15, 23, 42, 0.12),
+        0 8px 28px rgba(15, 23, 42, 0.05);
+    padding: 44px;
     animation: modalIn 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .header {
+    max-width: 720px;
+    margin: 0 auto;
     text-align: center;
 }
 
-.eyebrow {
+.eyebrow,
+.sectionEyebrow {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 7px;
-    min-height: 32px;
-    padding: 0 13px;
-    border: 1px solid #dbeafe;
-    border-radius: 999px;
-    background: rgba(239, 246, 255, 0.9);
+    width: fit-content;
     color: #1677ea;
-    font-size: 11px;
+    font-size: 10px;
     line-height: 1;
-    font-weight: 700;
-    letter-spacing: 0.035em;
+    font-weight: 300;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
+.eyebrow {
+    min-height: 30px;
+    padding: 0 12px;
+    border: 1px solid #dceafe;
+    border-radius: 999px;
+    background: #f6faff;
+}
+
 .eyebrowSpark {
-    font-size: 13px;
-    line-height: 1;
+    font-size: 12px;
 }
 
 .title {
-    margin: 20px 0 0;
-    color: #0f172a;
-    font-size: clamp(35px, 5vw, 50px);
-    line-height: 1.03;
-    letter-spacing: -0.048em;
-    font-weight: 720;
+    margin: 18px 0 0;
+    color: #172033;
+    font-size: clamp(36px, 5vw, 50px);
+    line-height: 1.04;
+    letter-spacing: -0.05em;
+    font-weight: 420;
 }
 
 .title span {
@@ -84,60 +86,48 @@
 }
 
 .subtitle {
-    max-width: 620px;
-    margin: 16px auto 0;
-    color: #5f6b7f;
-    font-size: 15px;
-    line-height: 1.72;
-    font-weight: 400;
+    max-width: 610px;
+    margin: 14px auto 0;
+    color: #667085;
+    font-size: 14px;
+    line-height: 1.7;
 }
 
 .statsGrid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 12px;
-    margin-top: 38px;
+    gap: 10px;
+    margin-top: 34px;
 }
 
 .statCard {
     min-width: 0;
-    min-height: 214px;
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    border: 1px solid #e6ebf1;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.96);
-    padding: 21px 13px 17px;
-    text-align: center;
-    box-shadow: 0 8px 26px rgba(15, 23, 42, 0.025);
-    transition:
-        transform 160ms ease,
-        border-color 160ms ease,
-        box-shadow 160ms ease;
-}
-
-.statCard:hover {
-    transform: translateY(-2px);
-    border-color: #d8e4f2;
-    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+    align-items: flex-start;
+    gap: 12px;
+    min-height: 132px;
+    border: 1px solid #e7ebf0;
+    border-radius: 15px;
+    background: #ffffff;
+    padding: 17px 15px;
+    box-shadow: 0 5px 18px rgba(15, 23, 42, 0.025);
 }
 
 .statIcon {
     display: grid;
-    width: 44px;
-    height: 44px;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
     place-items: center;
-    border-radius: 999px;
-    background: linear-gradient(180deg, #f3f8ff 0%, #eaf3ff 100%);
-    color: #2185ec;
-    box-shadow: inset 0 0 0 1px rgba(37, 132, 238, 0.05);
+    border-radius: 10px;
+    background: #f2f7fd;
+    color: #2384e8;
 }
 
 .statIcon svg,
 .trustIcon svg {
-    width: 23px;
-    height: 23px;
+    width: 18px;
+    height: 18px;
     fill: none;
     stroke: currentColor;
     stroke-width: 1.75;
@@ -145,13 +135,15 @@
     stroke-linejoin: round;
 }
 
-.statCard strong {
+.statContent {
+    min-width: 0;
+}
+
+.statContent strong {
     display: block;
-    width: 100%;
-    margin-top: 19px;
     overflow: hidden;
     color: #111827;
-    font-size: 27px;
+    font-size: 23px;
     line-height: 1;
     letter-spacing: -0.04em;
     text-overflow: ellipsis;
@@ -161,190 +153,140 @@
 
 .statLabel {
     display: block;
-    margin-top: 12px;
-    color: #1677ea;
-    font-size: 11.5px;
-    line-height: 1.4;
+    margin-top: 7px;
+    color: #344054;
+    font-size: 10.5px;
+    line-height: 1.35;
     font-weight: 650;
 }
 
-.statCard p {
-    margin: 16px 0 0;
-    color: #6b778b;
-    font-size: 10.5px;
-    line-height: 1.62;
-    font-weight: 400;
+.statContent p {
+    margin: 7px 0 0;
+    color: #8a94a6;
+    font-size: 9.5px;
+    line-height: 1.45;
 }
 
 .executiveCard {
     display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(275px, 0.75fr);
+    grid-template-columns: auto minmax(0, 1fr) 230px;
     align-items: center;
-    gap: 36px;
-    margin-top: 18px;
-    border: 1px solid #e3e8ef;
+    gap: 18px;
+    margin-top: 14px;
+    border: 1px solid #e5eaf0;
     border-radius: 17px;
-    background: rgba(255, 255, 255, 0.96);
-    padding: 26px;
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.03);
+    background: #fbfcfe;
+    padding: 22px 24px;
 }
 
-.executiveHeading {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-}
-
-.executiveMark {
+.executiveIcon {
     display: grid;
-    width: 44px;
-    height: 44px;
-    flex: 0 0 auto;
+    width: 42px;
+    height: 42px;
     place-items: center;
-    border-radius: 11px;
-    background: linear-gradient(145deg, #eef6ff, #e6f1ff);
-    color: #1d7fe8;
-    font-size: 21px;
-    box-shadow: inset 0 0 0 1px rgba(37, 132, 238, 0.06);
+    border-radius: 12px;
+    background: #edf5ff;
+    color: #1c7fe8;
+    font-size: 18px;
 }
 
-.executiveHeading h2 {
-    margin: 0;
+.executiveCopy {
+    min-width: 0;
+}
+
+.executiveCopy h2 {
+    margin: 7px 0 0;
     color: #172033;
-    font-size: 19px;
-    line-height: 1.3;
-    letter-spacing: -0.02em;
-    font-weight: 680;
-}
-
-.executiveCopy>p {
-    margin: 17px 0 0;
-    color: #4a566c;
-    font-size: 13px;
-    line-height: 1.72;
-    white-space: pre-line;
-}
-
-.executiveVisual {
-    position: relative;
-    min-height: 190px;
-    overflow: hidden;
-    border: 1px solid #e8edf3;
-    border-radius: 13px;
-    background:
-        linear-gradient(180deg, rgba(248, 250, 252, 0.86), #ffffff);
-    box-shadow: 0 18px 40px rgba(30, 64, 175, 0.08);
-}
-
-.visualSkeleton {
-    position: absolute;
-    top: 21px;
-    left: 21px;
-    display: grid;
-    gap: 8px;
-}
-
-.visualSkeleton span {
-    width: 72px;
-    height: 7px;
-    border-radius: 999px;
-    background: #e8edf3;
-}
-
-.visualSkeleton span:last-child {
-    width: 40px;
-}
-
-.visualChart {
-    position: absolute;
-    left: 18px;
-    bottom: 35px;
-    width: 49%;
-    height: 80px;
-}
-
-.visualArea {
-    fill: url(#trial-chart-fill);
-}
-
-.visualLine {
-    fill: none;
-    stroke: #2f82eb;
-    stroke-width: 3;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.visualDonut {
-    position: absolute;
-    top: 31px;
-    right: 27px;
-    width: 86px;
-    height: 86px;
-    border-radius: 999px;
-    background: conic-gradient(#2f82eb 0 34%,
-            #78b4f1 34% 59%,
-            #dcecff 59% 100%);
-    box-shadow: 0 8px 20px rgba(47, 130, 235, 0.08);
-}
-
-.visualDonut span {
-    position: absolute;
-    inset: 20px;
-    border-radius: inherit;
-    background: #ffffff;
-}
-
-.visualRows {
-    position: absolute;
-    right: 27px;
-    bottom: 29px;
-    display: grid;
-    gap: 8px;
-    width: 96px;
-}
-
-.visualRows i {
-    display: block;
-    height: 7px;
-    border-radius: 999px;
-    background: #e7ebf1;
-}
-
-.visualRows i:nth-child(2) {
-    width: 76%;
-}
-
-.visualRows i:nth-child(3) {
-    width: 56%;
-}
-
-.planHeading {
-    margin-top: 28px;
-    text-align: center;
-}
-
-.planHeading h2 {
-    margin: 0;
-    color: #111827;
-    font-size: 21px;
+    font-size: 18px;
     line-height: 1.3;
     letter-spacing: -0.025em;
     font-weight: 680;
 }
 
+.executiveCopy p {
+    margin: 9px 0 0;
+    color: #596579;
+    font-size: 12px;
+    line-height: 1.65;
+    white-space: pre-line;
+}
+
+.summarySignal {
+    border-left: 1px solid #e7ebf0;
+    padding-left: 22px;
+}
+
+.summarySignalLabel {
+    color: #8a94a6;
+    font-size: 9px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.summaryBars {
+    display: flex;
+    align-items: end;
+    gap: 6px;
+    height: 48px;
+    margin-top: 10px;
+}
+
+.summaryBars i {
+    display: block;
+    width: 22px;
+    border-radius: 5px 5px 2px 2px;
+    background: #dcecff;
+}
+
+.summaryBars i:nth-child(1) {
+    height: 18px;
+}
+
+.summaryBars i:nth-child(2) {
+    height: 28px;
+}
+
+.summaryBars i:nth-child(3) {
+    height: 38px;
+}
+
+.summaryBars i:nth-child(4) {
+    height: 48px;
+    background: #2586eb;
+}
+
+.plansSection {
+    margin-top: 34px;
+}
+
+.planHeading {
+    max-width: 650px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.planHeading h2 {
+    margin: 9px 0 0;
+    color: #111827;
+    font-size: 25px;
+    line-height: 1.25;
+    letter-spacing: -0.035em;
+    font-weight: 690;
+}
+
 .planHeading p {
-    margin: 5px 0 0;
+    margin: 7px 0 0;
     color: #667085;
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1.5;
 }
 
 .planGrid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
-    margin-top: 17px;
+    gap: 14px;
+    margin-top: 20px;
 }
 
 .starterCard,
@@ -352,88 +294,105 @@
     position: relative;
     display: flex;
     min-width: 0;
-    min-height: 438px;
+    min-height: 402px;
     flex-direction: column;
-    border-radius: 16px;
+    border-radius: 18px;
     background: #ffffff;
     padding: 25px;
 }
 
 .starterCard {
-    border: 1px solid #e3e8ef;
+    border: 1px solid #e1e6ec;
 }
 
 .proCard {
-    border: 1.5px solid #2585ee;
-    box-shadow:
-        0 14px 36px rgba(37, 133, 238, 0.1),
-        inset 0 0 0 1px rgba(37, 133, 238, 0.03);
+    border: 1.5px solid #2586eb;
+    box-shadow: 0 12px 30px rgba(37, 134, 235, 0.08);
+}
+
+.recommendedBadge {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    min-height: 25px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 9px;
+    border-radius: 999px;
+    background: #eef6ff;
+    color: #1477df;
+    font-size: 8.5px;
+    font-weight: 750;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.planTitleRow {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
 }
 
 .planName,
 .proName {
     display: block;
-    color: #192233;
-    font-size: 17px;
+    color: #1d2939;
+    font-size: 15px;
     line-height: 1.3;
-    font-weight: 680;
+    font-weight: 700;
 }
 
 .proName {
-    color: #1478e5;
+    color: #1677e5;
 }
 
-.popularBadge {
-    position: absolute;
-    top: 18px;
-    right: 18px;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 27px;
-    padding: 0 10px;
-    border-radius: 7px;
-    background: #edf5ff;
-    color: #176fda;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
+.planAudience {
+    margin: 4px 0 0;
+    color: #98a2b3;
+    font-size: 9.5px;
+    line-height: 1.4;
 }
 
 .priceRow {
     display: flex;
     align-items: baseline;
     gap: 6px;
-    margin-top: 9px;
+    margin-top: 22px;
 }
 
 .priceRow strong {
-    color: #111827;
-    font-size: 31px;
+    color: #101828;
+    font-size: 35px;
     line-height: 1;
-    letter-spacing: -0.045em;
-    font-weight: 700;
+    letter-spacing: -0.05em;
+    font-weight: 710;
 }
 
 .priceRow span {
-    color: #5f6b7e;
-    font-size: 11px;
+    color: #667085;
+    font-size: 10.5px;
     font-weight: 500;
 }
 
 .planDescription {
-    max-width: 330px;
+    max-width: 410px;
     margin: 13px 0 0;
     color: #667085;
     font-size: 11px;
-    line-height: 1.65;
+    line-height: 1.6;
+}
+
+.planDivider {
+    height: 1px;
+    margin-top: 20px;
+    background: #edf0f3;
 }
 
 .features {
     display: grid;
-    gap: 9px;
-    margin: 22px 0 23px;
+    gap: 10px;
+    margin: 19px 0 22px;
     padding: 0;
     list-style: none;
 }
@@ -443,24 +402,24 @@
     align-items: flex-start;
     gap: 9px;
     color: #344054;
-    font-size: 11px;
-    line-height: 1.46;
+    font-size: 10.5px;
+    line-height: 1.5;
 }
 
 .checkIcon {
     display: inline-grid;
-    width: 15px;
-    height: 15px;
-    flex: 0 0 15px;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
     place-items: center;
-    margin-top: 1px;
+    margin-top: 0;
     border-radius: 999px;
-    background: #e9f3ff;
-    color: #1c84eb;
+    background: #eef5fd;
+    color: #2586eb;
 }
 
-.proCard .checkIcon {
-    background: #1d8bea;
+.checkIconFilled {
+    background: #2586eb;
     color: #ffffff;
 }
 
@@ -477,11 +436,11 @@
 .secondaryButton,
 .upgradeButton {
     width: 100%;
-    min-height: 45px;
+    min-height: 44px;
     margin-top: auto;
     border-radius: 10px;
     font: inherit;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 650;
     cursor: pointer;
     transition:
@@ -493,27 +452,26 @@
 }
 
 .secondaryButton {
-    border: 1px solid #1d83eb;
+    border: 1px solid #d0d7e0;
     background: #ffffff;
-    color: #1576de;
+    color: #344054;
 }
 
 .secondaryButton:hover:not(:disabled) {
-    border-color: #0f73d8;
-    background: #f8fbff;
-    box-shadow: 0 7px 18px rgba(29, 131, 235, 0.08);
+    border-color: #b8c2cf;
+    background: #fafbfc;
 }
 
 .upgradeButton {
     border: 1px solid #1978dc;
-    background: linear-gradient(180deg, #248cf2 0%, #1579df 100%);
+    background: #2586eb;
     color: #ffffff;
-    box-shadow: 0 9px 20px rgba(21, 121, 223, 0.2);
+    box-shadow: 0 7px 18px rgba(37, 134, 235, 0.17);
 }
 
 .upgradeButton:hover:not(:disabled) {
-    background: linear-gradient(180deg, #167fe7 0%, #106fce 100%);
-    box-shadow: 0 12px 24px rgba(21, 121, 223, 0.24);
+    background: #1679df;
+    box-shadow: 0 9px 22px rgba(37, 134, 235, 0.2);
 }
 
 .secondaryButton:active:not(:disabled),
@@ -523,14 +481,14 @@
 
 .secondaryButton:focus-visible,
 .upgradeButton:focus-visible {
-    outline: 3px solid rgba(37, 132, 238, 0.2);
+    outline: 3px solid rgba(37, 132, 238, 0.18);
     outline-offset: 2px;
 }
 
 .secondaryButton:disabled,
 .upgradeButton:disabled {
     cursor: wait;
-    opacity: 0.65;
+    opacity: 0.6;
 }
 
 .error {
@@ -540,59 +498,58 @@
     background: #fff7f7;
     padding: 10px 12px;
     color: #b42318;
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1.5;
 }
 
 .trustRow {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 18px;
-    margin-top: 20px;
-    border: 1px solid #e4e9ef;
-    border-radius: 15px;
-    background: rgba(255, 255, 255, 0.96);
-    padding: 18px 26px;
+    gap: 16px;
+    margin-top: 16px;
+    border-top: 1px solid #edf0f3;
+    padding: 18px 8px 0;
 }
 
 .trustRow>div {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
+    justify-content: center;
+    gap: 10px;
 }
 
 .trustIcon {
     display: grid;
-    width: 34px;
-    height: 34px;
-    flex: 0 0 34px;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
     place-items: center;
-    color: #1881e8;
-    font-size: 29px;
+    color: #2586eb;
+    font-size: 24px;
     line-height: 1;
 }
 
 .trustRow p {
     margin: 0;
-    color: #667085;
-    font-size: 10px;
+    color: #7a8495;
+    font-size: 9px;
     line-height: 1.5;
 }
 
 .trustRow strong {
     display: block;
     margin-bottom: 2px;
-    color: #1f2937;
-    font-size: 10px;
+    color: #344054;
+    font-size: 9.5px;
     line-height: 1.4;
     font-weight: 680;
 }
 
 .footerNote {
-    margin: 16px 0 0;
+    margin: 15px 0 0;
     text-align: center;
-    color: #7a8495;
-    font-size: 10px;
+    color: #98a2b3;
+    font-size: 9px;
     line-height: 1.4;
 }
 
@@ -609,7 +566,7 @@
 @keyframes modalIn {
     from {
         opacity: 0;
-        transform: translateY(12px) scale(0.99);
+        transform: translateY(10px) scale(0.992);
     }
 
     to {
@@ -620,15 +577,19 @@
 
 @media (max-width: 940px) {
     .modal {
-        padding: 40px 24px 22px;
+        padding: 36px 24px 24px;
     }
 
     .statsGrid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    .statCard {
-        min-height: 200px;
+    .executiveCard {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .summarySignal {
+        display: none;
     }
 }
 
@@ -639,7 +600,7 @@
 
     .modal {
         border-radius: 18px;
-        padding: 30px 16px 18px;
+        padding: 28px 16px 18px;
     }
 
     .title {
@@ -647,23 +608,28 @@
     }
 
     .subtitle {
-        font-size: 14px;
+        font-size: 13px;
     }
 
     .statsGrid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-        margin-top: 29px;
+        gap: 9px;
+        margin-top: 28px;
+    }
+
+    .statCard {
+        min-height: 122px;
     }
 
     .executiveCard {
         grid-template-columns: 1fr;
-        gap: 20px;
+        gap: 12px;
         padding: 18px;
     }
 
-    .executiveVisual {
-        min-height: 180px;
+    .executiveIcon {
+        width: 38px;
+        height: 38px;
     }
 
     .planGrid {
@@ -677,8 +643,11 @@
 
     .trustRow {
         grid-template-columns: 1fr;
-        gap: 15px;
-        padding: 18px;
+        gap: 13px;
+    }
+
+    .trustRow>div {
+        justify-content: flex-start;
     }
 }
 
@@ -687,24 +656,18 @@
         grid-template-columns: 1fr;
     }
 
-    .statCard {
-        min-height: 180px;
-    }
-
-    .popularBadge {
+    .recommendedBadge {
         position: static;
         width: fit-content;
-        margin-bottom: 16px;
-    }
-
-    .executiveHeading {
-        align-items: flex-start;
+        margin-bottom: 15px;
     }
 
     .modal {
         padding-inline: 13px;
     }
 }
+
+
 
 @media (prefers-reduced-motion: reduce) {
 
@@ -713,7 +676,6 @@
         animation: none;
     }
 
-    .statCard,
     .secondaryButton,
     .upgradeButton {
         transition: none;
