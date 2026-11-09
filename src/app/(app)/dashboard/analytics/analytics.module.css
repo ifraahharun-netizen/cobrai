@@ -9988,3 +9988,57 @@
     text-transform: none !important;
     letter-spacing: 0 !important;
 }
+
+/* ======================================================================== */
+/* Console layout: plain white cards, small titles, quiet section headings  */
+/* ======================================================================== */
+
+.page .title {
+    font-size: 24px !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.01em !important;
+}
+
+.page .subtitle {
+    font-size: 13.5px !important;
+    color: var(--c-muted) !important;
+}
+
+.page .sectionHeading h2 {
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0 !important;
+}
+
+.page .sectionHeading p {
+    font-size: 13px !important;
+    color: var(--c-muted) !important;
+}
+
+.page .revenueOverviewCard,
+.page .activeUsersCard,
+.page .customerImpactTableCard {
+    border: 1px solid var(--c-line) !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+    box-shadow: none !important;
+}
+
+.page .revenueOverviewHeader h3,
+.page .activeUsersHeader .chartTitle,
+.page .customerImpactTableTop h3 {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 2px !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    color: var(--c-ink) !important;
+}
+
+.page .activeUsersHeader .chartMeta,
+.page .customerImpactTableTop p {
+    font-size: 12.5px !important;
+    color: var(--c-muted) !important;
+}

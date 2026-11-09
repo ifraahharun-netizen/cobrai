@@ -40,8 +40,10 @@ import {
     TrendingUp,
     ChevronRight,
     Sparkles,
+    LayoutGrid,
+    Repeat,
+    ListChecks,
     Check,
-    GitCompareArrows,
 } from "lucide-react";
 
 import * as echarts from "echarts";
@@ -62,13 +64,17 @@ import type { MetricsSnapshot } from "@/lib/ai/claudeMetricsRead";
 import type { AskAccount } from "@/lib/ai/claudeMetricsAsk";
 import type { ChartNote } from "@/lib/ai/claudeMetricsRead";
 import KpiTile from "./KpiTile";
+import MetricsNav, { type NavItem } from "./MetricsNav";
+import InfoTip from "./InfoTip";
 import RevenueMovementCard from "./RevenueMovementCard";
 import CohortHeatmap from "./CohortHeatmap";
+import RetentionCurveCard from "./RetentionCurveCard";
 import AccountDrawer, { type DrawerAccount } from "./AccountDrawer";
 import {
     PERIODS,
     buildDemoCohorts,
     buildMrrMovement,
+    computeRetention,
     monthName,
     periodBaseline,
     periodLong,
@@ -288,6 +294,28 @@ type DashboardSummary = {
         occurredAt: string;
         valueMinor?: number | null;
     }>;
+};
+
+const METRICS_VIEWS = ["overview", "retention", "accounts", "ask"] as const;
+type MetricsView = (typeof METRICS_VIEWS)[number];
+
+const VIEW_META: Record<MetricsView, { title: string; subtitle: string }> = {
+    overview: {
+        title: "Overview",
+        subtitle: "Recurring revenue, churn and subscribers at a glance, with Claude's summary.",
+    },
+    retention: {
+        title: "Retention",
+        subtitle: "How much revenue you keep, and how long each month's new customers stay.",
+    },
+    accounts: {
+        title: "Accounts to act on",
+        subtitle: "Accounts with revenue at stake, ranked by impact, each with a suggested next step.",
+    },
+    ask: {
+        title: "Ask Claude",
+        subtitle: "Ask anything about your revenue, churn and accounts. Claude answers from this page's numbers.",
+    },
 };
 
 const NOTE_COLOURS: Record<ChartNote["sentiment"], string> = {
@@ -2075,13 +2103,20 @@ export default function AnalyticsPage() {
 
     const [emailModalOpen, setEmailModalOpen] = useState(false);
     const [emailModalRow, setEmailModalRow] = useState<RecoveryQueueItem | null>(null);
-    const [askOpen, setAskOpen] = useState(false);
+
     const [askRequest, setAskRequest] = useState<AskRequest | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
     const [mrrView, setMrrView] = useState<"trend" | "30d">("trend");
     const [churnView, setChurnView] = useState<"trend" | "30d">("trend");
     const [period, setPeriod] = useState<PeriodKey>("12m");
-    const [compare, setCompare] = useState(false);
+    // Which Metrics view is open; kept in the URL hash so it survives a reload.
+    const [view, setView] = useState<MetricsView>(() => {
+        if (typeof window === "undefined") return "overview";
+        const hash = window.location.hash.replace("#", "");
+        return (METRICS_VIEWS as readonly string[]).includes(hash) ? (hash as MetricsView) : "overview";
+    });
+    // The previous-period overlay is switched off on this page.
+    const compare = false;
     const [chartNotes, setChartNotes] = useState<ChartNote[]>([]);
     const [flashCard, setFlashCard] = useState<string | null>(null);
     const [drawerRow, setDrawerRow] = useState<RecoveryQueueItem | null>(null);
@@ -2095,6 +2130,7 @@ export default function AnalyticsPage() {
         }
     });
     const [nowTick, setNowTick] = useState(() => Date.now());
+    const [accountsTab, setAccountsTab] = useState<"open" | "handled" | "all">("open");
     const [emailSubject, setEmailSubject] = useState("");
     const [emailBody, setEmailBody] = useState("");
     const [emailCtaEnabled, setEmailCtaEnabled] = useState(false);
@@ -3948,19 +3984,6 @@ export default function AnalyticsPage() {
         100
     );
 
-    const aiConfidenceScore = clamp(
-        Math.round(
-            aiInsightCard.aiEffectiveness?.score ??
-            (safeRecoveryQueue.rows.length
-                ? safeRecoveryQueue.rows.reduce(
-                    (total, row) => total + Number(row.confidence || 0),
-                    0
-                ) / safeRecoveryQueue.rows.length
-                : 0)
-        ),
-        0,
-        100
-    );
 
     const forecastMrrDeltaPct = calculatePercentChange(
         projectedMrr,
@@ -4765,6 +4788,20 @@ export default function AnalyticsPage() {
     );
     const mrrMovement = useMemo(() => mrrMovementAll.slice(-periodN), [mrrMovementAll, periodN]);
 
+    // Headline numbers for the Retention view.
+    const retentionKpis = useMemo(() => {
+        const r = computeRetention(mrrMovement);
+        const churnValues = churnTrendChart.values.filter((v) => Number.isFinite(v));
+        const avgChurn = churnValues.length ? churnValues.reduce((a, b) => a + b, 0) / churnValues.length : null;
+        return {
+            nrr: r?.nrr ?? null,
+            grr: r?.grr ?? null,
+            net: r?.net ?? null,
+            avgChurn,
+            lifetimeMonths: avgChurn && avgChurn > 0 ? 100 / avgChurn : null,
+        };
+    }, [mrrMovement, churnTrendChart.values]);
+
     const cohorts = useMemo(
         () => (isDemoMode ? buildDemoCohorts(churnSeries, allActivityRows) : []),
         [isDemoMode, churnSeries, allActivityRows]
@@ -4798,12 +4835,28 @@ export default function AnalyticsPage() {
     const churnWindow = windowChange(churnTrendChart.values);
     const windowLabel = mrrRange === "current" ? "this month" : periodLabel.toLowerCase();
 
+    // Follow the URL hash (back/forward buttons, pasted links) to the matching view.
+    useEffect(() => {
+        const onHash = () => {
+            const hash = window.location.hash.replace("#", "");
+            if ((METRICS_VIEWS as readonly string[]).includes(hash)) setView(hash as MetricsView);
+            else if (!hash) setView("overview");
+        };
+        window.addEventListener("hashchange", onHash);
+        return () => window.removeEventListener("hashchange", onHash);
+    }, []);
+
     // ⌘K / Ctrl+K opens Ask Claude.
     useEffect(() => {
         const onKey = (event: KeyboardEvent) => {
             if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
                 event.preventDefault();
-                setAskOpen(true);
+                setView("ask");
+                try {
+                    if (window.location.hash !== "#ask") window.history.pushState(null, "", "#ask");
+                } catch {
+                    // Not critical.
+                }
             }
         };
         window.addEventListener("keydown", onKey);
@@ -4914,8 +4967,9 @@ export default function AnalyticsPage() {
         return { list, total };
     }, [queueRows]);
 
+    // Opens the Ask Claude page, sending the question straight away if there is one.
     function openAsk(question?: string) {
-        setAskOpen(true);
+        selectView("ask");
         if (question) setAskRequest({ question, id: Date.now() });
     }
 
@@ -5001,6 +5055,51 @@ export default function AnalyticsPage() {
         </div>
     );
 
+    const openCount = queueRows.filter((row) => !isHandled(row)).length;
+    const navItems: NavItem[] = [
+        { id: "overview", label: "Overview", icon: <LayoutGrid size={15} strokeWidth={1.8} /> },
+        { id: "retention", label: "Retention", icon: <Repeat size={15} strokeWidth={1.8} /> },
+        {
+            id: "accounts",
+            label: "Accounts to act on",
+            icon: <ListChecks size={15} strokeWidth={1.8} />,
+            badge: hasAiRevenueAccess && openCount ? openCount : null,
+        },
+        { id: "ask", label: "Ask Claude", icon: <Sparkles size={15} strokeWidth={1.8} />, badge: "⌘K" },
+    ];
+
+    function selectView(next: string) {
+        if (!(METRICS_VIEWS as readonly string[]).includes(next)) return;
+        setView(next as MetricsView);
+        try {
+            if (window.location.hash !== `#${next}`) window.history.pushState(null, "", `#${next}`);
+        } catch {
+            // Not critical.
+        }
+        document.getElementById("metrics-top")?.scrollIntoView({ block: "start" });
+    }
+
+    // Accounts view: Open / Handled / All, highest priority and value first.
+    const PRIORITY_RANK: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
+    const accountCounts = {
+        open: filteredRecoveryRows.filter((row) => !isHandled(row)).length,
+        handled: filteredRecoveryRows.filter((row) => isHandled(row)).length,
+        all: filteredRecoveryRows.length,
+    };
+    const accountRows = filteredRecoveryRows
+        .filter((row) => (accountsTab === "all" ? true : accountsTab === "handled" ? isHandled(row) : !isHandled(row)))
+        .sort(
+            (a, b) =>
+                (PRIORITY_RANK[getQueueImpactLabel(a)] ?? 3) - (PRIORITY_RANK[getQueueImpactLabel(b)] ?? 3) ||
+                Number(b.valueMinor || 0) - Number(a.valueMinor || 0)
+        );
+    const accountPageCount = Math.max(1, Math.ceil(accountRows.length / RECOVERY_ROWS_PER_PAGE));
+    const accountPage = Math.min(recoveryPage, accountPageCount - 1);
+    const accountPageRows = accountRows.slice(
+        accountPage * RECOVERY_ROWS_PER_PAGE,
+        (accountPage + 1) * RECOVERY_ROWS_PER_PAGE
+    );
+
     let content: ReactNode = null;
 
     if (status === "checking" || loading) {
@@ -5016,11 +5115,10 @@ export default function AnalyticsPage() {
             <>
                 <div className={styles.header}>
                     <div>
-                        <h1 className={styles.title}>Metrics</h1>
+                        <p className={metricStyles.crumb}>Metrics</p>
+                        <h1 className={styles.title}>{VIEW_META[view].title}</h1>
 
-                        <p className={styles.subtitle}>
-                            Revenue, churn and user trends, what Claude thinks they mean, and the accounts to act on.
-                        </p>
+                        <p className={styles.subtitle}>{VIEW_META[view].subtitle}</p>
                         <p className={metricStyles.syncNote}>
                             <i aria-hidden="true" />
                             {isDemoMode ? "Demo data" : "Live data"}
@@ -5029,6 +5127,7 @@ export default function AnalyticsPage() {
                     </div>
 
                     <div className={metricStyles.toolbar}>
+                        {view === "overview" || view === "retention" ? (
                         <div className={metricStyles.segmented} role="tablist" aria-label="Period">
                             {PERIODS.map((option) => (
                                 <button
@@ -5043,21 +5142,9 @@ export default function AnalyticsPage() {
                                 </button>
                             ))}
                         </div>
-                        <button
-                            type="button"
-                            className={`${metricStyles.button} ${showCompare ? metricStyles.buttonOn : ""}`}
-                            onClick={() => setCompare((on) => !on)}
-                            aria-pressed={showCompare}
-                            disabled={!canCompare}
-                            title={
-                                canCompare
-                                    ? "Show the previous period as a dashed line on the MRR and churn charts"
-                                    : `Needs ${periodN * 2} months of history to compare with the previous period`
-                            }
-                        >
-                            <GitCompareArrows size={14} strokeWidth={1.8} aria-hidden="true" />
-                            Compare
-                        </button>
+                        ) : null}
+                        {view !== "ask" ? (
+                        <>
                         <div className={metricStyles.exportWrap}>
                             <button
                                 type="button"
@@ -5088,6 +5175,8 @@ export default function AnalyticsPage() {
                             Ask Claude
                             <kbd className={metricStyles.kbd}>⌘K</kbd>
                         </button>
+                        </>
+                        ) : null}
                     </div>
                 </div>
                 {actionToast ? (
@@ -5104,46 +5193,59 @@ export default function AnalyticsPage() {
                     </div>
                 ) : null}
 
+                {/* Ask Claude page: stays mounted while hidden so the chat isn't lost. */}
+                <AskClaudePanel
+                    variant="page"
+                    open={view === "ask"}
+                    onClose={() => selectView("overview")}
+                    request={askRequest}
+                    snapshot={claudeSnapshot}
+                    accounts={askAccounts}
+                />
+
+                {view === "overview" ? (
+                <>
                 {/* KPI strip: click a tile to jump to its chart */}
-                <div className={metricStyles.kpiTiles}>
+                <div id="metrics-summary" className={metricStyles.kpiTiles}>
                     <KpiTile
-                        label="Total revenue"
+                        label="Monthly recurring revenue"
+                        info="Total revenue from all active subscriptions this month. It's the clearest single measure of how the business is growing."
                         value={formatCurrencyFromMinor(demoKpis.totalMrr, workspaceCurrency)}
                         change={kpiCompare.mrr.change}
                         changeLabel={kpiCompare.mrr.label}
                         better="up"
-                        spark={mrrTrendChart.values}
-                        onClick={() => jumpTo("metrics-mrr")}
-                        title="Show the MRR chart"
+                        actionLabel="View chart"
+                        onAction={() => jumpTo("metrics-mrr")}
                     />
                     <KpiTile
                         label="Revenue at risk"
+                        info="Monthly revenue from customers showing signs they may cancel or not pay, such as failed payments or falling usage. Act on these first."
                         value={formatCurrencyFromMinor(demoKpis.mrrAtRisk, workspaceCurrency)}
                         change={atRiskChange}
                         changeLabel="vs previous month"
                         better="down"
-                        onClick={() => jumpTo("metrics-risk")}
-                        title="Show where the revenue at risk is"
+                        actionLabel="View accounts"
+                        onAction={() => selectView("accounts")}
                     />
                     <KpiTile
-                        label="Churn rate"
+                        label="Monthly churn rate"
+                        info="The share of subscribers who cancelled this month. Lower is better: every customer you keep adds to next month's revenue."
                         value={formatPct(demoKpis.churnPct)}
                         change={kpiCompare.churn.change}
                         changeLabel={kpiCompare.churn.label}
                         better="down"
-                        spark={churnTrendChart.values}
-                        onClick={() => jumpTo("metrics-churn")}
-                        title="Show the churn chart"
+                        actionLabel="View chart"
+                        onAction={() => jumpTo("metrics-churn")}
                     />
                     <KpiTile
-                        label="Total subscribers"
+                        label="Active subscribers"
+                        info="Customers with a paid subscription right now. Growth here with steady churn means your customer base is compounding."
                         value={String(subscriberTotal)}
                         change={kpiCompare.subs.change}
                         changeLabel={kpiCompare.subs.label}
                         better="up"
-                        spark={subscriberChartRows.map((row) => Number(row.totalSubscribers || 0))}
-                        onClick={() => jumpTo("metrics-subscribers")}
-                        title="Show the subscriber chart"
+                        actionLabel="View chart"
+                        onAction={() => jumpTo("metrics-subscribers")}
                     />
                 </div>
 
@@ -5154,11 +5256,15 @@ export default function AnalyticsPage() {
                     onNotes={handleChartNotes}
                     periodLabel={periodLabel}
                 />
+                </>
+                ) : null}
 
                 <div className={styles.analyticsLayout}>
+                    {view === "overview" ? (
+                    <>
                     <div className={styles.sectionHeading}>
-                        <h2>Overview</h2>
-                        <p>Revenue, churn, subscribers and the revenue at stake.</p>
+                        <h2>Revenue and churn</h2>
+                        <p>How recurring revenue, cancellations and your customer base are trending.</p>
                     </div>
 
                     <section className={metricStyles.chartGrid}>
@@ -5166,7 +5272,13 @@ export default function AnalyticsPage() {
                         <div id="metrics-mrr" className={`${styles.revenueOverviewCard} ${metricStyles.gridCard} ${flash("metrics-mrr")}`}>
                             <div className={styles.revenueOverviewHeader}>
                                 <div>
-                                    <h3>MRR</h3>
+                                    <h3>
+                                        Monthly recurring revenue
+                                        <InfoTip
+                                            label="Monthly recurring revenue"
+                                            text="Your recurring revenue month by month. A steady upward line means new and existing customers are adding more than you lose to cancellations."
+                                        />
+                                    </h3>
                                 </div>
                                 {hasAiRevenueAccess ? (
                                     <div className={metricStyles.segmented} role="tablist" aria-label="MRR view">
@@ -5297,7 +5409,7 @@ export default function AnalyticsPage() {
                             {hasAiRevenueAccess ? (
                                 <div className={`${styles.revenueOverviewStats} ${metricStyles.statsGrid}`}>
                                     <div>
-                                        <span>Forecast MRR</span>
+                                        <span>Next month forecast</span>
                                         <strong>{formatMoneyAmount(projectedMrr, workspaceCurrency)}</strong>
                                         <small className={styles.statComparison}>
                                             {renderDelta(forecastMrrDeltaPct)}
@@ -5305,7 +5417,7 @@ export default function AnalyticsPage() {
                                         </small>
                                     </div>
                                     <div>
-                                        <span>Acquired users</span>
+                                        <span>New subscribers</span>
                                         <strong>{acquiredUsers}</strong>
                                         <small className={styles.statComparison}>
                                             {renderDelta(acquiredUsersDeltaPct)}
@@ -5313,7 +5425,7 @@ export default function AnalyticsPage() {
                                         </small>
                                     </div>
                                     <div>
-                                        <span>Retained users</span>
+                                        <span>Returning subscribers</span>
                                         <strong>{retainedUsers}</strong>
                                         <small className={styles.statComparison}>
                                             {renderDelta(retainedUsersDeltaPct)}
@@ -5321,7 +5433,7 @@ export default function AnalyticsPage() {
                                         </small>
                                     </div>
                                     <div>
-                                        <span>Revenue protected</span>
+                                        <span>Revenue saved</span>
                                         <strong>{formatCurrencyFromMinor(demoKpis.mrrProtected, workspaceCurrency)}</strong>
                                         <small className={styles.statComparison}>
                                             {renderDelta(protectedDeltaPct)}
@@ -5329,18 +5441,10 @@ export default function AnalyticsPage() {
                                         </small>
                                     </div>
                                     <div>
-                                        <span>Expansion MRR</span>
+                                        <span>Upgrade revenue</span>
                                         <strong>{formatCurrencyFromMinor(expansionMrrMinor, workspaceCurrency)}</strong>
                                         <small className={styles.statComparison}>
                                             {renderDelta(expansionMrrDeltaPct)}
-                                            <span>vs previous month</span>
-                                        </small>
-                                    </div>
-                                    <div>
-                                        <span>AI confidence</span>
-                                        <strong>{aiConfidenceScore}%</strong>
-                                        <small className={styles.statComparison}>
-                                            {renderDelta(mrrDeltaPct)}
                                             <span>vs previous month</span>
                                         </small>
                                     </div>
@@ -5352,7 +5456,13 @@ export default function AnalyticsPage() {
                         <div id="metrics-churn" className={`${styles.revenueOverviewCard} ${styles.churnOverviewCard} ${metricStyles.gridCard} ${flash("metrics-churn")}`}>
                             <div className={styles.revenueOverviewHeader}>
                                 <div>
-                                    <h3>Churn</h3>
+                                    <h3>
+                                        Churn rate
+                                        <InfoTip
+                                            label="Churn rate"
+                                            text="The share of subscribers who cancel each month. A falling line means customers are staying longer, so each new sign-up is worth more."
+                                        />
+                                    </h3>
                                 </div>
                                 {hasAiRevenueAccess ? (
                                     <div className={metricStyles.segmented} role="tablist" aria-label="Churn view">
@@ -5431,7 +5541,7 @@ export default function AnalyticsPage() {
                             {hasAiRevenueAccess ? (
                                 <div className={`${styles.revenueOverviewStats} ${styles.churnForecastStats} ${metricStyles.statsGrid}`}>
                                     <div>
-                                        <span>Forecast churn</span>
+                                        <span>Forecast churn rate</span>
                                         <strong>{formatPct(projectedChurn)}</strong>
                                         <small className={styles.statComparison}>
                                             {renderDeltaPp(
@@ -5444,7 +5554,7 @@ export default function AnalyticsPage() {
                                         </small>
                                     </div>
                                     <div>
-                                        <span>Forecast churned users</span>
+                                        <span>Expected cancellations</span>
                                         <strong>{forecastChurnedUsers}</strong>
                                         <small className={styles.statComparison}>
                                             {renderDelta(forecastChurnedUsersDeltaPct, true)}
@@ -5468,18 +5578,10 @@ export default function AnalyticsPage() {
                                         </small>
                                     </div>
                                     <div>
-                                        <span>Revenue lost</span>
+                                        <span>Revenue lost to churn</span>
                                         <strong>{formatCurrencyFromMinor(revenueLostMinor, workspaceCurrency)}</strong>
                                         <small className={styles.statComparison}>
                                             {renderDelta(revenueLostDeltaPct, true)}
-                                            <span>vs previous month</span>
-                                        </small>
-                                    </div>
-                                    <div>
-                                        <span>AI confidence</span>
-                                        <strong>{aiConfidenceScore}%</strong>
-                                        <small className={styles.statComparison}>
-                                            {renderDelta(typeof churnDeltaPp === "number" ? -churnDeltaPp : null)}
                                             <span>vs previous month</span>
                                         </small>
                                     </div>
@@ -5491,8 +5593,14 @@ export default function AnalyticsPage() {
                         <div id="metrics-subscribers" className={`${styles.activeUsersCard} ${metricStyles.gridCard} ${flash("metrics-subscribers")}`}>
                             <div className={styles.activeUsersHeader}>
                                 <div>
-                                    <div className={styles.chartTitle}>User Metrics</div>
-                                    <div className={styles.chartMeta}>Compared from last month</div>
+                                    <div className={styles.chartTitle}>
+                                        Subscribers
+                                        <InfoTip
+                                            label="Subscribers"
+                                            text="Active subscribers each month, split into returning customers and new sign-ups. Use it to see whether growth comes from keeping customers or only from winning new ones."
+                                        />
+                                    </div>
+                                    <div className={styles.chartMeta}>Returning and new subscribers by month</div>
                                 </div>
 
                                 <ExplainButton
@@ -5523,10 +5631,16 @@ export default function AnalyticsPage() {
                             <section id="metrics-risk" className={`${metricStyles.riskCard} ${metricStyles.gridCard} ${flash("metrics-risk")}`} aria-labelledby="risk-breakdown-title">
                                 <div className={metricStyles.riskHead}>
                                     <div>
-                                        <h3 id="risk-breakdown-title">Where the revenue is</h3>
+                                        <h3 id="risk-breakdown-title">
+                                            Recoverable revenue
+                                            <InfoTip
+                                                label="Recoverable revenue"
+                                                text="Revenue you can still save or grow, grouped by what it takes: fixing failed payments, re-engaging quiet accounts, or offering upgrades. Start with the biggest bar."
+                                            />
+                                        </h3>
                                         <p>
                                             {formatCurrencyFromMinor(riskGroups.total, workspaceCurrency)} across{" "}
-                                            {queueRows.length} accounts, by type of opportunity.
+                                            {queueRows.length} accounts, grouped by the action needed.
                                         </p>
                                     </div>
                                     <ExplainButton
@@ -5577,259 +5691,298 @@ export default function AnalyticsPage() {
                             </section>
                         ) : null}
                     </section>
+                    </>
+                    ) : null}
 
-                    <div className={styles.sectionHeading}>
-                        <h2>Retention</h2>
-                        <p>How revenue moved, how much you kept, and how each month&apos;s customers stick.</p>
+                    {view === "retention" ? (
+                    <>
+                    <div className={`${metricStyles.kpiTiles} ${metricStyles.fullRow}`}>
+                        <KpiTile
+                            label="Net revenue retention"
+                            info="Revenue kept from existing customers over the period, including upgrades. Above 100% means existing customers grow faster than you lose them."
+                            value={retentionKpis.nrr !== null ? `${retentionKpis.nrr.toFixed(1)}%` : "—"}
+                            change={null}
+                            changeLabel={`${periodLabel.toLowerCase()} · estimated`}
+                            better="up"
+                        />
+                        <KpiTile
+                            label="Gross revenue retention"
+                            info="Revenue kept from existing customers before upgrades, so only losses count. It shows how well you hold on to what you already have."
+                            value={retentionKpis.grr !== null ? `${retentionKpis.grr.toFixed(1)}%` : "—"}
+                            change={null}
+                            changeLabel={`${periodLabel.toLowerCase()} · estimated`}
+                            better="up"
+                        />
+                        <KpiTile
+                            label="Avg monthly churn"
+                            info="The average share of subscribers who cancelled each month over the period."
+                            value={retentionKpis.avgChurn !== null ? `${retentionKpis.avgChurn.toFixed(1)}%` : "—"}
+                            change={null}
+                            changeLabel={periodLabel.toLowerCase()}
+                            better="down"
+                            actionLabel="View chart"
+                            onAction={() => {
+                                selectView("overview");
+                                window.setTimeout(() => jumpTo("metrics-churn"), 50);
+                            }}
+                        />
+                        <KpiTile
+                            label="Avg customer lifetime"
+                            info="Roughly how long a customer stays, worked out as 1 ÷ average monthly churn. Lower churn means customers stay longer."
+                            value={retentionKpis.lifetimeMonths !== null ? `${Math.round(retentionKpis.lifetimeMonths)} months` : "—"}
+                            change={null}
+                            changeLabel="based on average churn"
+                            better="up"
+                        />
                     </div>
 
-                    <section className={metricStyles.retentionGrid}>
-                        <RevenueMovementCard
-                            movement={mrrMovement}
-                            periodLabel={periodLabel}
-                            formatMoney={formatMajor}
-                            estimated
-                            onExplain={openAsk}
-                        />
+                    <RevenueMovementCard
+                        movement={mrrMovement}
+                        periodLabel={periodLabel}
+                        formatMoney={formatMajor}
+                        estimated
+                        onExplain={openAsk}
+                    />
+
+                    <section className={`${metricStyles.retentionGrid} ${metricStyles.fullRow}`}>
+                        <RetentionCurveCard cohorts={cohorts} isDemo={isDemoMode} onExplain={openAsk} />
                         <CohortHeatmap cohorts={cohorts} isDemo={isDemoMode} onExplain={openAsk} />
                     </section>
+                    </>
+                    ) : null}
 
-                    {hasAiRevenueAccess ? (
-                        <>
-                            <div className={styles.sectionHeading}>
-                                <h2>Accounts to act on</h2>
-                                <p>Prioritised by revenue impact, with the recommended next step.</p>
+                    {view === "accounts" && !hasAiRevenueAccess ? (
+                        <div className={metricStyles.emptyState}>
+                            <strong>Accounts to act on is part of Pro</strong>
+                            <span>Upgrade to see which accounts have revenue at stake and what to do next.</span>
+                        </div>
+                    ) : null}
+
+                    {view === "accounts" && hasAiRevenueAccess ? (
+                        <section className={`${metricStyles.acctCard} ${metricStyles.fullRow}`} aria-label="Accounts to act on">
+                            <div className={metricStyles.acctToolbar}>
+                                <div className={metricStyles.acctTabs} role="tablist" aria-label="Account status">
+                                    {([
+                                        ["open", "Open"],
+                                        ["handled", "Handled"],
+                                        ["all", "All"],
+                                    ] as const).map(([key, label]) => (
+                                        <button
+                                            key={key}
+                                            type="button"
+                                            role="tab"
+                                            aria-selected={accountsTab === key}
+                                            onClick={() => {
+                                                setAccountsTab(key);
+                                                setRecoveryPage(0);
+                                            }}
+                                        >
+                                            {label}
+                                            <span>{accountCounts[key]}</span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className={metricStyles.acctTools}>
+                                    <label className={metricStyles.acctSearch}>
+                                        <Search size={14} strokeWidth={1.8} aria-hidden="true" />
+                                        <input
+                                            type="search"
+                                            value={recoverySearchQuery}
+                                            onChange={(event) => setRecoverySearchQuery(event.target.value)}
+                                            placeholder="Search accounts"
+                                            aria-label="Search accounts"
+                                        />
+                                    </label>
+                                    <select
+                                        className={metricStyles.acctSelect}
+                                        value={recoveryFilter}
+                                        onChange={(event) => setRecoveryFilter(event.target.value)}
+                                        aria-label="Filter accounts"
+                                    >
+                                        <option value="all">All types</option>
+                                        <optgroup label="Opportunity">
+                                            <option value="opportunity:immediate attention">Immediate attention</option>
+                                            <option value="opportunity:billing recovery">Billing recovery</option>
+                                            <option value="opportunity:upsell opportunity">Upsell opportunity</option>
+                                            <option value="opportunity:reactivation">Reactivation</option>
+                                            <option value="opportunity:expansion momentum">Expansion momentum</option>
+                                        </optgroup>
+                                        <optgroup label="Priority">
+                                            <option value="impact:high">High priority</option>
+                                            <option value="impact:medium">Medium priority</option>
+                                            <option value="impact:low">Low priority</option>
+                                        </optgroup>
+                                        <optgroup label="Next step">
+                                            <option value="action:payment">Retry payment</option>
+                                            <option value="action:email">Send email</option>
+                                            <option value="action:check-in">Check-in</option>
+                                            <option value="action:expansion">Expansion</option>
+                                        </optgroup>
+                                    </select>
+                                </div>
                             </div>
 
-                            <div className={styles.impactTablesGrid}>
-                                <section className={styles.customerImpactTableCard}>
-                                    <div className={styles.customerImpactTableTop}>
-                                        <div>
-                                            <h3>Revenue Impact Queue</h3>
-                                            <p>Prioritised accounts and the recommended next action.</p>
-                                        </div>
-
-                                        <div className={styles.customerImpactTableTools}>
-                                            <div className={styles.customerImpactSearch}>
-                                                <Search size={14} strokeWidth={1.8} />
-                                                <input
-                                                    type="search"
-                                                    value={recoverySearchQuery}
-                                                    onChange={(event) => setRecoverySearchQuery(event.target.value)}
-                                                    placeholder="Search"
-                                                    aria-label="Search revenue impact queue"
-                                                />
-                                            </div>
-
-                                            <div className={styles.chartFilterWrap}>
-                                                <button
-                                                    type="button"
-                                                    className={styles.chartFilterButton}
-                                                    onClick={() => setRecoveryFilterOpen((open) => !open)}
-                                                    aria-expanded={recoveryFilterOpen}
-                                                    aria-haspopup="menu"
-                                                >
-                                                    {({
-                                                        all: "All accounts",
-                                                        "opportunity:immediate attention": "Immediate attention",
-                                                        "opportunity:billing recovery": "Billing recovery",
-                                                        "opportunity:upsell opportunity": "Upsell opportunity",
-                                                        "opportunity:reactivation": "Reactivation",
-                                                        "opportunity:expansion momentum": "Expansion momentum",
-                                                        "impact:high": "High impact",
-                                                        "impact:medium": "Medium impact",
-                                                        "impact:low": "Low impact",
-                                                        "action:payment": "Retry payment",
-                                                        "action:email": "Send email",
-                                                        "action:check-in": "Check-in",
-                                                        "action:expansion": "Expansion",
-                                                    } as Record<string, string>)[recoveryFilter] || "All accounts"}
-                                                    <ChevronDown size={13} />
-                                                </button>
-
-                                                {recoveryFilterOpen && (
-                                                    <div className={`${styles.chartFilterMenu} ${styles.recoveryFilterMenu}`} role="menu">
-                                                        {[
-                                                            ["all", "All accounts"],
-                                                            ["opportunity:immediate attention", "Immediate attention"],
-                                                            ["opportunity:billing recovery", "Billing recovery"],
-                                                            ["opportunity:upsell opportunity", "Upsell opportunity"],
-                                                            ["opportunity:reactivation", "Reactivation"],
-                                                            ["opportunity:expansion momentum", "Expansion momentum"],
-                                                            ["impact:high", "High impact"],
-                                                            ["impact:medium", "Medium impact"],
-                                                            ["impact:low", "Low impact"],
-                                                            ["action:payment", "Retry payment"],
-                                                            ["action:email", "Send email"],
-                                                            ["action:check-in", "Check-in"],
-                                                            ["action:expansion", "Expansion"],
-                                                        ].map(([value, label]) => (
+                            <div className={metricStyles.acctTableWrap}>
+                                <table className={metricStyles.acctTable}>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Account</th>
+                                            <th scope="col">Priority</th>
+                                            <th scope="col">Opportunity</th>
+                                            <th scope="col" className={metricStyles.acctNum}>At stake</th>
+                                            <th scope="col">Next step</th>
+                                            <th scope="col"><span className={metricStyles.srOnly}>Actions</span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {recoveryLoading ? (
+                                            <tr>
+                                                <td colSpan={6} className={metricStyles.acctEmpty}>Loading accounts…</td>
+                                            </tr>
+                                        ) : recoveryError ? (
+                                            <tr>
+                                                <td colSpan={6} className={metricStyles.acctEmpty}>{recoveryError}</td>
+                                            </tr>
+                                        ) : accountPageRows.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={6} className={metricStyles.acctEmpty}>
+                                                    <strong>
+                                                        {accountsTab === "open" && accountCounts.all > 0
+                                                            ? "All caught up"
+                                                            : accountsTab === "handled"
+                                                                ? "Nothing marked handled yet"
+                                                                : "No accounts found"}
+                                                    </strong>
+                                                    <span>
+                                                        {accountsTab === "open" && accountCounts.all > 0
+                                                            ? "Every account in this list has been handled."
+                                                            : recoverySearchQuery || recoveryFilter !== "all"
+                                                                ? "Try a different search or filter."
+                                                                : "Accounts with revenue at stake appear here automatically."}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            accountPageRows.map((row) => {
+                                                const priority = getQueueImpactLabel(row);
+                                                const nextStep = row.suggestedAction || row.action || "Review account";
+                                                const isPayment = isBillingRecoveryRow(row);
+                                                const handled = isHandled(row);
+                                                return (
+                                                    <tr
+                                                        key={`${row.id}-${row.type || "recovery"}`}
+                                                        className={handled ? metricStyles.acctRowHandled : undefined}
+                                                        onClick={() => setDrawerRow(row)}
+                                                    >
+                                                        <td>
                                                             <button
-                                                                key={value}
                                                                 type="button"
-                                                                role="menuitem"
-                                                                className={`${styles.chartFilterOption} ${recoveryFilter === value ? styles.chartFilterOptionActive : ""}`}
-                                                                onClick={() => {
-                                                                    setRecoveryFilter(value);
-                                                                    setRecoveryFilterOpen(false);
+                                                                className={metricStyles.acctName}
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    setDrawerRow(row);
                                                                 }}
                                                             >
-                                                                {label}
+                                                                <span className={metricStyles.acctAvatar} aria-hidden="true">
+                                                                    {row.name.trim().charAt(0).toUpperCase() || "?"}
+                                                                </span>
+                                                                <span>
+                                                                    <strong>{row.name}</strong>
+                                                                    <small>{row.email || getQueueDomain(row)}</small>
+                                                                </span>
                                                             </button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className={styles.customerImpactTableViewport}>
-                                        <table className={styles.customerImpactTable}>
-                                            <thead>
-                                                <tr>
-                                                    <th>Account</th>
-                                                    <th>Opportunity</th>
-                                                    <th>Suggested action</th>
-                                                    <th>Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {recoveryLoading ? (
-                                                    <tr>
-                                                        <td colSpan={4} className={styles.customerImpactEmpty}>Loading revenue impact queue...</td>
-                                                    </tr>
-                                                ) : recoveryError ? (
-                                                    <tr>
-                                                        <td colSpan={4} className={styles.customerImpactEmpty}>{recoveryError}</td>
-                                                    </tr>
-                                                ) : visibleRecoveryRows.length === 0 ? (
-                                                    <tr>
-                                                        <td colSpan={4} className={styles.customerImpactEmpty}>
-                                                            <strong>No accounts found.</strong>
-                                                            <span>Accounts requiring action will appear here automatically.</span>
+                                                        </td>
+                                                        <td>
+                                                            <span className={`${metricStyles.acctPriority} ${metricStyles[`prio_${priority.toLowerCase()}`] ?? ""}`}>
+                                                                <i aria-hidden="true" />
+                                                                {priority}
+                                                            </span>
+                                                        </td>
+                                                        <td className={metricStyles.acctMuted}>{row.opportunity || formatQueueType(row.type)}</td>
+                                                        <td className={metricStyles.acctNum}>
+                                                            {formatCurrencyFromMinor(Number(row.valueMinor || 0), workspaceCurrency)}
+                                                        </td>
+                                                        <td className={metricStyles.acctStep}>{nextStep}</td>
+                                                        <td className={metricStyles.acctActions}>
+                                                            {handled ? (
+                                                                <span className={metricStyles.acctDone}>
+                                                                    <Check size={13} strokeWidth={2} aria-hidden="true" />
+                                                                    Handled
+                                                                </span>
+                                                            ) : (
+                                                                <button
+                                                                    type="button"
+                                                                    className={metricStyles.acctBtn}
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
+                                                                        if (isPayment) void handleExecuteRecoveryAction(row);
+                                                                        else openRecoveryEmailModal(row);
+                                                                    }}
+                                                                >
+                                                                    {isPayment ? (
+                                                                        <RotateCcw size={13} strokeWidth={1.8} aria-hidden="true" />
+                                                                    ) : (
+                                                                        <Mail size={13} strokeWidth={1.8} aria-hidden="true" />
+                                                                    )}
+                                                                    {isPayment ? "Retry payment" : "Email"}
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                className={`${metricStyles.acctIconBtn} ${handled ? metricStyles.acctIconBtnOn : ""}`}
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    toggleHandled(row);
+                                                                }}
+                                                                aria-pressed={handled}
+                                                                aria-label={handled ? `Mark ${row.name} not handled` : `Mark ${row.name} handled`}
+                                                                title={handled ? "Mark not handled" : "Mark handled"}
+                                                            >
+                                                                <Check size={14} strokeWidth={2} aria-hidden="true" />
+                                                            </button>
                                                         </td>
                                                     </tr>
-                                                ) : (
-                                                    (["High", "Medium", "Low"] as const).flatMap((level) => {
-                                                        const group = visibleRecoveryRows.filter(
-                                                            (row) => getQueueImpactLabel(row) === level
-                                                        );
-                                                        if (!group.length) return [];
-
-                                                        return [
-                                                            <tr key={`group-${level}`} className={styles.queueGroupRow}>
-                                                                <td colSpan={4}>
-                                                                    <span className={`${styles.queueGroupLabel} ${styles[`queueGroup_${level.toLowerCase()}`]}`}>
-                                                                        {level} priority
-                                                                    </span>
-                                                                    <em>
-                                                                        {group.length} account{group.length === 1 ? "" : "s"}
-                                                                    </em>
-                                                                </td>
-                                                            </tr>,
-                                                            ...group.map((row) => {
-                                                        const actionText = row.suggestedAction || row.action || "Review account";
-                                                        const isPaymentAction = isBillingRecoveryRow(row);
-
-                                                        return (
-                                                            <tr
-                                                                key={`${row.id}-${row.type || "recovery"}`}
-                                                                className={isHandled(row) ? metricStyles.rowHandled : undefined}
-                                                            >
-                                                                <td>
-                                                                    <button
-                                                                        type="button"
-                                                                        className={styles.customerImpactAccount}
-                                                                        onClick={() => setDrawerRow(row)}
-                                                                        title="Show account details"
-                                                                    >
-                                                                        <strong>
-                                                                            {row.name}
-                                                                            {isHandled(row) ? (
-                                                                                <em className={metricStyles.handledBadge}>
-                                                                                    <Check size={10} strokeWidth={2.2} aria-hidden="true" />
-                                                                                    Handled
-                                                                                </em>
-                                                                            ) : null}
-                                                                        </strong>
-                                                                        <span>{row.email || getQueueDomain(row)}</span>
-                                                                    </button>
-                                                                </td>
-                                                                <td>
-                                                                    <span className={`${styles.customerImpactPill} ${styles[`impactOpportunity_${getQueueTone(row.type)}`]}`}>
-                                                                        {row.opportunity || formatQueueType(row.type)}
-                                                                    </span>
-                                                                </td>
-                                                                <td><p className={styles.customerImpactCopy}>{actionText}</p></td>
-                                                                <td>
-                                                                    <div className={metricStyles.rowActions}>
-                                                                    <button
-                                                                        type="button"
-                                                                        className={styles.customerImpactAction}
-                                                                        onClick={() => {
-                                                                            if (isPaymentAction) {
-                                                                                void handleExecuteRecoveryAction(row);
-                                                                            } else {
-                                                                                openRecoveryEmailModal(row);
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        {isPaymentAction ? <RotateCcw size={13} strokeWidth={1.8} /> : <Mail size={13} strokeWidth={1.8} />}
-                                                                        {isPaymentAction ? "Retry payment" : "Send email"}
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        className={`${metricStyles.handleButton} ${isHandled(row) ? metricStyles.handleButtonOn : ""}`}
-                                                                        onClick={() => toggleHandled(row)}
-                                                                        aria-pressed={isHandled(row)}
-                                                                        aria-label={isHandled(row) ? `Mark ${row.name} not handled` : `Mark ${row.name} handled`}
-                                                                        title={isHandled(row) ? "Mark not handled" : "Mark handled"}
-                                                                    >
-                                                                        <Check size={13} strokeWidth={2} aria-hidden="true" />
-                                                                    </button>
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                            }),
-                                                        ];
-                                                    })
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    <div className={styles.customerImpactTableBottom}>
-                                        <p>
-                                            Showing {visibleRecoveryRows.length} of {filteredRecoveryRows.length} accounts
-                                            {(() => {
-                                                const done = filteredRecoveryRows.filter((row) => isHandled(row)).length;
-                                                return done ? ` · ${done} handled` : "";
-                                            })()}
-                                        </p>
-                                        <div className={styles.customerImpactPager}>
-                                            <button
-                                                type="button"
-                                                disabled={recoveryPage <= 0}
-                                                onClick={() => setRecoveryPage((page) => Math.max(0, page - 1))}
-                                                aria-label="Previous page"
-                                            >
-                                                ‹
-                                            </button>
-                                            <button type="button" className={styles.customerImpactCurrentPage}>{recoveryPage + 1}</button>
-                                            <button
-                                                type="button"
-                                                disabled={recoveryPage >= recoveryPageCount - 1}
-                                                onClick={() => setRecoveryPage((page) => Math.min(recoveryPageCount - 1, page + 1))}
-                                                aria-label="Next page"
-                                            >
-                                                ›
-                                            </button>
-                                        </div>
-                                    </div>
-                                </section>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
-                        </>
+
+                            <div className={metricStyles.acctFooter}>
+                                <span>
+                                    {accountRows.length
+                                        ? `${accountPage * RECOVERY_ROWS_PER_PAGE + 1}–${Math.min(
+                                            (accountPage + 1) * RECOVERY_ROWS_PER_PAGE,
+                                            accountRows.length
+                                        )} of ${accountRows.length}`
+                                        : "0 accounts"}
+                                    {" · "}
+                                    {formatCurrencyFromMinor(
+                                        accountRows.reduce((sum, row) => sum + Number(row.valueMinor || 0), 0),
+                                        workspaceCurrency
+                                    )}{" "}
+                                    at stake
+                                </span>
+                                <div className={metricStyles.acctPager}>
+                                    <button
+                                        type="button"
+                                        disabled={accountPage <= 0}
+                                        onClick={() => setRecoveryPage(Math.max(0, accountPage - 1))}
+                                    >
+                                        Previous
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={accountPage >= accountPageCount - 1}
+                                        onClick={() => setRecoveryPage(Math.min(accountPageCount - 1, accountPage + 1))}
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
+                        </section>
                     ) : null}
 
 
@@ -6002,14 +6155,19 @@ export default function AnalyticsPage() {
 
     return (
         <div className={styles.page}>
-            {content}
-            <AskClaudePanel
-                open={askOpen}
-                onClose={() => setAskOpen(false)}
-                request={askRequest}
-                snapshot={claudeSnapshot}
-                accounts={askAccounts}
-            />
+            {summary && status === "authed" && !loading && !error ? (
+                <div id="metrics-top" className={metricStyles.withNav}>
+                    <MetricsNav
+                        title="Metrics"
+                        items={navItems}
+                        active={view}
+                        onSelect={selectView}
+                    />
+                    <div className={metricStyles.navMain}>{content}</div>
+                </div>
+            ) : (
+                content
+            )}
             <AccountDrawer
                 account={drawerAccount}
                 handled={drawerRow ? isHandled(drawerRow) : false}

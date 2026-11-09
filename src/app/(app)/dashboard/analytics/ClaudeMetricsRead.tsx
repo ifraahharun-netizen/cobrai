@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, MessageCircleQuestion, Sparkles } from "lucide-react";
+import { MessageCircleQuestion, RefreshCw, Sparkles } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase.client";
 import type { ChartNote, MetricKey, MetricsRead, MetricsSnapshot } from "@/lib/ai/claudeMetricsRead";
@@ -60,7 +60,6 @@ export default function ClaudeMetricsRead({
         }
     });
     const [analysing, setAnalysing] = useState(false);
-    const [expanded, setExpanded] = useState(false);
     const [error, setError] = useState("");
 
     async function analyse() {
@@ -109,71 +108,36 @@ export default function ClaudeMetricsRead({
         onNotes?.(analysis?.read?.chartNotes ?? []);
     }, [analysis, onNotes]);
 
+    const stale = Boolean(read && analysis?.period && periodLabel && analysis.period !== periodLabel);
+    const topFindings = read ? read.findings.slice(0, 3) : [];
+
     return (
-        <section
-            className={`${styles.readCard} ${styles.readBar} ${expanded && read ? styles.readBarOpen : ""}`}
-            aria-labelledby="claude-read-title"
-        >
-            {/* One-line summary; expands to the full read. */}
+        <section className={`${styles.readCard} ${styles.readBar}`} aria-labelledby="claude-read-title">
             <div className={styles.readBarRow}>
                 <span className={styles.claudeTag}>
                     <Sparkles size={11} strokeWidth={2} aria-hidden="true" />
-                    Claude&apos;s read
+                    Claude&apos;s summary
                 </span>
 
                 {analysing ? (
                     <p id="claude-read-title" className={styles.readBarText}>
-                        Claude is reading your metrics…
+                        Reading your metrics…
                     </p>
                 ) : read ? (
-                    <button
-                        type="button"
-                        id="claude-read-title"
-                        className={styles.readBarHeadline}
-                        onClick={() => setExpanded((open) => !open)}
-                        aria-expanded={expanded}
-                    >
+                    <p id="claude-read-title" className={styles.readBarHeadlineText}>
                         {read.headline}
-                    </button>
+                    </p>
                 ) : (
                     <p id="claude-read-title" className={styles.readBarText}>
-                        Let Claude explain what&apos;s changing in your MRR, churn and revenue at risk, and what to do next.
+                        Get a plain-English summary of what changed and what to do next.
                     </p>
                 )}
 
                 <div className={styles.readBarActions}>
-                    {read && !analysing && analysis?.period ? (
-                        <span
-                            className={`${styles.readPeriod} ${periodLabel && analysis.period !== periodLabel ? styles.readPeriodStale : ""}`}
-                            title={
-                                periodLabel && analysis.period !== periodLabel
-                                    ? `Claude read ${analysis.period.toLowerCase()}. Re-analyse for ${periodLabel.toLowerCase()}.`
-                                    : undefined
-                            }
-                        >
-                            {analysis.period}
-                        </span>
-                    ) : null}
                     {read && !analysing ? (
                         <span className={`${styles.health} ${styles[`health_${read.health}`]}`}>
                             {HEALTH_LABEL[read.health]}
                         </span>
-                    ) : null}
-                    {read && !analysing ? (
-                        <button
-                            type="button"
-                            className={styles.button}
-                            onClick={() => setExpanded((open) => !open)}
-                            aria-expanded={expanded}
-                        >
-                            {expanded ? "Collapse" : "Expand"}
-                            <ChevronDown
-                                size={13}
-                                strokeWidth={1.8}
-                                aria-hidden="true"
-                                style={{ transform: expanded ? "rotate(180deg)" : undefined }}
-                            />
-                        </button>
                     ) : null}
                     {onAsk && read && !analysing ? (
                         <button
@@ -190,83 +154,63 @@ export default function ClaudeMetricsRead({
                         className={read ? styles.button : styles.buttonPrimary}
                         onClick={() => void analyse()}
                         disabled={analysing}
+                        title={read ? "Run Claude's summary again on the latest numbers" : undefined}
                     >
-                        <Sparkles size={14} strokeWidth={1.8} aria-hidden="true" />
-                        {analysing ? "Analysing…" : read ? "Re-analyse" : "Analyse with Claude"}
+                        {read ? (
+                            <RefreshCw size={13} strokeWidth={1.8} aria-hidden="true" />
+                        ) : (
+                            <Sparkles size={14} strokeWidth={1.8} aria-hidden="true" />
+                        )}
+                        {analysing ? "Analysing…" : read ? "Refresh" : "Summarise"}
                     </button>
                 </div>
             </div>
 
             {error ? <div className={styles.error} role="alert">{error}</div> : null}
 
-            {expanded && read && !analysing ? (
-                <div className={styles.readBarBody}>
-                    <p className={styles.readSummary}>{read.summary}</p>
+            {read && !analysing && topFindings.length ? (
+                <ul className={styles.readPoints}>
+                    {topFindings.map((finding) => (
+                        <li key={finding.metric}>
+                            <span className={`${styles.readPointMetric} ${styles[`sentiment_${finding.sentiment}`]}`}>
+                                {METRIC_LABEL[finding.metric]}
+                            </span>
+                            <span className={styles.readPointText}>
+                                <strong>{finding.title}</strong>
+                                <span>{finding.action}</span>
+                            </span>
+                            {onAsk ? (
+                                <button
+                                    type="button"
+                                    className={styles.readPointAsk}
+                                    onClick={() =>
+                                        onAsk(
+                                            `Tell me more about "${finding.title}" (${METRIC_LABEL[finding.metric]}). ${finding.observation} What's behind it, which accounts are involved, and how do I "${finding.action}"?`
+                                        )
+                                    }
+                                    aria-label={`Ask Claude about ${finding.title}`}
+                                >
+                                    Ask
+                                </button>
+                            ) : null}
+                        </li>
+                    ))}
+                </ul>
+            ) : null}
 
-                    <div className={styles.findings}>
-                        {read.findings.map((finding) => (
-                            <article key={finding.metric} className={styles.finding}>
-                                <span className={`${styles.findingMetric} ${styles[`sentiment_${finding.sentiment}`]}`}>
-                                    {METRIC_LABEL[finding.metric]}
-                                </span>
-                                <h3>{finding.title}</h3>
-                                <p>{finding.observation}</p>
-                                <p className={styles.findingWhy}>{finding.whyItMatters}</p>
-                                <p className={styles.findingAction}>→ {finding.action}</p>
-                                {onAsk ? (
-                                    <button
-                                        type="button"
-                                        className={styles.askLink}
-                                        onClick={() =>
-                                            onAsk(
-                                                `Tell me more about "${finding.title}" (${METRIC_LABEL[finding.metric]}). What's behind it, which accounts are involved, and how do I "${finding.action}"?`
-                                            )
-                                        }
-                                    >
-                                        <MessageCircleQuestion size={13} strokeWidth={1.8} aria-hidden="true" />
-                                        Ask Claude about this
-                                    </button>
-                                ) : null}
-                            </article>
-                        ))}
-                    </div>
-
-                    {read.watchNext.length ? (
-                        <div className={styles.watch}>
-                            <span>Watch next</span>
-                            <ul>
-                                {read.watchNext.map((item) =>
-                                    onAsk ? (
-                                        <li key={item}>
-                                            <button
-                                                type="button"
-                                                className={styles.watchButton}
-                                                onClick={() => onAsk(`How should I keep an eye on this: ${item}?`)}
-                                                title="Ask Claude about this"
-                                            >
-                                                {item}
-                                            </button>
-                                        </li>
-                                    ) : (
-                                        <li key={item}>{item}</li>
-                                    )
-                                )}
-                            </ul>
-                        </div>
-                    ) : null}
-
-                    <p className={styles.disclaimer}>
-                        {analysis
-                            ? `Analysed ${new Date(analysis.analysedAt).toLocaleString("en-GB", {
-                                  day: "numeric",
-                                  month: "short",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                              })}${analysis.metrics.source === "demo" ? " · demo data" : ""} · `
-                            : ""}
-                        Claude can make mistakes. Check before acting.
-                    </p>
-                </div>
+            {read && !analysing ? (
+                <p className={styles.readFoot}>
+                    {analysis
+                        ? `Analysed ${new Date(analysis.analysedAt).toLocaleString("en-GB", {
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                          })} · `
+                        : ""}
+                    {stale && analysis?.period ? `Based on ${analysis.period.toLowerCase()}. Refresh for ${periodLabel?.toLowerCase()}. · ` : ""}
+                    Claude can make mistakes. Check before acting.
+                </p>
             ) : null}
         </section>
     );

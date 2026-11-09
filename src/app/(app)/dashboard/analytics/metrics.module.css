@@ -2149,3 +2149,1626 @@ button.kpiTile:focus-visible {
     font-size: 11.5px !important;
     color: #9a9893 !important;
 }
+
+/* ======================================================================== */
+/* Console layout: separate KPI cards, info tips, compact Claude summary,   */
+/* text-link actions                                                        */
+/* ======================================================================== */
+
+/* KPI cards */
+.kpiTiles {
+    gap: 16px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    overflow: visible;
+}
+
+.kpiTile,
+.kpiTile:first-child,
+.kpiTile:nth-child(n) {
+    gap: 0;
+    padding: 18px 20px 16px;
+    border: 1px solid #e8e6df;
+    border-radius: 12px;
+    background: #fff;
+}
+
+.kpiTileTop {
+    align-items: center;
+    min-height: 20px;
+}
+
+.kpiTileLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #1f1e1b;
+}
+
+.kpiTileLink {
+    flex: none;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 12.5px;
+    color: #1f1e1b;
+    text-decoration: underline;
+    text-decoration-color: #c9c6bd;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.kpiTileLink:hover {
+    text-decoration-color: currentColor;
+}
+
+.kpiTileLink:focus-visible {
+    outline: 2px solid #3b6fe0;
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+.kpiTileValue {
+    margin-top: 12px;
+    font-size: 28px;
+    font-weight: 500;
+}
+
+.kpiTileSub {
+    margin-top: 4px;
+}
+
+.changeBadge,
+.change_good,
+.change_bad,
+.change_neutral {
+    padding: 0;
+    background: transparent;
+}
+
+/* Info tip */
+.infoTip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 2px;
+    vertical-align: middle;
+}
+
+.infoTipButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: #9a9893;
+    cursor: help;
+}
+
+.infoTipButton:hover {
+    color: #1f1e1b;
+}
+
+.infoTipButton:focus-visible {
+    color: #1f1e1b;
+    outline: 2px solid #3b6fe0;
+    outline-offset: 0;
+}
+
+.infoTipBubble {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    z-index: 60;
+    width: max-content;
+    max-width: 260px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #1f1e1b;
+    box-shadow: 0 6px 20px rgba(31, 30, 27, 0.14);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.45;
+    letter-spacing: 0;
+    text-align: left;
+    text-transform: none;
+    white-space: normal;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translate(-50%, -2px);
+    transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s;
+}
+
+.infoTip:hover .infoTipBubble,
+.infoTip:focus-within .infoTipBubble {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, 0);
+}
+
+/* Claude's summary: headline + up to three one-line points */
+.readBar {
+    padding: 14px 18px !important;
+    border-radius: 12px !important;
+}
+
+.readBarHeadlineText {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 500;
+    color: #1f1e1b;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.readPoints {
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid #f0eee8;
+}
+
+.readPoints li {
+    display: grid;
+    grid-template-columns: 140px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid #f0eee8;
+}
+
+.readPoints li:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.readPointMetric {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: #6f6e69 !important;
+}
+
+.readPointMetric::before {
+    content: "";
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #9a9893;
+}
+
+.readPointMetric.sentiment_good::before {
+    background: #2f8f5b;
+}
+
+.readPointMetric.sentiment_bad::before {
+    background: #d9534f;
+}
+
+.readPointText {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.readPointText strong {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    font-weight: 500;
+    color: #1f1e1b;
+    text-overflow: ellipsis;
+}
+
+.readPointText span {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    color: #6f6e69;
+    text-overflow: ellipsis;
+}
+
+.readPointAsk {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 12.5px;
+    color: #1f1e1b;
+    text-decoration: underline;
+    text-decoration-color: #c9c6bd;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.readPointAsk:hover {
+    text-decoration-color: currentColor;
+}
+
+.readFoot {
+    margin: 10px 0 0;
+    font-size: 11.5px;
+    color: #9a9893;
+}
+
+/* "Explain" actions read as quiet text links, like the Console */
+.explainButton {
+    padding: 0 !important;
+    border: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    font-size: 12.5px !important;
+    color: #1f1e1b !important;
+    text-decoration: underline;
+    text-decoration-color: #c9c6bd;
+    text-underline-offset: 3px;
+}
+
+.explainButton:hover {
+    text-decoration-color: currentColor;
+}
+
+.explainButton svg {
+    color: #d97757;
+}
+
+/* Cards: one border, one radius everywhere */
+.gridCard,
+.extraCard,
+.riskCard {
+    border: 1px solid #e8e6df !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
+    background: #fff !important;
+}
+
+.extraHead h3,
+.riskHead h3 {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.button,
+.buttonPrimary {
+    border-radius: 8px;
+}
+
+@media (max-width: 1000px) {
+    .kpiTiles {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .kpiTile:nth-child(n) {
+        border: 1px solid #e8e6df;
+    }
+}
+
+@media (max-width: 640px) {
+    .kpiTiles {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .readBarRow {
+        flex-wrap: wrap;
+    }
+
+    .readBarHeadlineText {
+        flex-basis: 100%;
+        white-space: normal;
+    }
+
+    .readPoints li {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .readPointMetric {
+        grid-column: 1 / -1;
+    }
+
+    .readPointText {
+        flex-direction: column;
+        gap: 2px;
+        white-space: normal;
+    }
+}
+
+/* ======================================================================== */
+/* "On this page" section sidebar                                           */
+/* ======================================================================== */
+
+.withNav {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+    /* The page caps its direct children at 1180px; the sidebar sits outside that. */
+    max-width: 1384px !important;
+    margin: 0 auto !important;
+}
+
+.navMain {
+    display: flex;
+    flex-direction: column;
+    /* Same spacing the page gives its sections. */
+    gap: 32px;
+    min-width: 0;
+}
+
+/* Sections land below the top edge when jumped to. */
+.anchor {
+    scroll-margin-top: 24px;
+}
+
+.pageNav {
+    /* Kept in view by MetricsNav (CSS sticky can't work inside the app layout). */
+    position: relative;
+    width: 192px;
+    will-change: transform;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    padding: 4px 0;
+    font-size: 13px;
+    transition: width 0.18s ease;
+}
+
+.pageNavFolded {
+    width: 36px;
+}
+
+.pageNavHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    height: 30px;
+    margin-bottom: 6px;
+    padding-left: 10px;
+}
+
+.pageNavFolded .pageNavHead {
+    justify-content: center;
+    padding-left: 0;
+}
+
+.pageNavHead span {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #9a9893;
+}
+
+.pageNavFold {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #9a9893;
+    cursor: pointer;
+}
+
+.pageNavFold:hover {
+    background: #f4f3ef;
+    color: #1f1e1b;
+}
+
+.pageNavList,
+.pageNavSub {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pageNavList > li + li {
+    margin-top: 2px;
+}
+
+.pageNavItem {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #6f6e69;
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+
+.pageNavFolded .pageNavItem {
+    justify-content: center;
+    padding: 0;
+}
+
+.pageNavItem:hover {
+    background: #f6f5f1;
+    color: #1f1e1b;
+}
+
+.pageNavItemActive {
+    background: #f1f0ec;
+    color: #1f1e1b;
+    font-weight: 500;
+}
+
+.pageNavItem:focus-visible,
+.pageNavSubItem:focus-visible {
+    outline: 2px solid #c7d7fe;
+    outline-offset: 1px;
+}
+
+.pageNavIcon {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    color: #9a9893;
+}
+
+.pageNavItemActive .pageNavIcon {
+    color: #3b6fe0;
+}
+
+.pageNavLabel {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pageNavBadge {
+    flex: 0 0 auto;
+    min-width: 20px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #fdf0ef;
+    color: #b8423e;
+    font-size: 11px;
+    font-weight: 500;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.pageNavSub {
+    margin: 2px 0 6px 17px;
+    padding-left: 12px;
+    border-left: 1px solid #ebe9e3;
+}
+
+.pageNavSubItem {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 5px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #9a9893;
+    font: inherit;
+    font-size: 12.5px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.pageNavSubItem:hover {
+    color: #1f1e1b;
+}
+
+.pageNavSubItemActive {
+    color: #1f1e1b;
+    font-weight: 500;
+}
+
+.pageNavSubItemActive::before {
+    content: "";
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: -13px;
+    width: 2px;
+    border-radius: 2px;
+    background: #3b6fe0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pageNav {
+        transition: none;
+    }
+}
+
+/* Narrow screens: no sidebar, the page runs full width. */
+@media (max-width: 1100px) {
+    .withNav {
+        display: block;
+    }
+
+    .pageNav {
+        display: none;
+    }
+}
+
+/* Console-style view switcher additions */
+.crumb {
+    margin: 0 0 4px;
+    font-size: 12.5px;
+    color: #9a9893;
+}
+
+.pageNavFoot {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #ebe9e3;
+}
+
+.pageNavAsk {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #6f6e69;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.pageNavAsk svg {
+    color: #c96442;
+}
+
+.pageNavAsk:hover {
+    background: #f6f5f1;
+    color: #1f1e1b;
+}
+
+.pageNavAsk kbd {
+    margin-left: auto;
+    padding: 1px 5px;
+    border: 1px solid #ebe9e3;
+    border-radius: 4px;
+    background: #fff;
+    font: inherit;
+    font-size: 10.5px;
+    color: #9a9893;
+}
+
+.pageNavKbd {
+    flex: 0 0 auto;
+    padding: 1px 5px;
+    border: 1px solid #ebe9e3;
+    border-radius: 4px;
+    background: #fff;
+    font-size: 10.5px;
+    color: #9a9893;
+}
+
+/* ======================================================================== */
+/* Ask Claude: full chat page                                               */
+/* ======================================================================== */
+
+.chatPage {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 210px);
+    min-height: 460px;
+    border: 1px solid #e8e6df;
+    border-radius: 12px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.chatPage[hidden] {
+    display: none;
+}
+
+.chatScroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 24px 12px;
+}
+
+.chatColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 760px;
+    margin: 0 auto;
+}
+
+.chatEmpty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6vh 0 8px;
+    text-align: center;
+}
+
+.chatMark {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    margin-bottom: 14px;
+    border-radius: 12px;
+    background: #fbf1ec;
+    color: #c96442;
+}
+
+.chatEmpty h2 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    color: #1f1e1b;
+}
+
+.chatEmpty p {
+    max-width: 460px;
+    margin: 8px 0 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: #6f6e69;
+}
+
+.chatStarters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    width: 100%;
+    margin-top: 26px;
+}
+
+.chatStarters button {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
+    border: 1px solid #e8e6df;
+    border-radius: 10px;
+    background: #fff;
+    color: #1f1e1b;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.chatStarters button:hover {
+    border-color: #d9d6cd;
+    background: #faf9f7;
+}
+
+.chatStarters button span {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #9a9893;
+}
+
+.chatThreadHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f0eee8;
+    font-size: 12.5px;
+    color: #9a9893;
+}
+
+.chatThreadHead button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid #e8e6df;
+    border-radius: 6px;
+    background: #fff;
+    color: #6f6e69;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.chatThreadHead button:hover:not(:disabled) {
+    background: #faf9f7;
+    color: #1f1e1b;
+}
+
+.chatUser {
+    align-self: flex-end;
+    max-width: 80%;
+    padding: 10px 14px;
+    border-radius: 14px 14px 4px 14px;
+    background: #f1f0ec;
+    color: #1f1e1b;
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.chatAnswer {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.chatMarkSmall {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    margin-top: 1px;
+    border-radius: 8px;
+    background: #fbf1ec;
+    color: #c96442;
+}
+
+.chatAnswerBody {
+    min-width: 0;
+    font-size: 14px;
+    line-height: 1.65;
+    color: #1f1e1b;
+}
+
+.chatAnswerBody p {
+    margin: 0 0 10px;
+}
+
+.chatAnswerBody p:last-child {
+    margin-bottom: 0;
+}
+
+.chatAnswerBody ul {
+    margin: 0 0 10px;
+    padding-left: 18px;
+}
+
+.chatAnswerBody li + li {
+    margin-top: 4px;
+}
+
+.chatThinking {
+    padding-left: 38px;
+}
+
+.chatFollowUps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-left: 38px;
+}
+
+.chatFollowUps button {
+    padding: 6px 12px;
+    border: 1px solid #e8e6df;
+    border-radius: 999px;
+    background: #fff;
+    color: #3d3c38;
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+
+.chatFollowUps button:hover {
+    border-color: #d9d6cd;
+    background: #faf9f7;
+}
+
+.chatComposerWrap {
+    padding: 10px 24px 14px;
+    border-top: 1px solid #f4f2ec;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), #fff);
+}
+
+.chatComposer {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 10px 12px 8px 14px;
+    border: 1px solid #e0ddd5;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(31, 30, 27, 0.05);
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.chatComposer:focus-within {
+    border-color: #c9c5bb;
+    box-shadow: 0 2px 14px rgba(31, 30, 27, 0.08);
+}
+
+.chatComposer textarea {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    max-height: 180px;
+    padding: 0;
+    border: 0;
+    outline: none;
+    resize: none;
+    background: transparent;
+    color: #1f1e1b;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.chatComposerBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 4px;
+    font-size: 11.5px;
+    color: #a8a69f;
+}
+
+.chatComposerWrap .askDisclaimer {
+    max-width: 760px;
+    margin: 8px auto 0;
+    text-align: center;
+}
+
+@media (max-width: 700px) {
+    .chatStarters {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .chatScroll,
+    .chatComposerWrap {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+
+    .chatComposerBar span {
+        display: none;
+    }
+}
+
+/* Retention view */
+.extraHeadTools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* A fixed (non-flexing) height, so the chart's 100% height resolves. */
+.extraChartTall {
+    flex: 0 0 300px;
+    height: 300px;
+    min-height: 300px;
+}
+
+.curveStats {
+    display: flex;
+    gap: 28px;
+    margin-top: 14px;
+}
+
+.curveStats div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.curveStats span {
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #9a9893;
+}
+
+.curveStats strong {
+    font-size: 20px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: #1f1e1b;
+    font-variant-numeric: tabular-nums;
+}
+
+.curveStats em {
+    margin-left: 4px;
+    font-size: 12.5px;
+    font-style: normal;
+    color: #b8423e;
+}
+
+.retentionGrid .extraChart {
+    flex: 0 0 240px;
+    height: 240px;
+    min-height: 240px;
+}
+
+/* Retention view blocks take the full content width. */
+.fullRow {
+    align-self: stretch;
+    width: 100%;
+}
+
+.cohortCell {
+    padding: 7px 2px !important;
+    font-weight: 500;
+}
+
+/* ======================================================================== */
+/* Retention charts: second reference pass (indigo tiles, headline numbers) */
+/* ======================================================================== */
+
+.cardHeadline {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    margin: 14px 0 4px;
+}
+
+.cardHeadline strong {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: #1f1e1b;
+    font-variant-numeric: tabular-nums;
+}
+
+.headBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.headBadgeGood {
+    background: #e9f7ef;
+    color: #237a54;
+}
+
+.headBadgeBad {
+    background: #fdf0ef;
+    color: #b8423e;
+}
+
+.headNote {
+    font-size: 12.5px;
+    color: #9a9893;
+}
+
+.legendBottom {
+    justify-content: center;
+    margin: 10px 0 0;
+}
+
+.legendBottom i {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+
+.hatchSwatch {
+    border-radius: 2px !important;
+    background: repeating-linear-gradient(-45deg, rgba(111, 110, 105, 0.55) 0 1.5px, #e4e2db 1.5px 4px) !important;
+}
+
+/* Cohort tiles */
+.cohortCard {
+    position: relative;
+}
+
+.tileGrid {
+    display: grid;
+    gap: 6px;
+    align-items: center;
+    min-width: max-content;
+    padding: 2px;
+}
+
+.tileRow {
+    display: contents;
+}
+
+.tileHead {
+    font-size: 11px;
+    color: #9a9893;
+    text-align: center;
+}
+
+.tileHead:first-child {
+    text-align: left;
+}
+
+.tileLabel {
+    font-size: 12px;
+    color: #6f6e69;
+    white-space: nowrap;
+}
+
+.tileSize {
+    font-size: 12px;
+    color: #9a9893;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.tile {
+    display: block;
+    height: 30px;
+    border-radius: 7px;
+    cursor: pointer;
+    outline: none;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.tile:hover,
+.tile:focus-visible,
+.tileActive {
+    box-shadow: 0 0 0 2px #ffffff, 0 0 0 3.5px #1f1e1b;
+}
+
+.tileScale {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 11.5px;
+    color: #9a9893;
+}
+
+.tileScale i {
+    width: 120px;
+    height: 8px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #eef1f8, #3b6fe0);
+}
+
+.tileCard {
+    position: absolute;
+    z-index: 5;
+    min-width: 190px;
+    padding: 10px 12px;
+    border: 1px solid #e8e6df;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 12px 30px rgba(31, 30, 27, 0.12);
+    font-size: 12.5px;
+    color: #1f1e1b;
+    transform: translate(-50%, calc(-100% - 10px));
+    pointer-events: none;
+}
+
+.tileCardHead {
+    margin-bottom: 8px;
+    color: #6f6e69;
+}
+
+.tileCardRow {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.tileCardRow + .tileCardRow {
+    margin-top: 4px;
+}
+
+.tileCardRow b {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.tileCardFoot {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f0eee8;
+    color: #237a54;
+    font-weight: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tile {
+        transition: none;
+    }
+}
+
+/* Plain-English helpers on the Retention charts */
+.chartStory {
+    margin: 2px 0 6px;
+    padding: 10px 12px;
+    border: 1px solid #f0eee8;
+    border-radius: 8px;
+    background: #faf9f7;
+    color: #3d3c38;
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.tileToolbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 6px 0 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #9a9893;
+}
+
+.switchLabel {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    color: #3d3c38;
+    font-size: 12.5px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.switchLabel input {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: #1f1e1b;
+    cursor: pointer;
+}
+
+.tile {
+    display: grid !important;
+    place-items: center;
+    font-size: 11px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Console look for tiles and headline numbers */
+.tile {
+    height: 28px !important;
+    border-radius: 4px !important;
+}
+
+.tileGrid {
+    gap: 4px !important;
+}
+
+.cardHeadline strong {
+    font-size: 26px !important;
+    font-weight: 500 !important;
+}
+
+.headBadgeGood {
+    background: #ecf7f1 !important;
+}
+
+/* ======================================================================== */
+/* Accounts to act on: Console-style table                                  */
+/* ======================================================================== */
+
+.acctCard {
+    border: 1px solid #e8e6df;
+    border-radius: 10px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.acctToolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 14px;
+    border-bottom: 1px solid #f0eee8;
+}
+
+.acctTabs {
+    display: inline-flex;
+    gap: 2px;
+}
+
+.acctTabs button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #6f6e69;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.acctTabs button:hover {
+    background: #f6f5f1;
+    color: #1f1e1b;
+}
+
+.acctTabs button[aria-selected="true"] {
+    background: #f1f0ec;
+    color: #1f1e1b;
+    font-weight: 500;
+}
+
+.acctTabs button span {
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #ebe9e3;
+    color: #6f6e69;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 17px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.acctTools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.acctSearch {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    width: 220px;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid #e8e6df;
+    border-radius: 7px;
+    background: #fff;
+    color: #9a9893;
+}
+
+.acctSearch:focus-within {
+    border-color: #c9c5bb;
+}
+
+.acctSearch input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: #1f1e1b;
+    font: inherit;
+    font-size: 13px;
+}
+
+.acctSelect {
+    height: 32px;
+    padding: 0 28px 0 10px;
+    border: 1px solid #e8e6df;
+    border-radius: 7px;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239a9893' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 9px center;
+    color: #1f1e1b;
+    font: inherit;
+    font-size: 13px;
+    appearance: none;
+    cursor: pointer;
+}
+
+.acctTableWrap {
+    overflow-x: auto;
+}
+
+.acctTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.acctTable th {
+    padding: 9px 14px;
+    border-bottom: 1px solid #f0eee8;
+    background: #faf9f7;
+    color: #9a9893;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.acctTable td {
+    padding: 11px 14px;
+    border-bottom: 1px solid #f4f2ec;
+    color: #1f1e1b;
+    vertical-align: middle;
+}
+
+.acctTable tbody tr {
+    cursor: pointer;
+    transition: background 0.1s ease;
+}
+
+.acctTable tbody tr:hover td {
+    background: #faf9f7;
+}
+
+.acctTable tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.acctName {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.acctName > span:last-child {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.acctName strong {
+    font-size: 13.5px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.acctName small {
+    font-size: 12px;
+    color: #9a9893;
+    white-space: nowrap;
+}
+
+.acctName:focus-visible {
+    outline: 2px solid #c7d7fe;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.acctAvatar {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid #ebe9e3;
+    border-radius: 7px;
+    background: #faf9f7;
+    color: #6f6e69;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.acctPriority {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: #3d3c38;
+    white-space: nowrap;
+}
+
+.acctPriority i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #c9c5bb;
+}
+
+.prio_high i {
+    background: #d9534f;
+}
+
+.prio_medium i {
+    background: #e0a03b;
+}
+
+.prio_low i {
+    background: #b8b5ad;
+}
+
+.acctMuted {
+    color: #6f6e69 !important;
+    white-space: nowrap;
+}
+
+.acctNum {
+    text-align: right !important;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.acctStep {
+    max-width: 340px;
+    color: #6f6e69 !important;
+    line-height: 1.45;
+}
+
+.acctActions {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.acctBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid #e8e6df;
+    border-radius: 6px;
+    background: #fff;
+    color: #1f1e1b;
+    font: inherit;
+    font-size: 12.5px;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.acctBtn:hover {
+    background: #f6f5f1;
+}
+
+.acctDone {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 4px;
+    color: #237a54;
+    font-size: 12.5px;
+    vertical-align: middle;
+}
+
+.acctIconBtn {
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    margin-left: 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: #b8b5ad;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.acctIconBtn:hover {
+    border-color: #e8e6df;
+    background: #fff;
+    color: #1f1e1b;
+}
+
+.acctIconBtnOn {
+    color: #237a54;
+}
+
+.acctRowHandled td {
+    color: #9a9893 !important;
+}
+
+.acctRowHandled .acctName strong {
+    font-weight: 400;
+    color: #6f6e69;
+}
+
+.acctEmpty {
+    padding: 40px 14px !important;
+    text-align: center;
+    cursor: default;
+}
+
+.acctEmpty strong {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #1f1e1b;
+}
+
+.acctEmpty span {
+    display: block;
+    margin-top: 4px;
+    font-size: 12.5px;
+    color: #9a9893;
+}
+
+.acctFooter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-top: 1px solid #f0eee8;
+    font-size: 12.5px;
+    color: #9a9893;
+    font-variant-numeric: tabular-nums;
+}
+
+.acctPager {
+    display: flex;
+    gap: 6px;
+}
+
+.acctPager button {
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid #e8e6df;
+    border-radius: 6px;
+    background: #fff;
+    color: #1f1e1b;
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+
+.acctPager button:disabled {
+    color: #c9c5bb;
+    cursor: default;
+}
+
+.srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+    .acctSearch {
+        width: 100%;
+    }
+
+    .acctTools {
+        width: 100%;
+    }
+}

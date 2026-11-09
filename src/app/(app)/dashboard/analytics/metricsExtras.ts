@@ -197,3 +197,28 @@ export function timeAgo(iso: string | null | undefined, now = Date.now()) {
     if (hours < 24) return `${hours} h ago`;
     return `${Math.round(hours / 24)} d ago`;
 }
+
+/**
+ * Average retention curve across cohorts: for each month since joining, the
+ * share of customers still subscribed, weighted by cohort size. Only cohorts
+ * old enough to have reached that month count towards it.
+ */
+export function averageRetentionCurve(cohorts: Cohort[]) {
+    const width = Math.max(0, ...cohorts.map((c) => c.retention.length));
+    const points: Array<{ month: number; value: number; cohorts: number }> = [];
+    for (let k = 0; k < width; k += 1) {
+        let weighted = 0;
+        let weight = 0;
+        let count = 0;
+        for (const cohort of cohorts) {
+            const value = cohort.retention[k];
+            if (typeof value !== "number") continue;
+            const w = Math.max(1, cohort.size);
+            weighted += value * w;
+            weight += w;
+            count += 1;
+        }
+        if (weight) points.push({ month: k, value: weighted / weight, cohorts: count });
+    }
+    return points;
+}
