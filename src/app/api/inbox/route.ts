@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { getWorkspaceFromRequest } from "@/lib/auth/getWorkspaceFromRequest";
+import { AuthError, getWorkspaceFromRequest } from "@/lib/auth/getWorkspaceFromRequest";
 import { buildThreads, demoThreads, normaliseChannel, threadKeyFor, type InboxMessageView } from "@/lib/inbox";
 
 export const runtime = "nodejs";
@@ -231,6 +231,10 @@ export async function GET(req: Request) {
 
         return NextResponse.json({ source: "live", threads, setupRequired });
     } catch (error) {
+        // Signed out or no workspace: say so, rather than a server error.
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error("Inbox load failed", error);
         return NextResponse.json({ error: "Could not load the inbox." }, { status: 500 });
     }

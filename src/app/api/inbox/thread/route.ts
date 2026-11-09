@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { getWorkspaceFromRequest } from "@/lib/auth/getWorkspaceFromRequest";
+import { AuthError, getWorkspaceFromRequest } from "@/lib/auth/getWorkspaceFromRequest";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,6 +50,10 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ ok: true });
     } catch (error) {
+        // Signed out or no workspace: say so, rather than a server error.
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2021") {
             return NextResponse.json(
                 { error: "Apply the inbox database migration to use this." },

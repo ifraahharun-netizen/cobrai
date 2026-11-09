@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import prisma from "@/lib/prisma";
-import { getWorkspaceFromRequest } from "@/lib/auth/getWorkspaceFromRequest";
+import { AuthError, getWorkspaceFromRequest } from "@/lib/auth/getWorkspaceFromRequest";
 import { ratelimit } from "@/lib/rateLimit";
 import { isValidEmail, replySubject, threadKeyFor } from "@/lib/inbox";
 import { sanitizeEmailHtml } from "@/lib/emailHtml";
@@ -183,6 +183,10 @@ export async function POST(req: Request) {
             },
         });
     } catch (error) {
+        // Signed out or no workspace: say so, rather than a server error.
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error("Inbox reply failed", error);
         return NextResponse.json({ error: "Could not send the reply." }, { status: 500 });
     }
