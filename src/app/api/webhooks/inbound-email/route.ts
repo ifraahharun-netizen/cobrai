@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import prisma from "@/lib/prisma";
-import { isValidEmail, normaliseChannel, threadKeyFor } from "@/lib/inbox";
+import { normaliseChannel } from "@/lib/inbox";
+import { ingestInboundEmail, parseAddress } from "@/lib/inboxIngest";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,15 +26,6 @@ function secretMatches(given: string | null) {
     const a = Buffer.from(given);
     const b = Buffer.from(expected);
     return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
-
-/** "Sam Patel <sam@kitelabs.io>" -> { email, name } */
-function parseAddress(value: unknown): { email: string; name: string | null } {
-    const first = Array.isArray(value) ? value[0] : value;
-    const text = typeof first === "string" ? first : typeof first === "object" && first ? String((first as { email?: string }).email ?? "") : "";
-    const match = text.match(/^\s*"?([^"<]*)"?\s*<([^>]+)>\s*$/);
-    if (match) return { email: match[2].trim().toLowerCase(), name: match[1].trim() || null };
-    return { email: text.trim().toLowerCase(), name: null };
 }
 
 export async function POST(req: Request) {
@@ -71,55 +62,23 @@ export async function POST(req: Request) {
             normaliseChannel(payload.channel ?? payload.source ?? payload.provider) ??
             "cobrai";
 
-        if (!isValidEmail(from.email) || !isValidEmail(to.email)) {
+        const result = await ingestInboundEmail({
+            from: { email: from.email, name: fromName },
+            to: [to.email],
+            subject,
+            text,
+            messageId,
+            inReplyTo,
+            channel,
+        });
+
+        if (!result.stored && result.reason === "invalid_address") {
             return NextResponse.json({ error: "Missing sender or recipient" }, { status: 400 });
         }
-
-        // Which workspace was this sent to? Match its sender/reply-to address, then its domain.
-        const toDomain = to.email.split("@")[1];
-        const workspace = await prisma.workspace.findFirst({
-            where: {
-                OR: [
-                    { senderEmail: { equals: to.email, mode: "insensitive" } },
-                    { senderReplyTo: { equals: to.email, mode: "insensitive" } },
-                    { sendingDomain: { equals: toDomain, mode: "insensitive" } },
-                ],
-            },
-            select: { id: true },
-        });
-
-        if (!workspace) {
+        if (!result.stored) {
             // Acknowledge so the provider doesn't retry forever, but don't store it.
-            return NextResponse.json({ ok: true, stored: false, reason: "No workspace for this address" });
+            return NextResponse.json({ ok: true, stored: false, reason: result.reason === "duplicate" ? "Duplicate" : "No workspace for this address" });
         }
-
-        const customer = await prisma.customer.findFirst({
-            where: { workspaceId: workspace.id, email: { equals: from.email, mode: "insensitive" } },
-            select: { id: true },
-        });
-
-        if (messageId) {
-            const existing = await prisma.inboxMessage.findUnique({ where: { providerMessageId: messageId } });
-            if (existing) return NextResponse.json({ ok: true, stored: false, reason: "Duplicate" });
-        }
-
-        await prisma.inboxMessage.create({
-            data: {
-                workspaceId: workspace.id,
-                customerId: customer?.id ?? null,
-                threadKey: threadKeyFor(from.email, subject),
-                direction: "inbound",
-                fromEmail: from.email,
-                fromName,
-                toEmail: to.email,
-                subject,
-                bodyText: text.slice(0, 50_000),
-                providerMessageId: messageId,
-                inReplyTo,
-                status: "received",
-                channel,
-            },
-        });
 
         return NextResponse.json({ ok: true, stored: true });
     } catch (error) {
