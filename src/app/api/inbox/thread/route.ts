@@ -35,10 +35,17 @@ export async function POST(req: Request) {
                 data: { readAt: now },
             });
         } else {
-            await prisma.inboxMessage.updateMany({
-                where,
-                data: { archivedAt: action === "archive" ? now : null },
-            });
+            // Archive the conversation itself, so threads that include retention
+            // emails (which have no inbox_messages row) stay archived too.
+            const archivedAt = action === "archive" ? now : null;
+            await prisma.$transaction([
+                prisma.inboxThreadState.upsert({
+                    where: { workspaceId_threadKey: { workspaceId, threadKey } },
+                    create: { workspaceId, threadKey, archivedAt },
+                    update: { archivedAt },
+                }),
+                prisma.inboxMessage.updateMany({ where, data: { archivedAt } }),
+            ]);
         }
 
         return NextResponse.json({ ok: true });

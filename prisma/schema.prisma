@@ -975,6 +975,8 @@ model InboxThreadState {
   workspaceId String
   threadKey   String
   starredAt   DateTime?
+  /// Set when the whole conversation is archived; a newer message brings it back.
+  archivedAt  DateTime?
   updatedAt   DateTime  @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

@@ -123,15 +123,22 @@ export async function GET(req: Request) {
 
         const threads = buildThreads(rows);
 
-        // Starred conversations.
+        // Starred and archived conversations.
         if (!setupRequired) {
             try {
                 const states = await prisma.inboxThreadState.findMany({
-                    where: { workspaceId, starredAt: { not: null } },
-                    select: { threadKey: true },
+                    where: { workspaceId, OR: [{ starredAt: { not: null } }, { archivedAt: { not: null } }] },
+                    select: { threadKey: true, starredAt: true, archivedAt: true },
                 });
-                const starred = new Set(states.map((state) => state.threadKey));
-                for (const thread of threads) thread.starred = starred.has(thread.key);
+                const byKey = new Map(states.map((state) => [state.threadKey, state]));
+                for (const thread of threads) {
+                    const state = byKey.get(thread.key);
+                    thread.starred = Boolean(state?.starredAt);
+                    // Archived until a message arrives after it was archived.
+                    if (state?.archivedAt) {
+                        thread.archived = new Date(thread.lastAt).getTime() <= state.archivedAt.getTime();
+                    }
+                }
             } catch (error) {
                 if (!isMissingTable(error)) throw error;
                 setupRequired = true;

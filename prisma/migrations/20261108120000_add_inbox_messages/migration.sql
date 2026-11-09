@@ -31,12 +31,13 @@ CREATE INDEX "inbox_messages_customerId_idx" ON "inbox_messages"("customerId");
 ALTER TABLE "inbox_messages" ADD CONSTRAINT "inbox_messages_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "inbox_messages" ADD CONSTRAINT "inbox_messages_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "customers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
--- Per-conversation state (starred).
+-- Per-conversation state (starred, archived).
 CREATE TABLE "inbox_thread_states" (
     "id" TEXT NOT NULL,
     "workspaceId" TEXT NOT NULL,
     "threadKey" TEXT NOT NULL,
     "starredAt" TIMESTAMP(3),
+    "archivedAt" TIMESTAMP(3),
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "inbox_thread_states_pkey" PRIMARY KEY ("id")

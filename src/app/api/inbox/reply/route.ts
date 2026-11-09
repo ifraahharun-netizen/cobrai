@@ -20,6 +20,13 @@ function deliveryEnabled() {
  * conversation (they emailed us, or they're the customer we emailed), so the
  * inbox can't be used to email arbitrary addresses.
  */
+/** A stored message id as an RFC 5322 Message-ID header value, or null. */
+function toMessageIdHeader(value: string | null | undefined) {
+    const id = String(value ?? "").replace(/[\r\n\s]/g, "").replace(/^<|>$/g, "");
+    if (!id || !id.includes("@") || id.length > 250) return null;
+    return `<${id}>`;
+}
+
 export async function POST(req: Request) {
     try {
         const { workspaceId } = await getWorkspaceFromRequest(req);
@@ -34,7 +41,10 @@ export async function POST(req: Request) {
         const to = typeof raw?.to === "string" ? raw.to.trim().toLowerCase() : "";
         const subject = typeof raw?.subject === "string" ? raw.subject.trim().slice(0, 180) : "";
         const body = typeof raw?.body === "string" ? raw.body.trim() : "";
-        const inReplyTo = typeof raw?.inReplyTo === "string" ? raw.inReplyTo.slice(0, 300) : null;
+        // The inbox message being replied to (our database id). Its email
+        // Message-ID is looked up below for the In-Reply-To / References headers.
+        const replyToMessageId =
+            typeof raw?.replyToMessageId === "string" ? raw.replyToMessageId.slice(0, 100) : null;
         // Formatted version from the editor, cleaned so only simple formatting is kept.
         const html = typeof raw?.html === "string" ? sanitizeEmailHtml(raw.html) || null : null;
 
@@ -83,6 +93,17 @@ export async function POST(req: Request) {
         });
 
         if (!workspace) return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+
+        // Thread the reply in the customer's mail client: use the inbound email's
+        // own Message-ID, not our database id. Providers that only give their own
+        // ids (no "@") can't be used as a header, so the reply is sent unthreaded.
+        const repliedTo = replyToMessageId
+            ? await prisma.inboxMessage.findFirst({
+                where: { id: replyToMessageId, workspaceId, direction: "inbound" },
+                select: { providerMessageId: true },
+            })
+            : null;
+        const inReplyTo = toMessageIdHeader(repliedTo?.providerMessageId);
 
         const senderEmail = workspace.senderEmail?.trim() || "";
         const senderName = workspace.senderName?.trim() || workspace.name || "Cobrai";

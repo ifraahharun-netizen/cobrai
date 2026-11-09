@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ChevronDown, MessageCircleQuestion, Sparkles } from "lucide-react";
+import { onAuthStateChanged } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase.client";
 import type { ChartNote, MetricKey, MetricsRead, MetricsSnapshot } from "@/lib/ai/claudeMetricsRead";
 import styles from "./metrics.module.css";
@@ -12,6 +13,8 @@ type ReadResponse = {
     analysedAt: string;
     /** The period selected on the page when Claude read it. */
     period?: string;
+    /** Who the read belongs to, so another account in this browser never sees it. */
+    uid?: string;
 };
 
 const READ_CACHE_KEY = "cobrai:claude-metrics";
@@ -46,7 +49,8 @@ export default function ClaudeMetricsRead({
     /** Opens Ask Claude with a follow-up question. */
     onAsk?: (question: string) => void;
 }) {
-    const [analysis, setAnalysis] = useState<ReadResponse | null>(() => {
+    const [uid, setUid] = useState<string | null>(() => getFirebaseAuth().currentUser?.uid ?? null);
+    const [stored, setAnalysis] = useState<ReadResponse | null>(() => {
         if (typeof window === "undefined") return null;
         try {
             const cached = window.localStorage.getItem(READ_CACHE_KEY);
@@ -80,7 +84,7 @@ export default function ClaudeMetricsRead({
             });
             const data = (await res.json().catch(() => null)) as (ReadResponse & { error?: string }) | null;
             if (!res.ok || !data?.read) throw new Error(data?.error || "Claude could not analyse your metrics right now.");
-            const result: ReadResponse = { ...data, period: periodLabel };
+            const result: ReadResponse = { ...data, period: periodLabel, uid: user.uid };
             setAnalysis(result);
             try {
                 window.localStorage.setItem(READ_CACHE_KEY, JSON.stringify(result));
@@ -93,6 +97,10 @@ export default function ClaudeMetricsRead({
             setAnalysing(false);
         }
     }
+
+    // Track the signed-in account; a read saved by another account is ignored.
+    useEffect(() => onAuthStateChanged(getFirebaseAuth(), (user) => setUid(user?.uid ?? null)), []);
+    const analysis = stored && uid && stored.uid === uid ? stored : null;
 
     const read = analysis?.read ?? null;
 

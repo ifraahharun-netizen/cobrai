@@ -326,7 +326,8 @@ export default function InboxPage() {
                     subject: selected.subject,
                     body: draft.text,
                     html: draft.html || null,
-                    inReplyTo: lastInbound?.id ?? null,
+                    // Our id for the message; the server looks up its email Message-ID.
+                    replyToMessageId: lastInbound?.source === "inbox" ? lastInbound.id : null,
                 }),
             });
             const json = (await res.json().catch(() => null)) as {
