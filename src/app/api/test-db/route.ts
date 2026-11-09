@@ -31,6 +31,16 @@ export async function GET() {
                     env: process.env.VERCEL_ENV ?? "unknown",
                     databaseUrlSet: Boolean(url.trim()),
                     databaseUrlStartsWithQuote: /^["']/.test(url.trim()),
+                    // Shape checks only; no part of the value is shown.
+                    databaseUrlShape: {
+                        length: url.length,
+                        startsWithWhitespace: /^\s/.test(url),
+                        includesVariableName: /^\s*DATABASE_URL\s*=/.test(url),
+                        startsWithHttp: /^\s*https?:\/\//i.test(url),
+                        containsPostgresProtocol: /postgres(ql)?:\/\//i.test(url),
+                        containsSupabaseHost: /supabase\.(co|com)/i.test(url),
+                        containsNeonHost: /neon\.tech/i.test(url),
+                    },
                     host,
                     error: e?.name,
                     code: e?.code ?? e?.errorCode ?? null,
