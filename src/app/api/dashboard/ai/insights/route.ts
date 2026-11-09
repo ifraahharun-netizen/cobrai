@@ -14,9 +14,8 @@ export async function POST(req: Request) {
     try {
         const { workspaceId } = await getWorkspaceFromRequest(req);
 
-        const { success, reset } = await ratelimit.limit(
-            `ai-insights:${workspaceId}`
-        );
+        // If the rate limiter is unreachable, let the request through rather than failing the page.
+        const { success, reset } = await ratelimit.limit(`ai-insights:${workspaceId}`);
 
         if (!success) {
             return NextResponse.json(

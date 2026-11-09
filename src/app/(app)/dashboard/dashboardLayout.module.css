@@ -10,16 +10,34 @@
 
 /* Sidebar layout column */
 .sidebarWrap {
+    --sidebar-w: 220px;
     width: var(--sidebar-w);
     flex: 0 0 var(--sidebar-w);
     min-width: var(--sidebar-w);
     max-width: var(--sidebar-w);
+    transition:
+        width 0.2s ease,
+        min-width 0.2s ease,
+        max-width 0.2s ease,
+        flex-basis 0.2s ease;
     background: #ffffff;
-    border-right: 1px solid #eceff3;
+    border-right: 1px solid #eaecf0;
     position: sticky;
     top: 0;
     height: 100vh;
-    overflow: hidden;
+    /* Visible so folded-rail tooltips can show beside it. */
+    overflow: visible;
+    z-index: 20;
+}
+
+.sidebarWrapCollapsed {
+    --sidebar-w: 64px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sidebarWrap {
+        transition: none;
+    }
 }
 
 /* Make inner sidebar fill wrapper cleanly */

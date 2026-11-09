@@ -1,6 +1,7 @@
 "use client";
 
 import {
+    useCallback,
     useEffect,
     useMemo,
     useState,
@@ -38,6 +39,9 @@ import {
     RotateCcw,
     TrendingUp,
     ChevronRight,
+    Sparkles,
+    Check,
+    GitCompareArrows,
 } from "lucide-react";
 
 import * as echarts from "echarts";
@@ -51,6 +55,119 @@ import { getFirebaseAuth } from "@/lib/firebase.client";
 import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
 
 import styles from "./analytics.module.css";
+import ClaudeMetricsRead from "./ClaudeMetricsRead";
+import AskClaudePanel, { type AskRequest } from "./AskClaudePanel";
+import metricStyles from "./metrics.module.css";
+import type { MetricsSnapshot } from "@/lib/ai/claudeMetricsRead";
+import type { AskAccount } from "@/lib/ai/claudeMetricsAsk";
+import type { ChartNote } from "@/lib/ai/claudeMetricsRead";
+import KpiTile from "./KpiTile";
+import RevenueMovementCard from "./RevenueMovementCard";
+import CohortHeatmap from "./CohortHeatmap";
+import AccountDrawer, { type DrawerAccount } from "./AccountDrawer";
+import {
+    PERIODS,
+    buildDemoCohorts,
+    buildMrrMovement,
+    monthName,
+    periodBaseline,
+    periodLong,
+    periodMonths,
+    previousPeriodValues,
+    timeAgo,
+    type PeriodKey,
+} from "./metricsExtras";
+/* -------------------------------------------------------------------------- */
+/* Dashboard chart style: thin sharp lines, no fills, no axis lines or dates, */
+/* scale on the left, light solid gridlines. Applied to every chart here.     */
+/* -------------------------------------------------------------------------- */
+
+type ChartRecord = { [key: string]: unknown };
+
+const DASH_BLUE = "#3b6fe0";
+const DASH_BLUE_LIGHT = "#c7d7fe";
+
+function asList(value: unknown): ChartRecord[] {
+    if (Array.isArray(value)) return value as ChartRecord[];
+    return value ? [value as ChartRecord] : [];
+}
+
+function recolour(colour: unknown) {
+    return typeof colour === "string" && /1d9bf0|6490f0/i.test(colour) ? DASH_BLUE : colour;
+}
+
+function toDashboardChart(option: EChartsOption): EChartsOption {
+    const source = option as ChartRecord;
+
+    const xAxis = asList(source.xAxis).map((axis) => ({
+        ...axis,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+            ...((axis.axisLabel as ChartRecord) ?? {}),
+            show: true,
+            color: "#9ca3af",
+            fontSize: 10.5,
+            margin: 12,
+            hideOverlap: true,
+        },
+        splitLine: { show: false },
+    }));
+
+    const yAxis = asList(source.yAxis).map((axis) => ({
+        ...axis,
+        position: "left",
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+            ...((axis.axisLabel as ChartRecord) ?? {}),
+            show: true,
+            color: "#9ca3af",
+            fontSize: 10,
+            margin: 10,
+        },
+        splitLine: { show: true, lineStyle: { color: "#eef1f5", type: "solid", width: 1 } },
+    }));
+
+    const series = asList(source.series).map((item) => {
+        if (item.type === "line") {
+            // Drop the gradient fill.
+            const rest: ChartRecord = { ...item };
+            delete rest.areaStyle;
+            const lineStyle = (item.lineStyle as ChartRecord) ?? {};
+            const itemStyle = item.itemStyle as ChartRecord | undefined;
+            return {
+                ...rest,
+                smooth: false,
+                showSymbol: false,
+                lineStyle: { ...lineStyle, width: 1.8, color: recolour(lineStyle.color) },
+                ...(itemStyle ? { itemStyle: { ...itemStyle, color: recolour(itemStyle.color) } } : {}),
+            };
+        }
+
+        if (item.type === "bar") {
+            const itemStyle = (item.itemStyle as ChartRecord) ?? {};
+            const isAcquired = String(item.name ?? "").toLowerCase().includes("acquired");
+            return {
+                ...item,
+                barWidth: undefined,
+                barMaxWidth: 14,
+                itemStyle: { ...itemStyle, color: isAcquired ? DASH_BLUE_LIGHT : DASH_BLUE },
+            };
+        }
+
+        return item;
+    });
+
+    return {
+        ...option,
+        grid: { top: 12, right: 8, bottom: 4, left: 0, containLabel: true },
+        xAxis,
+        yAxis,
+        series,
+    } as EChartsOption;
+}
+
 const EChart = dynamic(() => import("@/components/charts/EChart"), {
     ssr: false,
     loading: () => <div style={{ height: 390 }}>Loading chart...</div>,
@@ -99,6 +216,72 @@ type DashboardSummary = {
         valueMinor?: number | null;
     }>;
 };
+
+const NOTE_COLOURS: Record<ChartNote["sentiment"], string> = {
+    good: "#2f9e6f",
+    bad: "#d9534f",
+    neutral: "#6f6e69",
+};
+
+/**
+ * Adds Claude's numbered notes (as markers on the first line) and an optional
+ * dashed previous-period line to a dashboard chart.
+ */
+function withChartExtras(
+    option: EChartsOption,
+    extras: {
+        labels: string[];
+        values: number[];
+        notes: Array<ChartNote & { n: number }>;
+        compare: number[] | null;
+        compareName: string;
+    }
+): EChartsOption {
+    const series = asList((option as ChartRecord).series).map((item) => ({ ...item }));
+    if (!series.length) return option;
+
+    const marks = extras.notes
+        .map((note) => {
+            const index = extras.labels.indexOf(note.label);
+            if (index < 0 || typeof extras.values[index] !== "number") return null;
+            return {
+                coord: [index, extras.values[index]],
+                value: note.n,
+                name: note.title,
+                itemStyle: { color: NOTE_COLOURS[note.sentiment], borderColor: "#ffffff", borderWidth: 1.5 },
+            };
+        })
+        .filter(Boolean);
+
+    if (marks.length) {
+        series[0] = {
+            ...series[0],
+            markPoint: {
+                symbol: "circle",
+                symbolSize: 17,
+                label: { show: true, color: "#ffffff", fontSize: 9.5, fontWeight: 600, formatter: "{c}" },
+                emphasis: { scale: 1.15 },
+                data: marks,
+            },
+        };
+    }
+
+    if (extras.compare && extras.compare.length === extras.values.length) {
+        series.push({
+            name: extras.compareName,
+            type: "line",
+            data: extras.compare,
+            showSymbol: false,
+            smooth: false,
+            z: 1,
+            lineStyle: { width: 1.4, type: "dashed", color: "#b8b5ad" },
+            itemStyle: { color: "#b8b5ad" },
+            emphasis: { disabled: true },
+        });
+    }
+
+    return { ...option, series } as EChartsOption;
+}
 
 type RecoveryQueueItem = {
     id: string;
@@ -1623,6 +1806,33 @@ function buildMiniChartPath(values: number[]) {
     };
 }
 
+/** Small "Explain" button that opens Ask Claude with a question about one chart. */
+function ExplainButton({ onClick, label = "Explain" }: { onClick: () => void; label?: string }) {
+    return (
+        <button type="button" className={metricStyles.explainButton} onClick={onClick} title="Ask Claude to explain this">
+            <Sparkles size={12} strokeWidth={2} aria-hidden="true" />
+            {label}
+        </button>
+    );
+}
+
+function csvCell(value: unknown) {
+    const text = value == null ? "" : String(value);
+    // Quote, and stop spreadsheet apps treating text as a formula.
+    const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+    return `"${safe.replace(/"/g, '""')}"`;
+}
+
+function downloadCsv(filename: string, rows: unknown[][]) {
+    const csv = rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function EmailModalPortal({
     open,
     children,
@@ -1792,6 +2002,26 @@ export default function AnalyticsPage() {
 
     const [emailModalOpen, setEmailModalOpen] = useState(false);
     const [emailModalRow, setEmailModalRow] = useState<RecoveryQueueItem | null>(null);
+    const [askOpen, setAskOpen] = useState(false);
+    const [askRequest, setAskRequest] = useState<AskRequest | null>(null);
+    const [exportOpen, setExportOpen] = useState(false);
+    const [mrrView, setMrrView] = useState<"trend" | "30d">("trend");
+    const [churnView, setChurnView] = useState<"trend" | "30d">("trend");
+    const [period, setPeriod] = useState<PeriodKey>("12m");
+    const [compare, setCompare] = useState(false);
+    const [chartNotes, setChartNotes] = useState<ChartNote[]>([]);
+    const [flashCard, setFlashCard] = useState<string | null>(null);
+    const [drawerRow, setDrawerRow] = useState<RecoveryQueueItem | null>(null);
+    const [handledIds, setHandledIds] = useState<string[]>(() => {
+        if (typeof window === "undefined") return [];
+        try {
+            const saved = JSON.parse(window.localStorage.getItem("cobrai.metrics.handled") || "[]");
+            return Array.isArray(saved) ? saved.filter((id) => typeof id === "string") : [];
+        } catch {
+            return [];
+        }
+    });
+    const [nowTick, setNowTick] = useState(() => Date.now());
     const [emailSubject, setEmailSubject] = useState("");
     const [emailBody, setEmailBody] = useState("");
     const [emailCtaEnabled, setEmailCtaEnabled] = useState(false);
@@ -3180,7 +3410,16 @@ export default function AnalyticsPage() {
             ? demoAnalytics.activityByMonth
             : mrrSource?.activityByMonth ?? [];
 
-        return rows.filter((row) => row?.month).slice(-12);
+        return rows.filter((row) => row?.month).slice(-periodMonths(period));
+    }, [isDemoMode, demoAnalytics.activityByMonth, mrrSource?.activityByMonth, period]);
+
+    // Every month we have, for MRR movement, cohorts and period comparisons.
+    const allActivityRows = useMemo(() => {
+        const rows = isDemoMode
+            ? demoAnalytics.activityByMonth
+            : mrrSource?.activityByMonth ?? [];
+
+        return rows.filter((row) => row?.month);
     }, [isDemoMode, demoAnalytics.activityByMonth, mrrSource?.activityByMonth]);
 
     const subscriberMovementRows = subscriberChartRows;
@@ -4296,37 +4535,458 @@ export default function AnalyticsPage() {
         };
     }, [subscriberChartRows]);
 
+    // Same chart style as the dashboard.
+    const dashMrrTrendOption = useMemo(() => toDashboardChart(mrrTrendOption), [mrrTrendOption]);
+    const dashChurnTrendMiniOption = useMemo(() => toDashboardChart(churnTrendMiniOption), [churnTrendMiniOption]);
+    const dashActiveUsersBarOption = useMemo(() => toDashboardChart(activeUsersBarOption), [activeUsersBarOption]);
+    const dashMrrMiniForecastOption = useMemo(() => toDashboardChart(mrrMiniForecastOption), [mrrMiniForecastOption]);
+    const dashChurnImpactOption = useMemo(() => toDashboardChart(churnImpactOption), [churnImpactOption]);
+
+    /* ---------------------------------------------------------------------- */
+    /* Period, comparison, Claude's chart notes, movement and cohorts          */
+    /* ---------------------------------------------------------------------- */
+
+    const periodN = periodMonths(period);
+    const periodLabel = periodLong(period);
+
+    function selectPeriod(next: PeriodKey) {
+        setPeriod(next);
+        setMrrRange(next);
+        setChurnRange(next);
+    }
+
+    // Number the notes in chart order so the markers match the list below.
+    const numberedNotes = useMemo(() => {
+        const visible = (chart: ChartNote["chart"], labels: string[]) =>
+            chartNotes
+                .filter((note) => note.chart === chart && labels.includes(note.label))
+                .slice(0, 3)
+                .sort((a, b) => labels.indexOf(a.label) - labels.indexOf(b.label));
+        const mrr = visible("mrr", mrrTrendChart.labels);
+        const churn = visible("churn", churnTrendChart.labels);
+        return {
+            mrr: mrr.map((note, i) => ({ ...note, n: i + 1 })),
+            churn: churn.map((note, i) => ({ ...note, n: mrr.length + i + 1 })),
+        };
+    }, [chartNotes, mrrTrendChart.labels, churnTrendChart.labels]);
+
+    const canCompare = mrrRange !== "current" && mrrSeries.length >= periodN * 2;
+    const showCompare = compare && canCompare;
+
+    const mrrChartOption = useMemo(
+        () =>
+            withChartExtras(dashMrrTrendOption, {
+                labels: mrrTrendChart.labels,
+                values: mrrTrendChart.values,
+                notes: numberedNotes.mrr,
+                compare: showCompare ? previousPeriodValues(mrrSeries, mrrTrendChart.values.length) : null,
+                compareName: "Previous period",
+            }),
+        [dashMrrTrendOption, mrrTrendChart, numberedNotes.mrr, showCompare, mrrSeries]
+    );
+
+    const churnChartOption = useMemo(
+        () =>
+            withChartExtras(dashChurnTrendMiniOption, {
+                labels: churnTrendChart.labels,
+                values: churnTrendChart.values,
+                notes: numberedNotes.churn,
+                compare:
+                    showCompare && churnSeries.length >= churnTrendChart.values.length * 2
+                        ? previousPeriodValues(churnSeries, churnTrendChart.values.length)
+                        : null,
+                compareName: "Previous period",
+            }),
+        [dashChurnTrendMiniOption, churnTrendChart, numberedNotes.churn, showCompare, churnSeries]
+    );
+
+    function askAboutNote(note: ChartNote) {
+        openAsk(
+            `On the ${note.chart === "mrr" ? "MRR" : "churn"} chart, ${note.label}: "${note.title}" (${note.detail}). What likely caused this, which accounts were involved, and what should we do about it?`
+        );
+    }
+
+    const mrrChartEvents = useMemo(
+        () => ({
+            click: (params: { componentType?: string; value?: unknown }) => {
+                if (params.componentType !== "markPoint") return;
+                const note = numberedNotes.mrr.find((n) => n.n === params.value);
+                if (note) askAboutNote(note);
+            },
+        }),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [numberedNotes.mrr]
+    );
+
+    const churnChartEvents = useMemo(
+        () => ({
+            click: (params: { componentType?: string; value?: unknown }) => {
+                if (params.componentType !== "markPoint") return;
+                const note = numberedNotes.churn.find((n) => n.n === params.value);
+                if (note) askAboutNote(note);
+            },
+        }),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [numberedNotes.churn]
+    );
+
+    // KPI changes compare the latest value with the start of the period.
+    const kpiCompare = useMemo(() => {
+        const mrrBase = periodBaseline(mrrSeries, periodN);
+        const churnBase = periodBaseline(churnSeries, periodN);
+        const subsBase = periodBaseline(
+            allActivityRows.map((row) => ({ x: String(row.month), y: Number(row.totalSubscribers ?? 0) })),
+            periodN
+        );
+        const pctChange = (current: number, base: number | undefined) => {
+            if (typeof base !== "number" || !base) return null;
+            const delta = ((current - base) / Math.abs(base)) * 100;
+            return {
+                text: `${Math.abs(delta).toFixed(1)}%`,
+                direction: (Math.abs(delta) < 0.05 ? "flat" : delta > 0 ? "up" : "down") as "up" | "down" | "flat",
+            };
+        };
+        const ppChange = (current: number, base: number | undefined) => {
+            if (typeof base !== "number") return null;
+            const delta = current - base;
+            return {
+                text: `${Math.abs(delta).toFixed(1)}pp`,
+                direction: (Math.abs(delta) < 0.05 ? "flat" : delta > 0 ? "up" : "down") as "up" | "down" | "flat",
+            };
+        };
+        const since = (base: { month: string } | null) => (base ? `vs ${monthName(base.month)}` : "");
+        return {
+            mrr: { change: pctChange(demoKpis.totalMrr / 100, mrrBase?.value), label: since(mrrBase) },
+            churn: { change: ppChange(Number(demoKpis.churnPct || 0), churnBase?.value), label: since(churnBase) },
+            subs: { change: pctChange(Number(subscriberTotal || 0), subsBase?.value), label: since(subsBase) },
+        };
+    }, [mrrSeries, churnSeries, allActivityRows, periodN, demoKpis.totalMrr, demoKpis.churnPct, subscriberTotal]);
+
+    const atRiskChange =
+        typeof atRiskDeltaPct === "number" && Number.isFinite(atRiskDeltaPct)
+            ? {
+                text: `${Math.abs(atRiskDeltaPct).toFixed(1)}%`,
+                direction: (Math.abs(atRiskDeltaPct) < 0.05 ? "flat" : atRiskDeltaPct > 0 ? "up" : "down") as "up" | "down" | "flat",
+            }
+            : null;
+
+    const mrrMovementAll = useMemo(
+        () => buildMrrMovement(mrrSeries, churnSeries, allActivityRows),
+        [mrrSeries, churnSeries, allActivityRows]
+    );
+    const mrrMovement = useMemo(() => mrrMovementAll.slice(-periodN), [mrrMovementAll, periodN]);
+
+    const cohorts = useMemo(
+        () => (isDemoMode ? buildDemoCohorts(churnSeries, allActivityRows) : []),
+        [isDemoMode, churnSeries, allActivityRows]
+    );
+
+    const formatMajor = useCallback(
+        // Whole units: movement figures are estimates, so pennies add noise.
+        (major: number) => formatMoneyAmount(Math.round(major), workspaceCurrency).replace(/[.,]00(?=\D*$)/, ""),
+        [workspaceCurrency]
+    );
+
+    function jumpTo(id: string) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setFlashCard(id);
+        window.setTimeout(() => setFlashCard((current) => (current === id ? null : current)), 1600);
+    }
+
+    const flash = (id: string) => (flashCard === id ? metricStyles.flash : "");
+
+    // ⌘K / Ctrl+K opens Ask Claude.
+    useEffect(() => {
+        const onKey = (event: KeyboardEvent) => {
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+                event.preventDefault();
+                setAskOpen(true);
+            }
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, []);
+
+    // Keeps "Updated x min ago" current.
+    useEffect(() => {
+        const timer = window.setInterval(() => setNowTick(Date.now()), 30000);
+        return () => window.clearInterval(timer);
+    }, []);
+
+    const rowKey = (row: RecoveryQueueItem) => `${row.id}:${row.type || "recovery"}`;
+    const isHandled = (row: RecoveryQueueItem) => handledIds.includes(rowKey(row));
+
+    function toggleHandled(row: RecoveryQueueItem) {
+        const key = rowKey(row);
+        setHandledIds((current) => {
+            const next = current.includes(key) ? current.filter((id) => id !== key) : [...current, key];
+            try {
+                window.localStorage.setItem("cobrai.metrics.handled", JSON.stringify(next.slice(-500)));
+            } catch {
+                // Not critical.
+            }
+            return next;
+        });
+    }
+
+    const handleChartNotes = useCallback((notes: ChartNote[]) => setChartNotes(notes), []);
+
+    // The exact figures this page shows, sent to Claude so its read matches the cards.
+    const claudeSnapshot = useMemo<MetricsSnapshot>(() => {
+        const money = (minor: number) => Number(minor || 0) / 100;
+        const previousFromPct = (current: number, pct: number | null | undefined) =>
+            typeof pct === "number" && Number.isFinite(pct) && pct !== -100 ? current / (1 + pct / 100) : null;
+
+        const totalMrr = money(demoKpis.totalMrr);
+        const mrrAtRisk = money(demoKpis.mrrAtRisk);
+        const churn = Number(demoKpis.churnPct || 0);
+
+        return {
+            currency: workspaceCurrency,
+            source: isDemoMode ? "demo" : "live",
+            totalMrr: { current: totalMrr, previous: previousFromPct(totalMrr, mrrDeltaPct) },
+            mrrAtRisk: { current: mrrAtRisk, previous: previousFromPct(mrrAtRisk, atRiskDeltaPct) },
+            churnRate: {
+                current: churn,
+                previous: typeof churnDeltaPp === "number" && Number.isFinite(churnDeltaPp) ? churn - churnDeltaPp : null,
+            },
+            mrrProtected: { current: money(demoKpis.mrrProtected), previous: null },
+            atRiskAccounts: Number(demoKpis.atRiskAccounts || 0),
+            totalMrrSeries: mrrTrendChart,
+            churnSeries: churnTrendChart,
+            mrrProtectedSeries: { labels: [], values: [] },
+            activeUsersSeries: {
+                labels: subscriberChartRows.map((row) => String(row.month)),
+                values: subscriberChartRows.map((row) => Number(row.totalSubscribers || 0)),
+            },
+        };
+    }, [
+        demoKpis.totalMrr,
+        demoKpis.mrrAtRisk,
+        demoKpis.churnPct,
+        demoKpis.mrrProtected,
+        demoKpis.atRiskAccounts,
+        workspaceCurrency,
+        isDemoMode,
+        mrrDeltaPct,
+        atRiskDeltaPct,
+        churnDeltaPp,
+        mrrTrendChart,
+        churnTrendChart,
+        subscriberChartRows,
+    ]);
+
+    /* ---------------------------------------------------------------------- */
+    /* Ask Claude, risk breakdown and export                                   */
+    /* ---------------------------------------------------------------------- */
+
+    const queueRows = safeRecoveryQueue.rows;
+
+    // The accounts Claude can talk about: the same rows as the Revenue Impact Queue.
+    const askAccounts = useMemo<AskAccount[]>(
+        () =>
+            queueRows.slice(0, 20).map((row) => ({
+                name: String(row.name || "Account").slice(0, 120),
+                opportunity: String(row.opportunity || formatQueueType(row.type)).slice(0, 60),
+                valueAtStake: Number(row.valueMinor || 0) / 100,
+                reason: String(row.whyNow || row.reason || "").slice(0, 400),
+                suggestedAction: String(row.suggestedAction || row.action || "").slice(0, 400),
+                confidence: Math.max(0, Math.min(100, Number(row.confidence || 0))),
+            })),
+        [queueRows]
+    );
+
+    // Where revenue is at risk, grouped the same way as the table's Opportunity column.
+    const riskGroups = useMemo(() => {
+        const groups = new Map<string, { label: string; accounts: number; valueMinor: number; tone: string }>();
+        for (const row of queueRows) {
+            const label = String(row.opportunity || formatQueueType(row.type));
+            const group = groups.get(label) ?? { label, accounts: 0, valueMinor: 0, tone: getQueueTone(row.type) };
+            group.accounts += 1;
+            group.valueMinor += Number(row.valueMinor || 0);
+            groups.set(label, group);
+        }
+        const list = [...groups.values()].sort((a, b) => b.valueMinor - a.valueMinor);
+        const total = list.reduce((sum, group) => sum + group.valueMinor, 0);
+        return { list, total };
+    }, [queueRows]);
+
+    function openAsk(question?: string) {
+        setAskOpen(true);
+        if (question) setAskRequest({ question, id: Date.now() });
+    }
+
+    function exportMetricsCsv() {
+        // All three are monthly series for the same last 12 months, so line
+        // them up from the most recent month backwards.
+        const series = [
+            claudeSnapshot.totalMrrSeries ?? { labels: [], values: [] },
+            claudeSnapshot.churnSeries,
+            claudeSnapshot.activeUsersSeries,
+        ];
+        const length = Math.max(...series.map((item) => item.values.length));
+        const at = (item: { labels: string[]; values: number[] }, index: number) => {
+            const offset = item.values.length - length + index;
+            return offset >= 0 ? { label: item.labels[offset], value: item.values[offset] } : null;
+        };
+        const periodLabel = (index: number) => {
+            // Prefer a "2025-07" style label, which includes the year.
+            for (const item of series) {
+                const label = at(item, index)?.label ?? "";
+                const match = label.match(/^(\d{4})-(\d{2})$/);
+                if (match) {
+                    return new Date(Number(match[1]), Number(match[2]) - 1, 1).toLocaleDateString("en-GB", {
+                        month: "short",
+                        year: "numeric",
+                    });
+                }
+            }
+            return series.map((item) => at(item, index)?.label).find(Boolean) ?? "";
+        };
+
+        downloadCsv(`cobrai-metrics-${new Date().toISOString().slice(0, 10)}.csv`, [
+            ["Month", `MRR (${workspaceCurrency})`, "Churn %", "Subscribers"],
+            ...Array.from({ length }, (_, index) => [
+                periodLabel(index),
+                ...series.map((item) => at(item, index)?.value ?? ""),
+            ]),
+        ]);
+        setExportOpen(false);
+    }
+
+    function exportAccountsCsv() {
+        downloadCsv(`cobrai-accounts-to-act-on-${new Date().toISOString().slice(0, 10)}.csv`, [
+            ["Account", "Email", "Opportunity", `Value at stake (${workspaceCurrency})`, "Confidence %", "Why now", "Suggested action"],
+            ...queueRows.map((row) => [
+                row.name,
+                row.email ?? "",
+                row.opportunity || formatQueueType(row.type),
+                (Number(row.valueMinor || 0) / 100).toFixed(2),
+                Math.round(Number(row.confidence || 0)),
+                row.whyNow || row.reason || "",
+                row.suggestedAction || row.action || "",
+            ]),
+        ]);
+        setExportOpen(false);
+    }
+
+    const closeAccountDrawer = useCallback(() => setDrawerRow(null), []);
+
+    const drawerAccount: DrawerAccount | null = drawerRow
+        ? {
+            name: drawerRow.name,
+            email: drawerRow.email,
+            domain: getQueueDomain(drawerRow),
+            opportunity: drawerRow.opportunity || formatQueueType(drawerRow.type),
+            tone: getQueueTone(drawerRow.type),
+            priority: getQueueImpactLabel(drawerRow),
+            value: formatCurrencyFromMinor(Number(drawerRow.valueMinor || 0), workspaceCurrency),
+            confidence: Number(drawerRow.confidence || 0),
+            whyNow: drawerRow.whyNow || drawerRow.reason,
+            suggestedAction: drawerRow.suggestedAction || drawerRow.action,
+            lastEvent: drawerRow.lastEventAt ? formatExactDate(drawerRow.lastEventAt) : null,
+            isPayment: isBillingRecoveryRow(drawerRow),
+        }
+        : null;
+
+    const skeleton = (
+        <div className={metricStyles.pageSkeleton} aria-busy="true" aria-label="Loading metrics">
+            <div className={metricStyles.skHeader}><span /><span /></div>
+            <div className={metricStyles.skKpis}>{[0, 1, 2, 3].map((i) => <span key={i} />)}</div>
+            <div className={metricStyles.skBar} />
+            <div className={metricStyles.skGrid}>{[0, 1, 2, 3].map((i) => <span key={i} />)}</div>
+        </div>
+    );
 
     let content: ReactNode = null;
 
     if (status === "checking" || loading) {
-        content = (
-            <div className={styles.centerState}>
-                <div className={styles.loader} />
-                <div>Loading analytics…</div>
-            </div>
-        );
+        content = skeleton;
     } else if (status === "guest") {
         content = null;
     } else if (error) {
         content = <div className={styles.errorBox}>{error}</div>;
     } else if (!summary) {
-        content = (
-            <div className={styles.centerState}>
-                <div className={styles.loader} />
-                <div>Loading analytics…</div>
-            </div>
-        );
+        content = skeleton;
     } else {
         content = (
             <>
                 <div className={styles.header}>
                     <div>
-                        <h1 className={styles.title}>Analytics</h1>
+                        <h1 className={styles.title}>Metrics</h1>
 
                         <p className={styles.subtitle}>
-                            MRR, churn, and risk trends.
+                            Revenue, churn and user trends, what Claude thinks they mean, and the accounts to act on.
                         </p>
+                        <p className={metricStyles.syncNote}>
+                            <i aria-hidden="true" />
+                            {isDemoMode ? "Demo data" : "Live data"}
+                            {timeAgo(lastRefreshedAt, nowTick) ? ` · Updated ${timeAgo(lastRefreshedAt, nowTick)}` : ""}
+                        </p>
+                    </div>
+
+                    <div className={metricStyles.toolbar}>
+                        <div className={metricStyles.segmented} role="tablist" aria-label="Period">
+                            {PERIODS.map((option) => (
+                                <button
+                                    key={option.key}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={period === option.key}
+                                    onClick={() => selectPeriod(option.key)}
+                                    title={option.long}
+                                >
+                                    {option.label}
+                                </button>
+                            ))}
+                        </div>
+                        <button
+                            type="button"
+                            className={`${metricStyles.button} ${showCompare ? metricStyles.buttonOn : ""}`}
+                            onClick={() => setCompare((on) => !on)}
+                            aria-pressed={showCompare}
+                            disabled={!canCompare}
+                            title={
+                                canCompare
+                                    ? "Show the previous period as a dashed line on the MRR and churn charts"
+                                    : `Needs ${periodN * 2} months of history to compare with the previous period`
+                            }
+                        >
+                            <GitCompareArrows size={14} strokeWidth={1.8} aria-hidden="true" />
+                            Compare
+                        </button>
+                        <div className={metricStyles.exportWrap}>
+                            <button
+                                type="button"
+                                className={metricStyles.button}
+                                onClick={() => setExportOpen((open) => !open)}
+                                aria-expanded={exportOpen}
+                                aria-haspopup="menu"
+                            >
+                                <Download size={14} strokeWidth={1.8} aria-hidden="true" />
+                                Export
+                                <ChevronDown size={13} strokeWidth={1.8} aria-hidden="true" />
+                            </button>
+                            {exportOpen ? (
+                                <div className={metricStyles.exportMenu} role="menu">
+                                    <button type="button" role="menuitem" onClick={exportMetricsCsv}>
+                                        Monthly metrics
+                                        <span>MRR, churn and subscribers (CSV)</span>
+                                    </button>
+                                    <button type="button" role="menuitem" onClick={exportAccountsCsv}>
+                                        Accounts to act on
+                                        <span>{queueRows.length} accounts with next steps (CSV)</span>
+                                    </button>
+                                </div>
+                            ) : null}
+                        </div>
+                        <button type="button" className={metricStyles.buttonPrimary} onClick={() => openAsk()} title="Ask Claude (⌘K)">
+                            <Sparkles size={14} strokeWidth={1.8} aria-hidden="true" />
+                            Ask Claude
+                            <kbd className={metricStyles.kbd}>⌘K</kbd>
+                        </button>
                     </div>
                 </div>
                 {actionToast ? (
@@ -4343,176 +5003,383 @@ export default function AnalyticsPage() {
                     </div>
                 ) : null}
 
-                {/* KPI GRID */}
-                <div className={styles.kpiGrid}>
-                    <div className={styles.kpiCard}>
-                        <div className={styles.kpiIcon}>
-                            <PoundSterling size={21} strokeWidth={1.8} />
-                        </div>
-                        <div className={styles.kpiContent}>
-                            <div className={styles.kpiLabel}>Total Revenue</div>
-                            <div className={styles.kpiValue}>
-                                {formatCurrencyFromMinor(demoKpis.totalMrr, workspaceCurrency)}
-                            </div>
-                            <div className={styles.kpiSub}>
-                                {renderDelta(mrrDeltaPct)}
-                                <span>vs previous month</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className={styles.kpiCard}>
-                        <div className={styles.kpiIcon}>
-                            <TriangleAlert size={20} strokeWidth={1.8} />
-                        </div>
-                        <div className={styles.kpiContent}>
-                            <div className={styles.kpiLabel}>Revenue At Risk</div>
-                            <div className={styles.kpiValue}>
-                                {formatCurrencyFromMinor(demoKpis.mrrAtRisk, workspaceCurrency)}
-                            </div>
-                            <div className={styles.kpiSub}>
-                                {renderDelta(atRiskDeltaPct, true)}
-                                <span>vs previous month</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className={styles.kpiCard}>
-                        <div className={styles.kpiIcon}>
-                            <TrendingDown size={20} strokeWidth={1.8} />
-                        </div>
-                        <div className={styles.kpiContent}>
-                            <div className={styles.kpiLabel}>Churn Proxy</div>
-                            <div className={styles.kpiValue}>
-                                {formatPct(demoKpis.churnPct)}
-                            </div>
-                            <div className={styles.kpiSub}>
-                                {renderDeltaPp(churnDeltaPp, true)}
-                                <span>vs previous month</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className={styles.kpiCard}>
-                        <div className={styles.kpiIcon}>
-                            <Users size={20} strokeWidth={1.8} />
-                        </div>
-                        <div className={styles.kpiContent}>
-                            <div className={styles.kpiLabel}>Total Subscribers</div>
-                            <div className={styles.kpiValue}>{subscriberTotal}</div>
-                            <div className={styles.kpiSub}>
-                                {renderDelta(mauLatestDeltaPct)}
-                                <span>vs previous month</span>
-                            </div>
-                        </div>
-                    </div>
+                {/* KPI strip: click a tile to jump to its chart */}
+                <div className={metricStyles.kpiTiles}>
+                    <KpiTile
+                        label="Total revenue"
+                        value={formatCurrencyFromMinor(demoKpis.totalMrr, workspaceCurrency)}
+                        change={kpiCompare.mrr.change}
+                        changeLabel={kpiCompare.mrr.label}
+                        better="up"
+                        spark={mrrTrendChart.values}
+                        onClick={() => jumpTo("metrics-mrr")}
+                        title="Show the MRR chart"
+                    />
+                    <KpiTile
+                        label="Revenue at risk"
+                        value={formatCurrencyFromMinor(demoKpis.mrrAtRisk, workspaceCurrency)}
+                        change={atRiskChange}
+                        changeLabel="vs previous month"
+                        better="down"
+                        onClick={() => jumpTo("metrics-risk")}
+                        title="Show where the revenue at risk is"
+                    />
+                    <KpiTile
+                        label="Churn rate"
+                        value={formatPct(demoKpis.churnPct)}
+                        change={kpiCompare.churn.change}
+                        changeLabel={kpiCompare.churn.label}
+                        better="down"
+                        spark={churnTrendChart.values}
+                        onClick={() => jumpTo("metrics-churn")}
+                        title="Show the churn chart"
+                    />
+                    <KpiTile
+                        label="Total subscribers"
+                        value={String(subscriberTotal)}
+                        change={kpiCompare.subs.change}
+                        changeLabel={kpiCompare.subs.label}
+                        better="up"
+                        spark={subscriberChartRows.map((row) => Number(row.totalSubscribers || 0))}
+                        onClick={() => jumpTo("metrics-subscribers")}
+                        title="Show the subscriber chart"
+                    />
                 </div>
 
+                {/* Claude interprets the metrics */}
+                <ClaudeMetricsRead
+                    snapshot={claudeSnapshot}
+                    onAsk={openAsk}
+                    onNotes={handleChartNotes}
+                    periodLabel={periodLabel}
+                />
+
                 <div className={styles.analyticsLayout}>
-                    <section className={styles.primaryGrid}>
-                        {/* MRR + CHURN PERFORMANCE — TWO CHARTS IN ONE CARD */}
-                        <div className={styles.performanceCard}>
-                            <div className={styles.performanceHeader}>
+                    <div className={styles.sectionHeading}>
+                        <h2>Overview</h2>
+                        <p>Revenue, churn, subscribers and the revenue at stake.</p>
+                    </div>
+
+                    <section className={metricStyles.chartGrid}>
+                        {/* MRR */}
+                        <div id="metrics-mrr" className={`${styles.revenueOverviewCard} ${metricStyles.gridCard} ${flash("metrics-mrr")}`}>
+                            <div className={styles.revenueOverviewHeader}>
                                 <div>
-                                    <div className={styles.chartTitle}>Metrics</div>
-                                    <div className={styles.chartMeta}>
-                                        MRR growth and churn movement over the selected period.
+                                    <h3>MRR</h3>
+                                </div>
+                                {hasAiRevenueAccess ? (
+                                    <div className={metricStyles.segmented} role="tablist" aria-label="MRR view">
+                                        <button type="button" role="tab" aria-selected={mrrView === "trend"} onClick={() => setMrrView("trend")}>
+                                            Trend
+                                        </button>
+                                        <button type="button" role="tab" aria-selected={mrrView === "30d"} onClick={() => setMrrView("30d")}>
+                                            30 days
+                                        </button>
+                                    </div>
+                                ) : null}
+                                <ExplainButton
+                                    onClick={() =>
+                                        openAsk(
+                                            mrrView === "30d"
+                                                ? "Explain the 30-day revenue trend and forecast: are we on track, and what would close the gap to the forecast goal?"
+                                                : "Explain the MRR trend: what's changed over the period, what's likely driving it, and what it means for us."
+                                        )
+                                    }
+                                />
+                            </div>
+
+                            {mrrView === "30d" && hasAiRevenueAccess ? (
+                                <>
+                                    <div className={styles.revenueOverviewValueRow}>
+                                        <strong>
+                                            {formatCurrencyFromMinor(
+                                                safeRecoveryQueue.currentMrrMinor,
+                                                safeRecoveryQueue.currency || workspaceCurrency
+                                            )}
+                                        </strong>
+                                        <span>{Math.round(forecastProgressPct)}% of forecast goal · {revenueImpactDateRange}</span>
+                                    </div>
+                                    <div className={styles.revenueOverviewLegend}>
+                                        <span><i className={styles.legendRevenue} />Revenue</span>
+                                        <span><i className={styles.legendForecast} />Forecast</span>
+                                    </div>
+                                    <div className={styles.revenueOverviewChart}>
+                                        <EChart option={dashMrrMiniForecastOption} />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className={styles.revenueOverviewValueRow}>
+                                        <strong>
+                                            {formatCurrencyFromMinor(
+                                                isDemoMode ? 223000 : drawerInsights.mrr.currentMinor,
+                                                workspaceCurrency
+                                            )}
+                                        </strong>
+                                        <span>{formatDeltaPctLabel(drawerInsights.mrr.deltaPct)} vs previous month</span>
+                                    </div>
+                                    <div className={metricStyles.rangeRow}>
+                                        <div className={styles.chartFilterWrap}>
+                                            <button
+                                                type="button"
+                                                className={styles.chartFilterButton}
+                                                onClick={() => {
+                                                    setMrrFilterOpen((open) => !open);
+                                                    setChurnFilterOpen(false);
+                                                    setAiRevenueFilterOpen(false);
+                                                }}
+                                            >
+                                                <Clock3 size={13} strokeWidth={1.8} />
+                                                <span>{getRangeLabel(mrrRange)}</span>
+                                                <ChevronDown size={13} strokeWidth={1.8} />
+                                            </button>
+
+                                            {mrrFilterOpen ? (
+                                                <div className={styles.chartFilterMenu}>
+                                                    {chartRangeOptions.map((option) => (
+                                                        <button
+                                                            key={option.value}
+                                                            type="button"
+                                                            className={`${styles.chartFilterOption} ${mrrRange === option.value
+                                                                ? styles.chartFilterOptionActive
+                                                                : ""
+                                                                }`}
+                                                            onClick={() => {
+                                                                if (option.value === "current") {
+                                                                    setMrrRange(option.value);
+                                                                    setChurnRange(option.value);
+                                                                } else {
+                                                                    selectPeriod(option.value);
+                                                                }
+                                                                setMrrFilterOpen(false);
+                                                            }}
+                                                        >
+                                                            {option.label}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                    <div className={styles.revenueOverviewChart}>
+                                        <EChart option={mrrChartOption} onEvents={mrrChartEvents} />
+                                    </div>
+                                    {numberedNotes.mrr.length ? (
+                                        <ul className={metricStyles.noteList} aria-label="Claude's notes on this chart">
+                                            {numberedNotes.mrr.map((note) => (
+                                                <li key={note.n}>
+                                                    <button type="button" onClick={() => askAboutNote(note)} title="Ask Claude about this">
+                                                        <b className={metricStyles[`note_${note.sentiment}`]}>{note.n}</b>
+                                                        <span>
+                                                            <strong>{note.label} · {note.title}</strong>
+                                                            {note.detail}
+                                                        </span>
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : null}
+                                </>
+                            )}
+
+                            {hasAiRevenueAccess ? (
+                                <div className={styles.revenueOverviewStats}>
+                                    <div>
+                                        <span>Forecast MRR</span>
+                                        <strong>{formatMoneyAmount(projectedMrr, workspaceCurrency)}</strong>
+                                        <small className={styles.statComparison}>
+                                            {renderDelta(forecastMrrDeltaPct)}
+                                            <span>vs previous month</span>
+                                        </small>
+                                    </div>
+                                    <div>
+                                        <span>Acquired users</span>
+                                        <strong>{acquiredUsers}</strong>
+                                        <small className={styles.statComparison}>
+                                            {renderDelta(acquiredUsersDeltaPct)}
+                                            <span>vs previous month</span>
+                                        </small>
+                                    </div>
+                                    <div>
+                                        <span>Retained users</span>
+                                        <strong>{retainedUsers}</strong>
+                                        <small className={styles.statComparison}>
+                                            {renderDelta(retainedUsersDeltaPct)}
+                                            <span>vs previous month</span>
+                                        </small>
+                                    </div>
+                                    <div>
+                                        <span>Revenue protected</span>
+                                        <strong>{formatCurrencyFromMinor(demoKpis.mrrProtected, workspaceCurrency)}</strong>
+                                        <small className={styles.statComparison}>
+                                            {renderDelta(protectedDeltaPct)}
+                                            <span>vs previous month</span>
+                                        </small>
+                                    </div>
+                                    <div>
+                                        <span>Expansion MRR</span>
+                                        <strong>{formatCurrencyFromMinor(expansionMrrMinor, workspaceCurrency)}</strong>
+                                        <small className={styles.statComparison}>
+                                            {renderDelta(expansionMrrDeltaPct)}
+                                            <span>vs previous month</span>
+                                        </small>
+                                    </div>
+                                    <div>
+                                        <span>AI confidence</span>
+                                        <strong>{aiConfidenceScore}%</strong>
+                                        <small className={styles.statComparison}>
+                                            {renderDelta(mrrDeltaPct)}
+                                            <span>vs previous month</span>
+                                        </small>
                                     </div>
                                 </div>
-
-                                <div className={styles.chartFilterWrap}>
-                                    <button
-                                        type="button"
-                                        className={styles.chartFilterButton}
-                                        onClick={() => {
-                                            setMrrFilterOpen((open) => !open);
-                                            setChurnFilterOpen(false);
-                                            setAiRevenueFilterOpen(false);
-                                        }}
-                                    >
-                                        <Clock3 size={13} strokeWidth={1.8} />
-                                        <span>{getRangeLabel(mrrRange)}</span>
-                                        <ChevronDown size={13} strokeWidth={1.8} />
-                                    </button>
-
-                                    {mrrFilterOpen ? (
-                                        <div className={styles.chartFilterMenu}>
-                                            {chartRangeOptions.map((option) => (
-                                                <button
-                                                    key={option.value}
-                                                    type="button"
-                                                    className={`${styles.chartFilterOption} ${mrrRange === option.value
-                                                        ? styles.chartFilterOptionActive
-                                                        : ""
-                                                        }`}
-                                                    onClick={() => {
-                                                        setMrrRange(option.value);
-                                                        setChurnRange(option.value);
-                                                        setMrrFilterOpen(false);
-                                                    }}
-                                                >
-                                                    {option.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    ) : null}
-                                </div>
-                            </div>
-
-                            <div className={styles.performanceRow}>
-                                <div className={styles.performanceMetric}>
-                                    <span className={styles.performanceLabel}>Revenue Trend</span>
-                                    <strong className={styles.performanceValue}>
-                                        {formatCurrencyFromMinor(
-                                            isDemoMode ? 223000 : drawerInsights.mrr.currentMinor,
-                                            workspaceCurrency
-                                        )}
-                                    </strong>
-                                    <span className={styles.performanceChange}>
-                                        {formatDeltaPctLabel(drawerInsights.mrr.deltaPct)} vs previous month
-                                    </span>
-                                </div>
-
-                                <div className={styles.performanceChartWrap}>
-                                    <EChart option={mrrTrendOption} />
-                                </div>
-                            </div>
-
-                            <div className={styles.performanceDivider} />
-
-                            <div className={styles.performanceRow}>
-                                <div className={styles.performanceMetric}>
-                                    <span className={styles.performanceLabel}>Churn Trend</span>
-                                    <strong className={styles.performanceValue}>
-                                        {formatPct(drawerInsights.churn.currentPct)}
-                                    </strong>
-                                    <span className={styles.performanceChange}>
-                                        {formatDeltaPpLabel(drawerInsights.churn.deltaPp)} vs previous month
-                                    </span>
-                                </div>
-
-                                <div className={styles.performanceChartWrap}>
-                                    <EChart option={churnTrendMiniOption} />
-                                </div>
-                            </div>
+                            ) : null}
                         </div>
 
+                        {/* Churn */}
+                        <div id="metrics-churn" className={`${styles.revenueOverviewCard} ${styles.churnOverviewCard} ${metricStyles.gridCard} ${flash("metrics-churn")}`}>
+                            <div className={styles.revenueOverviewHeader}>
+                                <div>
+                                    <h3>Churn</h3>
+                                </div>
+                                {hasAiRevenueAccess ? (
+                                    <div className={metricStyles.segmented} role="tablist" aria-label="Churn view">
+                                        <button type="button" role="tab" aria-selected={churnView === "trend"} onClick={() => setChurnView("trend")}>
+                                            Trend
+                                        </button>
+                                        <button type="button" role="tab" aria-selected={churnView === "30d"} onClick={() => setChurnView("30d")}>
+                                            30 days
+                                        </button>
+                                    </div>
+                                ) : null}
+                                <ExplainButton
+                                    onClick={() =>
+                                        openAsk(
+                                            churnView === "30d"
+                                                ? "Explain the 30-day churn trend and forecast: is churn getting better or worse, and what's most likely to reduce it?"
+                                                : "Explain the churn trend: what's changed over the period, what's likely driving it, and what it means for us."
+                                        )
+                                    }
+                                />
+                            </div>
 
+                            {churnView === "30d" && hasAiRevenueAccess ? (
+                                <>
+                                    <div className={styles.revenueOverviewValueRow}>
+                                        <strong>{formatPct(churnHoverData.current)}</strong>
+                                        <span>{formatDeltaPpLabel(drawerInsights.churn.deltaPp)} vs previous month · {revenueImpactDateRange}</span>
+                                    </div>
+                                    <div className={styles.revenueOverviewLegend}>
+                                        <span><i className={styles.legendChurn} />Churn</span>
+                                    </div>
+                                    <div className={styles.revenueOverviewChart}>
+                                        <EChart option={dashChurnImpactOption} />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className={styles.revenueOverviewValueRow}>
+                                        <strong>{formatPct(demoKpis.churnPct)}</strong>
+                                        <span>{formatDeltaPpLabel(churnDeltaPp)} vs previous month</span>
+                                    </div>
+                                    <div className={metricStyles.rangeRow}>
+                                        <span className={metricStyles.rangeNote}>{getRangeLabel(mrrRange)}</span>
+                                    </div>
+                                    <div className={styles.revenueOverviewChart}>
+                                        <EChart option={churnChartOption} onEvents={churnChartEvents} />
+                                    </div>
+                                    {numberedNotes.churn.length ? (
+                                        <ul className={metricStyles.noteList} aria-label="Claude's notes on this chart">
+                                            {numberedNotes.churn.map((note) => (
+                                                <li key={note.n}>
+                                                    <button type="button" onClick={() => askAboutNote(note)} title="Ask Claude about this">
+                                                        <b className={metricStyles[`note_${note.sentiment}`]}>{note.n}</b>
+                                                        <span>
+                                                            <strong>{note.label} · {note.title}</strong>
+                                                            {note.detail}
+                                                        </span>
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : null}
+                                </>
+                            )}
 
-                        <div className={styles.activeUsersCard}>
+                            {hasAiRevenueAccess ? (
+                                <div className={`${styles.revenueOverviewStats} ${styles.churnForecastStats}`}>
+                                    <div>
+                                        <span>Forecast churn</span>
+                                        <strong>{formatPct(projectedChurn)}</strong>
+                                        <small className={styles.statComparison}>
+                                            {renderDeltaPp(
+                                                typeof projectedChurn === "number" && typeof churnHoverData.current === "number"
+                                                    ? projectedChurn - churnHoverData.current
+                                                    : null,
+                                                true
+                                            )}
+                                            <span>vs previous month</span>
+                                        </small>
+                                    </div>
+                                    <div>
+                                        <span>Forecast churned users</span>
+                                        <strong>{forecastChurnedUsers}</strong>
+                                        <small className={styles.statComparison}>
+                                            {renderDelta(forecastChurnedUsersDeltaPct, true)}
+                                            <span>vs previous month</span>
+                                        </small>
+                                    </div>
+                                    <div>
+                                        <span>Customer health</span>
+                                        <strong>{aiInsightCard.healthScore}/100</strong>
+                                        <small className={styles.statComparison}>
+                                            {renderDelta(mauLatestDeltaPct)}
+                                            <span>vs previous month</span>
+                                        </small>
+                                    </div>
+                                    <div>
+                                        <span>Revenue at risk</span>
+                                        <strong>{formatCurrencyFromMinor(demoKpis.mrrAtRisk, workspaceCurrency)}</strong>
+                                        <small className={styles.statComparison}>
+                                            {renderDelta(atRiskDeltaPct, true)}
+                                            <span>vs previous month</span>
+                                        </small>
+                                    </div>
+                                    <div>
+                                        <span>Revenue lost</span>
+                                        <strong>{formatCurrencyFromMinor(revenueLostMinor, workspaceCurrency)}</strong>
+                                        <small className={styles.statComparison}>
+                                            {renderDelta(revenueLostDeltaPct, true)}
+                                            <span>vs previous month</span>
+                                        </small>
+                                    </div>
+                                    <div>
+                                        <span>AI confidence</span>
+                                        <strong>{aiConfidenceScore}%</strong>
+                                        <small className={styles.statComparison}>
+                                            {renderDelta(typeof churnDeltaPp === "number" ? -churnDeltaPp : null)}
+                                            <span>vs previous month</span>
+                                        </small>
+                                    </div>
+                                </div>
+                            ) : null}
+                        </div>
+
+                        {/* Subscribers */}
+                        <div id="metrics-subscribers" className={`${styles.activeUsersCard} ${metricStyles.gridCard} ${flash("metrics-subscribers")}`}>
                             <div className={styles.activeUsersHeader}>
                                 <div>
                                     <div className={styles.chartTitle}>User Metrics</div>
                                     <div className={styles.chartMeta}>Compared from last month</div>
                                 </div>
 
-                                <button
-                                    type="button"
-                                    className={styles.activeUsersMenu}
-                                    aria-label="Active users chart options"
-                                >
-                                    •••
-                                </button>
+                                <ExplainButton
+                                    onClick={() =>
+                                        openAsk(
+                                            "Explain the subscriber chart: how is our user base growing or shrinking, and is it healthy?"
+                                        )
+                                    }
+                                />
                             </div>
 
                             <div className={styles.activeUsersValueRow}>
@@ -4525,376 +5392,312 @@ export default function AnalyticsPage() {
                             </div>
 
                             <div className={styles.activeUsersChart}>
-                                <EChart option={activeUsersBarOption} />
+                                <EChart option={dashActiveUsersBarOption} />
                             </div>
                         </div>
 
+                        {/* Revenue at stake */}
                         {hasAiRevenueAccess ? (
-                            <div className={styles.revenueImpactSection}>
-                                <div className={styles.revenueOverviewCard}>
-                                    <div className={styles.revenueOverviewHeader}>
-                                        <div>
-                                            <span className={styles.revenueOverviewEyebrow}>Revenue performance</span>
-                                            <h3>Revenue Trend</h3>
-                                        </div>
-                                        <span className={styles.revenueOverviewPeriod}>
-                                            <CalendarDays size={13} strokeWidth={1.8} />
-                                            {revenueImpactDateRange}
-                                            <ChevronDown size={12} strokeWidth={1.8} />
-                                        </span>
+                            <section id="metrics-risk" className={`${metricStyles.riskCard} ${metricStyles.gridCard} ${flash("metrics-risk")}`} aria-labelledby="risk-breakdown-title">
+                                <div className={metricStyles.riskHead}>
+                                    <div>
+                                        <h3 id="risk-breakdown-title">Where the revenue is</h3>
+                                        <p>
+                                            {formatCurrencyFromMinor(riskGroups.total, workspaceCurrency)} across{" "}
+                                            {queueRows.length} accounts, by type of opportunity.
+                                        </p>
                                     </div>
-
-                                    <div className={styles.revenueOverviewValueRow}>
-                                        <strong>
-                                            {formatCurrencyFromMinor(
-                                                safeRecoveryQueue.currentMrrMinor,
-                                                safeRecoveryQueue.currency || workspaceCurrency
-                                            )}
-                                        </strong>
-                                        <span>{Math.round(forecastProgressPct)}% of forecast goal</span>
-                                    </div>
-
-                                    <div className={styles.revenueOverviewLegend}>
-                                        <span><i className={styles.legendRevenue} />Revenue</span>
-                                        <span><i className={styles.legendForecast} />Forecast</span>
-                                    </div>
-
-                                    <div className={styles.revenueOverviewChart}>
-                                        <EChart option={mrrMiniForecastOption} />
-                                    </div>
-
-                                    <div className={styles.revenueOverviewStats}>
-                                        <div>
-                                            <span>Forecast MRR</span>
-                                            <strong>{formatMoneyAmount(projectedMrr, workspaceCurrency)}</strong>
-                                            <small className={styles.statComparison}>
-                                                {renderDelta(forecastMrrDeltaPct)}
-                                                <span>vs previous month</span>
-                                            </small>
-                                        </div>
-                                        <div>
-                                            <span>Acquired users</span>
-                                            <strong>{acquiredUsers}</strong>
-                                            <small className={styles.statComparison}>
-                                                {renderDelta(acquiredUsersDeltaPct)}
-                                                <span>vs previous month</span>
-                                            </small>
-                                        </div>
-                                        <div>
-                                            <span>Retained users</span>
-                                            <strong>{retainedUsers}</strong>
-                                            <small className={styles.statComparison}>
-                                                {renderDelta(retainedUsersDeltaPct)}
-                                                <span>vs previous month</span>
-                                            </small>
-                                        </div>
-                                        <div>
-                                            <span>Revenue protected</span>
-                                            <strong>{formatCurrencyFromMinor(demoKpis.mrrProtected, workspaceCurrency)}</strong>
-                                            <small className={styles.statComparison}>
-                                                {renderDelta(protectedDeltaPct)}
-                                                <span>vs previous month</span>
-                                            </small>
-                                        </div>
-                                        <div>
-                                            <span>Expansion MRR</span>
-                                            <strong>{formatCurrencyFromMinor(expansionMrrMinor, workspaceCurrency)}</strong>
-                                            <small className={styles.statComparison}>
-                                                {renderDelta(expansionMrrDeltaPct)}
-                                                <span>vs previous month</span>
-                                            </small>
-                                        </div>
-                                        <div>
-                                            <span>AI confidence</span>
-                                            <strong>{aiConfidenceScore}%</strong>
-                                            <small className={styles.statComparison}>
-                                                {renderDelta(mrrDeltaPct)}
-                                                <span>vs previous month</span>
-                                            </small>
-                                        </div>
-                                    </div>
+                                    <ExplainButton
+                                        label="What should I do first?"
+                                        onClick={() =>
+                                            openAsk(
+                                                "Looking at where the revenue at stake sits by opportunity type, what should I do first this week, and with which accounts?"
+                                            )
+                                        }
+                                    />
                                 </div>
-
-                                <div className={`${styles.revenueOverviewCard} ${styles.churnOverviewCard}`}>
-                                    <div className={styles.revenueOverviewHeader}>
-                                        <div>
-                                            <span className={styles.revenueOverviewEyebrow}>Customer retention</span>
-                                            <h3>Churn Trend</h3>
-                                        </div>
-                                        <span className={styles.revenueOverviewPeriod}>
-                                            <CalendarDays size={13} strokeWidth={1.8} />
-                                            {revenueImpactDateRange}
-                                        </span>
-                                    </div>
-
-                                    <div className={styles.revenueOverviewValueRow}>
-                                        <strong>{formatPct(churnHoverData.current)}</strong>
-                                        <span>{formatDeltaPpLabel(drawerInsights.churn.deltaPp)} vs previous month</span>
-                                    </div>
-
-                                    <div className={styles.revenueOverviewLegend}>
-                                        <span><i className={styles.legendChurn} />Churn</span>
-                                    </div>
-
-                                    <div className={styles.revenueOverviewChart}>
-                                        <EChart option={churnImpactOption} />
-                                    </div>
-
-                                    <div className={`${styles.revenueOverviewStats} ${styles.churnForecastStats}`}>
-                                        <div>
-                                            <span>Forecast churn</span>
-                                            <strong>{formatPct(projectedChurn)}</strong>
-                                            <small className={styles.statComparison}>
-                                                {renderDeltaPp(
-                                                    typeof projectedChurn === "number" && typeof churnHoverData.current === "number"
-                                                        ? projectedChurn - churnHoverData.current
-                                                        : null,
-                                                    true
-                                                )}
-                                                <span>vs previous month</span>
-                                            </small>
-                                        </div>
-                                        <div>
-                                            <span>Forecast churned users</span>
-                                            <strong>{forecastChurnedUsers}</strong>
-                                            <small className={styles.statComparison}>
-                                                {renderDelta(forecastChurnedUsersDeltaPct, true)}
-                                                <span>vs previous month</span>
-                                            </small>
-                                        </div>
-                                        <div>
-                                            <span>Customer health</span>
-                                            <strong>{aiInsightCard.healthScore}/100</strong>
-                                            <small className={styles.statComparison}>
-                                                {renderDelta(mauLatestDeltaPct)}
-                                                <span>vs previous month</span>
-                                            </small>
-                                        </div>
-                                        <div>
-                                            <span>Revenue at risk</span>
-                                            <strong>{formatCurrencyFromMinor(demoKpis.mrrAtRisk, workspaceCurrency)}</strong>
-                                            <small className={styles.statComparison}>
-                                                {renderDelta(atRiskDeltaPct, true)}
-                                                <span>vs previous month</span>
-                                            </small>
-                                        </div>
-                                        <div>
-                                            <span>Revenue lost</span>
-                                            <strong>{formatCurrencyFromMinor(revenueLostMinor, workspaceCurrency)}</strong>
-                                            <small className={styles.statComparison}>
-                                                {renderDelta(revenueLostDeltaPct, true)}
-                                                <span>vs previous month</span>
-                                            </small>
-                                        </div>
-                                        <div>
-                                            <span>AI confidence</span>
-                                            <strong>{aiConfidenceScore}%</strong>
-                                            <small className={styles.statComparison}>
-                                                {renderDelta(typeof churnDeltaPp === "number" ? -churnDeltaPp : null)}
-                                                <span>vs previous month</span>
-                                            </small>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className={styles.impactTablesGrid}>
-                                    <section className={styles.customerImpactTableCard}>
-                                        <div className={styles.customerImpactTableTop}>
-                                            <div>
-                                                <h3>Revenue Impact Queue</h3>
-                                                <p>Prioritised accounts and the recommended next action.</p>
-                                            </div>
-
-                                            <div className={styles.customerImpactTableTools}>
-                                                <div className={styles.customerImpactSearch}>
-                                                    <Search size={14} strokeWidth={1.8} />
-                                                    <input
-                                                        type="search"
-                                                        value={recoverySearchQuery}
-                                                        onChange={(event) => setRecoverySearchQuery(event.target.value)}
-                                                        placeholder="Search"
-                                                        aria-label="Search revenue impact queue"
+                                <ul className={metricStyles.riskList}>
+                                    {riskGroups.list.map((group) => {
+                                        const share = riskGroups.total ? (group.valueMinor / riskGroups.total) * 100 : 0;
+                                        return (
+                                            <li key={group.label}>
+                                                <span className={metricStyles.riskLabel}>
+                                                    <i className={metricStyles[`tone_${group.tone}`]} aria-hidden="true" />
+                                                    {group.label}
+                                                </span>
+                                                <span className={metricStyles.riskBar} aria-hidden="true">
+                                                    <b
+                                                        className={metricStyles[`tone_${group.tone}`]}
+                                                        style={{ width: `${Math.max(2, share)}%` }}
                                                     />
-                                                </div>
+                                                </span>
+                                                <span className={metricStyles.riskValue}>
+                                                    {formatCurrencyFromMinor(group.valueMinor, workspaceCurrency)}
+                                                </span>
+                                                <span className={metricStyles.riskMeta}>
+                                                    {group.accounts} {group.accounts === 1 ? "account" : "accounts"} · {Math.round(share)}%
+                                                </span>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </section>
+                        ) : null}
+                    </section>
 
-                                                <div className={styles.chartFilterWrap}>
-                                                    <button
-                                                        type="button"
-                                                        className={styles.chartFilterButton}
-                                                        onClick={() => setRecoveryFilterOpen((open) => !open)}
-                                                        aria-expanded={recoveryFilterOpen}
-                                                        aria-haspopup="menu"
-                                                    >
-                                                        {({
-                                                            all: "All accounts",
-                                                            "opportunity:immediate attention": "Immediate attention",
-                                                            "opportunity:billing recovery": "Billing recovery",
-                                                            "opportunity:upsell opportunity": "Upsell opportunity",
-                                                            "opportunity:reactivation": "Reactivation",
-                                                            "opportunity:expansion momentum": "Expansion momentum",
-                                                            "impact:high": "High impact",
-                                                            "impact:medium": "Medium impact",
-                                                            "impact:low": "Low impact",
-                                                            "action:payment": "Retry payment",
-                                                            "action:email": "Send email",
-                                                            "action:check-in": "Check-in",
-                                                            "action:expansion": "Expansion",
-                                                        } as Record<string, string>)[recoveryFilter] || "All accounts"}
-                                                        <ChevronDown size={13} />
-                                                    </button>
+                    <div className={styles.sectionHeading}>
+                        <h2>Retention</h2>
+                        <p>How revenue moved, how much you kept, and how each month&apos;s customers stick.</p>
+                    </div>
 
-                                                    {recoveryFilterOpen && (
-                                                        <div className={`${styles.chartFilterMenu} ${styles.recoveryFilterMenu}`} role="menu">
-                                                            {[
-                                                                ["all", "All accounts"],
-                                                                ["opportunity:immediate attention", "Immediate attention"],
-                                                                ["opportunity:billing recovery", "Billing recovery"],
-                                                                ["opportunity:upsell opportunity", "Upsell opportunity"],
-                                                                ["opportunity:reactivation", "Reactivation"],
-                                                                ["opportunity:expansion momentum", "Expansion momentum"],
-                                                                ["impact:high", "High impact"],
-                                                                ["impact:medium", "Medium impact"],
-                                                                ["impact:low", "Low impact"],
-                                                                ["action:payment", "Retry payment"],
-                                                                ["action:email", "Send email"],
-                                                                ["action:check-in", "Check-in"],
-                                                                ["action:expansion", "Expansion"],
-                                                            ].map(([value, label]) => (
-                                                                <button
-                                                                    key={value}
-                                                                    type="button"
-                                                                    role="menuitem"
-                                                                    className={`${styles.chartFilterOption} ${recoveryFilter === value ? styles.chartFilterOptionActive : ""}`}
-                                                                    onClick={() => {
-                                                                        setRecoveryFilter(value);
-                                                                        setRecoveryFilterOpen(false);
-                                                                    }}
-                                                                >
-                                                                    {label}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
+                    <section className={metricStyles.retentionGrid}>
+                        <RevenueMovementCard
+                            movement={mrrMovement}
+                            periodLabel={periodLabel}
+                            formatMoney={formatMajor}
+                            estimated
+                            onExplain={openAsk}
+                        />
+                        <CohortHeatmap cohorts={cohorts} isDemo={isDemoMode} onExplain={openAsk} />
+                    </section>
 
-                                        <div className={styles.customerImpactTableViewport}>
-                                            <table className={styles.customerImpactTable}>
-                                                <thead>
-                                                    <tr>
-                                                        <th>Account</th>
-                                                        <th>Opportunity</th>
-                                                        <th>Impact</th>
-                                                        <th>Suggested action</th>
-                                                        <th>Action</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {recoveryLoading ? (
-                                                        <tr>
-                                                            <td colSpan={5} className={styles.customerImpactEmpty}>Loading revenue impact queue...</td>
-                                                        </tr>
-                                                    ) : recoveryError ? (
-                                                        <tr>
-                                                            <td colSpan={5} className={styles.customerImpactEmpty}>{recoveryError}</td>
-                                                        </tr>
-                                                    ) : visibleRecoveryRows.length === 0 ? (
-                                                        <tr>
-                                                            <td colSpan={5} className={styles.customerImpactEmpty}>
-                                                                <strong>No accounts found.</strong>
-                                                                <span>Accounts requiring action will appear here automatically.</span>
-                                                            </td>
-                                                        </tr>
-                                                    ) : (
-                                                        visibleRecoveryRows.map((row) => {
-                                                            const actionText = row.suggestedAction || row.action || "Review account";
-                                                            const isPaymentAction = isBillingRecoveryRow(row);
-                                                            const impact = getQueueImpactLabel(row);
-
-                                                            return (
-                                                                <tr key={`${row.id}-${row.type || "recovery"}`}>
-                                                                    <td>
-                                                                        <button
-                                                                            type="button"
-                                                                            className={styles.customerImpactAccount}
-                                                                            onClick={() =>
-                                                                                router.push(
-                                                                                    getAccountHref(
-                                                                                        row.accountRiskId ||
-                                                                                        row.id
-                                                                                    )
-                                                                                )
-                                                                            }
-                                                                        >
-                                                                            <strong>{row.name}</strong>
-                                                                            <span>{row.email || getQueueDomain(row)}</span>
-                                                                        </button>
-                                                                    </td>
-                                                                    <td>
-                                                                        <span className={`${styles.customerImpactPill} ${styles[`impactOpportunity_${getQueueTone(row.type)}`]}`}>
-                                                                            {row.opportunity || formatQueueType(row.type)}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td>
-                                                                        <span className={`${styles.customerImpactPill} ${styles[`impactBadge_${impact.toLowerCase()}`]}`}>
-                                                                            {impact}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td><p className={styles.customerImpactCopy}>{actionText}</p></td>
-                                                                    <td>
-                                                                        <button
-                                                                            type="button"
-                                                                            className={styles.customerImpactAction}
-                                                                            onClick={() => {
-                                                                                if (isPaymentAction) {
-                                                                                    void handleExecuteRecoveryAction(row);
-                                                                                } else {
-                                                                                    openRecoveryEmailModal(row);
-                                                                                }
-                                                                            }}
-                                                                        >
-                                                                            {isPaymentAction ? <RotateCcw size={13} strokeWidth={1.8} /> : <Mail size={13} strokeWidth={1.8} />}
-                                                                            {isPaymentAction ? "Retry payment" : "Send email"}
-                                                                        </button>
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })
-                                                    )}
-                                                </tbody>
-                                            </table>
-                                        </div>
-
-                                        <div className={styles.customerImpactTableBottom}>
-                                            <p>Showing {visibleRecoveryRows.length} of {filteredRecoveryRows.length} accounts</p>
-                                            <div className={styles.customerImpactPager}>
-                                                <button
-                                                    type="button"
-                                                    disabled={recoveryPage <= 0}
-                                                    onClick={() => setRecoveryPage((page) => Math.max(0, page - 1))}
-                                                    aria-label="Previous page"
-                                                >
-                                                    ‹
-                                                </button>
-                                                <button type="button" className={styles.customerImpactCurrentPage}>{recoveryPage + 1}</button>
-                                                <button
-                                                    type="button"
-                                                    disabled={recoveryPage >= recoveryPageCount - 1}
-                                                    onClick={() => setRecoveryPage((page) => Math.min(recoveryPageCount - 1, page + 1))}
-                                                    aria-label="Next page"
-                                                >
-                                                    ›
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </section>
-                                </div>
+                    {hasAiRevenueAccess ? (
+                        <>
+                            <div className={styles.sectionHeading}>
+                                <h2>Accounts to act on</h2>
+                                <p>Prioritised by revenue impact, with the recommended next step.</p>
                             </div>
 
-                        ) : null}
+                            <div className={styles.impactTablesGrid}>
+                                <section className={styles.customerImpactTableCard}>
+                                    <div className={styles.customerImpactTableTop}>
+                                        <div>
+                                            <h3>Revenue Impact Queue</h3>
+                                            <p>Prioritised accounts and the recommended next action.</p>
+                                        </div>
 
-                    </section >
+                                        <div className={styles.customerImpactTableTools}>
+                                            <div className={styles.customerImpactSearch}>
+                                                <Search size={14} strokeWidth={1.8} />
+                                                <input
+                                                    type="search"
+                                                    value={recoverySearchQuery}
+                                                    onChange={(event) => setRecoverySearchQuery(event.target.value)}
+                                                    placeholder="Search"
+                                                    aria-label="Search revenue impact queue"
+                                                />
+                                            </div>
+
+                                            <div className={styles.chartFilterWrap}>
+                                                <button
+                                                    type="button"
+                                                    className={styles.chartFilterButton}
+                                                    onClick={() => setRecoveryFilterOpen((open) => !open)}
+                                                    aria-expanded={recoveryFilterOpen}
+                                                    aria-haspopup="menu"
+                                                >
+                                                    {({
+                                                        all: "All accounts",
+                                                        "opportunity:immediate attention": "Immediate attention",
+                                                        "opportunity:billing recovery": "Billing recovery",
+                                                        "opportunity:upsell opportunity": "Upsell opportunity",
+                                                        "opportunity:reactivation": "Reactivation",
+                                                        "opportunity:expansion momentum": "Expansion momentum",
+                                                        "impact:high": "High impact",
+                                                        "impact:medium": "Medium impact",
+                                                        "impact:low": "Low impact",
+                                                        "action:payment": "Retry payment",
+                                                        "action:email": "Send email",
+                                                        "action:check-in": "Check-in",
+                                                        "action:expansion": "Expansion",
+                                                    } as Record<string, string>)[recoveryFilter] || "All accounts"}
+                                                    <ChevronDown size={13} />
+                                                </button>
+
+                                                {recoveryFilterOpen && (
+                                                    <div className={`${styles.chartFilterMenu} ${styles.recoveryFilterMenu}`} role="menu">
+                                                        {[
+                                                            ["all", "All accounts"],
+                                                            ["opportunity:immediate attention", "Immediate attention"],
+                                                            ["opportunity:billing recovery", "Billing recovery"],
+                                                            ["opportunity:upsell opportunity", "Upsell opportunity"],
+                                                            ["opportunity:reactivation", "Reactivation"],
+                                                            ["opportunity:expansion momentum", "Expansion momentum"],
+                                                            ["impact:high", "High impact"],
+                                                            ["impact:medium", "Medium impact"],
+                                                            ["impact:low", "Low impact"],
+                                                            ["action:payment", "Retry payment"],
+                                                            ["action:email", "Send email"],
+                                                            ["action:check-in", "Check-in"],
+                                                            ["action:expansion", "Expansion"],
+                                                        ].map(([value, label]) => (
+                                                            <button
+                                                                key={value}
+                                                                type="button"
+                                                                role="menuitem"
+                                                                className={`${styles.chartFilterOption} ${recoveryFilter === value ? styles.chartFilterOptionActive : ""}`}
+                                                                onClick={() => {
+                                                                    setRecoveryFilter(value);
+                                                                    setRecoveryFilterOpen(false);
+                                                                }}
+                                                            >
+                                                                {label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className={styles.customerImpactTableViewport}>
+                                        <table className={styles.customerImpactTable}>
+                                            <thead>
+                                                <tr>
+                                                    <th>Account</th>
+                                                    <th>Opportunity</th>
+                                                    <th>Suggested action</th>
+                                                    <th>Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {recoveryLoading ? (
+                                                    <tr>
+                                                        <td colSpan={4} className={styles.customerImpactEmpty}>Loading revenue impact queue...</td>
+                                                    </tr>
+                                                ) : recoveryError ? (
+                                                    <tr>
+                                                        <td colSpan={4} className={styles.customerImpactEmpty}>{recoveryError}</td>
+                                                    </tr>
+                                                ) : visibleRecoveryRows.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={4} className={styles.customerImpactEmpty}>
+                                                            <strong>No accounts found.</strong>
+                                                            <span>Accounts requiring action will appear here automatically.</span>
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    (["High", "Medium", "Low"] as const).flatMap((level) => {
+                                                        const group = visibleRecoveryRows.filter(
+                                                            (row) => getQueueImpactLabel(row) === level
+                                                        );
+                                                        if (!group.length) return [];
+
+                                                        return [
+                                                            <tr key={`group-${level}`} className={styles.queueGroupRow}>
+                                                                <td colSpan={4}>
+                                                                    <span className={`${styles.queueGroupLabel} ${styles[`queueGroup_${level.toLowerCase()}`]}`}>
+                                                                        {level} priority
+                                                                    </span>
+                                                                    <em>
+                                                                        {group.length} account{group.length === 1 ? "" : "s"}
+                                                                    </em>
+                                                                </td>
+                                                            </tr>,
+                                                            ...group.map((row) => {
+                                                        const actionText = row.suggestedAction || row.action || "Review account";
+                                                        const isPaymentAction = isBillingRecoveryRow(row);
+
+                                                        return (
+                                                            <tr
+                                                                key={`${row.id}-${row.type || "recovery"}`}
+                                                                className={isHandled(row) ? metricStyles.rowHandled : undefined}
+                                                            >
+                                                                <td>
+                                                                    <button
+                                                                        type="button"
+                                                                        className={styles.customerImpactAccount}
+                                                                        onClick={() => setDrawerRow(row)}
+                                                                        title="Show account details"
+                                                                    >
+                                                                        <strong>
+                                                                            {row.name}
+                                                                            {isHandled(row) ? (
+                                                                                <em className={metricStyles.handledBadge}>
+                                                                                    <Check size={10} strokeWidth={2.2} aria-hidden="true" />
+                                                                                    Handled
+                                                                                </em>
+                                                                            ) : null}
+                                                                        </strong>
+                                                                        <span>{row.email || getQueueDomain(row)}</span>
+                                                                    </button>
+                                                                </td>
+                                                                <td>
+                                                                    <span className={`${styles.customerImpactPill} ${styles[`impactOpportunity_${getQueueTone(row.type)}`]}`}>
+                                                                        {row.opportunity || formatQueueType(row.type)}
+                                                                    </span>
+                                                                </td>
+                                                                <td><p className={styles.customerImpactCopy}>{actionText}</p></td>
+                                                                <td>
+                                                                    <div className={metricStyles.rowActions}>
+                                                                    <button
+                                                                        type="button"
+                                                                        className={styles.customerImpactAction}
+                                                                        onClick={() => {
+                                                                            if (isPaymentAction) {
+                                                                                void handleExecuteRecoveryAction(row);
+                                                                            } else {
+                                                                                openRecoveryEmailModal(row);
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        {isPaymentAction ? <RotateCcw size={13} strokeWidth={1.8} /> : <Mail size={13} strokeWidth={1.8} />}
+                                                                        {isPaymentAction ? "Retry payment" : "Send email"}
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        className={`${metricStyles.handleButton} ${isHandled(row) ? metricStyles.handleButtonOn : ""}`}
+                                                                        onClick={() => toggleHandled(row)}
+                                                                        aria-pressed={isHandled(row)}
+                                                                        aria-label={isHandled(row) ? `Mark ${row.name} not handled` : `Mark ${row.name} handled`}
+                                                                        title={isHandled(row) ? "Mark not handled" : "Mark handled"}
+                                                                    >
+                                                                        <Check size={13} strokeWidth={2} aria-hidden="true" />
+                                                                    </button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                            }),
+                                                        ];
+                                                    })
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div className={styles.customerImpactTableBottom}>
+                                        <p>
+                                            Showing {visibleRecoveryRows.length} of {filteredRecoveryRows.length} accounts
+                                            {(() => {
+                                                const done = filteredRecoveryRows.filter((row) => isHandled(row)).length;
+                                                return done ? ` · ${done} handled` : "";
+                                            })()}
+                                        </p>
+                                        <div className={styles.customerImpactPager}>
+                                            <button
+                                                type="button"
+                                                disabled={recoveryPage <= 0}
+                                                onClick={() => setRecoveryPage((page) => Math.max(0, page - 1))}
+                                                aria-label="Previous page"
+                                            >
+                                                ‹
+                                            </button>
+                                            <button type="button" className={styles.customerImpactCurrentPage}>{recoveryPage + 1}</button>
+                                            <button
+                                                type="button"
+                                                disabled={recoveryPage >= recoveryPageCount - 1}
+                                                onClick={() => setRecoveryPage((page) => Math.min(recoveryPageCount - 1, page + 1))}
+                                                aria-label="Next page"
+                                            >
+                                                ›
+                                            </button>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </>
+                    ) : null}
 
 
 
@@ -5064,5 +5867,41 @@ export default function AnalyticsPage() {
         );
     }
 
-    return <div className={styles.page}>{content}</div>;
+    return (
+        <div className={styles.page}>
+            {content}
+            <AskClaudePanel
+                open={askOpen}
+                onClose={() => setAskOpen(false)}
+                request={askRequest}
+                snapshot={claudeSnapshot}
+                accounts={askAccounts}
+            />
+            <AccountDrawer
+                account={drawerAccount}
+                handled={drawerRow ? isHandled(drawerRow) : false}
+                onClose={closeAccountDrawer}
+                onPrimary={() => {
+                    if (!drawerRow) return;
+                    const row = drawerRow;
+                    setDrawerRow(null);
+                    if (isBillingRecoveryRow(row)) void handleExecuteRecoveryAction(row);
+                    else openRecoveryEmailModal(row);
+                }}
+                onAsk={() => {
+                    if (!drawerRow) return;
+                    const row = drawerRow;
+                    setDrawerRow(null);
+                    openAsk(
+                        `Tell me about ${row.name}: why are they in the queue (${row.whyNow || row.reason}), how urgent is it, and how should I approach "${row.suggestedAction || row.action}"?`
+                    );
+                }}
+                onToggleHandled={() => drawerRow && toggleHandled(drawerRow)}
+                onOpenAccount={() => {
+                    if (!drawerRow) return;
+                    router.push(getAccountHref(drawerRow.accountRiskId || drawerRow.id));
+                }}
+            />
+        </div>
+    );
 }

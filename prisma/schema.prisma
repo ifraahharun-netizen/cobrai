@@ -62,6 +62,8 @@ model Workspace {
   aiNarratives            AiWorkspaceNarrative[]
   syncRuns                SyncRun[]
   timelineEvents          AccountTimelineEvent[]
+  inboxMessages           InboxMessage[]
+  inboxThreadStates       InboxThreadState[]
 
   @@index([ownerEmail])
   @@index([sendingDomain])
@@ -96,6 +98,7 @@ model Customer {
   accountRisks     AccountRisk[]
   actionExecutions ActionExecution[]
   healthSnapshots  CustomerHealthSnapshot[]
+  inboxMessages    InboxMessage[]
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -930,4 +933,52 @@ model RetentionAuditRateLimit {
   @@unique([key, windowStart])
   @@index([expiresAt])
   @@map("retention_audit_rate_limits")
+}
+
+/// Emails in the two-way inbox: replies received from customers (inbound)
+/// and replies sent from the inbox (outbound). Grouped into threads by threadKey.
+model InboxMessage {
+  id                String    @id @default(cuid())
+  workspaceId       String
+  customerId        String?
+  /// counterpart email + normalised subject, e.g. "finance@kitelabs.io|renewal check-in"
+  threadKey         String
+  direction         String // inbound | outbound
+  fromEmail         String
+  fromName          String?
+  toEmail           String
+  subject           String
+  bodyText          String
+  providerMessageId String?   @unique
+  inReplyTo         String?
+  actionExecutionId String?
+  status            String    @default("received") // received | sent | failed
+  channel           String? // tool it came through: cobrai | gmail | outlook | intercom | zendesk | hubspot
+  bodyHtml          String? // sanitised HTML for formatted replies sent from the inbox
+  readAt            DateTime?
+  archivedAt        DateTime?
+  createdAt         DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customer  Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, threadKey])
+  @@index([customerId])
+  @@map("inbox_messages")
+}
+
+/// Per-conversation state that isn't tied to one message (e.g. starred).
+/// Kept separate because some conversations are only retention emails, with no inbox rows.
+model InboxThreadState {
+  id          String    @id @default(cuid())
+  workspaceId String
+  threadKey   String
+  starredAt   DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, threadKey])
+  @@map("inbox_thread_states")
 }

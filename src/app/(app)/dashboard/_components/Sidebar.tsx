@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import styles from "./sidebar.module.css";
 
 type NavItem = {
@@ -14,75 +15,119 @@ type NavItem = {
 const nav: NavItem[] = [
     { label: "Overview", href: "/dashboard", icon: "fi fi-rr-apps" },
     { label: "Accounts", href: "/dashboard/accounts-at-risk", icon: "fi fi-rr-users-alt" },
-    {
-        label: "Retention Impact",
-        href: "/dashboard/progress",
-        icon: "fi fi-rr-shield-check",
-    },
+    { label: "Retention Impact", href: "/dashboard/progress", icon: "fi fi-rr-shield-check" },
+    { label: "Inbox", href: "/dashboard/inbox", icon: "fi fi-rr-envelope" },
     { label: "Metrics", href: "/dashboard/analytics", icon: "fi fi-rr-chart-line-up" },
+    { label: "Integrations", href: "/dashboard/integrations", icon: "fi fi-rr-apps-add" },
 ];
 
-export default function Sidebar() {
+type SidebarProps = {
+    collapsed?: boolean;
+    onToggle?: () => void;
+};
+
+export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
 
     const isActive = (href: string) =>
         pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
 
+    // In the folded rail, labels are hidden visually but stay readable to screen readers,
+    // and a hover tooltip shows the name.
+    const itemProps = (label: string) =>
+        collapsed ? { "aria-label": label, "data-tooltip": label } : {};
+
     return (
-        <aside className={styles.sidebar}>
-            <div className={styles.top}>
-                <div className={styles.brandRow}>
-                    <Link href="/dashboard" aria-label="Cobrai" className={styles.brandLink}>
+        <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ""}`}>
+            <div className={styles.header}>
+                <Link href="/dashboard" aria-label="Cobrai home" className={styles.brandLink}>
+                    {collapsed ? (
                         <Image
-                            src="/branding/cobrai.logo.jpg.PNG"
-                            alt="cobrai"
-                            width={120}
-                            height={34}
+                            src="/branding/cobrai-mark.png"
+                            alt=""
+                            width={24}
+                            height={24}
+                            priority
+                            unoptimized
+                            className={styles.logoMark}
+                        />
+                    ) : (
+                        <Image
+                            src="/branding/cobrai-wordmark.png"
+                            alt=""
+                            width={96}
+                            height={24}
                             priority
                             unoptimized
                             className={styles.logo}
                         />
-                    </Link>
-                </div>
+                    )}
+                </Link>
+            </div>
 
-                <div className={styles.sectionLabel}>MAIN</div>
+            <nav className={styles.section} aria-label="Main">
+                <div className={styles.sectionLabel}>Main</div>
 
-                <nav className={styles.nav}>
-                    {nav.map((item) => (
+                {nav.map((item) => {
+                    const active = isActive(item.href);
+
+                    return (
                         <Link
                             key={item.href}
                             href={item.href}
-                            className={`${styles.navLink} ${isActive(item.href) ? styles.NavActive : ""}`}
+                            className={`${styles.item} ${active ? styles.itemActive : ""}`}
+                            aria-current={active ? "page" : undefined}
+                            {...itemProps(item.label)}
                         >
                             <i className={item.icon} aria-hidden="true" />
-                            <span>{item.label}</span>
+                            <span className={styles.label}>{item.label}</span>
                         </Link>
-                    ))}
-                </nav>
-            </div>
+                    );
+                })}
+            </nav>
 
-            <div className={styles.bottomWrap}>
-                <div className={styles.sectionLabel}>OTHERS</div>
+            <div className={styles.footer}>
+                <div className={styles.sectionLabel}>Others</div>
 
-                <div className={styles.bottomSection}>
-                    <Link
-                        href="/dashboard/settings"
-                        className={`${styles.bottomItem} ${isActive("/dashboard/settings") ? styles.NavActive : ""}`}
-                    >
-                        <i className="fi fi-rr-settings" aria-hidden="true" />
-                        <span>Settings</span>
-                    </Link>
+                <Link
+                    href="/dashboard/settings"
+                    className={`${styles.item} ${isActive("/dashboard/settings") ? styles.itemActive : ""}`}
+                    aria-current={isActive("/dashboard/settings") ? "page" : undefined}
+                    {...itemProps("Settings")}
+                >
+                    <i className="fi fi-rr-settings" aria-hidden="true" />
+                    <span className={styles.label}>Settings</span>
+                </Link>
 
+                <button
+                    type="button"
+                    className={styles.item}
+                    onClick={() => router.replace("/")}
+                    {...itemProps("Sign out")}
+                >
+                    <i className="fi fi-rr-sign-out-alt" aria-hidden="true" />
+                    <span className={styles.label}>Sign out</span>
+                </button>
+
+                {onToggle ? (
                     <button
                         type="button"
-                        className={styles.bottomItem}
-                        onClick={() => router.replace("/")}
+                        className={`${styles.item} ${styles.collapseItem}`}
+                        onClick={onToggle}
+                        aria-expanded={!collapsed}
+                        {...(collapsed
+                            ? { "aria-label": "Expand sidebar", "data-tooltip": "Expand sidebar" }
+                            : {})}
                     >
-                        <i className="fi fi-rr-sign-out-alt" aria-hidden="true" />
-                        <span>Sign Out</span>
+                        {collapsed ? (
+                            <PanelLeftOpen size={16} strokeWidth={1.8} aria-hidden="true" />
+                        ) : (
+                            <PanelLeftClose size={16} strokeWidth={1.8} aria-hidden="true" />
+                        )}
+                        <span className={styles.label}>Collapse</span>
                     </button>
-                </div>
+                ) : null}
             </div>
         </aside>
     );

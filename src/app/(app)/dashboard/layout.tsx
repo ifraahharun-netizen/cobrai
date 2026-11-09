@@ -20,7 +20,11 @@ const jakarta = Plus_Jakarta_Sans({
     display: "swap",
 });
 
-type TrialStatusSuccessResponse = TrialStatus & {
+// The expired-trial "AI Retention Report" paywall is switched off for now.
+// Set this back to true to lock the dashboard again when a trial ends.
+const TRIAL_GATE_ENABLED = false;
+
+type TrialStatusSuccessResponse =TrialStatus & {
     ok: true;
 };
 
@@ -32,6 +36,8 @@ type TrialStatusErrorResponse = {
 type TrialStatusResponse =
     | TrialStatusSuccessResponse
     | TrialStatusErrorResponse;
+
+const SIDEBAR_COLLAPSED_KEY = "cobrai:sidebar-collapsed";
 
 export default function DashboardLayout({
     children,
@@ -46,6 +52,27 @@ export default function DashboardLayout({
     const [trialStatus, setTrialStatus] = useState<TrialStatus | null>(null);
     const [trialChecked, setTrialChecked] = useState(false);
     const [trialError, setTrialError] = useState("");
+    // Folded sidebar is remembered in this browser.
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+        if (typeof window === "undefined") return false;
+        try {
+            return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+        } catch {
+            return false;
+        }
+    });
+
+    const toggleSidebar = () => {
+        setSidebarCollapsed((collapsed) => {
+            const next = !collapsed;
+            try {
+                window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
+            } catch {
+                // Not critical.
+            }
+            return next;
+        });
+    };
 
     useEffect(() => {
         const auth = getFirebaseAuth();
@@ -233,6 +260,7 @@ export default function DashboardLayout({
     }
 
     const dashboardLocked =
+        TRIAL_GATE_ENABLED &&
         trialStatus.trialExpired &&
         !trialStatus.hasActiveSubscription;
 
@@ -251,8 +279,10 @@ export default function DashboardLayout({
                         : undefined,
                 }}
             >
-                <aside className={styles.sidebarWrap}>
-                    <Sidebar />
+                <aside
+                    className={`${styles.sidebarWrap} ${sidebarCollapsed ? styles.sidebarWrapCollapsed : ""}`}
+                >
+                    <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
                 </aside>
 
                 <main className={styles.main}>{children}</main>
@@ -260,10 +290,12 @@ export default function DashboardLayout({
                 {!dashboardLocked ? <FirstRunModal /> : null}
             </div>
 
-            <TrialUpgradeGate
-                user={user}
-                status={trialStatus}
-            />
+            {TRIAL_GATE_ENABLED ? (
+                <TrialUpgradeGate
+                    user={user}
+                    status={trialStatus}
+                />
+            ) : null}
         </div>
     );
 }
