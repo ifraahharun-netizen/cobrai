@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import prisma from "@/lib/prisma";
 import { AuthError, getWorkspaceFromRequest } from "@/lib/auth/getWorkspaceFromRequest";
 import { ratelimit } from "@/lib/rateLimit";
+import { replyToAddressFor } from "@/lib/replyDomain";
 import { isValidEmail, replySubject, threadKeyFor } from "@/lib/inbox";
 import { sanitizeEmailHtml } from "@/lib/emailHtml";
 
@@ -89,6 +90,8 @@ export async function POST(req: Request) {
                 senderEmail: true,
                 senderReplyTo: true,
                 sendingDomainStatus: true,
+                replyDomain: true,
+                replyDomainStatus: true,
             },
         });
 
@@ -106,6 +109,8 @@ export async function POST(req: Request) {
         const inReplyTo = toMessageIdHeader(repliedTo?.providerMessageId);
 
         const senderEmail = workspace.senderEmail?.trim() || "";
+        // Customer replies go to the workspace's reply subdomain once it is verified.
+        const replyTo = replyToAddressFor(workspace);
         const senderName = workspace.senderName?.trim() || workspace.name || "Cobrai";
         const verified = String(workspace.sendingDomainStatus || "").toLowerCase() === "verified";
 
@@ -122,7 +127,7 @@ export async function POST(req: Request) {
                     subject: replySubject(subject),
                     text: body,
                     ...(html ? { html } : {}),
-                    ...(workspace.senderReplyTo ? { replyTo: workspace.senderReplyTo } : {}),
+                    ...(replyTo ? { replyTo } : {}),
                     ...(inReplyTo ? { headers: { "In-Reply-To": inReplyTo, References: inReplyTo } } : {}),
                 });
 

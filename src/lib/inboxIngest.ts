@@ -55,7 +55,8 @@ export async function ingestInboundEmail(email: InboundEmail): Promise<IngestRes
         return { stored: false, reason: "invalid_address" };
     }
 
-    // Which workspace was this sent to? Match its sender/reply-to address, then its domain.
+    // Which workspace was this sent to? Match its sender/reply-to address, its
+    // reply subdomain (reply.acme.com), then its sending domain.
     let workspace: { id: string } | null = null;
     let toEmail = recipients[0];
     for (const address of recipients) {
@@ -65,6 +66,7 @@ export async function ingestInboundEmail(email: InboundEmail): Promise<IngestRes
                 OR: [
                     { senderEmail: { equals: address, mode: "insensitive" } },
                     { senderReplyTo: { equals: address, mode: "insensitive" } },
+                    { replyDomain: { equals: domain, mode: "insensitive" } },
                     { sendingDomain: { equals: domain, mode: "insensitive" } },
                 ],
             },

@@ -39,6 +39,12 @@ model Workspace {
   senderReplyTo        String?
   senderVerifiedAt     DateTime?
 
+  // Receive-only subdomain (reply.<sendingDomain>) that routes customer replies into the inbox.
+  replyDomain         String?
+  resendReplyDomainId String?
+  replyDomainStatus   String?
+  replyDomainRecords  Json?
+
   aiActionsUsedThisWeek  Int                          @default(0)
   aiResetAt              DateTime?
   aiUsageRuns            AiUsageRun[]
@@ -68,6 +74,7 @@ model Workspace {
   @@index([ownerEmail])
   @@index([sendingDomain])
   @@index([resendDomainId])
+  @@index([replyDomain])
   @@map("workspace")
 }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
+import { syncReplyDomain } from "@/lib/replyDomain";
 import {
     AuthError,
     getWorkspaceFromRequest,
@@ -66,6 +67,9 @@ export async function POST(req: Request) {
                 sendingDomain: true,
                 sendingDomainStatus: true,
                 resendDomainId: true,
+                replyDomain: true,
+                resendReplyDomainId: true,
+                replyDomainStatus: true,
             },
         });
 
@@ -101,6 +105,8 @@ export async function POST(req: Request) {
                     },
                 });
 
+                const reply = await syncReplyDomain(resend, workspaceId, refreshed.sendingDomain || domain, workspace);
+
                 return NextResponse.json({
                     ok: true,
                     created: false,
@@ -111,6 +117,8 @@ export async function POST(req: Request) {
                         records: refreshed.sendingDomainRecords,
                         verifiedAt: refreshed.senderVerifiedAt,
                     },
+                    replyDomain: reply.state,
+                    replyDomainError: reply.error,
                 });
             }
         }
@@ -174,9 +182,17 @@ export async function POST(req: Request) {
             },
         });
 
+        // Receive-only reply subdomain so customer replies reach the inbox.
+        const reply = await syncReplyDomain(resend, workspaceId, updatedWorkspace.sendingDomain || domain, {
+            replyDomain: null,
+            resendReplyDomainId: null,
+        });
+
         return NextResponse.json({
             ok: true,
             created: true,
+            replyDomain: reply.state,
+            replyDomainError: reply.error,
             domain: {
                 id: updatedWorkspace.resendDomainId,
                 name: updatedWorkspace.sendingDomain,
