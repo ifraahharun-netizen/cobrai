@@ -11,9 +11,9 @@ const EChart = dynamic(() => import("@/components/charts/EChart"), { ssr: false 
 
 const COLOURS = {
     newMrr: "#3b6fe0",
-    expansion: "#7fa6f5",
-    contraction: "#e0a03b",
-    churned: "#d9534f",
+    expansion: "#a9c2f7",
+    contraction: "#f0b860",
+    churned: "#e0685f",
 };
 
 function pct(value: number | null | undefined) {
@@ -45,12 +45,12 @@ export default function RevenueMovementCard({
             grid: { top: 12, right: 8, bottom: 4, left: 0, containLabel: true },
             tooltip: {
                 trigger: "axis",
-                axisPointer: { type: "shadow", shadowStyle: { color: "rgba(31,30,27,0.04)" } },
-                backgroundColor: "#ffffff",
-                borderColor: "#e8e6df",
-                borderWidth: 1,
-                padding: [8, 10],
-                textStyle: { color: "#1f1e1b", fontSize: 12 },
+                axisPointer: { type: "shadow", shadowStyle: { color: "rgba(31,30,27,0.035)" } },
+                backgroundColor: "#1f1e1b",
+                borderWidth: 0,
+                padding: [10, 12],
+                textStyle: { color: "#ffffff", fontSize: 12 },
+                extraCssText: "border-radius:8px;box-shadow:0 8px 24px rgba(31,30,27,.18);",
                 formatter: (raw: unknown) => {
                     const items = (Array.isArray(raw) ? raw : [raw]) as Array<{
                         seriesName: string;
@@ -67,7 +67,7 @@ export default function RevenueMovementCard({
                                 `<div style="display:flex;justify-content:space-between;gap:18px"><span><i style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;background:${item.color}"></i>${item.seriesName}</span><b style="font-weight:500">${formatMoney(Math.abs(item.value))}</b></div>`
                         )
                         .join("");
-                    return `<div style="font-size:12px;min-width:170px"><div style="color:#6f6e69;margin-bottom:6px">${monthName(m.month)}</div>${rows}<div style="display:flex;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px solid #f0eee8"><span>Net change</span><b style="font-weight:500">${net >= 0 ? "+" : "−"}${formatMoney(Math.abs(net))}</b></div></div>`;
+                    return `<div style="font-size:12px;min-width:170px"><div style="color:rgba(255,255,255,.62);margin-bottom:6px">${monthName(m.month)}</div>${rows}<div style="display:flex;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.14)"><span>Net change</span><b style="font-weight:500">${net >= 0 ? "+" : "−"}${formatMoney(Math.abs(net))}</b></div></div>`;
                 },
             },
             xAxis: {
@@ -86,13 +86,13 @@ export default function RevenueMovementCard({
                     fontSize: 10,
                     formatter: (v: number) => (v === 0 ? "0" : `${v < 0 ? "−" : ""}${formatMoney(Math.abs(v))}`),
                 },
-                splitLine: { lineStyle: { color: "#eef1f5" } },
+                splitLine: { lineStyle: { color: "#ebe9e3", type: [4, 4] } },
             },
             series: [
-                { name: "New", type: "bar", stack: "up", barMaxWidth: 16, data: movement.map((m) => round(m.newMrr)), itemStyle: { color: COLOURS.newMrr } },
-                { name: "Expansion", type: "bar", stack: "up", barMaxWidth: 16, data: movement.map((m) => round(m.expansion)), itemStyle: { color: COLOURS.expansion, borderRadius: [2, 2, 0, 0] } },
+                { name: "New", type: "bar", stack: "up", barMaxWidth: 16, data: movement.map((m) => round(m.newMrr)), itemStyle: { color: COLOURS.newMrr, borderRadius: [0, 0, 0, 0] } },
+                { name: "Expansion", type: "bar", stack: "up", barMaxWidth: 16, data: movement.map((m) => round(m.expansion)), itemStyle: { color: COLOURS.expansion, borderRadius: [5, 5, 0, 0] } },
                 { name: "Contraction", type: "bar", stack: "down", barMaxWidth: 16, data: movement.map((m) => -round(m.contraction)), itemStyle: { color: COLOURS.contraction } },
-                { name: "Churned", type: "bar", stack: "down", barMaxWidth: 16, data: movement.map((m) => -round(m.churned)), itemStyle: { color: COLOURS.churned, borderRadius: [0, 0, 2, 2] } },
+                { name: "Churned", type: "bar", stack: "down", barMaxWidth: 16, data: movement.map((m) => -round(m.churned)), itemStyle: { color: COLOURS.churned, borderRadius: [0, 0, 5, 5] } },
             ],
         };
     }, [movement, formatMoney]);

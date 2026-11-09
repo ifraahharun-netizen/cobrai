@@ -78,14 +78,19 @@ import {
     type PeriodKey,
 } from "./metricsExtras";
 /* -------------------------------------------------------------------------- */
-/* Dashboard chart style: thin sharp lines, no fills, no axis lines or dates, */
-/* scale on the left, light solid gridlines. Applied to every chart here.     */
+/* Chart style for every chart on this page: thin lines over a soft gradient, */
+/* a dotted grid, a crosshair with a ring on the hovered point, a dark        */
+/* tooltip, and two-tone bars with rounded tops.                              */
 /* -------------------------------------------------------------------------- */
 
 type ChartRecord = { [key: string]: unknown };
 
 const DASH_BLUE = "#3b6fe0";
-const DASH_BLUE_LIGHT = "#c7d7fe";
+const DASH_BLUE_LIGHT = "#c9d9fb";
+const CHURN_VIOLET = "#7c5cdb";
+const CHART_INK = "#1f1e1b";
+const GRID_DOT = "#dedbd3";
+const AXIS_TEXT = "#9a9893";
 
 function asList(value: unknown): ChartRecord[] {
     if (Array.isArray(value)) return value as ChartRecord[];
@@ -93,11 +98,30 @@ function asList(value: unknown): ChartRecord[] {
 }
 
 function recolour(colour: unknown) {
-    return typeof colour === "string" && /1d9bf0|6490f0/i.test(colour) ? DASH_BLUE : colour;
+    if (typeof colour !== "string") return colour;
+    if (/1d9bf0|6490f0/i.test(colour)) return DASH_BLUE;
+    if (/bca1fb/i.test(colour)) return CHURN_VIOLET;
+    return colour;
 }
 
-function toDashboardChart(option: EChartsOption): EChartsOption {
+/** rgba() from a #rrggbb colour. */
+function alpha(hex: string, a: number) {
+    const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i.exec(hex);
+    if (!m) return `rgba(59,111,224,${a})`;
+    return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
+}
+
+const DOTTED = { show: true, lineStyle: { color: GRID_DOT, type: [1, 5] as number[], width: 1 } };
+
+function toDashboardChart(
+    option: EChartsOption,
+    opts: { yFormat?: (value: number) => string } = {}
+): EChartsOption {
     const source = option as ChartRecord;
+    const seriesList = asList(source.series);
+    const isBar = seriesList.some((s) => s.type === "bar");
+    const firstLine = seriesList.find((s) => s.type === "line");
+    const accent = String(recolour((firstLine?.lineStyle as ChartRecord | undefined)?.color) || DASH_BLUE);
 
     const xAxis = asList(source.xAxis).map((axis) => ({
         ...axis,
@@ -106,12 +130,13 @@ function toDashboardChart(option: EChartsOption): EChartsOption {
         axisLabel: {
             ...((axis.axisLabel as ChartRecord) ?? {}),
             show: true,
-            color: "#9ca3af",
+            color: AXIS_TEXT,
             fontSize: 10.5,
             margin: 12,
             hideOverlap: true,
         },
-        splitLine: { show: false },
+        // Dot-matrix grid on line charts (vertical dots + horizontal dots).
+        splitLine: isBar ? { show: false } : DOTTED,
     }));
 
     const yAxis = asList(source.yAxis).map((axis) => ({
@@ -122,46 +147,94 @@ function toDashboardChart(option: EChartsOption): EChartsOption {
         axisLabel: {
             ...((axis.axisLabel as ChartRecord) ?? {}),
             show: true,
-            color: "#9ca3af",
+            color: AXIS_TEXT,
             fontSize: 10,
             margin: 10,
+            ...(opts.yFormat ? { formatter: opts.yFormat } : {}),
         },
-        splitLine: { show: true, lineStyle: { color: "#eef1f5", type: "solid", width: 1 } },
+        splitLine: isBar
+            ? { show: true, lineStyle: { color: "#ebe9e3", type: [4, 4] as number[], width: 1 } }
+            : DOTTED,
     }));
 
-    const series = asList(source.series).map((item) => {
+    const barCount = seriesList.filter((s) => s.type === "bar").length;
+    let barIndex = 0;
+
+    const series = seriesList.map((item) => {
         if (item.type === "line") {
-            // Drop the gradient fill.
-            const rest: ChartRecord = { ...item };
-            delete rest.areaStyle;
             const lineStyle = (item.lineStyle as ChartRecord) ?? {};
-            const itemStyle = item.itemStyle as ChartRecord | undefined;
+            const colour = String(recolour(lineStyle.color) || DASH_BLUE);
+            const dashed = Boolean(lineStyle.type && lineStyle.type !== "solid");
             return {
-                ...rest,
+                ...item,
                 smooth: false,
                 showSymbol: false,
-                lineStyle: { ...lineStyle, width: 1.8, color: recolour(lineStyle.color) },
-                ...(itemStyle ? { itemStyle: { ...itemStyle, color: recolour(itemStyle.color) } } : {}),
+                symbol: "circle",
+                symbolSize: 11,
+                lineStyle: { ...lineStyle, width: dashed ? 1.4 : 1.8, color: colour },
+                itemStyle: { color: colour },
+                // Ring on the hovered point.
+                emphasis: {
+                    disabled: false,
+                    scale: false,
+                    focus: "none",
+                    itemStyle: { color: "#ffffff", borderColor: colour, borderWidth: 2.5 },
+                    lineStyle: { width: dashed ? 1.4 : 1.8 },
+                },
+                areaStyle: dashed
+                    ? undefined
+                    : {
+                        opacity: 1,
+                        color: {
+                            type: "linear",
+                            x: 0,
+                            y: 0,
+                            x2: 0,
+                            y2: 1,
+                            colorStops: [
+                                { offset: 0, color: alpha(colour, 0.14) },
+                                { offset: 1, color: alpha(colour, 0) },
+                            ],
+                        },
+                    },
             };
         }
 
         if (item.type === "bar") {
             const itemStyle = (item.itemStyle as ChartRecord) ?? {};
-            const isAcquired = String(item.name ?? "").toLowerCase().includes("acquired");
+            const isTop = barIndex === barCount - 1;
+            const colour = barCount > 1 && barIndex === barCount - 1 ? DASH_BLUE_LIGHT : DASH_BLUE;
+            barIndex += 1;
             return {
                 ...item,
                 barWidth: undefined,
-                barMaxWidth: 14,
-                itemStyle: { ...itemStyle, color: isAcquired ? DASH_BLUE_LIGHT : DASH_BLUE },
+                barMaxWidth: 18,
+                itemStyle: { ...itemStyle, color: colour, borderRadius: isTop ? [5, 5, 0, 0] : 0 },
+                emphasis: { disabled: false, focus: "none", itemStyle: { color: colour, opacity: 0.85 } },
             };
         }
 
         return item;
     });
 
+    const tooltip = (source.tooltip as ChartRecord) ?? {};
+    const hasCustomFormatter = typeof tooltip.formatter === "function";
+
     return {
         ...option,
-        grid: { top: 12, right: 8, bottom: 4, left: 0, containLabel: true },
+        grid: { top: isBar ? 34 : 14, right: 8, bottom: 4, left: 0, containLabel: true },
+        tooltip: {
+            ...tooltip,
+            trigger: "axis",
+            backgroundColor: CHART_INK,
+            borderWidth: 0,
+            padding: hasCustomFormatter ? [10, 12] : [7, 10],
+            textStyle: { color: "#ffffff", fontSize: 11.5, fontWeight: 400 },
+            extraCssText: "border-radius:8px;box-shadow:0 8px 24px rgba(31,30,27,.18);",
+            axisPointer: isBar
+                ? { type: "shadow", shadowStyle: { color: "rgba(31,30,27,0.035)" } }
+                : { type: "line", z: 0, lineStyle: { color: alpha(accent, 0.55), width: 1.2, type: "solid" } },
+        },
         xAxis,
         yAxis,
         series,
@@ -4447,23 +4520,23 @@ export default function AnalyticsPage() {
 
                     return `
                         <div style="min-width:170px">
-                            <div style="font-size:11px;font-weight:500;color:#111827;margin-bottom:8px">${row.tooltipMonth}</div>
+                            <div style="font-size:11px;font-weight:500;color:#ffffff;margin-bottom:8px">${row.tooltipMonth}</div>
                             <div style="display:flex;justify-content:space-between;gap:24px;margin-bottom:6px">
-                                <span style="color:#6b7280">Retained users</span>
-                                <strong style="font-weight:500;color:#111827">${Math.round(row.retained)}</strong>
+                                <span style="color:rgba(255,255,255,.62)">Retained users</span>
+                                <strong style="font-weight:500;color:#ffffff">${Math.round(row.retained)}</strong>
                             </div>
                             <div style="display:flex;justify-content:space-between;gap:24px;margin-bottom:6px">
-                                <span style="color:#6b7280">Acquired users</span>
-                                <strong style="font-weight:500;color:#111827">${Math.round(row.acquired)}</strong>
+                                <span style="color:rgba(255,255,255,.62)">Acquired users</span>
+                                <strong style="font-weight:500;color:#ffffff">${Math.round(row.acquired)}</strong>
                             </div>
                             <div style="display:flex;justify-content:space-between;gap:24px;margin-bottom:6px">
-                                <span style="color:#6b7280">Churned users</span>
-                                <strong style="font-weight:500;color:#111827">${Math.round(row.churned)}</strong>
+                                <span style="color:rgba(255,255,255,.62)">Churned users</span>
+                                <strong style="font-weight:500;color:#ffffff">${Math.round(row.churned)}</strong>
                             </div>
-                            <div style="height:1px;background:#f1f5f9;margin:7px 0"></div>
+                            <div style="height:1px;background:rgba(255,255,255,.14);margin:7px 0"></div>
                             <div style="display:flex;justify-content:space-between;gap:24px">
-                                <span style="color:#374151">Total users</span>
-                                <strong style="font-weight:500;color:#111827">${Math.round(row.total)}</strong>
+                                <span style="color:rgba(255,255,255,.85)">Total users</span>
+                                <strong style="font-weight:500;color:#ffffff">${Math.round(row.total)}</strong>
                             </div>
                         </div>
                     `;
@@ -4536,8 +4609,24 @@ export default function AnalyticsPage() {
     }, [subscriberChartRows]);
 
     // Same chart style as the dashboard.
-    const dashMrrTrendOption = useMemo(() => toDashboardChart(mrrTrendOption), [mrrTrendOption]);
-    const dashChurnTrendMiniOption = useMemo(() => toDashboardChart(churnTrendMiniOption), [churnTrendMiniOption]);
+    // Compact money on the MRR axis (£2.4k), percent on the churn axis.
+    const compactMoney = useMemo(() => {
+        const fmt = new Intl.NumberFormat("en-GB", {
+            style: "currency",
+            currency: workspaceCurrency || "GBP",
+            notation: "compact",
+            maximumFractionDigits: 1,
+        });
+        return (value: number) => fmt.format(value);
+    }, [workspaceCurrency]);
+    const dashMrrTrendOption = useMemo(
+        () => toDashboardChart(mrrTrendOption, { yFormat: compactMoney }),
+        [mrrTrendOption, compactMoney]
+    );
+    const dashChurnTrendMiniOption = useMemo(
+        () => toDashboardChart(churnTrendMiniOption, { yFormat: (v) => `${v}%` }),
+        [churnTrendMiniOption]
+    );
     const dashActiveUsersBarOption = useMemo(() => toDashboardChart(activeUsersBarOption), [activeUsersBarOption]);
     const dashMrrMiniForecastOption = useMemo(() => toDashboardChart(mrrMiniForecastOption), [mrrMiniForecastOption]);
     const dashChurnImpactOption = useMemo(() => toDashboardChart(churnImpactOption), [churnImpactOption]);
@@ -4696,6 +4785,18 @@ export default function AnalyticsPage() {
     }
 
     const flash = (id: string) => (flashCard === id ? metricStyles.flash : "");
+
+    // Change across the visible chart window, for the card headers.
+    const windowChange = (values: number[]) => {
+        const clean = values.filter((v) => Number.isFinite(v));
+        if (clean.length < 2) return null;
+        const first = clean[0];
+        const last = clean[clean.length - 1];
+        return { delta: last - first, pct: first ? ((last - first) / Math.abs(first)) * 100 : null };
+    };
+    const mrrWindow = windowChange(mrrTrendChart.values);
+    const churnWindow = windowChange(churnTrendChart.values);
+    const windowLabel = mrrRange === "current" ? "this month" : periodLabel.toLowerCase();
 
     // ⌘K / Ctrl+K opens Ask Claude.
     useEffect(() => {
@@ -5116,7 +5217,18 @@ export default function AnalyticsPage() {
                                                 workspaceCurrency
                                             )}
                                         </strong>
-                                        <span>{formatDeltaPctLabel(drawerInsights.mrr.deltaPct)} vs previous month</span>
+                                        {mrrWindow ? (
+                                            <span className={metricStyles.headDelta}>
+                                                <b className={mrrWindow.delta >= 0 ? metricStyles.deltaGood : metricStyles.deltaBad}>
+                                                    {mrrWindow.delta >= 0 ? "+" : "−"}
+                                                    {formatMajor(Math.abs(mrrWindow.delta))}
+                                                    {typeof mrrWindow.pct === "number" ? ` (${Math.abs(mrrWindow.pct).toFixed(1)}%)` : ""}
+                                                </b>
+                                                <span>· {windowLabel}</span>
+                                            </span>
+                                        ) : (
+                                            <span>{formatDeltaPctLabel(drawerInsights.mrr.deltaPct)} vs previous month</span>
+                                        )}
                                     </div>
                                     <div className={metricStyles.rangeRow}>
                                         <div className={styles.chartFilterWrap}>
@@ -5183,7 +5295,7 @@ export default function AnalyticsPage() {
                             )}
 
                             {hasAiRevenueAccess ? (
-                                <div className={styles.revenueOverviewStats}>
+                                <div className={`${styles.revenueOverviewStats} ${metricStyles.statsGrid}`}>
                                     <div>
                                         <span>Forecast MRR</span>
                                         <strong>{formatMoneyAmount(projectedMrr, workspaceCurrency)}</strong>
@@ -5280,7 +5392,17 @@ export default function AnalyticsPage() {
                                 <>
                                     <div className={styles.revenueOverviewValueRow}>
                                         <strong>{formatPct(demoKpis.churnPct)}</strong>
-                                        <span>{formatDeltaPpLabel(churnDeltaPp)} vs previous month</span>
+                                        {churnWindow ? (
+                                            <span className={metricStyles.headDelta}>
+                                                <b className={churnWindow.delta <= 0 ? metricStyles.deltaGood : metricStyles.deltaBad}>
+                                                    {churnWindow.delta > 0 ? "+" : churnWindow.delta < 0 ? "−" : ""}
+                                                    {Math.abs(churnWindow.delta).toFixed(1)}pp
+                                                </b>
+                                                <span>· {windowLabel}</span>
+                                            </span>
+                                        ) : (
+                                            <span>{formatDeltaPpLabel(churnDeltaPp)} vs previous month</span>
+                                        )}
                                     </div>
                                     <div className={metricStyles.rangeRow}>
                                         <span className={metricStyles.rangeNote}>{getRangeLabel(mrrRange)}</span>
@@ -5307,7 +5429,7 @@ export default function AnalyticsPage() {
                             )}
 
                             {hasAiRevenueAccess ? (
-                                <div className={`${styles.revenueOverviewStats} ${styles.churnForecastStats}`}>
+                                <div className={`${styles.revenueOverviewStats} ${styles.churnForecastStats} ${metricStyles.statsGrid}`}>
                                     <div>
                                         <span>Forecast churn</span>
                                         <strong>{formatPct(projectedChurn)}</strong>
@@ -5416,6 +5538,17 @@ export default function AnalyticsPage() {
                                         }
                                     />
                                 </div>
+                                {riskGroups.total > 0 ? (
+                                    <div className={metricStyles.segmentBar} aria-hidden="true">
+                                        {riskGroups.list.map((group) => (
+                                            <i
+                                                key={group.label}
+                                                className={metricStyles[`tone_${group.tone}`]}
+                                                style={{ flexGrow: group.valueMinor }}
+                                            />
+                                        ))}
+                                    </div>
+                                ) : null}
                                 <ul className={metricStyles.riskList}>
                                     {riskGroups.list.map((group) => {
                                         const share = riskGroups.total ? (group.valueMinor / riskGroups.total) * 100 : 0;

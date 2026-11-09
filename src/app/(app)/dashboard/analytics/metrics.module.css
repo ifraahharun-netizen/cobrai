@@ -2056,3 +2056,96 @@ button.kpiTile:focus-visible {
 .rowActions .handleButton {
     margin-left: 0;
 }
+
+/* ======================================================================== */
+/* Chart polish (line-graph / dashboard references)                         */
+/* ======================================================================== */
+
+.headDelta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: #9a9893;
+}
+
+.headDelta b {
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.deltaGood {
+    color: #237a54;
+}
+
+.deltaBad {
+    color: #b8423e;
+}
+
+/* Segmented breakdown bar above the revenue-at-stake list */
+.segmentBar {
+    display: flex;
+    gap: 3px;
+    height: 8px;
+    margin: 16px 0 6px;
+}
+
+.segmentBar i {
+    flex-basis: 0;
+    min-width: 6px;
+    border-radius: 3px;
+}
+
+/* Stats under the MRR and churn charts: hairline grid, no boxes */
+.statsGrid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 0 !important;
+    margin-top: 14px !important;
+    border: 0 !important;
+    border-top: 1px solid #f0eee8 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+}
+
+.statsGrid > div {
+    padding: 12px 14px 10px 0 !important;
+    border: 0 !important;
+    border-bottom: 1px solid #f4f2ec !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.statsGrid > div:nth-child(3n + 2),
+.statsGrid > div:nth-child(3n + 3) {
+    padding-left: 14px !important;
+    border-left: 1px solid #f4f2ec !important;
+}
+
+.statsGrid > div:nth-last-child(-n + 3) {
+    border-bottom: 0 !important;
+}
+
+.statsGrid > div > span:first-child {
+    font-size: 10.5px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    color: #9a9893 !important;
+}
+
+.statsGrid strong {
+    display: block;
+    margin-top: 4px !important;
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.01em;
+    color: #1f1e1b !important;
+    font-variant-numeric: tabular-nums;
+}
+
+.statsGrid small {
+    font-size: 11.5px !important;
+    color: #9a9893 !important;
+}
