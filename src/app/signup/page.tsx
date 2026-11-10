@@ -149,11 +149,10 @@ export default function SignupPage() {
                     <AuthInput
                         id="fullName"
                         type="text"
-                        icon="user"
-                        aria-label="Full name"
+                        label="Full name"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
-                        placeholder="Full name"
+                        placeholder="Jane Smith"
                         autoComplete="name"
                         disabled={loading}
                     />
@@ -161,11 +160,10 @@ export default function SignupPage() {
                     <AuthInput
                         id="companyName"
                         type="text"
-                        icon="building"
-                        aria-label="Company name"
+                        label="Company name"
                         value={companyName}
                         onChange={(e) => setCompanyName(e.target.value)}
-                        placeholder="Company name"
+                        placeholder="Acme Inc"
                         autoComplete="organization"
                         disabled={loading}
                     />
@@ -173,21 +171,20 @@ export default function SignupPage() {
                     <AuthInput
                         id="email"
                         type="email"
-                        icon="mail"
-                        aria-label="Email"
+                        label="Work email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Work email"
+                        placeholder="you@company.com"
                         autoComplete="email"
                         disabled={loading}
                     />
 
                     <AuthPasswordInput
                         id="password"
-                        aria-label="Password"
+                        label="Password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Password (at least 8 characters)"
+                        placeholder="At least 8 characters"
                         autoComplete="new-password"
                         disabled={loading}
                     />

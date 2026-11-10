@@ -4,33 +4,45 @@ import { useState } from "react";
 import styles from "@/styles/auth.module.css";
 
 type InputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "className"> & {
+    id: string;
+    label: string;
     icon?: "mail" | "user" | "building";
 };
 
-export function AuthInput({ icon, ...props }: InputProps) {
+export function AuthInput({ label, icon, ...props }: InputProps) {
     return (
-        <div className={styles.inputWrap}>
-            <input {...props} className={styles.input} />
-            {icon ? <span className={styles.inputIcon}>{ICONS[icon]}</span> : null}
+        <div className={styles.field}>
+            <label htmlFor={props.id} className={styles.label}>
+                {label}
+            </label>
+            <div className={styles.inputWrap}>
+                <input {...props} className={styles.input} />
+                {icon ? <span className={styles.inputIcon}>{ICONS[icon]}</span> : null}
+            </div>
         </div>
     );
 }
 
-export function AuthPasswordInput(props: Omit<InputProps, "type" | "icon">) {
+export function AuthPasswordInput({ label, ...props }: Omit<InputProps, "type" | "icon">) {
     const [visible, setVisible] = useState(false);
 
     return (
-        <div className={styles.inputWrap}>
-            <input {...props} type={visible ? "text" : "password"} className={styles.input} />
-            <button
-                type="button"
-                className={styles.eyeButton}
-                onClick={() => setVisible((v) => !v)}
-                aria-label={visible ? "Hide password" : "Show password"}
-                aria-pressed={visible}
-            >
-                {visible ? EYE_OFF : EYE}
-            </button>
+        <div className={styles.field}>
+            <label htmlFor={props.id} className={styles.label}>
+                {label}
+            </label>
+            <div className={styles.inputWrap}>
+                <input {...props} type={visible ? "text" : "password"} className={styles.input} />
+                <button
+                    type="button"
+                    className={styles.eyeButton}
+                    onClick={() => setVisible((v) => !v)}
+                    aria-label={visible ? "Hide password" : "Show password"}
+                    aria-pressed={visible}
+                >
+                    {visible ? EYE_OFF : EYE}
+                </button>
+            </div>
         </div>
     );
 }

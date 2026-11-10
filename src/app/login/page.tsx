@@ -80,21 +80,20 @@ export default function LoginPage() {
                 <AuthInput
                     id="email"
                     type="email"
-                    icon="mail"
-                    aria-label="Email"
+                    label="Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
+                    placeholder="you@company.com"
                     autoComplete="email"
                     disabled={loading}
                 />
 
                 <AuthPasswordInput
                     id="password"
-                    aria-label="Password"
+                    label="Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
+                    placeholder="••••••••"
                     autoComplete="current-password"
                     disabled={loading}
                 />
