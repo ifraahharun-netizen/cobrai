@@ -116,3 +116,8 @@
     font-size: 14px;
     font-weight: 500;
 }
+@media (max-width: 760px) {
+    .main {
+        padding: 8px;
+    }
+}
