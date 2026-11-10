@@ -279,6 +279,39 @@
     color: var(--cob-muted);
 }
 
+/* Signup: terms agreement row */
+.legalRow {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--cob-text);
+    cursor: pointer;
+}
+
+.legalRow input {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin: 1px 0 0;
+    accent-color: var(--cob-navy);
+    cursor: pointer;
+}
+
+.legalLink {
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: inherit;
+    font-weight: 500;
+    color: var(--cob-blue-dark);
+}
+
+.legalLink:hover {
+    text-decoration: underline;
+}
+
 /* Floating product hints (desktop only, decorative) */
 .float {
     position: absolute;

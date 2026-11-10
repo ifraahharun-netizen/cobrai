@@ -10,6 +10,7 @@ import {
 import { getFirebaseAuthSafe } from "@/lib/firebase.client";
 import TermsModal from "@/components/TermsModal";
 import { privacyContent, termsContent } from "@/lib/legalContent";
+import styles from "@/styles/auth.module.css";
 
 type LegalView = "terms" | "privacy" | null;
  
@@ -137,129 +138,158 @@ export default function SignupPage() {
 
     return (
         <>
-            <main className="signupPage">
-                <section className="signupReferenceWrap">
-                    <div className="signupReferenceCard">
-                        <div className="signupReferenceLeft">
-                            <div className="signupReferenceInner">
-                                <h1 className="signupRefTitle">Sign up</h1>
-                                <p className="signupRefSubtitle">
-                                    Create your workspace 
-                                </p>
+            <div className={styles.page}>
+                <div className={styles.backdrop} aria-hidden="true">
+                    <div className={styles.glow} />
+                    <div className={`${styles.ring} ${styles.ring1}`} />
+                    <div className={`${styles.ring} ${styles.ring2}`} />
+                    <div className={`${styles.ring} ${styles.ring3}`} />
+                    <div className={`${styles.ring} ${styles.ring4}`} />
+                </div>
 
-                                <form onSubmit={onSubmit} className="signupRefForm">
-                                    <div className="signupRefField">
-                                        <label htmlFor="fullName">Full Name</label>
-                                        <input
-                                            id="fullName"
-                                            type="text"
-                                            value={fullName}
-                                            onChange={(e) => setFullName(e.target.value)}
-                                            autoComplete="name"
-                                            disabled={loading}
-                                        />
-                                    </div>
+                <header className={styles.topBar}>
+                    <Link href="/" className={styles.brand}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/icon.svg" alt="" className={styles.brandMark} />
+                        Cobrai
+                    </Link>
+                    <Link href="/login" className={styles.topLink}>
+                        Log in
+                    </Link>
+                </header>
 
-                                    <div className="signupRefField">
-                                        <label htmlFor="companyName">Company Name</label>
-                                        <input
-                                            id="companyName"
-                                            type="text"
-                                            value={companyName}
-                                            onChange={(e) => setCompanyName(e.target.value)}
-                                            autoComplete="organization"
-                                            disabled={loading}
-                                        />
-                                    </div>
+                <div className={`${styles.float} ${styles.floatLeft}`} aria-hidden="true">
+                    <span className={styles.floatIcon}>!</span>
+                    <span>
+                        <span className={styles.floatTitle}>3 accounts at risk</span>
+                        <span className={styles.floatMeta}>Usage down 40% this month</span>
+                    </span>
+                </div>
 
-                                    <div className="signupRefField">
-                                        <label htmlFor="email">Email</label>
-                                        <input
-                                            id="email"
-                                            type="email"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            autoComplete="email"
-                                            disabled={loading}
-                                        />
-                                    </div>
+                <div className={`${styles.float} ${styles.floatRight}`} aria-hidden="true">
+                    <span className={`${styles.floatIcon} ${styles.floatIconGreen}`}>&#10003;</span>
+                    <span>
+                        <span className={styles.floatTitle}>Win-back email sent</span>
+                        <span className={styles.floatMeta}>Acme Co &middot; 2 min ago</span>
+                    </span>
+                </div>
 
-                                    <div className="signupRefField">
-                                        <label htmlFor="password">Password</label>
-                                        <input
-                                            id="password"
-                                            type="password"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            autoComplete="new-password"
-                                            disabled={loading}
-                                        />
-                                    </div>
+                <main className={styles.main}>
+                    <div className={styles.column}>
+                        <span className={styles.badge}>
+                            <span className={styles.badgeDot} />
+                            Retention intelligence
+                        </span>
 
-                                    <label className="signupLegalRow">
-                                        <input
-                                            type="checkbox"
-                                            checked={agreed}
-                                            onChange={(e) => setAgreed(e.target.checked)}
-                                            disabled={loading}
-                                            className="signupLegalCheckbox"
-                                        />
-                                        <span className="signupLegalText">
-                                            I agree to the{" "}
-                                            <button
-                                                type="button"
-                                                className="signupLegalLink"
-                                                onClick={() => setLegalView("terms")}
-                                            >
-                                                Terms
-                                            </button>{" "}
-                                            and{" "}
-                                            <button
-                                                type="button"
-                                                className="signupLegalLink"
-                                                onClick={() => setLegalView("privacy")}
-                                            >
-                                                Privacy Policy
-                                            </button>
-                                        </span>
-                                    </label>
+                        <h1 className={styles.title}>Create your workspace</h1>
 
-                                    {error ? <div className="signupRefError">{error}</div> : null}
+                        <p className={styles.subtitle}>
+                            Protect revenue before it&apos;s too late. Find at-risk customers,
+                            prioritise what matters, and take action faster.
+                        </p>
 
-                                    <button
-                                        type="submit"
-                                        className="signupRefButton"
+                        <section className={styles.card}>
+                            <form onSubmit={onSubmit} className={styles.form} noValidate>
+                                <div className={styles.field}>
+                                    <label htmlFor="fullName">Full name</label>
+                                    <input
+                                        id="fullName"
+                                        type="text"
+                                        value={fullName}
+                                        onChange={(e) => setFullName(e.target.value)}
+                                        placeholder="Jane Smith"
+                                        autoComplete="name"
                                         disabled={loading}
-                                    >
-                                        {loading ? "Creating account..." : "Create account"}
-                                    </button>
-                                </form>
-
-                                <p className="signupRefLogin">
-                                    Already have an account? <Link href="/login">Login</Link>
-                                </p>
-                            </div>
-                        </div>
-                        <div className="signupReferenceRight">
-                            <div className="signupRefVisual">
-                                <div className="signupRefShape signupRefShapeTwo" />
-
-                                <div className="signupRefVisualContent">
-                                    <h2 className="signupRefVisualTitle">
-                                        Protect revenue
-                                        <br />
-                                        before it's too late
-                                    </h2>
-
-                                    <p className="signupRefVisualText">
-                                        Find at-risk customers, prioritise what matters, and take action faster.
-                                    </p>
+                                    />
                                 </div>
-                            </div>
-                        </div>
+
+                                <div className={styles.field}>
+                                    <label htmlFor="companyName">Company name</label>
+                                    <input
+                                        id="companyName"
+                                        type="text"
+                                        value={companyName}
+                                        onChange={(e) => setCompanyName(e.target.value)}
+                                        placeholder="Acme Inc"
+                                        autoComplete="organization"
+                                        disabled={loading}
+                                    />
+                                </div>
+
+                                <div className={styles.field}>
+                                    <label htmlFor="email">Email</label>
+                                    <input
+                                        id="email"
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder="you@company.com"
+                                        autoComplete="email"
+                                        disabled={loading}
+                                    />
+                                </div>
+
+                                <div className={styles.field}>
+                                    <label htmlFor="password">Password</label>
+                                    <input
+                                        id="password"
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="At least 8 characters"
+                                        autoComplete="new-password"
+                                        disabled={loading}
+                                    />
+                                </div>
+
+                                <label className={styles.legalRow}>
+                                    <input
+                                        type="checkbox"
+                                        checked={agreed}
+                                        onChange={(e) => setAgreed(e.target.checked)}
+                                        disabled={loading}
+                                    />
+                                    <span>
+                                        I agree to the{" "}
+                                        <button
+                                            type="button"
+                                            className={styles.legalLink}
+                                            onClick={() => setLegalView("terms")}
+                                        >
+                                            Terms
+                                        </button>{" "}
+                                        and{" "}
+                                        <button
+                                            type="button"
+                                            className={styles.legalLink}
+                                            onClick={() => setLegalView("privacy")}
+                                        >
+                                            Privacy Policy
+                                        </button>
+                                    </span>
+                                </label>
+
+                                {error ? (
+                                    <div className={styles.error} role="alert">
+                                        {error}
+                                    </div>
+                                ) : null}
+
+                                <button type="submit" className={styles.button} disabled={loading}>
+                                    {loading ? "Creating account..." : "Create account"}
+                                </button>
+                            </form>
+                        </section>
+
+                        <p className={styles.footer}>
+                            Already have an account?{" "}
+                            <Link href="/login" className={styles.link}>
+                                Log in
+                            </Link>
+                        </p>
                     </div>
-                </section>
-            </main>
+                </main>
+            </div>
 
             <TermsModal
                 open={legalView !== null}
