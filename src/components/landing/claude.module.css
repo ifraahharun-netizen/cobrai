@@ -1,0 +1,297 @@
+.pair,
+.forecast {
+    --ink: #111827;
+    --ink-2: #374151;
+    --muted-c: #6b7280;
+    --line: #e5e7eb;
+    --line-soft: #f0f1f3;
+    --blue: #2563eb;
+    --red: #e5484d;
+
+    color: var(--ink);
+    font-size: 13px;
+}
+
+.bad {
+    color: #b42318;
+}
+
+.muted {
+    color: var(--muted-c);
+}
+
+.claudeLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.claudeLabel svg {
+    color: #c96442;
+}
+
+.text {
+    margin: 8px 0 0;
+    color: var(--ink-2);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.rows li {
+    padding: 11px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.rows li + li {
+    border-top: 1px solid var(--line-soft);
+}
+
+.rows div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.rows em {
+    color: #9ca3af;
+    font-size: 11px;
+    font-style: normal;
+}
+
+.rows b {
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Behaviour pair */
+
+.pair {
+    display: grid;
+    grid-template-columns: 1fr 1.25fr;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.panel {
+    min-width: 0;
+}
+
+.panel + .panel {
+    border-left: 1px solid var(--line);
+}
+
+.panelHead {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    font-weight: 500;
+}
+
+.panel .rows {
+    padding: 4px 18px 8px;
+}
+
+.panelBody {
+    padding: 16px 18px 18px;
+}
+
+.claudeTitle {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.stats {
+    margin-top: 16px;
+    display: flex;
+    gap: 32px;
+}
+
+.stats span {
+    display: block;
+    color: var(--muted-c);
+    font-size: 12px;
+}
+
+.stats strong {
+    display: block;
+    margin-top: 2px;
+    font-size: 18px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Forecast */
+
+.forecast {
+    display: grid;
+    grid-template-columns: 1.8fr 1fr;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.chartCol {
+    min-width: 0;
+    padding: 20px;
+}
+
+.kicker {
+    color: var(--muted-c);
+    font-size: 12px;
+}
+
+.bigNumber {
+    margin-top: 4px;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+}
+
+.bigNumber span {
+    color: var(--muted-c);
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0;
+}
+
+.chartSvg {
+    margin-top: 12px;
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.grid {
+    stroke: var(--line-soft);
+}
+
+.today {
+    stroke: #d1d5db;
+    stroke-dasharray: 2 3;
+}
+
+.axis {
+    fill: #9ca3af;
+    font-size: 10px;
+}
+
+.actual,
+.act,
+.noAct {
+    fill: none;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.actual,
+.act {
+    stroke: var(--blue);
+}
+
+.act,
+.noAct {
+    stroke-dasharray: 5 5;
+}
+
+.noAct {
+    stroke: var(--red);
+    stroke-width: 1.5;
+}
+
+.dot,
+.dotBad {
+    fill: #ffffff;
+    stroke-width: 2;
+}
+
+.dot {
+    stroke: var(--blue);
+}
+
+.dotBad {
+    stroke: var(--red);
+}
+
+.legend {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    color: var(--muted-c);
+    font-size: 12px;
+}
+
+.legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legend i {
+    width: 16px;
+    display: inline-block;
+}
+
+.keyActual {
+    border-top: 2px solid var(--blue);
+}
+
+.keyAct {
+    border-top: 2px dashed var(--blue);
+}
+
+.keyNo {
+    border-top: 2px dashed var(--red);
+}
+
+.driversCol {
+    min-width: 0;
+    padding: 20px;
+    border-left: 1px solid var(--line);
+}
+
+.driversCol .rows {
+    margin-top: 10px;
+    border-top: 1px solid var(--line-soft);
+}
+
+@media (max-width: 860px) {
+    .pair,
+    .forecast {
+        grid-template-columns: 1fr;
+    }
+
+    .panel + .panel,
+    .driversCol {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+    }
+}
+
+@media (max-width: 640px) {
+    .chartCol,
+    .driversCol {
+        padding: 16px;
+    }
+
+    .bigNumber span {
+        display: block;
+        margin-top: 2px;
+    }
+}
