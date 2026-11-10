@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import styles from "./TermsModal.module.css";
 
 type TermsSection = {
     heading: string;
@@ -39,22 +40,22 @@ export default function TermsModal({
     if (!open) return null;
 
     return (
-        <div className="legalModalOverlay" onClick={onClose}>
+        <div className={styles.overlay} onClick={onClose}>
             <div
-                className="legalModalCard"
+                className={styles.card}
                 onClick={(e) => e.stopPropagation()}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="legal-modal-title"
             >
-                <div className="legalModalHeader">
-                    <h2 id="legal-modal-title" className="legalModalTitle">
+                <div className={styles.header}>
+                    <h2 id="legal-modal-title" className={styles.title}>
                         {title}
                     </h2>
 
                     <button
                         type="button"
-                        className="legalModalClose"
+                        className={styles.close}
                         onClick={onClose}
                         aria-label="Close"
                     >
@@ -62,9 +63,9 @@ export default function TermsModal({
                     </button>
                 </div>
 
-                <div className="legalModalBody">
+                <div className={styles.body}>
                     {sections.map((section) => (
-                        <div key={section.heading} className="legalModalSection">
+                        <div key={section.heading} className={styles.section}>
                             <h3>{section.heading}</h3>
                             {section.body.map((paragraph, index) => (
                                 <p key={`${section.heading}-${index}`}>{paragraph}</p>

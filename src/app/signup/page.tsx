@@ -10,6 +10,9 @@ import {
 import { getFirebaseAuthSafe } from "@/lib/firebase.client";
 import TermsModal from "@/components/TermsModal";
 import { privacyContent, termsContent } from "@/lib/legalContent";
+import styles from "@/styles/auth.module.css";
+import AuthShell from "@/components/auth/AuthShell";
+import { AuthInput, AuthPasswordInput } from "@/components/auth/AuthInputs";
 
 type LegalView = "terms" | "privacy" | null;
  
@@ -137,129 +140,100 @@ export default function SignupPage() {
 
     return (
         <>
-            <main className="signupPage">
-                <section className="signupReferenceWrap">
-                    <div className="signupReferenceCard">
-                        <div className="signupReferenceLeft">
-                            <div className="signupReferenceInner">
-                                <h1 className="signupRefTitle">Sign up</h1>
-                                <p className="signupRefSubtitle">
-                                    Create your workspace 
-                                </p>
+            <AuthShell
+                mode="signup"
+                title="Create your workspace"
+                subtitle="Find at-risk customers and act before they leave."
+            >
+                <form onSubmit={onSubmit} className={styles.form} noValidate>
+                    <AuthInput
+                        id="fullName"
+                        type="text"
+                        label="Full name"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="Jane Smith"
+                        autoComplete="name"
+                        disabled={loading}
+                    />
 
-                                <form onSubmit={onSubmit} className="signupRefForm">
-                                    <div className="signupRefField">
-                                        <label htmlFor="fullName">Full Name</label>
-                                        <input
-                                            id="fullName"
-                                            type="text"
-                                            value={fullName}
-                                            onChange={(e) => setFullName(e.target.value)}
-                                            autoComplete="name"
-                                            disabled={loading}
-                                        />
-                                    </div>
+                    <AuthInput
+                        id="companyName"
+                        type="text"
+                        label="Company name"
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        placeholder="Acme Inc"
+                        autoComplete="organization"
+                        disabled={loading}
+                    />
 
-                                    <div className="signupRefField">
-                                        <label htmlFor="companyName">Company Name</label>
-                                        <input
-                                            id="companyName"
-                                            type="text"
-                                            value={companyName}
-                                            onChange={(e) => setCompanyName(e.target.value)}
-                                            autoComplete="organization"
-                                            disabled={loading}
-                                        />
-                                    </div>
+                    <AuthInput
+                        id="email"
+                        type="email"
+                        label="Work email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@company.com"
+                        autoComplete="email"
+                        disabled={loading}
+                    />
 
-                                    <div className="signupRefField">
-                                        <label htmlFor="email">Email</label>
-                                        <input
-                                            id="email"
-                                            type="email"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            autoComplete="email"
-                                            disabled={loading}
-                                        />
-                                    </div>
+                    <AuthPasswordInput
+                        id="password"
+                        label="Password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="At least 8 characters"
+                        autoComplete="new-password"
+                        disabled={loading}
+                    />
 
-                                    <div className="signupRefField">
-                                        <label htmlFor="password">Password</label>
-                                        <input
-                                            id="password"
-                                            type="password"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            autoComplete="new-password"
-                                            disabled={loading}
-                                        />
-                                    </div>
+                    <label className={styles.checkRow}>
+                        <input
+                            type="checkbox"
+                            checked={agreed}
+                            onChange={(e) => setAgreed(e.target.checked)}
+                            disabled={loading}
+                        />
+                        <span>
+                            I agree to the{" "}
+                            <button
+                                type="button"
+                                className={styles.legalLink}
+                                onClick={() => setLegalView("terms")}
+                            >
+                                Terms
+                            </button>{" "}
+                            and{" "}
+                            <button
+                                type="button"
+                                className={styles.legalLink}
+                                onClick={() => setLegalView("privacy")}
+                            >
+                                Privacy Policy
+                            </button>
+                        </span>
+                    </label>
 
-                                    <label className="signupLegalRow">
-                                        <input
-                                            type="checkbox"
-                                            checked={agreed}
-                                            onChange={(e) => setAgreed(e.target.checked)}
-                                            disabled={loading}
-                                            className="signupLegalCheckbox"
-                                        />
-                                        <span className="signupLegalText">
-                                            I agree to the{" "}
-                                            <button
-                                                type="button"
-                                                className="signupLegalLink"
-                                                onClick={() => setLegalView("terms")}
-                                            >
-                                                Terms
-                                            </button>{" "}
-                                            and{" "}
-                                            <button
-                                                type="button"
-                                                className="signupLegalLink"
-                                                onClick={() => setLegalView("privacy")}
-                                            >
-                                                Privacy Policy
-                                            </button>
-                                        </span>
-                                    </label>
-
-                                    {error ? <div className="signupRefError">{error}</div> : null}
-
-                                    <button
-                                        type="submit"
-                                        className="signupRefButton"
-                                        disabled={loading}
-                                    >
-                                        {loading ? "Creating account..." : "Create account"}
-                                    </button>
-                                </form>
-
-                                <p className="signupRefLogin">
-                                    Already have an account? <Link href="/login">Login</Link>
-                                </p>
-                            </div>
+                    {error ? (
+                        <div className={styles.error} role="alert">
+                            {error}
                         </div>
-                        <div className="signupReferenceRight">
-                            <div className="signupRefVisual">
-                                <div className="signupRefShape signupRefShapeTwo" />
+                    ) : null}
 
-                                <div className="signupRefVisualContent">
-                                    <h2 className="signupRefVisualTitle">
-                                        Protect revenue
-                                        <br />
-                                        before it's too late
-                                    </h2>
+                    <button type="submit" className={styles.button} disabled={loading}>
+                        {loading ? "Creating account..." : "Create account"}
+                    </button>
+                </form>
 
-                                    <p className="signupRefVisualText">
-                                        Find at-risk customers, prioritise what matters, and take action faster.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            </main>
+                <p className={styles.footer}>
+                    Already have an account?{" "}
+                    <Link href="/login" className={styles.link}>
+                        Log in
+                    </Link>
+                </p>
+            </AuthShell>
 
             <TermsModal
                 open={legalView !== null}

@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { getFirebaseAuthSafe } from "@/lib/firebase.client";
+import styles from "@/styles/auth.module.css";
+import AuthShell from "@/components/auth/AuthShell";
+import { AuthInput, AuthPasswordInput } from "@/components/auth/AuthInputs";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -68,89 +71,64 @@ export default function LoginPage() {
     }
 
     return (
-        <main className="signupPage">
-            <section className="signupReferenceWrap">
-                <div className="signupReferenceCard">
-                    <div className="signupReferenceLeft">
-                        <div className="signupReferenceInner">
-                            <h1 className="signupRefTitle">Login</h1>
+        <AuthShell
+            mode="login"
+            title="Welcome back"
+            subtitle="Sign in to see which customers need you today."
+        >
+            <form onSubmit={onSubmit} className={styles.form} noValidate>
+                <AuthInput
+                    id="email"
+                    type="email"
+                    label="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    autoComplete="email"
+                    disabled={loading}
+                />
 
-                            <p className="signupRefSubtitle">
-                                Welcome back
-                            </p>
+                <AuthPasswordInput
+                    id="password"
+                    label="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                    disabled={loading}
+                />
 
-                            <form onSubmit={onSubmit} className="signupRefForm">
-                                <div className="signupRefField">
-                                    <label htmlFor="email">Email</label>
-                                    <input
-                                        id="email"
-                                        type="email"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        placeholder="Enter your email"
-                                        autoComplete="email"
-                                        disabled={loading}
-                                    />
-                                </div>
-
-                                <div className="signupRefField">
-                                    <label htmlFor="password">Password</label>
-                                    <input
-                                        id="password"
-                                        type="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="Enter your password"
-                                        autoComplete="current-password"
-                                        disabled={loading}
-                                    />
-                                </div>
-
-                                {error ? <div className="signupRefError">{error}</div> : null}
-
-                                <button type="submit" className="signupRefButton" disabled={loading}>
-                                    {loading ? "Logging in..." : "Login"}
-                                </button>
-                            </form>
-
-                            <p className="forgotRow">
-                                Forgot{" "}
-                                <Link href="/forgot-password" className="forgotLink">
-                                    password
-                                </Link>{" "}
-                                or{" "}
-                                <Link href="/recover-email" className="forgotLink">
-                                    email
-                                </Link>
-                                ?
-                            </p>
-
-                            <p className="signupRefLogin">
-                                Don&apos;t have an account?{" "}
-                                <Link href="/signup">Create account</Link>
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="signupReferenceRight">
-                        <div className="signupRefVisual">
-                            <div className="signupRefShape signupRefShapeTwo" />
-
-                            <div className="signupRefVisualContent">
-                                <h2 className="signupRefVisualTitle">
-                                    Stop churn
-                                    <br />
-                                    before revenue drops.
-                                </h2>
-
-                                <p className="signupRefVisualText">
-                                    Identify risk, understand why, and take action before customers leave.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+                <div className={styles.row}>
+                    <span>
+                        Forgot{" "}
+                        <Link href="/forgot-password" className={styles.link}>
+                            password
+                        </Link>{" "}
+                        or{" "}
+                        <Link href="/recover-email" className={styles.link}>
+                            email
+                        </Link>
+                        ?
+                    </span>
                 </div>
-            </section>
-        </main>
+
+                {error ? (
+                    <div className={styles.error} role="alert">
+                        {error}
+                    </div>
+                ) : null}
+
+                <button type="submit" className={styles.button} disabled={loading}>
+                    {loading ? "Logging in..." : "Log in"}
+                </button>
+            </form>
+
+            <p className={styles.footer}>
+                Don&apos;t have an account?{" "}
+                <Link href="/signup" className={styles.link}>
+                    Create account
+                </Link>
+            </p>
+        </AuthShell>
     );
 }
