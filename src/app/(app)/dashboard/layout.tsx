@@ -62,6 +62,18 @@ export default function DashboardLayout({
         }
     });
 
+    // On phones and narrow windows the full sidebar would squeeze the page,
+    // so it shows as the icon rail there whatever the saved choice is.
+    const [isNarrow, setIsNarrow] = useState(false);
+    useEffect(() => {
+        const query = window.matchMedia("(max-width: 760px)");
+        const update = () => setIsNarrow(query.matches);
+        update();
+        query.addEventListener("change", update);
+        return () => query.removeEventListener("change", update);
+    }, []);
+    const railOnly = sidebarCollapsed || isNarrow;
+
     const toggleSidebar = () => {
         setSidebarCollapsed((collapsed) => {
             const next = !collapsed;
@@ -280,9 +292,9 @@ export default function DashboardLayout({
                 }}
             >
                 <aside
-                    className={`${styles.sidebarWrap} ${sidebarCollapsed ? styles.sidebarWrapCollapsed : ""}`}
+                    className={`${styles.sidebarWrap} ${railOnly ? styles.sidebarWrapCollapsed : ""}`}
                 >
-                    <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+                    <Sidebar collapsed={railOnly} onToggle={isNarrow ? undefined : toggleSidebar} />
                 </aside>
 
                 <main className={styles.main}>{children}</main>

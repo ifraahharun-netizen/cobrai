@@ -3,21 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
-import styles from "./riskAccounts.module.css";
+import Link from "next/link";
+import ui from "./accountDetail.module.css";
 import { getTimelinePresentation } from "@/lib/timeline/presenters";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase.client";
 import type { PlanTier } from "@/lib/permissions";
 import { getEmailRecommendation } from "@/lib/emailRecommendations";
 import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
-import {
-    Crown,
-    CreditCard,
-    Calendar,
-    ReceiptText,
-    Activity,
-    ShieldAlert,
-} from "lucide-react";
+import { Inter } from "next/font/google";
+import { ChevronLeft, ChevronRight, Download, Sparkles } from "lucide-react";
+
+const inter = Inter({ subsets: ["latin"], display: "swap" });
 
 type RiskLevel = "critical" | "high" | "medium" | "low";
 
@@ -687,6 +684,7 @@ export default function CustomerDetailPage() {
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
     const [activityPage, setActivityPage] = useState(1);
+    const [detailTab, setDetailTab] = useState<"overview" | "activity" | "notes">("overview");
     const [notes, setNotes] = useState<AccountNote[]>([]);
     const [noteText, setNoteText] = useState("");
     const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -1263,23 +1261,35 @@ export default function CustomerDetailPage() {
         }
     }
 
+    useEffect(() => {
+        if (!emailModal.open && !showUpgradeModal) return;
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key !== "Escape") return;
+            if (emailModal.open && !sendingEmail) closeEmailModal();
+            setShowUpgradeModal(false);
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [emailModal.open, showUpgradeModal, sendingEmail]);
+
     if (loading) {
         return (
-            <div className={styles.page}>
-                <div className={styles.empty}>Loading…</div>
+            <div className={`${ui.page} ${inter.className}`}>
+                <p className={ui.empty}>Loading account…</p>
             </div>
         );
     }
 
     if (err || !account) {
         return (
-            <div className={styles.page}>
-                <div className={styles.topBar}>
-                    <button className={styles.backBtn} onClick={() => router.back()}>
-                        Back
-                    </button>
-                </div>
-                <div className={styles.empty}>{err || "Account not found."}</div>
+            <div className={`${ui.page} ${inter.className}`}>
+                <nav className={ui.crumbs} aria-label="Breadcrumb">
+                    <Link href="/dashboard/accounts-at-risk" className={ui.crumbLink}>
+                        <ChevronLeft size={14} strokeWidth={2} aria-hidden="true" />
+                        Accounts
+                    </Link>
+                </nav>
+                <p className={ui.empty}>{err || "Account not found."}</p>
             </div>
         );
     }
@@ -1311,6 +1321,59 @@ export default function CustomerDetailPage() {
         details?.ai?.summary ||
         details?.ai?.recommendation ||
         `${riskLabelFromScore(account.riskScore)} detected from ${account.reasonLabel.toLowerCase()}. Recommended action: ${account.nextAction || "send a check-in email"}.`;
+
+    const riskLevel = riskLevelFromScore(account.riskScore);
+    const riskDelta = Math.round(account.riskDelta ?? 0);
+    const primaryAction = recommendedActions[0] ?? null;
+    const whyAtRisk = Array.from(
+        new Set(
+            (details?.ai?.whyAtRisk?.length
+                ? details.ai.whyAtRisk
+                : (account.signals || []).map((signal) => signal.label)
+            ).filter(Boolean)
+        )
+    ).slice(0, 4);
+
+    function actionLabel(action: RecommendedAction) {
+        if (action.key === "billing") return retryingPayment ? "Opening Stripe…" : "Retry payment";
+        return action.automationLabel || action.label;
+    }
+
+    function runAction(action: RecommendedAction) {
+        if (action.key === "billing") void handleRetryPayment();
+        else openEmailModal(action.key);
+    }
+
+    function renderActivityTable(events: AccountTimelineEvent[]) {
+        if (!events.length) return <p className={ui.empty}>No activity yet.</p>;
+        return (
+            <div className={ui.tableWrap}>
+                <table className={ui.table}>
+                    <thead>
+                        <tr>
+                            <th scope="col">Event</th>
+                            <th scope="col">Details</th>
+                            <th scope="col" className={ui.cellTime}>When</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {events.map((event) => {
+                            const presentation = getTimelinePresentation(event.type, event.meta);
+                            return (
+                                <tr key={event.id}>
+                                    <td className={ui.cellStrong}>{presentation.title}</td>
+                                    <td className={ui.cellMuted}>{presentation.description || "—"}</td>
+                                    <td className={ui.cellTime}>
+                                        <time dateTime={event.date}>{niceDateTime(event.date)}</time>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        );
+    }
 
     function downloadAccountCsv() {
         if (!account) return;
@@ -1355,416 +1418,382 @@ export default function CustomerDetailPage() {
 
     return (
         <>
-            <div className={styles.page}>
-                <div className={styles.topBar}>
-                    <button className={styles.backBtn} onClick={() => router.back()}>
-                        Back
-                    </button>
+            <div className={`${ui.page} ${inter.className}`}>
+                <nav className={ui.crumbs} aria-label="Breadcrumb">
+                    <Link href="/dashboard/accounts-at-risk" className={ui.crumbLink}>
+                        Accounts
+                    </Link>
+                    <ChevronRight size={13} strokeWidth={2} aria-hidden="true" />
+                    <span className={ui.crumbCurrent}>{account.companyName}</span>
+                </nav>
 
-                    <div className={styles.topRightActions}>
-                        <button className={styles.downloadBtn} onClick={downloadAccountCsv} type="button">
-                            Download CSV
-                        </button>
+                <header className={ui.header}>
+                    <div className={ui.headerText}>
+                        <div className={ui.titleRow}>
+                            <h1 className={ui.title}>{account.companyName}</h1>
+                            <span className={`${ui.riskBadge} ${ui[`risk_${riskLevel}`]}`}>
+                                <i aria-hidden="true" />
+                                {riskLabelFromScore(account.riskScore)}
+                            </span>
+                        </div>
+                        <dl className={ui.metaRow}>
+                            <div>
+                                <dt>Email</dt>
+                                <dd>{account.email || "—"}</dd>
+                            </div>
+                            <div>
+                                <dt>Plan</dt>
+                                <dd>{plan}</dd>
+                            </div>
+                            <div>
+                                <dt>Customer since</dt>
+                                <dd>{niceDate(createdAt)}</dd>
+                            </div>
+                        </dl>
                     </div>
+
+                    <div className={ui.headerActions}>
+                        <button type="button" className={ui.btnGhost} onClick={downloadAccountCsv}>
+                            <Download size={14} strokeWidth={1.8} aria-hidden="true" />
+                            Export
+                        </button>
+                        {primaryAction ? (
+                            <button
+                                type="button"
+                                className={ui.btnPrimary}
+                                onClick={() => runAction(primaryAction)}
+                                disabled={primaryAction.key === "billing" && retryingPayment}
+                            >
+                                {actionLabel(primaryAction)}
+                            </button>
+                        ) : null}
+                    </div>
+                </header>
+
+                <div className={ui.tabs} role="tablist" aria-label="Account sections">
+                    {(
+                        [
+                            ["overview", "Overview", null],
+                            ["activity", "Activity", timeline.length],
+                            ["notes", "Notes", notes.length],
+                        ] as const
+                    ).map(([key, label, count]) => (
+                        <button
+                            key={key}
+                            type="button"
+                            role="tab"
+                            id={`tab-${key}`}
+                            aria-selected={detailTab === key}
+                            aria-controls={`panel-${key}`}
+                            className={ui.tab}
+                            onClick={() => setDetailTab(key)}
+                        >
+                            {label}
+                            {count ? <span className={ui.tabCount}>{count}</span> : null}
+                        </button>
+                    ))}
                 </div>
 
-                <div className={styles.mainGrid}>
-                    <div className={styles.leftColumn}>
-
-                        <section className={`${styles.card} ${styles.cleanOverviewCard}`}>
-                            <div className={styles.pageHeadingWrap}>
-                                <div className={styles.sectionLabel}>
-                                    Account overview
-                                </div>
-                                <div className={styles.accountHeading}>
-                                    <h1 className={styles.pageTitle}>
-                                        {account.companyName}
-                                    </h1>
-
-                                    {account.email ? (
-                                        <p className={styles.accountEmail}>
-                                            {account.email}
-                                        </p>
-                                    ) : null}
-                                </div>
-
-
+                {detailTab === "overview" ? (
+                    <div id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className={ui.panel}>
+                        <section className={ui.stats} aria-label="Key figures">
+                            <div className={ui.stat}>
+                                <span className={ui.statLabel}>MRR</span>
+                                <strong className={ui.statValue}>{formatMoney(account.mrr)}</strong>
                             </div>
-
-                            <div className={styles.modernKpiGrid}>
-                                <div className={styles.modernKpiCard}>
-                                    <div className={styles.kpiTop}>
-                                        <div className={styles.kpiIcon}>
-                                            <Crown size={14} strokeWidth={2} />
-                                        </div>
-
-                                        <span>Plan</span>
-                                    </div>
-
-                                    <strong className={styles.kpiSmall}>{plan}</strong>
-                                </div>
-
-                                <div className={styles.modernKpiCard}>
-                                    <div className={styles.kpiTop}>
-                                        <div className={styles.kpiIcon}>
-                                            <CreditCard size={14} strokeWidth={2} />
-                                        </div>
-
-                                        <span>MRR</span>
-                                    </div>
-
-                                    <strong>{formatMoney(account.mrr)}</strong>
-                                </div>
-
-                                <div className={styles.modernKpiCard}>
-                                    <div className={styles.kpiTop}>
-                                        <div className={styles.kpiIcon}>
-                                            <Calendar size={14} strokeWidth={2} />
-                                        </div>
-
-                                        <span>Created</span>
-                                    </div>
-
-                                    <strong className={styles.kpiSmall}>
-                                        {niceDate(createdAt)}
-                                    </strong>
-                                </div>
-
-                                <div className={styles.modernKpiCard}>
-                                    <div className={styles.kpiTop}>
-                                        <div className={styles.kpiIcon}>
-                                            <ReceiptText size={14} strokeWidth={2} />
-                                        </div>
-
-                                        <span>Next billing</span>
-                                    </div>
-
-                                    <strong className={styles.kpiSmall}>
-                                        {niceDate(nextBilling)}
-                                    </strong>
-                                </div>
-                                <div className={styles.modernKpiCard}>
-                                    <div className={styles.kpiTop}>
-                                        <div className={styles.kpiIcon}>
-                                            <ShieldAlert size={14} strokeWidth={2} />
-                                        </div>
-
-                                        <span>Risk proxy</span>
-                                    </div>
-
-                                    <strong>{account.riskScore}%</strong>
-
-                                    <div className={styles.inlineTrend}>
-                                        <span
-                                            className={
-                                                (account.riskDelta ?? 0) > 0
-                                                    ? styles.trendUp
-                                                    : styles.trendDown
-                                            }
-                                        >
-                                            {(account.riskDelta ?? 0) > 0 ? "+" : "-"}{" "}
-                                            {Math.abs(account.riskDelta ?? 0)}%
-                                        </span>
-
-                                        <span className={styles.inlineTrendText}>
-                                            vs{" "}
-                                            {Math.max(
-                                                0,
-                                                account.riskScore - (account.riskDelta ?? 0)
-                                            )}
-                                            % previous month
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className={styles.modernKpiCard}>
-                                    <div className={styles.kpiTop}>
-                                        <div className={styles.kpiIcon}>
-                                            <Activity size={14} strokeWidth={2} />
-                                        </div>
-
-                                        <span>Status</span>
-                                    </div>
-
-                                    <strong className={styles.kpiSmall}>
-                                        {account.status?.toLowerCase().includes("risk")
-                                            ? "Declining"
-                                            : "Healthy"}
-                                    </strong>
-
-                                    <div className={styles.inlineTrend}>
-                                        <span
-                                            className={
-                                                account.status?.toLowerCase().includes("risk")
-                                                    ? styles.trendDown
-                                                    : styles.trendUp
-                                            }
-                                        >
-                                            {account.status?.toLowerCase().includes("risk")
-                                                ? "↓ 12%"
-                                                : "↑ 8%"}
-                                        </span>
-
-                                        <span className={styles.inlineTrendText}>
-                                            engagement vs previous month
-                                        </span>
-                                    </div>
-                                </div>
-
+                            <div className={ui.stat}>
+                                <span className={ui.statLabel}>Risk score</span>
+                                <strong className={ui.statValue}>
+                                    {account.riskScore}
+                                    <small>/100</small>
+                                </strong>
+                                <span
+                                    className={`${ui.statFoot} ${
+                                        riskDelta > 0 ? ui.statWorse : riskDelta < 0 ? ui.statBetter : ""
+                                    }`}
+                                >
+                                    {riskDelta === 0
+                                        ? "No change this month"
+                                        : `${riskDelta > 0 ? "+" : "−"}${Math.abs(riskDelta)} pts this month`}
+                                </span>
+                            </div>
+                            <div className={ui.stat}>
+                                <span className={ui.statLabel}>Last active</span>
+                                <strong className={ui.statValue}>{lastActive === "—" ? "—" : lastActive}</strong>
+                                {lastActive === "—" ? <span className={ui.statFoot}>Not tracked yet</span> : null}
+                            </div>
+                            <div className={ui.stat}>
+                                <span className={ui.statLabel}>Next billing</span>
+                                <strong className={ui.statValue}>{niceDate(nextBilling)}</strong>
                             </div>
                         </section>
 
-                        <section className={`${styles.card} ${styles.accountLogCard}`}>
-                            <div className={styles.activityHeader}>
-                                <div>
-                                    <span className={styles.sectionLabel}>Recent activity</span>
+                        <div className={ui.grid}>
+                            <section aria-labelledby="claude-read">
+                                <div className={ui.sectionHead}>
+                                    <h2 id="claude-read" className={ui.sectionTitle}>
+                                        <Sparkles size={14} strokeWidth={1.8} aria-hidden="true" />
+                                        Claude&apos;s read
+                                    </h2>
+                                </div>
+                                <div className={ui.box}>
+                                    <p className={ui.summary}>{aiSummary}</p>
+                                    {whyAtRisk.length ? (
+                                        <ul className={ui.reasons}>
+                                            {whyAtRisk.map((reason) => (
+                                                <li key={reason}>{reason}</li>
+                                            ))}
+                                        </ul>
+                                    ) : null}
+                                </div>
 
-                                    <h3 className={styles.activityTitle}>
-                                        Live customer timeline
-                                    </h3>
+                                <div className={ui.sectionHead}>
+                                    <h2 className={ui.sectionTitle}>Suggested actions</h2>
+                                </div>
+                                <div className={ui.tableWrap}>
+                                    <table className={ui.table}>
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Action</th>
+                                                <th scope="col">Why</th>
+                                                <th scope="col"><span className={ui.srOnly}>Run</span></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {recommendedActions.map((action) => (
+                                                <tr key={action.key}>
+                                                    <td className={ui.cellStrong}>{actionLabel(action)}</td>
+                                                    <td className={ui.cellMuted}>{action.reason || "—"}</td>
+                                                    <td className={ui.cellAction}>
+                                                        <button
+                                                            type="button"
+                                                            className={ui.btnGhostSm}
+                                                            onClick={() => runAction(action)}
+                                                            disabled={action.key === "billing" && retryingPayment}
+                                                        >
+                                                            {action.key === "billing" ? "Retry" : "Compose"}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
 
-                                    <p className={styles.activitySub}>
-                                        Real-time billing, engagement and retention signals.
+                                {retryPaymentErr ? <p className={ui.noteError}>{retryPaymentErr}</p> : null}
+
+                                {!emailSender?.verified ? (
+                                    <p className={ui.notice}>
+                                        Emails can&apos;t be sent until your sending domain is verified.{" "}
+                                        <Link href="/dashboard/settings?tab=Integration">Verify domain</Link>
                                     </p>
+                                ) : tier !== "pro" ? (
+                                    <p className={ui.notice}>
+                                        {typeof emailUsageRemaining === "number"
+                                            ? `${emailUsageRemaining} of ${emailUsageLimit ?? STARTER_EMAIL_LIMIT} email actions left this month.`
+                                            : `Starter includes ${STARTER_EMAIL_LIMIT} email actions.`}
+                                    </p>
+                                ) : null}
+                            </section>
+
+                            <section aria-labelledby="details-heading">
+                                <div className={ui.sectionHead}>
+                                    <h2 id="details-heading" className={ui.sectionTitle}>Details</h2>
                                 </div>
-
-                                <div className={styles.activityCount}>
-                                    {timeline.length} events
-                                </div>
-                            </div>
-
-                            <div className={styles.modernTimeline}>
-                                {paginatedTimeline.length ? (
-                                    paginatedTimeline.map((event, index) => (
-                                        <div key={event.id} className={styles.timelineItem}>
-                                            <div className={styles.timelineLeft}>
-                                                <div className={styles.timelineDot} />
-
-                                                {index !== paginatedTimeline.length - 1 && (
-                                                    <div className={styles.timelineLine} />
-                                                )}
-                                            </div>
-
-                                            <div className={styles.timelineContent}>
-                                                {(() => {
-                                                    const presentation = getTimelinePresentation(
-                                                        event.type,
-                                                        event.meta
-                                                    );
-
-                                                    return (
-                                                        <>
-                                                            <div className={styles.timelineTop}>
-                                                                <strong>{presentation.title}</strong>
-                                                            </div>
-
-                                                            <p className={styles.timelineDescription}>
-                                                                {presentation.description}
-                                                            </p>
-
-                                                            <span className={styles.timelineDate}>
-                                                                {niceDateTime(event.date)}
-                                                            </span>
-                                                        </>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className={styles.accountLogEmpty}>
-                                        No recent activity detected.
+                                <dl className={ui.kv}>
+                                    <div>
+                                        <dt>Account</dt>
+                                        <dd>{account.companyName}</dd>
                                     </div>
-                                )}
-                            </div>
+                                    <div>
+                                        <dt>Email</dt>
+                                        <dd>{account.email || "—"}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Plan</dt>
+                                        <dd>{plan}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>MRR</dt>
+                                        <dd>{formatMoney(account.mrr)}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Main risk</dt>
+                                        <dd>{account.reasonLabel || "—"}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Customer since</dt>
+                                        <dd>{niceDate(createdAt)}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Next billing</dt>
+                                        <dd>{niceDate(nextBilling)}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Score updated</dt>
+                                        <dd>{niceDateTime(account.updatedAt)}</dd>
+                                    </div>
+                                </dl>
+                            </section>
+                        </div>
 
-                            {timeline.length > ACTIVITY_PAGE_SIZE ? (
-                                <div className={styles.pagination}>
+                        <section aria-labelledby="recent-heading">
+                            <div className={`${ui.sectionHead} ${ui.sectionHeadRow}`}>
+                                <h2 id="recent-heading" className={ui.sectionTitle}>Recent activity</h2>
+                                {timeline.length > 3 ? (
+                                    <button type="button" className={ui.linkBtn} onClick={() => setDetailTab("activity")}>
+                                        View all {timeline.length}
+                                    </button>
+                                ) : null}
+                            </div>
+                            {renderActivityTable(timeline.slice(0, 3))}
+                        </section>
+                    </div>
+                ) : null}
+
+                {detailTab === "activity" ? (
+                    <div id="panel-activity" role="tabpanel" aria-labelledby="tab-activity" className={ui.panel}>
+                        {renderActivityTable(paginatedTimeline)}
+                        {timeline.length > ACTIVITY_PAGE_SIZE ? (
+                            <div className={ui.pager}>
+                                <span>
+                                    Page {activityPage} of {totalActivityPages}
+                                </span>
+                                <div>
                                     <button
                                         type="button"
+                                        className={ui.btnGhostSm}
                                         onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
                                         disabled={activityPage === 1}
                                     >
                                         Previous
                                     </button>
-
-                                    <span>
-                                        {activityPage} / {totalActivityPages}
-                                    </span>
-
                                     <button
                                         type="button"
-                                        onClick={() =>
-                                            setActivityPage((p) =>
-                                                Math.min(totalActivityPages, p + 1)
-                                            )
-                                        }
+                                        className={ui.btnGhostSm}
+                                        onClick={() => setActivityPage((p) => Math.min(totalActivityPages, p + 1))}
                                         disabled={activityPage === totalActivityPages}
                                     >
                                         Next
                                     </button>
                                 </div>
-                            ) : null}
-                        </section>
-
+                            </div>
+                        ) : null}
                     </div>
+                ) : null}
 
-                    <div className={styles.sideStack}>
-                        <section className={`${styles.card} ${styles.cleanAiCard}`}>
-                            <div className={styles.sectionLabel}>AI insight</div>
-
-                            <div className={styles.cleanAiContent}>
-                                <strong>Recommended action</strong>
-                                <p>{aiSummary}</p>
-                            </div>
-
-                            <div className={styles.cleanAiContent}>
-                                <strong>Automation</strong>
-
-                                <div className={styles.cleanActionButtons}>
-                                    {recommendedActions.map((action) => {
-                                        const isBilling = action.key === "billing";
-
-                                        return (
-                                            <button
-                                                key={action.key}
-                                                type="button"
-                                                className={styles.cleanActionBtn}
-                                                onClick={() =>
-                                                    isBilling ? handleRetryPayment() : openEmailModal(action.key)
-                                                }
-                                                disabled={isBilling && retryingPayment}
-                                            >
-                                                {isBilling
-                                                    ? retryingPayment
-                                                        ? "Opening Stripe..."
-                                                        : "Retry payment"
-                                                    : action.automationLabel}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-
-                                {retryPaymentErr ? (
-                                    <p className={styles.cleanEmailLimitText}>{retryPaymentErr}</p>
-                                ) : null}
-                            </div>
-
-                            {!emailSender?.verified ? (
-                                <p className={styles.cleanEmailLimitText}>
-                                    Sending domain is not verified yet. Configure it in Settings before sending.
-                                </p>
-                            ) : tier !== "pro" ? (
-                                <p className={styles.cleanEmailLimitText}>
-                                    {typeof emailUsageRemaining === "number"
-                                        ? `${emailUsageRemaining} of ${emailUsageLimit ?? STARTER_EMAIL_LIMIT
-                                        } email actions remaining.`
-                                        : `Starter includes ${STARTER_EMAIL_LIMIT} email actions.`}
-                                </p>
-                            ) : null}
-                        </section>
-
-                        <section className={`${styles.card} ${styles.notesCard}`}>
-                            <div className={styles.sectionLabel}>Account notes</div>
-                            <div className={styles.accountLogTitle}>Private notes</div>
-                            <div className={styles.accountLogSub}>
-                                Notes for your team on this account
-                            </div>
-
-                            <textarea
-                                className={styles.notesTextarea}
-                                value={noteText}
-                                onChange={(e) => setNoteText(e.target.value)}
-                                placeholder="Write a note for this account..."
-                            />
-
-                            <div className={styles.notesActions}>
-                                {editingNoteId ? (
-                                    <button className={styles.noteSecondaryBtn} type="button" onClick={cancelEditNote}>
-                                        Cancel edit
-                                    </button>
-                                ) : null}
-
-                                <button className={styles.notePrimaryBtn} type="button" onClick={saveNote}>
-                                    {editingNoteId ? "Save note" : "Add note"}
+                {detailTab === "notes" ? (
+                    <div id="panel-notes" role="tabpanel" aria-labelledby="tab-notes" className={`${ui.panel} ${ui.notesPanel}`}>
+                        <p className={ui.panelIntro}>Private to your team. Customers never see these.</p>
+                        <label htmlFor="account-note" className={ui.srOnly}>
+                            Note
+                        </label>
+                        <textarea
+                            id="account-note"
+                            className={ui.textarea}
+                            value={noteText}
+                            onChange={(e) => setNoteText(e.target.value)}
+                            placeholder="Add a note…"
+                            rows={3}
+                        />
+                        <div className={ui.noteActions}>
+                            {editingNoteId ? (
+                                <button type="button" className={ui.btnGhost} onClick={cancelEditNote}>
+                                    Cancel
                                 </button>
-                            </div>
+                            ) : null}
+                            <button type="button" className={ui.btnPrimary} onClick={saveNote} disabled={!noteText.trim()}>
+                                {editingNoteId ? "Save note" : "Add note"}
+                            </button>
+                        </div>
 
-                            <div className={styles.notesList}>
-                                {notes.length ? (
-                                    notes.map((note: AccountNote) => (
-                                        <div key={note.id} className={styles.noteItem}>
-                                            <p>{note.text}</p>
-                                            <span>Updated {niceDateTime(note.updatedAt)}</span>
-
-                                            <div className={styles.noteItemActions}>
-                                                <button type="button" onClick={() => startEditNote(note)}>
-                                                    Edit
-                                                </button>
-                                                <button type="button" onClick={() => deleteNote(note.id)}>
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className={styles.accountLogEmpty}>No notes yet.</div>
-                                )}
+                        {notes.length ? (
+                            <div className={ui.tableWrap}>
+                                <table className={ui.table}>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Note</th>
+                                            <th scope="col">Updated</th>
+                                            <th scope="col"><span className={ui.srOnly}>Actions</span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {notes.map((note: AccountNote) => (
+                                            <tr key={note.id}>
+                                                <td className={ui.cellNote}>{note.text}</td>
+                                                <td className={ui.cellTime}>{niceDateTime(note.updatedAt)}</td>
+                                                <td className={ui.cellAction}>
+                                                    <span className={ui.rowLinks}>
+                                                        <button type="button" onClick={() => startEditNote(note)}>
+                                                            Edit
+                                                        </button>
+                                                        <button type="button" onClick={() => deleteNote(note.id)}>
+                                                            Delete
+                                                        </button>
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
-                        </section>
+                        ) : (
+                            <p className={ui.empty}>No notes yet.</p>
+                        )}
                     </div>
-
-
-                </div>
+                ) : null}
             </div>
 
             <EmailModalPortal open={emailModal.open}>
-                <div className={styles.modalOverlay} onClick={closeEmailModal}>
-                    <div className={styles.emailModal} onClick={(e) => e.stopPropagation()}>
-                        <div className={styles.emailModalHeader}>
+                <div className={`${ui.modalOverlay} ${inter.className}`} onClick={closeEmailModal}>
+                    <div className={ui.emailModal} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+                        <div className={ui.emailModalHeader}>
                             <div>
 
-                                <div className={styles.emailModalTitle}>Retention Outreach</div>
+                                <div className={ui.emailModalTitle}>Email {account.companyName}</div>
+                                <div className={ui.emailModalSub}>Sent from your verified domain. Replies land in your Inbox.</div>
 
                             </div>
 
-                            <button className={styles.emailCloseBtn} onClick={closeEmailModal} type="button">
+                            <button className={ui.emailCloseBtn} onClick={closeEmailModal} type="button" aria-label="Close">
                                 ×
                             </button>
                         </div>
 
-                        <div className={styles.emailShell}>
-                            <div className={styles.emailField}>
-                                <label className={styles.emailLabel}>To</label>
-                                <input className={styles.emailInput} value={account.email || ""} readOnly />
+                        <div className={ui.emailShell}>
+                            <div className={ui.emailField}>
+                                <label className={ui.emailLabel} htmlFor="email-to">To</label>
+                                <input id="email-to" className={ui.emailInput} value={account.email || ""} readOnly />
                             </div>
 
-                            <div className={styles.emailField}>
-                                <label className={styles.emailLabel}>Subject</label>
+                            <div className={ui.emailField}>
+                                <label className={ui.emailLabel} htmlFor="email-subject">Subject</label>
                                 <input
-                                    className={styles.emailInput}
+                                    id="email-subject"
+                                    className={ui.emailInput}
                                     value={emailSubject}
                                     onChange={(e) => setEmailSubject(e.target.value)}
                                 />
                             </div>
 
-                            <div className={styles.emailField}>
-                                <label className={styles.emailLabel}>Message</label>
+                            <div className={ui.emailField}>
+                                <label className={ui.emailLabel} htmlFor="email-body">Message</label>
                                 <textarea
-                                    className={styles.emailTextarea}
+                                    id="email-body"
+                                    className={ui.emailTextarea}
                                     value={emailBody}
                                     onChange={(e) => setEmailBody(e.target.value)}
                                 />
                             </div>
 
-                            {sendErr ? <div className={styles.emailError}>{sendErr}</div> : null}
+                            {sendErr ? <div className={ui.emailError}>{sendErr}</div> : null}
 
-                            <div className={styles.emailModalActions}>
-                                <button className={styles.emailCancelBtn} type="button" onClick={closeEmailModal}>
+                            <div className={ui.emailModalActions}>
+                                <button className={ui.emailCancelBtn} type="button" onClick={closeEmailModal}>
                                     Cancel
                                 </button>
                                 <button
-                                    className={styles.emailSendBtn}
+                                    className={ui.emailSendBtn}
                                     type="button"
                                     onClick={sendEmail}
                                     disabled={sendingEmail}
@@ -1778,19 +1807,19 @@ export default function CustomerDetailPage() {
             </EmailModalPortal>
 
             {showUpgradeModal ? (
-                <div className={styles.modalOverlay} onClick={() => setShowUpgradeModal(false)}>
-                    <div className={styles.emailModal} onClick={(e) => e.stopPropagation()}>
-                        <div className={styles.emailModalHeader}>
+                <div className={`${ui.modalOverlay} ${inter.className}`} onClick={() => setShowUpgradeModal(false)}>
+                    <div className={ui.emailModal} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+                        <div className={ui.emailModalHeader}>
                             <div>
-                                <div className={styles.emailEyebrow}>Upgrade</div>
-                                <div className={styles.emailModalTitle}>Email limit reached</div>
-                                <div className={styles.emailModalSub}>
+                                <div className={ui.emailEyebrow}>Upgrade</div>
+                                <div className={ui.emailModalTitle}>Email limit reached</div>
+                                <div className={ui.emailModalSub}>
                                     Upgrade to Pro to keep sending retention emails.
                                 </div>
                             </div>
 
                             <button
-                                className={styles.emailCloseBtn}
+                                className={ui.emailCloseBtn}
                                 onClick={() => setShowUpgradeModal(false)}
                                 type="button"
                             >
@@ -1798,16 +1827,16 @@ export default function CustomerDetailPage() {
                             </button>
                         </div>
 
-                        <div className={styles.emailModalActions}>
+                        <div className={ui.emailModalActions}>
                             <button
-                                className={styles.emailCancelBtn}
+                                className={ui.emailCancelBtn}
                                 type="button"
                                 onClick={() => setShowUpgradeModal(false)}
                             >
                                 Not now
                             </button>
                             <button
-                                className={styles.emailSendBtn}
+                                className={ui.emailSendBtn}
                                 type="button"
                                 onClick={() => {
                                     setShowUpgradeModal(false);
