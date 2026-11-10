@@ -1,278 +1,147 @@
-"use client";
+import Link from "next/link";
 
-import {
-    BarChart3,
-    Check,
-    Gauge,
-    Sparkles,
-    Users,
-    Zap,
-} from "lucide-react";
-import { Instrument_Serif, Inter } from "next/font/google";
+import AuthButton from "@/components/landing/AuthButton";
+import { BehaviourVisual, ForecastVisual } from "@/components/landing/ClaudeSections";
+import OverviewPreview from "@/components/landing/OverviewPreview";
+import styles from "./landing.module.css";
 
-const inter = Inter({
-    subsets: ["latin"],
-    variable: "--font-inter",
-});
-
-const instrumentSerif = Instrument_Serif({
-    subsets: ["latin"],
-    weight: "400",
-    style: ["normal", "italic"],
-});
-
-const accounts = [
+const steps = [
     {
-        name: "CedarWorks",
-        risk: 91,
-        reason: "Confirm billing contact and resolve payment today.",
-        mrr: "£21,900",
-        lastActive: "12 Apr 2026",
+        title: "Connect",
+        body: "Link Stripe and HubSpot in a few minutes. Read-only, no engineering work.",
     },
     {
-        name: "Kite Labs",
-        risk: 87,
-        reason: "Send a personal check-in and offer a quick walkthrough.",
-        mrr: "£12,900",
-        lastActive: "04 Apr 2026",
+        title: "Understand",
+        body: "Claude reads each account's behaviour, explains what changed and predicts who will churn.",
     },
     {
-        name: "NovaPay",
-        risk: 76,
-        reason: "Send a value recap and suggest a success call.",
-        mrr: "£8,400",
-        lastActive: "18 Apr 2026",
-    },
-    {
-        name: "BrightDesk",
-        risk: 69,
-        reason: "Highlight unused features and offer setup support.",
-        mrr: "£7,200",
-        lastActive: "20 Apr 2026",
+        title: "Act",
+        body: "Send the retention email Claude drafts, from your own domain, and track the reply.",
     },
 ];
 
-const activity = [
+const features = [
     {
-        title: "Retention health recalculated",
-        description:
-            "Cobrai refreshed churn predictions using the latest billing and engagement activity.",
-        time: "25 mins ago",
+        title: "Metrics",
+        body: "Overview, retention and accounts, built from your billing and CRM data.",
     },
     {
-        title: "Customer opened outreach email",
-        description:
-            "The customer opened the re-engagement email after a period of declining activity.",
-        time: "2 hours ago",
+        title: "Ask Claude",
+        body: "Ask why churn moved or who is at risk, in plain English.",
     },
     {
-        title: "Re-engagement email sent",
-        description:
-            "An outreach email was triggered after Cobrai detected reduced engagement.",
-        time: "4 hours ago",
-    },
-    {
-        title: "Product engagement declined",
-        description:
-            "Cobrai detected a meaningful drop in product usage compared with normal activity.",
-        time: "6 hours ago",
+        title: "Inbox",
+        body: "Two-way retention email from your own domain, next to each account.",
     },
 ];
-
-const queue = [
-    {
-        account: "Acme Groups",
-        opportunity: "Billing recovery email",
-        impact: "High",
-        action: "Retry the failed subscription payment",
-    },
-    {
-        account: "Northstar AI",
-        opportunity: "Re-engagement email",
-        impact: "High",
-        action: "Send a personalised check-in email",
-    },
-    {
-        account: "Peak Ops",
-        opportunity: "Retry payment",
-        impact: "Medium",
-        action: "Retry the failed card payment",
-    },
-    {
-        account: "Clearpath Labs",
-        opportunity: "Executive check-in",
-        impact: "Medium",
-        action: "Schedule executive check-in call",
-    },
-];
-
-const benefits = [
-    {
-        icon: Gauge,
-        title: "Predict churn before it happens",
-        description:
-            "AI-powered predictions based on real engagement, billing and usage signals.",
-    },
-    {
-        icon: Zap,
-        title: "Automate the right actions",
-        description:
-            "Send personalised emails, retry payments and run workflows that recover revenue.",
-    },
-    {
-        icon: BarChart3,
-        title: "Track retention impact",
-        description:
-            "See exactly how much revenue you are protecting and where to focus next.",
-    },
-    {
-        icon: Users,
-        title: "Built for SaaS founders",
-        description:
-            "Simple, powerful and built to help your team grow with confidence.",
-    },
-];
-
-function RiskBadge({ value }: { value: number }) {
-    const tone = value >= 85 ? "critical" : value >= 70 ? "high" : "medium";
-
-    return (
-        <span className={`dashboardRisk dashboardRisk-${tone}`}>
-            {value}
-        </span>
-    );
-}
 
 export default function HomePage() {
     return (
-        <main className={`${inter.variable} landingPage`}>
-            <section className="heroSection">
-                <div className="heroGlow heroGlowLeft" />
-                <div className="heroGlow heroGlowRight" />
-
-                <div className="landingShell heroInner">
-                    <span className="heroEyebrow">
-                        <Sparkles size={13} />
-                        AI retention intelligence
-                    </span>
-
-                    <h1 className={instrumentSerif.className}>
-                        Stop churn. Protect revenue.
-                        <span>Grow with confidence.</span>
-                    </h1>
-
-                    <p className="heroDescription">
-                        Cobrai monitors your customers, predicts churn and
-                        automates the right actions to keep recurring revenue
-                        safe.
-                    </p>
-
-                    <div className="heroActions">
-                        <button
-                            type="button"
-                            className="primaryButton"
-                            onClick={() => {
-                                window.dispatchEvent(
-                                    new CustomEvent("cobrai:open-auth", {
-                                        detail: {
-                                            view: "signup",
-                                        },
-                                    }),
-                                );
-                            }}
-                        >
-                            Get started free
-                        </button>
-
-                        <button
-                            type="button"
-                            className="secondaryButton"
-                            onClick={() => {
-                                window.dispatchEvent(
-                                    new CustomEvent("cobrai:open-auth", {
-                                        detail: {
-                                            view: "login",
-                                        },
-                                    }),
-                                );
-                            }}
-                        >
-                            Log back in
-                        </button>
+        <div className={styles.page}>
+            <section className={styles.hero}>
+                <div className={styles.shell}>
+                    <div className={styles.heroCopy}>
+                        <span className={styles.eyebrow}>Retention intelligence, powered by Claude</span>
+                        <h1 className={styles.heroTitle}>Stop churn before revenue drops.</h1>
+                        <p className={styles.heroLead}>
+                            Identify risk, understand why, and take action before
+                            customers leave. Claude reads your Stripe and HubSpot
+                            data and forecasts your MRR.
+                        </p>
+                        <div className={styles.heroActions}>
+                            <AuthButton view="signup" className={styles.btnPrimary}>
+                                Start free trial
+                            </AuthButton>
+                            <Link href="/retention-audit" className={styles.btnSecondary}>
+                                Request a retention audit
+                            </Link>
+                        </div>
+                        <p className={styles.heroNote}>14-day free trial · No credit card required</p>
                     </div>
 
-                    <div className="heroReassurance">
-                        <span>
-                            <Check size={14} />
-                            14-day free trial
-                        </span>
+                    <OverviewPreview />
+                </div>
+            </section>
 
-                        <span>
-                            <Check size={14} />
-                            No credit card required
-                        </span>
-
-                        <span>
-                            <Check size={14} />
-                            Cancel anytime
-                        </span>
+            <section className={styles.section} id="claude">
+                <div className={styles.shell}>
+                    <div className={styles.sectionHead}>
+                        <span className={styles.eyebrow}>Interpretation</span>
+                        <h2>Claude explains what your customers are doing</h2>
+                        <p className={styles.sectionLead}>
+                            Not just that usage dropped, but why, and what it
+                            means for revenue.
+                        </p>
                     </div>
+                    <BehaviourVisual />
+                </div>
+            </section>
 
-                    <div className="proofStrip">
-                        <div>
-                            <strong>Predictive</strong>
-                            <span>Churn detection</span>
-                        </div>
+            <section className={styles.section} id="forecast">
+                <div className={styles.shell}>
+                    <div className={styles.sectionHead}>
+                        <span className={styles.eyebrow}>Forecasting</span>
+                        <h2>See where MRR is heading</h2>
+                        <p className={styles.sectionLead}>
+                            A forecast built from each account&rsquo;s risk, with
+                            Claude naming the customers that move it.
+                        </p>
+                    </div>
+                    <ForecastVisual />
+                </div>
+            </section>
 
-                        <div>
-                            <strong>Proactive</strong>
-                            <span>Revenue protection</span>
-                        </div>
+            <section className={styles.section} id="how-it-works">
+                <div className={styles.shell}>
+                    <div className={styles.sectionHead}>
+                        <span className={styles.eyebrow}>How it works</span>
+                        <h2>Connect, understand, act</h2>
+                    </div>
+                    <ol className={styles.steps}>
+                        {steps.map((step, index) => (
+                            <li className={styles.step} key={step.title}>
+                                <span className={styles.stepNum}>0{index + 1}</span>
+                                <h3>{step.title}</h3>
+                                <p>{step.body}</p>
+                            </li>
+                        ))}
+                    </ol>
+                </div>
+            </section>
 
-                        <div>
-                            <strong>Automated</strong>
-                            <span>Retention workflows</span>
-                        </div>
-
-                        <div>
-                            <strong>Actionable</strong>
-                            <span>Customer intelligence</span>
-                        </div>
+            <section className={styles.section} id="features">
+                <div className={styles.shell}>
+                    <div className={styles.sectionHead}>
+                        <span className={styles.eyebrow}>In the product</span>
+                        <h2>Everything in one place</h2>
+                    </div>
+                    <div className={styles.featureGrid}>
+                        {features.map((feature) => (
+                            <div className={styles.featureItem} key={feature.title}>
+                                <h3>{feature.title}</h3>
+                                <p>{feature.body}</p>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </section>
 
-            <section id="features" className="benefitsSection">
-                <div className="landingShell">
-                    <div className="sectionHeading">
-                        <h2 className={instrumentSerif.className}>
-                            Everything you need to retain more.
-                            <span>One intelligent platform.</span>
-                        </h2>
-                    </div>
-
-                    <div className="benefitGrid">
-                        {benefits.map((benefit) => {
-                            const Icon = benefit.icon;
-
-                            return (
-                                <article
-                                    className="benefitItem"
-                                    key={benefit.title}
-                                >
-                                    <span className="benefitIcon">
-                                        <Icon size={22} />
-                                    </span>
-
-                                    <h3>{benefit.title}</h3>
-
-                                    <p>{benefit.description}</p>
-                                </article>
-                            );
-                        })}
+            <section className={styles.section}>
+                <div className={styles.shell}>
+                    <div className={styles.cta}>
+                        <h2>Start with your own data</h2>
+                        <p>Your first risk list and MRR forecast in minutes.</p>
+                        <div className={styles.ctaActions}>
+                            <AuthButton view="signup" className={styles.btnPrimary}>
+                                Start free trial
+                            </AuthButton>
+                            <Link href="/pricing" className={styles.btnSecondary}>
+                                View pricing
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </section>
-        </main>
+        </div>
     );
 }

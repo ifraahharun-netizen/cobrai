@@ -2479,3 +2479,24 @@ button {
     background: #eaf6ff;
     color: #147fc5;
 }
+/* Marketing header: switch to the menu button on narrow screens. */
+@media (max-width: 760px) {
+    .siteHeader .topNav,
+    .siteHeader .headerActions {
+        display: none;
+    }
+
+    .siteHeader .headerMenuButton {
+        display: inline-flex;
+        margin-left: auto;
+    }
+
+    .siteHeaderInner {
+        width: calc(100% - 32px);
+        min-height: 64px;
+    }
+
+    .logoWrap img {
+        width: 104px;
+    }
+}

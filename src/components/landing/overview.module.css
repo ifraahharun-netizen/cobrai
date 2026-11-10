@@ -1,0 +1,430 @@
+.window {
+    --ink: #111827;
+    --ink-2: #374151;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --line-soft: #f0f1f3;
+    --surface: #fafafa;
+    --blue: #2563eb;
+    --good: #047857;
+    --bad: #b42318;
+
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: #ffffff;
+    overflow: hidden;
+    color: var(--ink);
+    text-align: left;
+    box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04), 0 12px 32px rgba(17, 24, 39, 0.05);
+}
+
+.windowBar {
+    height: 38px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.windowBar > span {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #e5e7eb;
+}
+
+.windowUrl {
+    margin: 0 auto;
+    padding: 3px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #ffffff;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.app {
+    display: grid;
+    grid-template-columns: 172px 1fr;
+}
+
+/* Sidebar */
+
+.nav {
+    padding: 16px 10px;
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 13px;
+    color: var(--ink-2);
+}
+
+.nav > span {
+    padding: 7px 10px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nav svg {
+    color: var(--muted);
+}
+
+.navGroup {
+    padding: 10px 10px 4px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.navGroup:first-child {
+    padding-top: 0;
+}
+
+.navActive {
+    background: #f3f4f6;
+    color: var(--ink);
+    font-weight: 500;
+}
+
+.navActive svg {
+    color: var(--ink);
+}
+
+/* Main */
+
+.main {
+    min-width: 0;
+    padding: 20px 22px 22px;
+    display: grid;
+    gap: 14px;
+}
+
+.head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.sub {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.kpis {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+}
+
+.kpi {
+    padding: 12px 14px;
+    border-left: 1px solid var(--line);
+    min-width: 0;
+}
+
+.kpi:first-child {
+    border-left: 0;
+}
+
+.kpiLabel {
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kpiValue {
+    margin-top: 4px;
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.deltaGood,
+.deltaBad {
+    margin-top: 2px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.deltaGood {
+    color: var(--good);
+}
+
+.deltaBad {
+    color: var(--bad);
+}
+
+.split {
+    display: grid;
+    grid-template-columns: 1.45fr 1fr;
+    gap: 14px;
+}
+
+.card {
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+}
+
+.cardHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.cardTitle {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.cardSub {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.protected {
+    text-align: right;
+}
+
+.protected strong {
+    display: block;
+    color: var(--good);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+.protected span {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.chartSvg {
+    margin-top: 8px;
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.grid {
+    stroke: var(--line-soft);
+    stroke-width: 1;
+}
+
+.today {
+    stroke: #d1d5db;
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+}
+
+.gap {
+    fill: rgba(16, 185, 129, 0.08);
+}
+
+.actual {
+    fill: none;
+    stroke: var(--blue);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.withAction {
+    fill: none;
+    stroke: var(--blue);
+    stroke-width: 2;
+    stroke-dasharray: 5 4;
+    stroke-linecap: round;
+}
+
+.withoutAction {
+    fill: none;
+    stroke: #e5484d;
+    stroke-width: 1.5;
+    stroke-dasharray: 5 4;
+    stroke-linecap: round;
+    opacity: 0.8;
+}
+
+.dot {
+    fill: #ffffff;
+    stroke: var(--blue);
+    stroke-width: 2;
+}
+
+.dotBad {
+    fill: #ffffff;
+    stroke: #e5484d;
+    stroke-width: 2;
+}
+
+.axis {
+    fill: #9ca3af;
+    font-size: 10px;
+}
+
+.legend {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legend i {
+    width: 14px;
+    height: 0;
+    display: inline-block;
+}
+
+.keyActual {
+    border-top: 2px solid var(--blue);
+}
+
+.keyWith {
+    border-top: 2px dashed var(--blue);
+}
+
+.keyWithout {
+    border-top: 2px dashed #e5484d;
+}
+
+/* Claude insight */
+
+.claude {
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+}
+
+.claudeHead {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.claudeHead svg {
+    color: #c96442;
+}
+
+.claudeLead {
+    margin: 10px 0 0;
+    color: var(--ink-2);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.claudeLead strong {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.claudeText {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.claudeActions {
+    margin-top: auto;
+    padding-top: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.claudePrimary {
+    height: 30px;
+    padding: 0 11px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.claudePrimary {
+    background: var(--ink);
+    color: #ffffff;
+}
+
+/* Responsive */
+
+@media (max-width: 1000px) {
+    .split {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 900px) {
+    .app {
+        grid-template-columns: 1fr;
+    }
+
+    .nav {
+        display: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .main {
+        padding: 16px 14px;
+    }
+
+    .kpis {
+        grid-template-columns: 1fr;
+    }
+
+    .kpi {
+        border-left: 0;
+    }
+
+    .kpi + .kpi {
+        border-top: 1px solid var(--line);
+    }
+
+    .kpiValue {
+        font-size: 19px;
+    }
+
+    .cardHead {
+        flex-direction: column;
+    }
+
+    .protected {
+        text-align: left;
+    }
+
+}

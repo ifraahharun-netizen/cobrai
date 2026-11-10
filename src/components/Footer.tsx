@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function Footer() {
     const [aboutOpen, setAboutOpen] = useState(false);
+    // The home page has its own closing call to action.
+    const showTopCta = usePathname() !== "/";
 
     useEffect(() => {
         if (!aboutOpen) {
@@ -37,6 +40,7 @@ export default function Footer() {
         <>
             <footer className="footer">
                 <div className="footerCenter">
+                    {showTopCta && (
                     <section className="featureFinalCta footerTopCta">
                         <div>
                             <h2>Ready to protect your revenue?</h2>
@@ -51,6 +55,7 @@ export default function Footer() {
                             Get Started Free
                         </Link>
                     </section>
+                    )}
 
                     <div className="footerGrid">
                         <div className="footerBrandCol">
