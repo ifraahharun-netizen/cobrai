@@ -1231,11 +1231,11 @@
 }
 
 .activeUsersRetainedDot {
-    background: #5f82e8;
+    background: #6366f1;
 }
 
 .activeUsersAcquiredDot {
-    background: #77b7ef;
+    background: #c7cbfb;
 }
 
 .activeUsersTotal {
@@ -1263,52 +1263,2890 @@
         border-top: 1px solid #e8edf3;
     }
 }
-
 /* ========================================================================== */
-/* LONG USER METRICS CARD                                                     */
-/* Layout-only adjustment. Tooltip, data, filters and API logic are unchanged. */
+/* COMPACT DASHBOARD                                                          */
+/* Smaller, tighter cards. Layout responds to the width of the content area   */
+/* (not the whole window), so the sidebar no longer forces early stacking.    */
 /* ========================================================================== */
 
+.content {
+    container-type: inline-size;
+    container-name: dash;
+    gap: 14px;
+}
+
+.card,
+.kpiCard {
+    border-radius: 14px;
+    border-color: #eceef1;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.card {
+    padding: 16px;
+}
+
+/* KPI row: title + icon on top, large value, coloured change + grey context */
+.kpiGrid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.kpiCard {
+    min-height: 0;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+.kpiTop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.kpiLabel {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #475467;
+    letter-spacing: -0.01em;
+}
+
+.kpiValue {
+    margin-top: 4px;
+    font-size: 24px;
+    line-height: 1.1;
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    color: #101828;
+}
+
+.kpiSubline {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    min-width: 0;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 1.3;
+    color: #667085;
+}
+
+.kpiChange {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-weight: 600;
+}
+
+.kpiContext {
+    color: #667085;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.kpiIcon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    box-shadow: none;
+    background: #f5f6f8;
+}
+
+/* Main two-column area */
+.dashboardMainGrid {
+    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+    gap: 14px;
+    margin-top: 0;
+}
+
+.leftDashboardStack,
+.rightDashboardStack {
+    gap: 14px;
+}
+
+.card.combinedTrendsCard {
+    padding: 0;
+}
+
+.combinedTrendSection {
+    padding: 16px;
+}
+
+.combinedTrendDivider {
+    margin: 0 16px;
+}
+
+.combinedTrendSection .chartPreview {
+    height: 190px;
+}
+
+.combinedTrendSection .churnChartWrap {
+    height: 150px;
+}
+
+/* User Metrics: no more oversized bar chart */
 .activeUsersCard {
-    min-height: 500px !important;
+    min-height: 0;
+    padding: 16px;
 }
 
 .activeUsersCard .activeUsersChartWrap {
-    height: 335px !important;
-    margin-top: 12px !important;
+    height: 220px;
+    margin-top: 12px;
 }
 
 .activeUsersCard .activeUsersChartWrap :global(canvas),
 .activeUsersCard .activeUsersChartWrap :global(svg) {
-    height: 335px !important;
+    height: 220px !important;
 }
 
-@media (max-width: 1120px) {
-    .activeUsersCard {
-        min-height: 430px !important;
-    }
+/* Daily active users: big number, edge-to-edge line, first/last date */
+.card.activeUsersCard {
+    padding: 14px;
+}
 
-    .activeUsersCard .activeUsersChartWrap {
-        height: 275px !important;
-    }
+.activeUsersCard .activeUsersHeader p {
+    margin-top: 2px;
+}
 
-    .activeUsersCard .activeUsersChartWrap :global(canvas),
-    .activeUsersCard .activeUsersChartWrap :global(svg) {
-        height: 275px !important;
+.activeUsersTitle {
+    font-size: 14px;
+    font-weight: 560;
+    color: #101828;
+}
+
+.dauValueRow {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.dauValue {
+    font-size: 22px;
+    line-height: 1.1;
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    color: #101828;
+}
+
+.dauValueRow .activeUsersUp,
+.dauValueRow .activeUsersDown {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Bleed the chart to the card edges (card padding is 16px). */
+.dauChartWrap {
+    height: 80px;
+    margin: 8px -14px 0;
+}
+
+.dauAxis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 11px;
+    color: #667085;
+}
+
+/* AI Insights */
+.aiInsightsCard {
+    min-height: 0;
+    padding: 16px;
+    border-radius: 14px;
+}
+
+.aiInsightRow {
+    min-height: 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+}
+
+/* Content area under ~1000px: single column */
+@container dash (max-width: 1000px) {
+    .dashboardMainGrid {
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
-@media (max-width: 700px) {
-    .activeUsersCard {
-        min-height: 385px !important;
+/* Narrow content area: KPIs two across */
+@container dash (max-width: 760px) {
+    .kpiGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* Phone width: KPIs one per row */
+@container dash (max-width: 420px) {
+    .kpiGrid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+
+/* ========================================================================== */
+/* DASHBOARD GRID                                                             */
+/* Row 1: KPIs. Row 2: three equal chart cards. Row 3: AI Insights + queue.   */
+/* Every card shares the same radius, border, padding and header type.        */
+/* ========================================================================== */
+
+.content {
+    gap: 16px;
+}
+
+.kpiGrid {
+    gap: 16px;
+}
+
+/* Shared card look (dashboard cards + the action queue) */
+.card,
+.kpiCard,
+.queueSlot > div {
+    border-radius: 14px;
+    border: 1px solid #eaecf0;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+/* Shared header type */
+.chartCard .cardHeader h4,
+.activeUsersTitle,
+.aiInsightsTitle,
+.queueSlot > div > div:first-child h3,
+.queueSlot > div > div:first-child h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: #101828;
+}
+
+.chartCard .cardHeader p,
+.activeUsersCard .activeUsersHeader p,
+.aiInsightsSubtitle {
+    margin: 2px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #667085;
+}
+
+/* Row 2 */
+.chartRow {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    align-items: stretch;
+}
+
+.card.chartCard,
+.card.activeUsersCard {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 330px;
+    padding: 16px;
+}
+
+.chartCard .revenueInlineMetricRow,
+.chartCard .churnMetricRow {
+    margin-top: 14px;
+    padding: 0;
+    gap: 8px;
+}
+
+.chartCard .revenueInlineMetric {
+    padding: 0 8px;
+}
+
+.chartCard .revenueInlineMetric strong,
+.chartCard .churnMiniKpi strong {
+    font-size: 16px;
+    font-weight: 600;
+    color: #101828;
+}
+
+.chartCard .revenueInlineMetric p,
+.chartCard .churnMiniKpi p {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chartCard .churnMiniKpi small {
+    display: none;
+}
+
+/* Charts sit at the bottom of each card so all three line up */
+.chartCard .chartPreview,
+.chartCard .churnChartWrap {
+    height: 170px;
+    margin-top: auto;
+    padding-top: 12px;
+    box-sizing: content-box;
+}
+
+.activeUsersCard .dauValueRow {
+    margin-top: 14px;
+}
+
+.activeUsersCard .dauValue {
+    font-size: 26px;
+}
+
+.activeUsersCard .dauChartWrap {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 120px;
+    margin: 14px 0 0;
+}
+
+.card.activeUsersCard {
+    padding: 16px;
+}
+
+/* Row 3 */
+.workRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: stretch;
+}
+
+.workRow .aiInsightsCard {
+    min-height: 0;
+    height: 100%;
+    padding: 16px;
+}
+
+.queueSlot {
+    min-width: 0;
+    display: flex;
+}
+
+.queueSlot > div {
+    flex: 1 1 auto;
+    padding: 16px;
+}
+
+/* Medium: Revenue + Churn side by side, Daily active users full width */
+@container dash (max-width: 1100px) {
+    .chartRow {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .activeUsersCard .activeUsersChartWrap {
-        height: 225px !important;
+    .chartRow > .activeUsersCard {
+        grid-column: 1 / -1;
+        min-height: 260px;
     }
 
-    .activeUsersCard .activeUsersChartWrap :global(canvas),
-    .activeUsersCard .activeUsersChartWrap :global(svg) {
-        height: 225px !important;
+    .workRow {
+        grid-template-columns: minmax(0, 1fr);
     }
+}
+
+/* Small: everything stacks */
+@container dash (max-width: 700px) {
+    .chartRow {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Medium: 3 KPIs on top, 2 wider ones below; no gaps */
+@container dash (max-width: 980px) {
+    .kpiGrid {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .kpiGrid > .kpiCard {
+        grid-column: span 2;
+    }
+
+    .kpiGrid > .kpiCard:nth-child(n + 4) {
+        grid-column: span 3;
+    }
+}
+
+/* Small: two across, an odd last card fills the row */
+@container dash (max-width: 760px) {
+    .kpiGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .kpiGrid > .kpiCard,
+    .kpiGrid > .kpiCard:nth-child(n + 4) {
+        grid-column: auto;
+    }
+
+    .kpiGrid > .kpiCard:last-child:nth-child(odd) {
+        grid-column: 1 / -1;
+    }
+}
+
+@container dash (max-width: 420px) {
+    .kpiGrid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .kpiGrid > .kpiCard:last-child:nth-child(odd) {
+        grid-column: auto;
+    }
+}
+
+
+/* ========================================================================== */
+/* OVERVIEW ROW: Revenue + Churn stacked on the left, AI Insights table right */
+/* ========================================================================== */
+
+.overviewRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: stretch;
+}
+
+.trendStack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.trendStack .card.chartCard {
+    min-height: 300px;
+}
+
+.overviewRow > .aiInsightsCard {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    height: auto;
+    padding: 16px;
+}
+
+.overviewRow > .aiInsightsCard .aiInsightsPagination {
+    margin-top: auto;
+    padding-top: 12px;
+}
+
+/* AI Insights table: three clear columns, larger text, one-glance status */
+.insightTableWrap {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    margin: 14px -16px -16px;
+    overflow-x: auto;
+}
+
+.insightTable {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.insightTable th {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #667085;
+    background: #f9fafb;
+    border-top: 1px solid #eaecf0;
+    border-bottom: 1px solid #eaecf0;
+    white-space: nowrap;
+}
+
+.insightTable th:nth-child(2),
+.insightTable td:nth-child(2) {
+    width: 104px;
+}
+
+.insightTable th:nth-child(3),
+.insightTable td:nth-child(3) {
+    width: 120px;
+}
+
+.insightTable th:nth-child(4),
+.insightTable td:nth-child(4) {
+    width: 40px;
+    padding-left: 0;
+}
+
+.insightTable td {
+    height: 60px;
+    padding: 10px 16px;
+    border-bottom: 1px solid #f2f4f7;
+    vertical-align: middle;
+}
+
+.insightRowLink {
+    cursor: pointer;
+}
+
+.insightTable tbody tr:hover td {
+    background: #f9fafb;
+}
+
+.insightRowLink:focus-visible {
+    outline: 2px solid #bfdbfe;
+    outline-offset: -2px;
+}
+
+.insightText {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.insightText strong {
+    font-size: 13px;
+    font-weight: 500;
+    color: #101828;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.insightText span {
+    font-size: 11.5px;
+    color: #667085;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Type: soft pill with a coloured dot */
+.insightBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    padding: 4px 9px 4px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    background: #f2f4f7;
+    color: #344054;
+}
+
+.insightBadge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.insightBadge.insightPositive {
+    background: #ecfdf3;
+    color: #067647;
+}
+
+.insightBadge.insightUrgent {
+    background: #fef3f2;
+    color: #b42318;
+}
+
+.insightBadge.insightWarning {
+    background: #fffaeb;
+    color: #b54708;
+}
+
+.insightBadge.insightNeutral {
+    background: #eff8ff;
+    color: #175cd3;
+}
+
+/* Impact: the number is the main thing to read */
+.insightNumCol,
+.insightTable th.insightNumCol {
+    text-align: right;
+}
+
+.insightImpact {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+}
+
+.insightImpact strong {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #101828;
+    font-variant-numeric: tabular-nums;
+}
+
+.insightImpact span {
+    font-size: 11px;
+    color: #98a2b3;
+    white-space: nowrap;
+}
+
+.insightImpact.insightPositive strong {
+    color: #067647;
+}
+
+.insightImpact.insightUrgent strong {
+    color: #b42318;
+}
+
+.insightImpact.insightWarning strong {
+    color: #b54708;
+}
+
+.insightEmptyValue {
+    color: #98a2b3;
+}
+
+.insightActionCol {
+    text-align: right;
+    color: #98a2b3;
+}
+
+.insightActionCol svg {
+    vertical-align: middle;
+}
+
+.insightRowLink:hover .insightActionCol {
+    color: #344054;
+}
+
+/* Footer: "Showing X of Y" + numbered pages */
+.insightFooter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: auto;
+    padding: 12px 14px;
+    border-top: 1px solid #e5e7eb;
+    background: #ffffff;
+}
+
+.insightFooter p {
+    margin: 0;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.insightPager {
+    display: flex;
+    gap: 5px;
+}
+
+.insightPager button {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #374151;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.insightPager button:hover:not(:disabled) {
+    background: #f9fafb;
+}
+
+.insightPager button:disabled {
+    color: #d1d5db;
+    cursor: default;
+}
+
+.insightPager button.insightActivePage {
+    background: #111827;
+    border-color: #111827;
+    color: #ffffff;
+}
+
+/* ========================================================================== */
+/* CUSTOMER BEHAVIOUR (CLAUDE)                                                */
+/* ========================================================================== */
+
+.behaviourCard .aiInsightsTitle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.claudeTag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #fdf1ea;
+    color: #b4532a;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0;
+}
+
+.behaviourCard .softButton:disabled {
+    opacity: 0.6;
+    cursor: progress;
+}
+
+.behaviourSummary {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f9fafb;
+    border: 1px solid #f2f4f7;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #344054;
+}
+
+.behaviourError {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #fef3f2;
+    color: #b42318;
+    font-size: 12px;
+}
+
+.behaviourTable th:nth-child(1),
+.behaviourTable td:nth-child(1) {
+    width: 30%;
+}
+
+.behaviourTable th:nth-child(2),
+.behaviourTable td:nth-child(2) {
+    width: auto;
+}
+
+.behaviourTable th:nth-child(3),
+.behaviourTable td:nth-child(3) {
+    width: 104px;
+}
+
+.behaviourTable td {
+    height: auto;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    vertical-align: top;
+}
+
+.behaviourTable .insightText span {
+    color: #475467;
+    font-weight: 500;
+    white-space: normal;
+    line-height: 1.35;
+}
+
+.behaviourRead {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: #344054;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.behaviourNext {
+    margin: 5px 0 0;
+    font-size: 11.5px;
+    line-height: 1.4;
+    font-weight: 500;
+    color: #175cd3;
+}
+
+.behaviourRisk {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px 3px 8px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+
+.behaviourRisk::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.behaviourRisk_critical {
+    background: #fef3f2;
+    color: #b42318;
+}
+
+.behaviourRisk_high {
+    background: #fff4ed;
+    color: #c4320a;
+}
+
+.behaviourRisk_medium {
+    background: #fffaeb;
+    color: #b54708;
+}
+
+.behaviourRisk_low {
+    background: #ecfdf3;
+    color: #067647;
+}
+
+.behaviourTrend {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    color: #667085;
+    white-space: nowrap;
+}
+
+.behaviourTrend_declining {
+    color: #b42318;
+}
+
+.behaviourTrend_improving {
+    color: #067647;
+}
+
+.behaviourRowOpen td {
+    background: #f9fafb;
+    border-bottom-color: transparent;
+}
+
+.behaviourDetailRow td {
+    height: auto;
+    padding: 0 16px 14px;
+    background: #f9fafb;
+}
+
+.behaviourDetail {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #eaecf0;
+}
+
+.behaviourDetail ul {
+    margin: 6px 0 0;
+    padding-left: 16px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #344054;
+}
+
+.behaviourDetailLabel {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #98a2b3;
+}
+
+.behaviourDetailMeta {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 92px;
+    text-align: right;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #101828;
+}
+
+.behaviourEmpty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 auto;
+    gap: 8px;
+    padding: 36px 24px;
+    text-align: center;
+    border-top: 1px solid #eaecf0;
+}
+
+.behaviourEmptyIcon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #fdf1ea;
+    color: #b4532a;
+}
+
+.behaviourEmpty strong {
+    font-size: 14px;
+    font-weight: 600;
+    color: #101828;
+}
+
+.behaviourEmpty p {
+    margin: 0;
+    max-width: 340px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #667085;
+}
+
+.behaviourPrimary {
+    margin-top: 6px;
+    height: 34px;
+    padding: 0 14px;
+    border: 1px solid #111827;
+    border-radius: 10px;
+    background: #111827;
+    color: #ffffff;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.behaviourPrimary:hover {
+    background: #1f2937;
+}
+
+.behaviourLoading {
+    flex: 1 1 auto;
+    border-top: 1px solid #eaecf0;
+}
+
+.behaviourLoading p {
+    margin: 0;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: #667085;
+}
+
+.behaviourSkeletonRow {
+    display: grid;
+    grid-template-columns: 30% 1fr 80px;
+    gap: 16px;
+    padding: 16px;
+    border-bottom: 1px solid #f2f4f7;
+}
+
+.behaviourSkeletonRow span {
+    height: 12px;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #f2f4f7 0%, #e4e7ec 50%, #f2f4f7 100%);
+    background-size: 200% 100%;
+    animation: behaviourShimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes behaviourShimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .behaviourSkeletonRow span {
+        animation: none;
+    }
+}
+
+.behaviourDisclaimer {
+    font-size: 11px !important;
+    color: #98a2b3 !important;
+}
+
+/* Medium and below: insights drop under the trends */
+@container dash (max-width: 1000px) {
+    .overviewRow {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+
+/* ========================================================================== */
+/* DASHBOARD LAYOUT v3                                                        */
+/* Grey canvas, white cards, one KPI strip, two trend cards side by side,     */
+/* then full-width tables. One spacing unit (20px) and one type scale.        */
+/* ========================================================================== */
+
+/* Canvas: fill the main area (which has 24px padding) with a soft grey */
+.page {
+    min-height: 100vh;
+    margin: -24px;
+    padding: 28px 32px 40px;
+    background: #ffffff;
+    color: #101828;
+}
+
+.content {
+    max-width: 1440px;
+    margin: 0 auto;
+    gap: 20px;
+}
+
+/* Header */
+.header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 0;
+    margin: 0;
+}
+
+.title {
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: #101828;
+}
+
+.subtitle {
+    margin-top: 4px;
+    font-size: 13px;
+    color: #667085;
+}
+
+.dataBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.dataBadge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.dataBadgeDemo {
+    background: #fffaeb;
+    color: #b54708;
+}
+
+.dataBadgeLive {
+    background: #ecfdf3;
+    color: #067647;
+}
+
+/* Shared card */
+.card,
+.queueSlot > div {
+    border-radius: 12px;
+    border: 1px solid #eaecf0;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+/* KPI strip: one card, five cells divided by thin lines */
+.kpiGrid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0;
+    border: 1px solid #eaecf0;
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    overflow: hidden;
+}
+
+.kpiGrid > .kpiCard {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    padding: 18px 20px;
+    border-left: 1px solid #f2f4f7;
+}
+
+.kpiGrid > .kpiCard:first-child {
+    border-left: 0;
+}
+
+.kpiLabel {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #667085;
+}
+
+.kpiValue {
+    margin-top: 8px;
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: #101828;
+}
+
+.kpiSubline {
+    margin-top: 8px;
+    font-size: 12px;
+}
+
+.kpiIcon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: #f9fafb;
+    border: 1px solid #f2f4f7;
+    color: #667085;
+}
+
+/* Row 2: trends side by side, equal height */
+.trendRow {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    align-items: stretch;
+}
+
+.card.chartCard {
+    min-height: 0;
+    padding: 20px;
+}
+
+.trendStack .card.chartCard {
+    min-height: 0;
+}
+
+.chartCard .cardHeader h4,
+.aiInsightsTitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: #101828;
+}
+
+.chartCard .cardHeader p,
+.aiInsightsSubtitle {
+    margin-top: 3px;
+    font-size: 12.5px;
+    color: #667085;
+}
+
+.chartCard .revenueInlineMetricRow,
+.chartCard .churnMetricRow {
+    margin-top: 18px;
+    gap: 0;
+}
+
+.chartCard .revenueInlineMetric,
+.chartCard .churnMiniKpi {
+    padding: 0 16px;
+    border-left: 1px solid #f2f4f7;
+}
+
+.chartCard .revenueInlineMetric:first-child,
+.chartCard .churnMiniKpi:first-child {
+    padding-left: 0;
+    border-left: 0;
+}
+
+.chartCard .revenueInlineMetric strong,
+.chartCard .churnMiniKpi strong {
+    font-size: 18px;
+    font-weight: 600;
+    color: #101828;
+}
+
+.chartCard .revenueInlineMetric span,
+.chartCard .churnMiniSubline,
+.chartCard .churnMiniSubline span {
+    font-size: 12px;
+}
+
+.chartCard .revenueInlineMetric p,
+.chartCard .churnMiniKpi p {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #667085;
+}
+
+.chartCard .chartPreview,
+.chartCard .churnChartWrap {
+    height: 200px;
+    margin-top: auto;
+    padding-top: 16px;
+}
+
+/* Row 3: Claude customer behaviour, full width */
+.content > .behaviourCard {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: auto;
+    padding: 20px;
+}
+
+.behaviourCard .insightTableWrap {
+    margin: 16px -20px -20px;
+}
+
+.behaviourTable th {
+    padding: 10px 20px;
+    font-size: 12px;
+}
+
+.behaviourTable td {
+    padding: 14px 20px;
+}
+
+.behaviourTable th:nth-child(1),
+.behaviourTable td:nth-child(1) {
+    width: 20%;
+}
+
+.behaviourTable th:nth-child(2),
+.behaviourTable td:nth-child(2) {
+    width: auto;
+}
+
+.behaviourTable th:nth-child(3),
+.behaviourTable td:nth-child(3) {
+    width: 24%;
+}
+
+.behaviourTable th:nth-child(4),
+.behaviourTable td:nth-child(4) {
+    width: 104px;
+}
+
+.behaviourTable th:nth-child(5),
+.behaviourTable td:nth-child(5) {
+    width: 116px;
+}
+
+.behaviourTable .insightText strong {
+    font-size: 13.5px;
+}
+
+.behaviourTable .insightText span {
+    font-size: 12px;
+    color: #667085;
+}
+
+.behaviourRead {
+    font-size: 13px;
+    color: #344054;
+    -webkit-line-clamp: 3;
+}
+
+.behaviourNext {
+    margin: 0;
+    font-size: 13px;
+    color: #175cd3;
+}
+
+.behaviourTrend {
+    margin-top: 0;
+    font-size: 12.5px;
+    font-weight: 500;
+}
+
+.behaviourSummary {
+    font-size: 13px;
+}
+
+.behaviourDetailRow td {
+    padding: 0 20px 16px;
+}
+
+.behaviourCard .insightFooter {
+    padding: 12px 20px;
+}
+
+/* Row 4: action queue */
+.queueSlot > div {
+    padding: 20px;
+}
+
+/* Medium: trends stack */
+@container dash (max-width: 900px) {
+    .trendRow {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* KPI strip on medium/small screens: cells wrap, lines stay neat */
+@container dash (max-width: 980px) {
+    .kpiGrid {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .kpiGrid > .kpiCard {
+        border-left: 0;
+        border-top: 1px solid #f2f4f7;
+    }
+
+    .kpiGrid > .kpiCard:nth-child(-n + 3) {
+        border-top: 0;
+    }
+
+    .kpiGrid > .kpiCard:nth-child(2),
+    .kpiGrid > .kpiCard:nth-child(3),
+    .kpiGrid > .kpiCard:nth-child(5) {
+        border-left: 1px solid #f2f4f7;
+    }
+}
+
+@container dash (max-width: 760px) {
+    .kpiGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .kpiGrid > .kpiCard {
+        border-left: 0;
+        border-top: 1px solid #f2f4f7;
+    }
+
+    .kpiGrid > .kpiCard:nth-child(-n + 2) {
+        border-top: 0;
+    }
+
+    .kpiGrid > .kpiCard:nth-child(2),
+    .kpiGrid > .kpiCard:nth-child(4) {
+        border-left: 1px solid #f2f4f7;
+    }
+
+    /* The wide table scrolls sideways on small screens */
+    .behaviourTable {
+        min-width: 720px;
+    }
+}
+
+.behaviourCard .aiInsightsSubtitle {
+    max-width: none;
+}
+
+.behaviourTable td {
+    vertical-align: middle;
+}
+
+/* ========================================================================== */
+/* TICKER-STYLE TREND CARDS (Revenue protected, Churn rate)                   */
+/* Big value + change badge, segmented range switch, thin line chart.         */
+/* ========================================================================== */
+
+.tickerHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.tickerLabel {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #667085;
+}
+
+.tickerValueRow {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.tickerValue {
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    color: #101828;
+    font-variant-numeric: tabular-nums;
+}
+
+.tickerPill {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.tickerPill.tickerGood {
+    background: #dcfae6;
+    color: #067647;
+}
+
+.tickerPill.tickerBad {
+    background: #fee4e2;
+    color: #b42318;
+}
+
+.tickerDelta {
+    font-size: 12.5px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.tickerDelta.tickerGood {
+    color: #067647;
+}
+
+.tickerDelta.tickerBad {
+    color: #b42318;
+}
+
+/* Segmented 1M / 3M / 6M switch */
+.segmented {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 9px;
+    background: #f2f4f7;
+}
+
+.segmented button {
+    height: 26px;
+    min-width: 38px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #667085;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease;
+}
+
+.segmented button:hover {
+    color: #101828;
+}
+
+.segmented button.segmentActive {
+    background: #ffffff;
+    color: #101828;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+}
+
+.segmented button:focus-visible {
+    outline: 2px solid #bfdbfe;
+    outline-offset: 1px;
+}
+
+.trendRow .card.chartCard .chartPreview {
+    height: 220px;
+    margin-top: 18px;
+    padding-top: 0;
+}
+
+/* Phone width: one KPI per row, header stacks (must come last to win) */
+@container dash (max-width: 520px) {
+    .kpiGrid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .kpiGrid > .kpiCard,
+    .kpiGrid > .kpiCard:nth-child(n) {
+        grid-column: auto;
+        border-left: 0;
+        border-top: 1px solid #f2f4f7;
+    }
+
+    .kpiGrid > .kpiCard:first-child {
+        border-top: 0;
+    }
+
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 720px) {
+    .page {
+        padding: 20px 16px 32px;
+    }
+}
+
+
+/* ========================================================================== */
+/* USERS WIDGETS: Active users, Acquired & retained                           */
+/* ========================================================================== */
+
+.usersRow {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    align-items: stretch;
+}
+
+.card.widgetCard {
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+}
+
+.widgetHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f2f4f7;
+}
+
+.widgetLabel {
+    display: block;
+    font-size: 13px;
+    color: #667085;
+}
+
+.widgetValue {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: #101828;
+    font-variant-numeric: tabular-nums;
+}
+
+.widgetValueNote {
+    font-size: 12.5px;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: #98a2b3;
+}
+
+.widgetCompare {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    text-align: right;
+}
+
+.widgetCompareValue {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #101828;
+}
+
+.widgetArrow {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.widgetArrowUp {
+    background: #22c55e;
+}
+
+.widgetArrowDown {
+    background: #ef4444;
+}
+
+.widgetCompareLabel {
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #98a2b3;
+}
+
+.widgetLegend {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+    color: #475467;
+}
+
+.widgetLegend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.widgetLegend i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.legendAcquired {
+    background: #7c3aed;
+}
+
+.legendRetained {
+    background: #f0b4c4;
+}
+
+.widgetChart {
+    height: 230px;
+    margin-top: 16px;
+}
+
+@container dash (max-width: 820px) {
+    .usersRow {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Keep the range switch on the headline row */
+.tickerHead {
+    flex-wrap: nowrap;
+}
+
+.tickerHead > div:first-child {
+    min-width: 0;
+}
+
+.tickerHead .segmented {
+    flex: 0 0 auto;
+}
+
+/* ========================================================================== */
+/* COMPACT CARDS: shorter charts, tighter padding, smaller headline numbers   */
+/* ========================================================================== */
+
+.content {
+    gap: 16px;
+}
+
+.trendRow,
+.usersRow {
+    gap: 16px;
+}
+
+.trendRow .card.chartCard,
+.card.widgetCard {
+    padding: 16px;
+}
+
+.tickerLabel,
+.widgetLabel {
+    font-size: 12px;
+}
+
+.tickerValue {
+    font-size: 22px;
+}
+
+.tickerValueRow {
+    margin-top: 4px;
+}
+
+.widgetValue {
+    font-size: 20px;
+}
+
+.segmented button {
+    height: 24px;
+    min-width: 32px;
+    padding: 0 8px;
+    font-size: 11.5px;
+}
+
+.trendRow .card.chartCard .chartPreview {
+    height: 140px;
+    margin-top: 12px;
+}
+
+.widgetHead {
+    padding-bottom: 12px;
+}
+
+.widgetChart {
+    height: 150px;
+    margin-top: 12px;
+}
+
+.kpiGrid > .kpiCard {
+    padding: 14px 16px;
+}
+
+.kpiValue {
+    margin-top: 6px;
+    font-size: 20px;
+}
+
+.kpiSubline {
+    margin-top: 6px;
+}
+
+/* ========================================================================== */
+/* LAYOUT v4: 2x2 charts on the left, Claude insights panel on the right      */
+/* Every chart card uses the same TrendCard markup and these styles.          */
+/* ========================================================================== */
+
+.content {
+    gap: 20px;
+}
+
+.kpiGrid > .kpiCard {
+    padding: 16px 20px;
+}
+
+.mainGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+    gap: 20px;
+    align-items: stretch;
+}
+
+.chartGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    min-width: 0;
+}
+
+/* Chart card */
+.card.trendCard {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 20px;
+}
+
+.trendCardHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.trendCardTitle {
+    min-width: 0;
+}
+
+.trendCardLabel {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #667085;
+}
+
+.trendCardValueRow {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.trendCardValue {
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: #101828;
+    font-variant-numeric: tabular-nums;
+}
+
+.trendCardNote {
+    font-size: 12px;
+    color: #98a2b3;
+    white-space: nowrap;
+}
+
+.trendCardHead .segmented {
+    flex: 0 0 auto;
+}
+
+.trendCardChart {
+    height: 160px;
+    margin-top: 16px;
+}
+
+.chartLegend {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: #475467;
+}
+
+.chartLegend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.chartLegend i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+/* Claude panel: matches the height of the chart grid; the list scrolls inside */
+.card.claudePanel {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 0;
+    min-height: 100%;
+    padding: 20px 0 0;
+    overflow: hidden;
+}
+
+.claudePanelHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 20px;
+}
+
+.claudePanelTitle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #101828;
+}
+
+.claudePanelMeta {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: #98a2b3;
+}
+
+.claudePanel .behaviourError {
+    margin: 12px 20px 0;
+}
+
+.claudeSummary {
+    margin: 14px 20px 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f9fafb;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #344054;
+}
+
+.claudeList {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    margin-top: 12px;
+    border-top: 1px solid #f2f4f7;
+}
+
+.claudeItem {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    padding: 14px 20px;
+    border: 0;
+    border-bottom: 1px solid #f2f4f7;
+    background: #ffffff;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+
+.claudeItem:hover,
+.claudeItemOpen {
+    background: #f9fafb;
+}
+
+.claudeItem:focus-visible {
+    outline: 2px solid #bfdbfe;
+    outline-offset: -2px;
+}
+
+.claudeItemTop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.claudeItemTop strong {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #101828;
+}
+
+.claudeItemPattern {
+    font-size: 12px;
+    font-weight: 500;
+    color: #667085;
+}
+
+.claudeItemRead {
+    margin-top: 2px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: #344054;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.claudeItemOpen .claudeItemRead {
+    -webkit-line-clamp: unset;
+    display: block;
+}
+
+.claudeItemNext {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #175cd3;
+}
+
+.claudeItemDetail {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #eaecf0;
+    background: #ffffff;
+}
+
+.claudeEvidence {
+    font-size: 12px;
+    color: #344054;
+}
+
+.claudeEvidence::before {
+    content: "• ";
+    color: #98a2b3;
+}
+
+.claudeItemFacts {
+    display: flex;
+    gap: 16px;
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #101828;
+}
+
+.claudeSkeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f2f4f7;
+}
+
+.claudeSkeleton span {
+    height: 10px;
+    border-radius: 5px;
+    background: linear-gradient(90deg, #f2f4f7 0%, #e4e7ec 50%, #f2f4f7 100%);
+    background-size: 200% 100%;
+    animation: behaviourShimmer 1.2s ease-in-out infinite;
+}
+
+.claudeSkeleton span:nth-child(1) {
+    width: 40%;
+}
+
+.claudeSkeleton span:nth-child(3) {
+    width: 70%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .claudeSkeleton span {
+        animation: none;
+    }
+}
+
+.claudePanel .behaviourEmpty {
+    border-top: 0;
+    height: 100%;
+}
+
+.claudeDisclaimer {
+    margin: 0;
+    padding: 10px 20px;
+    border-top: 1px solid #f2f4f7;
+    font-size: 11px;
+    color: #98a2b3;
+}
+
+/* Medium: panel moves under the charts */
+@container dash (max-width: 1100px) {
+    .mainGrid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .card.claudePanel {
+        height: auto;
+        min-height: 0;
+        max-height: 640px;
+    }
+}
+
+/* Small: charts stack */
+@container dash (max-width: 680px) {
+    .chartGrid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ========================================================================== */
+/* EMAIL-QUEUE STYLE: compact cards, small titles, right-aligned headline,    */
+/* underline tabs, line legend. Mirrors the email hub chart cards.            */
+/* ========================================================================== */
+
+.page {
+    padding: 24px;
+}
+
+.content {
+    gap: 14px;
+}
+
+.title {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.subtitle {
+    margin-top: 3px;
+    font-size: 12.5px;
+    color: #6b7280;
+}
+
+/* Cards: thin border, 12px radius, no shadow */
+.card,
+.kpiGrid {
+    border: 1px solid #ececef;
+    border-radius: 12px;
+    box-shadow: none;
+}
+
+/* KPI strip */
+.kpiGrid > .kpiCard {
+    padding: 12px 16px;
+    border-left-color: #f0f1f3;
+}
+
+.kpiLabel {
+    font-size: 12px;
+    font-weight: 400;
+    color: #6b7280;
+}
+
+.kpiValue {
+    margin-top: 6px;
+    font-size: 20px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+}
+
+.kpiSubline {
+    margin-top: 4px;
+    font-size: 11.5px;
+}
+
+.kpiIcon {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+}
+
+/* Grid spacing */
+.mainGrid,
+.chartGrid {
+    gap: 14px;
+}
+
+.mainGrid {
+    grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+}
+
+/* Chart card */
+.card.trendCard {
+    padding: 14px 16px;
+}
+
+.trendCardHead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px 16px;
+}
+
+.trendCardTitle h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: #111827;
+}
+
+.trendCardTitle p {
+    margin: 3px 0 0;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.trendHeadline {
+    display: grid;
+    gap: 2px;
+    justify-items: end;
+    text-align: right;
+}
+
+.trendHeadline > span {
+    display: flex;
+    gap: 6px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.trendHeadline em {
+    font-style: normal;
+    font-weight: 500;
+}
+
+.trendHeadline em.isUp {
+    color: #15803d;
+}
+
+.trendHeadline em.isDown {
+    color: #b42318;
+}
+
+.trendHeadline strong {
+    font-size: 22px;
+    line-height: 1.2;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: #111827;
+    font-variant-numeric: tabular-nums;
+}
+
+.trendHeadline small {
+    font-size: 11.5px;
+    color: #8b929c;
+}
+
+/* Underline range tabs */
+.rangeTabs {
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+    border-bottom: 1px solid #f0f1f3;
+}
+
+.rangeTabs button {
+    margin-bottom: -1px;
+    padding: 0 0 8px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: #6b7280;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.rangeTabs button:hover {
+    color: #111827;
+}
+
+.rangeTabs button.rangeTabActive {
+    border-bottom-color: #111827;
+    color: #111827;
+    font-weight: 500;
+}
+
+.rangeTabs button:focus-visible {
+    outline: 2px solid #bfdbfe;
+    outline-offset: 2px;
+}
+
+.trendCardChart {
+    height: 150px;
+    margin-top: 10px;
+}
+
+/* Line legend */
+.trendLegend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 6px;
+    font-size: 11.5px;
+    color: #6b7280;
+}
+
+.trendLegend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.trendLegend i {
+    width: 12px;
+    height: 2px;
+    border-radius: 1px;
+}
+
+/* Claude panel in the same compact style */
+.card.claudePanel {
+    padding-top: 14px;
+}
+
+.claudePanelHead {
+    padding: 0 16px;
+}
+
+.claudePanelTitle {
+    font-size: 13px;
+    font-weight: 500;
+    color: #111827;
+}
+
+.claudePanelMeta {
+    font-size: 11.5px;
+}
+
+.claudePanel .softButton {
+    min-height: 30px;
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid #ececef;
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+.claudeSummary {
+    margin: 10px 16px 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+.claudeList {
+    margin-top: 10px;
+    border-top-color: #f0f1f3;
+}
+
+.claudeItem {
+    gap: 3px;
+    padding: 10px 16px;
+    border-bottom-color: #f5f5f6;
+}
+
+.claudeItemTop strong {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #111827;
+}
+
+.claudeItemPattern,
+.claudeItemRead,
+.claudeItemNext {
+    font-size: 12px;
+}
+
+.claudeItemRead {
+    color: #4b5563;
+}
+
+.claudePanel .behaviourRisk {
+    padding: 2px 8px 2px 7px;
+    font-size: 11px;
+}
+
+.claudeDisclaimer {
+    padding: 8px 16px;
+}
+
+/* ========================================================================== */
+/* CONSOLE STYLE: calm, centred page, generous spacing, warm neutral greys,   */
+/* plain tables. Inspired by the Claude Console dashboard.                    */
+/* ========================================================================== */
+
+.page {
+    --ink: #1f1e1b;
+    --muted: #6f6e69;
+    --faint: #9a9893;
+    --line: #e8e6df;
+    --line-soft: #f0eee8;
+    --wash: #faf9f7;
+    padding: 40px 48px 56px;
+    background: #ffffff;
+    color: var(--ink);
+}
+
+.content {
+    max-width: 1180px;
+    gap: 32px;
+}
+
+/* Header */
+.header {
+    align-items: center;
+}
+
+.title {
+    font-size: 26px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+}
+
+.subtitle {
+    margin-top: 6px;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+/* Cards */
+.card,
+.kpiGrid {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: none;
+}
+
+/* KPI strip */
+.kpiGrid > .kpiCard {
+    padding: 18px 20px;
+    border-left-color: var(--line-soft);
+}
+
+.kpiLabel {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.kpiValue {
+    margin-top: 8px;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+}
+
+.kpiSubline {
+    margin-top: 6px;
+    font-size: 12px;
+}
+
+.kpiContext {
+    color: var(--faint);
+}
+
+.kpiIcon {
+    background: var(--wash);
+    border-color: var(--line-soft);
+    color: var(--muted);
+}
+
+/* Two trend charts side by side */
+.chartGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+}
+
+.card.trendCard {
+    padding: 20px 24px;
+}
+
+.trendCardTitle h3 {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+}
+
+.trendCardTitle p {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.trendHeadline > span,
+.trendHeadline small {
+    color: var(--faint);
+}
+
+.trendHeadline strong {
+    font-size: 24px;
+    color: var(--ink);
+}
+
+.rangeTabs {
+    margin-top: 16px;
+    border-bottom-color: var(--line-soft);
+}
+
+.rangeTabs button {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.rangeTabs button.rangeTabActive {
+    border-bottom-color: var(--ink);
+    color: var(--ink);
+}
+
+.trendCardChart {
+    height: 200px;
+    margin-top: 16px;
+}
+
+/* Section header (used by Customer insights) */
+.insightsSection {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.sectionHead {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.sectionTitle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 17px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+}
+
+.sectionText {
+    margin: 6px 0 0;
+    max-width: 720px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--muted);
+}
+
+.sectionActions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 0 0 auto;
+}
+
+.sectionMeta {
+    font-size: 12.5px;
+    color: var(--faint);
+    white-space: nowrap;
+}
+
+.claudeTag {
+    background: #f9ece6;
+    color: #b0532f;
+}
+
+.consoleButton,
+.consoleButtonPrimary {
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.consoleButton {
+    border: 1px solid var(--line);
+    background: #ffffff;
+    color: var(--ink);
+}
+
+.consoleButton:hover:not(:disabled) {
+    background: var(--wash);
+}
+
+.consoleButton:disabled {
+    opacity: 0.6;
+    cursor: progress;
+}
+
+.consoleButtonPrimary {
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: #ffffff;
+}
+
+.consoleButtonPrimary:hover {
+    background: #34332f;
+}
+
+.consoleButton:focus-visible,
+.consoleButtonPrimary:focus-visible {
+    outline: 2px solid #bfdbfe;
+    outline-offset: 2px;
+}
+
+.insightsSection .behaviourError {
+    margin: 0;
+}
+
+/* Plain table */
+.consoleTableWrap {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow-x: auto;
+    background: #ffffff;
+}
+
+.consoleTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.consoleTable th {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    background: var(--wash);
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+}
+
+.consoleTable td {
+    padding: 14px 16px;
+    border-top: 1px solid var(--line-soft);
+    color: var(--ink);
+    vertical-align: middle;
+}
+
+.consoleTable tbody tr:first-child td {
+    border-top: 0;
+}
+
+.consoleRow {
+    cursor: pointer;
+}
+
+.consoleRow:hover td,
+.consoleRowOpen td {
+    background: var(--wash);
+}
+
+.consoleRow:focus-visible {
+    outline: 2px solid #bfdbfe;
+    outline-offset: -2px;
+}
+
+.consoleStrong {
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.consoleMuted {
+    color: var(--muted);
+}
+
+.consoleNum,
+.consoleTable th.consoleNum {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.consoleChevron {
+    width: 40px;
+    text-align: center;
+    color: var(--faint);
+    font-size: 15px;
+}
+
+/* Risk: dot + word, no coloured pill */
+.riskDot {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+}
+
+.riskDot::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.riskDot_critical {
+    color: #b42318;
+}
+
+.riskDot_high {
+    color: #c4500a;
+}
+
+.riskDot_medium {
+    color: #a16207;
+}
+
+.riskDot_low {
+    color: #15803d;
+}
+
+.consoleDetailRow td {
+    padding: 4px 16px 18px 16px;
+    background: var(--wash);
+    border-top: 0;
+}
+
+.consoleDetailRow p {
+    margin: 0;
+    max-width: 760px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ink);
+}
+
+.consoleDetailRow ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin: 10px 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+.consoleDetailRow li::before {
+    content: "• ";
+    color: var(--faint);
+}
+
+.consoleDetailRow .consoleMuted {
+    font-size: 12px;
+}
+
+.consoleEmpty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 48px 24px;
+    text-align: center;
+}
+
+.consoleEmpty strong {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+}
+
+.consoleEmpty p {
+    margin: 0 0 8px;
+    max-width: 420px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--muted);
+}
+
+.consoleSkeleton {
+    display: grid;
+    grid-template-columns: 18% 1fr 12%;
+    gap: 24px;
+    padding: 18px 16px;
+    border-top: 1px solid var(--line-soft);
+}
+
+.consoleSkeleton:first-child {
+    border-top: 0;
+}
+
+.consoleSkeleton span {
+    height: 10px;
+    border-radius: 5px;
+    background: linear-gradient(90deg, #f0eee8 0%, #e6e3db 50%, #f0eee8 100%);
+    background-size: 200% 100%;
+    animation: behaviourShimmer 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .consoleSkeleton span {
+        animation: none;
+    }
+}
+
+.consoleFootnote {
+    margin: 0;
+    font-size: 12px;
+    color: var(--faint);
+}
+
+/* Responsive */
+@container dash (max-width: 760px) {
+    .chartGrid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sectionHead {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .consoleTable {
+        min-width: 680px;
+    }
+}
+
+@media (max-width: 900px) {
+    .page {
+        padding: 24px 20px 40px;
+    }
+}
+
+
+/* Bottom row: Active users (wide) + Failed payments (narrow) */
+.bottomRow {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+    gap: 24px;
+    align-items: stretch;
+}
+
+.paymentList {
+    display: flex;
+    flex-direction: column;
+    margin-top: 16px;
+    border-top: 1px solid var(--line-soft);
+}
+
+.paymentRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line-soft);
+}
+
+.paymentRow:last-child {
+    border-bottom: 0;
+}
+
+.paymentWho {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.paymentWho strong {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.paymentWho span {
+    font-size: 12px;
+    color: var(--faint);
+}
+
+.paymentAmount {
+    font-size: 13px;
+    font-weight: 500;
+    color: #b42318;
+    font-variant-numeric: tabular-nums;
+}
+
+.paymentRow .consoleButton {
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+}
+
+.paymentEmpty {
+    margin: 0;
+    padding: 24px 0;
+    font-size: 13px;
+    color: var(--muted);
+    text-align: center;
+}
+
+@container dash (max-width: 900px) {
+    .bottomRow {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Swap: Failed payments first and wide, Active users second and narrow */
+.bottomRow {
+    grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+}
+
+.bottomRow > section[aria-label="Failed payments"] {
+    order: -1;
+}
+
+.bottomRow > section[aria-label="Active users"] .trendCardChart {
+    height: 180px;
 }

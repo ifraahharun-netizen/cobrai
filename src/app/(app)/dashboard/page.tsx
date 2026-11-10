@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { churnTrendOption, mrrProtectedOption } from "@/components/charts/options";
+import { activeUsersLineOption, churnTrendOption, mrrProtectedOption } from "@/components/charts/options";
 import { getFirebaseAuth } from "@/lib/firebase.client";
-import AIActionQueue from "@/components/AIActionQueue";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { getDemoDashboardData } from "@/lib/demo/dashboard";
 import { buildDemoSeries } from "@/lib/demo/analytics";
@@ -25,11 +24,8 @@ import {
     TrendingUp,
     Sparkles,
     LogOut,
-    ChevronDown,
     type LucideIcon,
 } from "lucide-react";
-import type { EChartsOption } from "echarts";
-import * as echarts from "echarts";
 
 import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
 import { canAccessFeature } from "@/lib/permissions";
@@ -129,6 +125,158 @@ type ProgressApiResponse = {
         avgRiskDecreasePct: number;
     }>;
 };
+type BehaviourRisk = "low" | "medium" | "high" | "critical";
+
+type BehaviourRow = {
+    customerId: string;
+    customer: string;
+    behaviour: string;
+    interpretation: string;
+    evidence: string[];
+    risk: BehaviourRisk;
+    trend: "improving" | "stable" | "declining";
+    nextAction: string;
+    confidence: "low" | "medium" | "high";
+    mrr: number;
+};
+
+type BehaviourReport = {
+    source: "live" | "demo";
+    model: string;
+    analysedAt: string;
+    currency: string;
+    summary: string;
+    rows: BehaviourRow[];
+};
+
+/** One card style for every chart, matching the email queue chart cards. */
+function TrendCard({
+    title,
+    description,
+    headlineLabel,
+    value,
+    change,
+    good = true,
+    context,
+    tabs,
+    legend,
+    children,
+}: {
+    title: string;
+    description: string;
+    headlineLabel: string;
+    value: string;
+    change?: string;
+    good?: boolean;
+    context?: string;
+    tabs?: ReactNode;
+    legend?: Array<{ label: string; colour: string }>;
+    children: ReactNode;
+}) {
+    return (
+        <section className={`${styles.card} ${styles.trendCard}`} aria-label={title}>
+            <header className={styles.trendCardHead}>
+                <div className={styles.trendCardTitle}>
+                    <h3>{title}</h3>
+                    <p>{description}</p>
+                </div>
+
+                <div className={styles.trendHeadline}>
+                    <span>
+                        {headlineLabel}
+                        {change ? <em className={good ? styles.isUp : styles.isDown}>{change}</em> : null}
+                    </span>
+                    <strong>{value}</strong>
+                    {context ? <small>{context}</small> : null}
+                </div>
+            </header>
+
+            {tabs}
+
+            <div className={styles.trendCardChart}>{children}</div>
+
+            {legend ? (
+                <div className={styles.trendLegend}>
+                    {legend.map((item) => (
+                        <span key={item.label}>
+                            <i style={{ background: item.colour }} />
+                            {item.label}
+                        </span>
+                    ))}
+                </div>
+            ) : null}
+        </section>
+    );
+}
+
+/** Underline tabs for the time range, like the email queue chart tabs. */
+function RangeTabs<T extends number>({
+    label,
+    options,
+    value,
+    onChange,
+}: {
+    label: string;
+    options: Array<{ label: string; value: T }>;
+    value: T;
+    onChange: (value: T) => void;
+}) {
+    return (
+        <div className={styles.rangeTabs} role="tablist" aria-label={label}>
+            {options.map((option) => (
+                <button
+                    key={option.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={value === option.value}
+                    className={value === option.value ? styles.rangeTabActive : undefined}
+                    onClick={() => onChange(option.value)}
+                >
+                    {option.label}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+type FailedPaymentsResponse = {
+    source: "live" | "demo";
+    currency: string;
+    total: number;
+    count: number;
+    items: Array<{
+        id: string;
+        customerId: string | null;
+        customer: string;
+        amount: number;
+        failedAt: string;
+    }>;
+};
+
+function formatDaysAgo(iso: string) {
+    const time = new Date(iso).getTime();
+    if (Number.isNaN(time)) return "";
+    const days = Math.max(0, Math.round((Date.now() - time) / 86_400_000));
+    if (days === 0) return "Failed today";
+    if (days === 1) return "Failed yesterday";
+    return `Failed ${days} days ago`;
+}
+
+const BEHAVIOUR_CACHE_KEY = "cobrai:claude-behaviour";
+
+const BEHAVIOUR_RISK_LABEL: Record<BehaviourRisk, string> = {
+    critical: "Critical",
+    high: "High",
+    medium: "Medium",
+    low: "Low",
+};
+
+const BEHAVIOUR_TREND_LABEL: Record<BehaviourRow["trend"], string> = {
+    declining: "↓ Declining",
+    stable: "→ Stable",
+    improving: "↑ Improving",
+};
+
 type InsightFeedItem = {
     id: string;
     type: "progress" | "risk" | "opportunity" | "billing" | "health";
@@ -143,10 +291,19 @@ type InsightFeedItem = {
     sortTime: number;
 };
 
+type KpiSubtext = {
+    /** Coloured percentage, e.g. "+0.7%". Null when there is nothing to compare. */
+    change: string | null;
+    /** Short grey context after it, e.g. "vs last month". */
+    context: string;
+    /** Fuller comparison shown on hover, e.g. "Last month: £81,250". */
+    detail?: string;
+};
+
 type KPI = {
     label: string;
     value: string;
-    subtext: string;
+    subtext: KpiSubtext;
     trend: {
         arrow: string;
         color: string;
@@ -261,18 +418,6 @@ function accountDateTime(value?: string) {
     return value ? new Date(value).getTime() : 0;
 }
 
-function getInitials(user: User | null) {
-    const name = user?.displayName || user?.email || "User";
-
-    return name
-        .split(/[ @.]/)
-        .filter(Boolean)
-        .map((part) => part[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
-}
-
 function getTrialDaysLeft(trialEndsAt: string | null) {
     if (!trialEndsAt) return null;
 
@@ -283,20 +428,6 @@ function getTrialDaysLeft(trialEndsAt: string | null) {
     if (diff <= 0) return 0;
 
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
-
-function formatRefreshTime(value: string | null) {
-    if (!value) return "Not refreshed yet";
-
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "Not refreshed yet";
-
-    return `Last refreshed ${d.toLocaleString(userLocale, {
-        day: "2-digit",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-    })}`;
 }
 
 
@@ -387,7 +518,6 @@ export default function DashboardPage() {
     const auth = useMemo(() => getFirebaseAuth(), []);
 
     const [currentUser, setCurrentUser] = useState<User | null>(null);
-    const [profileOpen, setProfileOpen] = useState(false);
     const [upgradeOpen, setUpgradeOpen] = useState(false);
     const [insightsRefreshedAt, setInsightsRefreshedAt] = useState<string | null>(null);
 
@@ -398,6 +528,7 @@ export default function DashboardPage() {
 
     const [activeUsers24Hours, setActiveUsers24Hours] = useState<ActiveUsersPoint[]>([]);
     const [activeUsers7Days, setActiveUsers7Days] = useState<ActiveUsersPoint[]>([]);
+    const [activeUsersRange, setActiveUsersRange] = useState<24 | 7>(7);
     const [churnMonths, setChurnMonths] = useState<string[]>([]);
     const [churnPct, setChurnPct] = useState<number[]>([]);
     const [mrrNames, setMrrNames] = useState<string[]>([]);
@@ -418,13 +549,94 @@ export default function DashboardPage() {
     const [kpiChurnProxyPrevious, setKpiChurnProxyPrevious] = useState<number | null>(null);
     const [kpiMrrProtectedCurrent, setKpiMrrProtectedCurrent] = useState<number | null>(null);
     const [kpiMrrProtectedPrevious, setKpiMrrProtectedPrevious] = useState<number | null>(null);
-    const [activeUsersRange, setActiveUsersRange] = useState<24 | 7>(7); const [activeUsersFilterOpen, setActiveUsersFilterOpen] = useState(false);
-    const [insightPage, setInsightPage] = useState(0);
+    // Last Claude analysis, cached in this browser so it shows straight away.
+    const [behaviourReport, setBehaviourReport] = useState<BehaviourReport | null>(() => {
+        if (typeof window === "undefined") return null;
+        try {
+            const cached = window.localStorage.getItem(BEHAVIOUR_CACHE_KEY);
+            return cached ? (JSON.parse(cached) as BehaviourReport) : null;
+        } catch {
+            return null;
+        }
+    });
+    const [behaviourLoading, setBehaviourLoading] = useState(false);
+    const [behaviourError, setBehaviourError] = useState("");
+    const [expandedBehaviourId, setExpandedBehaviourId] = useState<string | null>(null);
+
+    const [failedPayments, setFailedPayments] = useState<FailedPaymentsResponse | null>(null);
+    const [failedPaymentsError, setFailedPaymentsError] = useState(false);
+
+    useEffect(() => {
+        if (!currentUser) return;
+        let cancelled = false;
+
+        (async () => {
+            try {
+                const token = await currentUser.getIdToken();
+                const res = await fetch("/api/dashboard/failed-payments", {
+                    cache: "no-store",
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                const data = (await res.json().catch(() => null)) as FailedPaymentsResponse | null;
+                if (cancelled) return;
+                if (!res.ok || !data || !Array.isArray(data.items)) throw new Error("bad response");
+                setFailedPayments(data);
+                setFailedPaymentsError(false);
+            } catch {
+                if (!cancelled) setFailedPaymentsError(true);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [currentUser]);
+
+    async function analyseBehaviour() {
+        const user = currentUser ?? getFirebaseAuth().currentUser;
+        if (!user || behaviourLoading) return;
+
+        setBehaviourLoading(true);
+        setBehaviourError("");
+
+        try {
+            const token = await user.getIdToken();
+            const res = await fetch("/api/dashboard/ai/customer-behaviour", {
+                method: "POST",
+                cache: "no-store",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            });
+
+            const data = (await res.json().catch(() => null)) as
+                | (BehaviourReport & { error?: string })
+                | null;
+
+            if (!res.ok || !data || !Array.isArray(data.rows)) {
+                throw new Error(data?.error || "Claude could not analyse your customers right now.");
+            }
+
+            setBehaviourReport(data);
+            setExpandedBehaviourId(null);
+
+            try {
+                window.localStorage.setItem(BEHAVIOUR_CACHE_KEY, JSON.stringify(data));
+            } catch {
+                // Not critical.
+            }
+        } catch (error) {
+            setBehaviourError(
+                error instanceof Error ? error.message : "Claude could not analyse your customers right now."
+            );
+        } finally {
+            setBehaviourLoading(false);
+        }
+    }
     const [mrrTrendRange, setMrrTrendRange] = useState<1 | 3 | 6>(6);
-    const [mrrTrendFilterOpen, setMrrTrendFilterOpen] = useState(false);
 
     const [churnTrendRange, setChurnTrendRange] = useState<1 | 3 | 6>(6);
-    const [churnTrendFilterOpen, setChurnTrendFilterOpen] = useState(false);
 
     const demoDashboardData = getDemoDashboardData(userLocale);
     const demoAnalyticsSeries = useMemo(() => buildDemoSeries(), []);
@@ -536,21 +748,24 @@ export default function DashboardPage() {
             isCurrency?: boolean;
             suffix?: string;
         }
-    ) => {
+    ): KpiSubtext => {
         const isCurrency = options?.isCurrency ?? false;
         const suffix = options?.suffix ?? "";
 
-        if (!previousValue && previousValue !== 0) return "No previous month data";
-
-        if (delta === 0) {
-            return isCurrency
-                ? `No change vs ${formatCurrency(previousValue)} last month`
-                : `No change vs ${previousValue}${suffix} last month`;
+        if (!previousValue && previousValue !== 0) {
+            return { change: null, context: "No previous month data" };
         }
 
-        return isCurrency
-            ? `${Math.abs(pct).toFixed(1)}% vs ${formatCurrency(previousValue)} last month`
-            : `${Math.abs(pct).toFixed(1)}% vs ${previousValue}${suffix} last month`;
+        const previousLabel = isCurrency
+            ? formatCurrency(previousValue)
+            : `${previousValue}${suffix}`;
+        const sign = delta > 0 ? "+" : delta < 0 ? "-" : "";
+
+        return {
+            change: `${sign}${Math.abs(pct).toFixed(1)}%`,
+            context: "vs last month",
+            detail: `Last month: ${previousLabel}`,
+        };
     };
 
     const getTrendMeta = (delta: number, lowerIsBetter = true) => {
@@ -697,6 +912,14 @@ export default function DashboardPage() {
     const churnDelta = churnProxyCurrent - churnProxyPrevious;
     const protectedDelta = totalProtected - previousProtected;
 
+    // Same thresholds as the AI Action Queue: 60+ is at risk, 80+ is critical.
+    const kpiAtRiskAccounts = activeRiskAccounts.filter(
+        (account) => Number(account.risk ?? 0) >= 60
+    ).length;
+    const kpiCriticalAccounts = activeRiskAccounts.filter(
+        (account) => Number(account.risk ?? 0) >= 80
+    ).length;
+
     const kpis: KPI[] = [
         {
             label: "Total MRR",
@@ -725,7 +948,13 @@ export default function DashboardPage() {
         {
             label: "Churn proxy",
             value: `${churnProxyCurrent.toFixed(1)}%`,
-            subtext: `${Math.abs(formatPercentChange(churnProxyCurrent, churnProxyPrevious)).toFixed(1)}% vs last month`,
+            subtext: {
+                change: `${churnDelta > 0 ? "+" : churnDelta < 0 ? "-" : ""}${Math.abs(
+                    formatPercentChange(churnProxyCurrent, churnProxyPrevious)
+                ).toFixed(1)}%`,
+                context: "vs last month",
+                detail: `Last month: ${churnProxyPrevious.toFixed(1)}%`,
+            },
             trend: getTrendMeta(churnDelta, true),
             Icon: TrendingDown,
         },
@@ -740,6 +969,20 @@ export default function DashboardPage() {
             ),
             trend: getTrendMeta(protectedDelta, false),
             Icon: ShieldCheck,
+        },
+        {
+            label: "Accounts at risk",
+            value: kpiAtRiskAccounts.toLocaleString(userLocale),
+            subtext: {
+                change: kpiCriticalAccounts.toLocaleString(userLocale),
+                context: "need immediate action",
+                detail: "At risk: churn-risk score 60+. Immediate action: 80+.",
+            },
+            trend: {
+                arrow: "•",
+                color: kpiCriticalAccounts > 0 ? "#d32c2cff" : "#6b7280",
+            },
+            Icon: UsersRound,
         },
     ];
 
@@ -1006,17 +1249,6 @@ export default function DashboardPage() {
         canViewRetentionImpact,
         canViewRetryPayment,
     ]);
-    const INSIGHTS_PER_PAGE = 5;
-
-    const insightPageCount = Math.max(
-        1,
-        Math.ceil(insightFeed.length / INSIGHTS_PER_PAGE)
-    );
-
-    const visibleInsights = insightFeed.slice(
-        insightPage * INSIGHTS_PER_PAGE,
-        insightPage * INSIGHTS_PER_PAGE + INSIGHTS_PER_PAGE
-    );
 
 
     async function loadWorkspaceAi(user: User) {
@@ -1404,9 +1636,6 @@ export default function DashboardPage() {
             ? activeUsers24Hours
             : activeUsers7Days;
 
-    const activeUsersRangeLabel =
-        activeUsersRange === 24 ? "24 hrs" : "7 days";
-
 
     const buildActiveUsersRangeData = (
         points: ActiveUsersPoint[],
@@ -1502,10 +1731,6 @@ export default function DashboardPage() {
         activeUsersRange
     );
 
-    const visibleActiveUsersMonths = activeUsersRangeData.map(
-        (item) => item.tooltipLabel
-    );
-
     const visibleActiveUsersSeries = activeUsersRangeData.map(
         (item) => Number(item.value || 0)
     );
@@ -1543,226 +1768,7 @@ export default function DashboardPage() {
     const activeUsersPrevious =
         activeUserBreakdownData[activeUserBreakdownData.length - 2]?.total ?? 0;
 
-    const activeUsersRetained = latestActiveUserBreakdown.retained;
-    const activeUsersAcquired = latestActiveUserBreakdown.acquired;
-
-    const activeUsersDelta = activeUsersCurrent - activeUsersPrevious;
-
-    const activeUsersPct = formatPercentChange(
-        activeUsersCurrent,
-        activeUsersPrevious
-    );
-
-    const activeUsersOption = (
-        rows: Array<{
-            label: string;
-            tooltipLabel: string;
-            retained: number;
-            acquired: number;
-            total: number;
-        }>
-    ): EChartsOption => {
-        const safeRows = Array.isArray(rows) ? rows : [];
-        const totals = safeRows.map((row) => Number(row.total || 0));
-        const maxValue = Math.max(...totals, 1);
-        const axisMax = Math.ceil((maxValue * 1.12) / 10) * 10;
-
-        return {
-            animation: false,
-            backgroundColor: "transparent",
-
-            grid: {
-                top: 18,
-                right: 10,
-                bottom: 34,
-                left: 10,
-                containLabel: false,
-            },
-
-            tooltip: {
-                trigger: "axis",
-                confine: true,
-                appendToBody: true,
-                axisPointer: {
-                    type: "shadow",
-                    shadowStyle: {
-                        color: "rgba(37, 99, 235, 0.045)",
-                    },
-                },
-                backgroundColor: "rgba(255, 255, 255, 0.98)",
-                borderColor: "#e8edf4",
-                borderWidth: 1,
-                padding: 0,
-                textStyle: {
-                    color: "#111827",
-                    fontFamily: "inherit",
-                },
-                extraCssText:
-                    "border-radius:16px; overflow:hidden; box-shadow:0 18px 45px rgba(15,23,42,0.12);",
-                formatter: (params: any) => {
-                    const items = Array.isArray(params) ? params : [params];
-                    const dataIndex = Number(items[0]?.dataIndex ?? 0);
-                    const row = safeRows[dataIndex];
-
-                    if (!row) return "";
-
-                    const previous = dataIndex > 0 ? safeRows[dataIndex - 1] : null;
-                    const totalDelta = previous
-                        ? Number(row.total || 0) - Number(previous.total || 0)
-                        : null;
-
-                    const totalDeltaPct =
-                        previous && Number(previous.total || 0) > 0
-                            ? (Number(totalDelta || 0) / Number(previous.total)) * 100
-                            : null;
-
-                    const deltaIsUp =
-                        typeof totalDelta === "number" && totalDelta > 0;
-                    const deltaIsDown =
-                        typeof totalDelta === "number" && totalDelta < 0;
-
-                    const deltaColor = deltaIsUp
-                        ? "#16885f"
-                        : deltaIsDown
-                            ? "#dc2626"
-                            : "#94a3b8";
-
-                    const deltaArrow = deltaIsUp
-                        ? "↑"
-                        : deltaIsDown
-                            ? "↓"
-                            : "→";
-
-                    const comparisonText =
-                        typeof totalDeltaPct === "number" &&
-                            Number.isFinite(totalDeltaPct)
-                            ? `${deltaArrow} ${Math.abs(totalDeltaPct).toFixed(1)}% vs previous period`
-                            : "No previous-period comparison";
-
-                    return `
-<div style="min-width:210px;">
-    <div style="padding:12px 14px 10px;border-bottom:1px solid #f0f3f7;">
-        <div style="font-size:11px;line-height:1.3;color:#8b95a5;font-weight:500;">
-            ${row.tooltipLabel}
-        </div>
-        <div style="margin-top:4px;font-size:18px;line-height:1;color:#111827;font-weight:650;letter-spacing:-0.03em;">
-            ${Math.round(row.total).toLocaleString(userLocale)}
-            <span style="font-size:11px;color:#8b95a5;font-weight:500;letter-spacing:0;"> total users</span>
-        </div>
-    </div>
-
-    <div style="padding:11px 14px 12px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:26px;margin-bottom:9px;">
-            <span style="display:inline-flex;align-items:center;gap:8px;color:#667085;font-size:11.5px;">
-                <i style="width:8px;height:8px;border-radius:3px;background:#5f82e8;display:inline-block;"></i>
-                Retained users
-            </span>
-            <strong style="font-size:12px;color:#111827;font-weight:650;">
-                ${Math.round(row.retained).toLocaleString(userLocale)}
-            </strong>
-        </div>
-
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:26px;">
-            <span style="display:inline-flex;align-items:center;gap:8px;color:#667085;font-size:11.5px;">
-                <i style="width:8px;height:8px;border-radius:3px;background:#77b7ef;display:inline-block;"></i>
-                Acquired users
-            </span>
-            <strong style="font-size:12px;color:#111827;font-weight:650;">
-                ${Math.round(row.acquired).toLocaleString(userLocale)}
-            </strong>
-        </div>
-
-        <div style="height:1px;background:#f0f3f7;margin:11px 0 9px;"></div>
-
-        <div style="font-size:10.5px;line-height:1.35;color:${deltaColor};font-weight:650;">
-            ${comparisonText}
-        </div>
-    </div>
-</div>
-`;
-                },
-            },
-
-            xAxis: {
-                type: "category",
-                data: safeRows.map((row) => row.tooltipLabel),
-                boundaryGap: true,
-                axisTick: { show: false },
-                axisLine: { show: false },
-                axisLabel: {
-                    color: "#98a2b3",
-                    fontSize: 10,
-                    margin: 13,
-                    fontWeight: 500,
-                    interval: activeUsersRange === 7 ? 0 : 3,
-                    formatter: (_value: string, index: number) =>
-                        safeRows[index]?.label ?? "",
-                },
-            },
-
-            yAxis: {
-                type: "value",
-                min: 0,
-                max: axisMax,
-                splitNumber: 4,
-                axisLine: { show: false },
-                axisTick: { show: false },
-                axisLabel: { show: false },
-                splitLine: {
-                    lineStyle: {
-                        type: "dashed",
-                        color: "rgba(148, 163, 184, 0.12)",
-                    },
-                },
-            },
-
-            series: [
-                {
-                    name: "Retained",
-                    type: "bar",
-                    stack: "users",
-                    data: safeRows.map((row) => row.retained),
-                    barMaxWidth: activeUsersRange === 7 ? 22 : 11,
-                    barMinWidth: 6,
-                    barCategoryGap: activeUsersRange === 7 ? "46%" : "34%",
-                    itemStyle: {
-                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: "#6f8ff0" },
-                            { offset: 1, color: "#5577d8" },
-                        ]),
-                        borderRadius: [0, 0, 5, 5],
-                    },
-                    emphasis: {
-                        itemStyle: {
-                            shadowBlur: 12,
-                            shadowColor: "rgba(85, 119, 216, 0.22)",
-                        },
-                    },
-                },
-                {
-                    name: "Acquired",
-                    type: "bar",
-                    stack: "users",
-                    data: safeRows.map((row) => row.acquired),
-                    barMaxWidth: activeUsersRange === 7 ? 22 : 11,
-                    barMinWidth: 6,
-                    itemStyle: {
-                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: "#8bc9f3" },
-                            { offset: 1, color: "#62ade6" },
-                        ]),
-                        borderRadius: [6, 6, 0, 0],
-                    },
-                    emphasis: {
-                        itemStyle: {
-                            shadowBlur: 12,
-                            shadowColor: "rgba(98, 173, 230, 0.22)",
-                        },
-                    },
-                },
-            ],
-        };
-    };
+    const activeUsersPct = formatPercentChange(activeUsersCurrent, activeUsersPrevious);
 
     const filterChartRange = <T,>(
         labels: T[],
@@ -1810,61 +1816,23 @@ export default function DashboardPage() {
                 churnTrendRange,
                 isDemoMode ? 4 : 1
             );
-    const trendRangeOptions: Array<{ label: string; value: 1 | 3 | 6 }> = [
-        { label: "Current month", value: 1 },
-        { label: "3 months", value: 3 },
-        { label: "6 months", value: 6 },
+
+    // Headline numbers for the ticker-style chart cards: latest value and change over the range.
+    const toTicker = (values: number[]) => {
+        const clean = values.filter((value) => Number.isFinite(value));
+        const first = clean[0] ?? 0;
+        const last = clean[clean.length - 1] ?? 0;
+        const change = last - first;
+        return { last, change, pct: first ? (change / first) * 100 : 0 };
+    };
+
+    const mrrTicker = toTicker(mrrTrendData.values);
+    const churnTicker = toTicker(churnTrendData.values);
+    const trendRangeOptions: Array<{ label: string; short: string; value: 1 | 3 | 6 }> = [
+        { label: "Current month", short: "1M", value: 1 },
+        { label: "3 months", short: "3M", value: 3 },
+        { label: "6 months", short: "6M", value: 6 },
     ];
-    const churnedAccountsCurrent = Math.round(
-        activeUsersCurrent * (churnProxyCurrent / 100)
-    );
-
-    const churnedAccountsPrevious = Math.round(
-        activeUsersPrevious * (churnProxyPrevious / 100)
-    );
-
-    const churnedAccountsDelta = churnedAccountsCurrent - churnedAccountsPrevious;
-
-    const atRiskAccountsCurrent = activeRiskAccounts.filter(
-        (account) => Number(account.risk ?? 0) >= 60
-    ).length;
-
-    const averageAtRiskMrr =
-        atRiskAccountsCurrent > 0
-            ? mrrAtRiskCurrent / atRiskAccountsCurrent
-            : mrrAtRiskCurrent || 1;
-
-    const atRiskAccountsPrevious = Math.max(
-        0,
-        Math.round(mrrAtRiskPrevious / averageAtRiskMrr)
-    );
-
-    const atRiskAccountsDelta = atRiskAccountsCurrent - atRiskAccountsPrevious;
-
-    const churnMetricItems = [
-        {
-            label: "Churn proxy",
-            value: `${churnProxyCurrent.toFixed(1)}%`,
-            subtext: `vs ${churnProxyPrevious.toFixed(1)}% last month`,
-            delta: churnDelta,
-            pct: formatPercentChange(churnProxyCurrent, churnProxyPrevious),
-        },
-        {
-            label: "Accounts churned",
-            value: churnedAccountsCurrent.toLocaleString(userLocale),
-            subtext: `vs ${churnedAccountsPrevious.toLocaleString(userLocale)} last period`,
-            delta: churnedAccountsDelta,
-            pct: formatPercentChange(churnedAccountsCurrent, churnedAccountsPrevious),
-        },
-        {
-            label: "At-risk accounts",
-            value: atRiskAccountsCurrent.toLocaleString(userLocale),
-            subtext: `vs ${atRiskAccountsPrevious.toLocaleString(userLocale)} last period`,
-            delta: atRiskAccountsDelta,
-            pct: formatPercentChange(atRiskAccountsCurrent, atRiskAccountsPrevious),
-        },
-    ];
-
     const visibleAccountsAtRisk = topRiskAccounts.slice(0, 3);
 
     return (
@@ -1875,51 +1843,20 @@ export default function DashboardPage() {
             <div className={styles.content}>
 
 
-                <div className={styles.topUtilityBar}>
-                    <div />
-
-                    <div className={styles.topRightControls}>
-
-
-
-
-                        <div className={styles.profileWrap}>
-
-
-                            {profileOpen ? (
-                                <div className={styles.profileMenu}>
-                                    <div className={styles.profileMenuHeader}>
-                                        <span className={styles.profileCircleLarge}>
-                                            {getInitials(currentUser)}
-                                        </span>
-                                        <div>
-                                            <div className={styles.profileMenuName}>
-                                                {currentUser?.displayName || "Cobrai user"}
-                                            </div>
-                                            <div className={styles.profileMenuEmail}>
-                                                {currentUser?.email || "No email"}
-                                            </div>
-                                        </div>
-                                    </div>
-
-
-
-                                </div>
-                            ) : null}
-                        </div>
-                    </div>
-                </div>
-
-                <div className={styles.header}>
+                <header className={styles.header}>
                     <div>
                         <h1 className={styles.title}>Dashboard</h1>
                         <p className={styles.subtitle}>
                             Retention intelligence — clear actions that protect revenue.
                         </p>
-
-
                     </div>
-                </div>
+
+                    <span
+                        className={`${styles.dataBadge} ${isDemoMode ? styles.dataBadgeDemo : styles.dataBadgeLive}`}
+                    >
+                        {isDemoMode ? "Demo data" : "Live data"}
+                    </span>
+                </header>
 
                 {showLiveEmptyState && (
                     <div className={styles.card} style={{ marginBottom: 16, padding: 18 }}>
@@ -1933,424 +1870,323 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-                <div className={styles.kpiGrid}>
+                <section className={styles.kpiGrid} aria-label="Key metrics">
                     {kpis.map((kpi) => {
                         const Icon = kpi.Icon;
 
                         return (
                             <div key={kpi.label} className={styles.kpiCard}>
-                                <div>
+                                <div className={styles.kpiTop}>
                                     <div className={styles.kpiLabel}>{kpi.label}</div>
-                                    <div className={styles.kpiValue}>{kpi.value}</div>
-
-                                    <div className={styles.kpiSubline}>
-                                        <span style={{ color: kpi.trend.color, fontWeight: 600 }}>
-                                            {kpi.trend.arrow}
-                                        </span>
-                                        <span>{kpi.subtext}</span>
+                                    <div className={styles.kpiIcon}>
+                                        <Icon size={16} strokeWidth={1.8} />
                                     </div>
                                 </div>
 
-                                <div className={styles.kpiIcon}>
-                                    <Icon size={16} strokeWidth={1.8} />
+                                <div className={styles.kpiValue}>{kpi.value}</div>
+
+                                <div
+                                    className={styles.kpiSubline}
+                                    title={kpi.subtext.detail}
+                                >
+                                    {kpi.subtext.change ? (
+                                        <span
+                                            className={styles.kpiChange}
+                                            style={{ color: kpi.trend.color }}
+                                        >
+                                            <span aria-hidden="true">{kpi.trend.arrow}</span>
+                                            {kpi.subtext.change}
+                                        </span>
+                                    ) : null}
+                                    <span className={styles.kpiContext}>
+                                        {kpi.subtext.context}
+                                    </span>
                                 </div>
                             </div>
                         );
                     })}
-                </div>
-                <div className={styles.dashboardMainGrid}>
-                    <div className={styles.leftDashboardStack}>
-                        <div className={`${styles.card} ${styles.combinedTrendsCard}`}>
-                            {/* Revenue Trend */}
-                            <section className={styles.combinedTrendSection}>
-                                <div className={styles.cardHeader}>
-                                    <div className={styles.revenueHeaderLeft}>
-                                        <h4>Revenue Trend</h4>
-                                        <p>Revenue protected across recent retention activity.</p>
+                </section>
+                {/* Trends */}
+                <div className={styles.chartGrid}>
+                        <TrendCard
+                            title="Revenue protected"
+                            description="MRR saved by retention actions."
+                            headlineLabel="Latest"
+                            value={formatCurrency(mrrTicker.last)}
+                            change={`${mrrTicker.change >= 0 ? "+" : "-"}${Math.abs(mrrTicker.pct).toFixed(1)}%`}
+                            good={mrrTicker.change >= 0}
+                            context="vs start of period"
+                            tabs={
+                                <RangeTabs
+                                    label="Revenue range"
+                                    options={trendRangeOptions}
+                                    value={mrrTrendRange}
+                                    onChange={setMrrTrendRange}
+                                />
+                            }
+                        >
+                            <EChart
+                                key={`mrr-${mrrTrendRange}-${mrrTrendData.labels.join("-")}-${mrrTrendData.values.join("-")}`}
+                                option={mrrProtectedOption(mrrTrendData.labels, mrrTrendData.values, isPro)}
+                            />
+                        </TrendCard>
+
+                        <TrendCard
+                            title="Churn rate"
+                            description="Share of customers lost each period."
+                            headlineLabel="Latest"
+                            value={`${churnTicker.last.toFixed(1)}%`}
+                            change={`${churnTicker.change >= 0 ? "+" : "-"}${Math.abs(churnTicker.change).toFixed(2)} pts`}
+                            good={churnTicker.change <= 0}
+                            context="vs start of period"
+                            tabs={
+                                <RangeTabs
+                                    label="Churn range"
+                                    options={trendRangeOptions}
+                                    value={churnTrendRange}
+                                    onChange={setChurnTrendRange}
+                                />
+                            }
+                        >
+                            <EChart
+                                key={`churn-${churnTrendRange}-${churnTrendData.labels.join("-")}-${churnTrendData.values.join("-")}`}
+                                option={churnTrendOption(churnTrendData.labels, churnTrendData.values, isPro)}
+                            />
+                        </TrendCard>
+                    </div>
+
+                {/* Customer insights from Claude */}
+                <section className={styles.insightsSection} aria-labelledby="insights-title">
+                    <div className={styles.sectionHead}>
+                        <div>
+                            <h2 id="insights-title" className={styles.sectionTitle}>
+                                Customer insights
+                                <span className={styles.claudeTag}>
+                                    <Sparkles size={11} strokeWidth={2} aria-hidden="true" />
+                                    Claude
+                                </span>
+                            </h2>
+                            <p className={styles.sectionText}>
+                                {behaviourReport?.summary && !behaviourLoading
+                                    ? behaviourReport.summary
+                                    : "Claude reads your account data and explains what each customer is doing."}
+                            </p>
+                        </div>
+
+                        <div className={styles.sectionActions}>
+                            <span className={styles.sectionMeta}>
+                                {behaviourReport
+                                    ? `Analysed ${new Date(behaviourReport.analysedAt).toLocaleString(userLocale, {
+                                        day: "numeric",
+                                        month: "short",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    })}${behaviourReport.source === "demo" ? " · demo data" : ""}`
+                                    : "Not analysed yet"}
+                            </span>
+                            <button
+                                type="button"
+                                className={styles.consoleButton}
+                                onClick={() => void analyseBehaviour()}
+                                disabled={behaviourLoading}
+                            >
+                                {behaviourLoading ? "Analysing…" : behaviourReport ? "Re-analyse" : "Analyse"}
+                            </button>
+                        </div>
+                    </div>
+
+                    {behaviourError ? (
+                        <div className={styles.behaviourError} role="alert">
+                            {behaviourError}
+                        </div>
+                    ) : null}
+
+                    <div className={styles.consoleTableWrap}>
+                        {behaviourLoading ? (
+                            <div aria-live="polite">
+                                {[0, 1, 2, 3, 4].map((index) => (
+                                    <div key={index} className={styles.consoleSkeleton}>
+                                        <span />
+                                        <span />
+                                        <span />
                                     </div>
-
-                                    <div className={styles.activeUsersFilterWrap}>
-                                        <button
-                                            type="button"
-                                            className={styles.activeUsersFilter}
-                                            onClick={() => setMrrTrendFilterOpen((open) => !open)}
-                                        >
-                                            <Clock3 size={13} strokeWidth={1.8} />
-                                            <span>
-                                                {
-                                                    trendRangeOptions.find(
-                                                        (option) => option.value === mrrTrendRange
-                                                    )?.label
-                                                }
-                                            </span>
-                                            <ChevronDown size={13} strokeWidth={1.8} />
-                                        </button>
-
-                                        {mrrTrendFilterOpen ? (
-                                            <div className={styles.activeUsersFilterMenu}>
-                                                {trendRangeOptions.map((option) => (
-                                                    <button
-                                                        key={option.value}
-                                                        type="button"
-                                                        className={
-                                                            mrrTrendRange === option.value
-                                                                ? styles.activeUsersFilterOptionActive
-                                                                : styles.activeUsersFilterOption
-                                                        }
-                                                        onClick={() => {
-                                                            setMrrTrendRange(option.value);
-                                                            setMrrTrendFilterOpen(false);
-                                                        }}
-                                                    >
-                                                        {option.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                </div>
-
-                                <div className={styles.revenueInlineMetricRow}>
-                                    <div className={styles.revenueInlineMetric}>
-                                        <strong>{activeProgressData?.kpis?.accountsSaved ?? 0}</strong>
-                                        <span>
-                                            ↑ {Math.abs(Number(activeProgressData?.kpis?.accountsSavedPct ?? 0)).toFixed(1)}%
-                                        </span>
-                                        <p>Retained customers that moved MRR</p>
-                                    </div>
-
-                                    <div className={styles.revenueInlineMetric}>
-                                        <strong>
-                                            {formatCurrency(
-                                                activeOpportunityAccounts.reduce(
-                                                    (sum, item) => sum + Number(item.upside || 0),
-                                                    0
-                                                )
-                                            )}
-                                        </strong>
-                                        <span>Opportunity</span>
-                                        <p>Expansion MRR</p>
-                                    </div>
-
-                                    <div className={styles.revenueInlineMetric}>
-                                        <strong>{formatCurrency(totalProtected)}</strong>
-                                        <span>
-                                            ↑ {Math.abs(formatPercentChange(totalProtected, previousProtected)).toFixed(1)}%
-                                        </span>
-                                        <p>MRR protected</p>
-                                    </div>
-                                </div>
-
-                                <div className={styles.chartPreview}>
-                                    <EChart
-                                        key={`mrr-${mrrTrendRange}-${mrrTrendData.labels.join("-")}-${mrrTrendData.values.join("-")}`}
-                                        option={mrrProtectedOption(mrrTrendData.labels, mrrTrendData.values, isPro)}
-                                    />
-                                </div>
-                            </section>
-                            <div className={styles.combinedTrendDivider} />
-                            {/* Churn Trend */}
-                            <section className={styles.combinedTrendSection}>
-                                <div className={styles.cardHeader}>
-                                    <div>
-                                        <h4>Churn Trend</h4>
-                                        <p>Monthly churn rate and customer risk signals.</p>
-                                    </div>
-
-                                    <div className={styles.activeUsersFilterWrap}>
-                                        <button
-                                            type="button"
-                                            className={styles.activeUsersFilter}
-                                            onClick={() => setChurnTrendFilterOpen((open) => !open)}
-                                        >
-                                            <Clock3 size={13} strokeWidth={1.8} />
-                                            <span>
-                                                {trendRangeOptions.find((option) => option.value === churnTrendRange)?.label}
-                                            </span>
-                                            <ChevronDown size={13} strokeWidth={1.8} />
-                                        </button>
-
-                                        {churnTrendFilterOpen ? (
-                                            <div className={styles.activeUsersFilterMenu}>
-                                                {trendRangeOptions.map((option) => (
-                                                    <button
-                                                        key={option.value}
-                                                        type="button"
-                                                        className={
-                                                            churnTrendRange === option.value
-                                                                ? styles.activeUsersFilterOptionActive
-                                                                : styles.activeUsersFilterOption
-                                                        }
-                                                        onClick={() => {
-                                                            setChurnTrendRange(option.value);
-                                                            setChurnTrendFilterOpen(false);
-                                                        }}
-                                                    >
-                                                        {option.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                </div>
-
-                                <div className={styles.churnMetricRow}>
-                                    {churnMetricItems.map((item) => {
-                                        const trend = getTrendMeta(item.delta, true);
+                                ))}
+                            </div>
+                        ) : behaviourReport && behaviourReport.rows.length > 0 ? (
+                            <table className={styles.consoleTable}>
+                                <thead>
+                                    <tr>
+                                        <th>Customer</th>
+                                        <th>Pattern</th>
+                                        <th>Next step</th>
+                                        <th className={styles.consoleNum}>MRR</th>
+                                        <th>Risk</th>
+                                        <th aria-label="Details" />
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {behaviourReport.rows.map((row) => {
+                                        const expanded = expandedBehaviourId === row.customerId;
+                                        const toggle = () =>
+                                            setExpandedBehaviourId(expanded ? null : row.customerId);
 
                                         return (
-                                            <div key={item.label} className={styles.churnMiniKpi}>
-                                                <strong>{item.value}</strong>
+                                            <Fragment key={row.customerId}>
+                                                <tr
+                                                    className={`${styles.consoleRow} ${expanded ? styles.consoleRowOpen : ""}`}
+                                                    onClick={toggle}
+                                                    tabIndex={0}
+                                                    aria-expanded={expanded}
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === "Enter" || event.key === " ") {
+                                                            event.preventDefault();
+                                                            toggle();
+                                                        }
+                                                    }}
+                                                >
+                                                    <td className={styles.consoleStrong}>{row.customer}</td>
+                                                    <td>{row.behaviour}</td>
+                                                    <td className={styles.consoleMuted}>{row.nextAction}</td>
+                                                    <td className={styles.consoleNum}>{formatCurrency(row.mrr)}</td>
+                                                    <td>
+                                                        <span className={`${styles.riskDot} ${styles[`riskDot_${row.risk}`]}`}>
+                                                            {BEHAVIOUR_RISK_LABEL[row.risk]}
+                                                        </span>
+                                                    </td>
+                                                    <td className={styles.consoleChevron} aria-hidden="true">
+                                                        {expanded ? "−" : "+"}
+                                                    </td>
+                                                </tr>
 
-                                                <div className={styles.churnMiniSubline}>
-                                                    <span style={{ color: trend.color }}>
-                                                        {trend.arrow} {Math.abs(item.pct).toFixed(1)}%
-                                                    </span>
-                                                </div>
-
-                                                <p>{item.label}</p>
-                                                <small>{item.subtext}</small>
-                                            </div>
+                                                {expanded ? (
+                                                    <tr className={styles.consoleDetailRow}>
+                                                        <td colSpan={6}>
+                                                            <p>{row.interpretation}</p>
+                                                            <ul>
+                                                                {row.evidence.map((item) => (
+                                                                    <li key={item}>{item}</li>
+                                                                ))}
+                                                            </ul>
+                                                            <span className={styles.consoleMuted}>
+                                                                {BEHAVIOUR_TREND_LABEL[row.trend]} · Confidence{" "}
+                                                                {row.confidence}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ) : null}
+                                            </Fragment>
                                         );
                                     })}
-                                </div>
-
-                                <div className={styles.churnChartWrap}>
-                                    <EChart
-                                        key={`churn-${churnTrendRange}-${churnTrendData.labels.join("-")}-${churnTrendData.values.join("-")}`}
-                                        option={churnTrendOption(churnTrendData.labels, churnTrendData.values, isPro)}
-                                    />
-                                </div>
-                            </section>
-                        </div>
-
-                        {/* AI Insights */}
-                        <div className={`${styles.card} ${styles.aiInsightsCard}`}>
-                            <div className={styles.aiInsightsHeader}>
-                                <div>
-                                    <h4 className={styles.aiInsightsTitle}>✧ AI Insights</h4>
-                                    <p className={styles.aiInsightsSubtitle}>
-                                        Priority actions based on your customers and recent activity.
-                                    </p>
-
-                                    <div className={styles.aiInsightsMeta}>
-                                        <Clock3 size={13} strokeWidth={1.8} />
-                                        <span>{formatRefreshTime(insightsRefreshedAt)}</span>
-                                    </div>
-                                </div>
-
+                                </tbody>
+                            </table>
+                        ) : (
+                            <div className={styles.consoleEmpty}>
+                                <strong>No analysis yet</strong>
+                                <p>
+                                    Claude looks at MRR, churn risk, health, activity and failed payments, then explains
+                                    each customer&apos;s behaviour and the next step.
+                                </p>
                                 <button
                                     type="button"
-                                    className={styles.softButton}
-                                    onClick={() => {
-                                        if (isDemoMode) {
-                                            setInsightsRefreshedAt(new Date().toISOString());
-                                            return;
-                                        }
-
-                                        const canRefresh = isTrialActive || isPro || effectivePlan === "starter";
-
-                                        if (!canRefresh) {
-                                            setUpgradeOpen(true);
-                                            return;
-                                        }
-
-                                        if (currentUser) void loadWorkspaceAi(currentUser);
-                                    }}
+                                    className={styles.consoleButtonPrimary}
+                                    onClick={() => void analyseBehaviour()}
                                 >
-                                    Refresh
+                                    Analyse with Claude
                                 </button>
                             </div>
-
-                            <div className={styles.aiInsightList}>
-                                {visibleInsights.length > 0 ? (
-                                    visibleInsights.map((item) => {
-                                        const meta = getInsightMeta(item);
-                                        const Icon = meta.Icon;
-
-                                        return (
-                                            <button
-                                                key={item.id}
-                                                type="button"
-                                                className={`${styles.aiInsightRow} ${meta.tone}`}
-                                                onClick={() => {
-                                                    if (item.href) router.push(item.href);
-                                                }}
-                                            >
-                                                <span className={`${styles.aiInsightIcon} ${meta.tone}`}>
-                                                    <Icon size={20} strokeWidth={1.8} />
-                                                </span>
-
-                                                <div className={styles.aiInsightContent}>
-                                                    <span className={styles.aiInsightLabel}>{meta.label}</span>
-                                                    <strong>{item.title}</strong>
-                                                    <p>{item.summary}</p>
-                                                    {item.meta ? <small>{item.meta}</small> : null}
-                                                </div>
-
-                                                {item.amountLabel ? (
-                                                    <div className={`${styles.aiInsightAmount} ${meta.tone}`}>
-                                                        <span>{item.metricLabel ?? "Value"}</span>
-                                                        <strong>{item.amountLabel}</strong>
-                                                    </div>
-                                                ) : null}
-                                            </button>
-                                        );
-                                    })
-                                ) : (
-                                    <div className={styles.emptyText}>No recent insight activity yet.</div>
-                                )}
-
-                                {insightFeed.length > INSIGHTS_PER_PAGE ? (
-                                    <div className={styles.aiInsightsPagination}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setInsightPage((page) => Math.max(0, page - 1))}
-                                            disabled={insightPage === 0}
-                                        >
-                                            Previous
-                                        </button>
-
-                                        <span>
-                                            {insightPage + 1} of {insightPageCount}
-                                        </span>
-
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                setInsightPage((page) =>
-                                                    Math.min(insightPageCount - 1, page + 1)
-                                                )
-                                            }
-                                            disabled={insightPage >= insightPageCount - 1}
-                                        >
-                                            Next
-                                        </button>
-                                    </div>
-                                ) : null}
-                            </div>
-                        </div>
+                        )}
                     </div>
 
-                    <div className={styles.rightDashboardStack}>
-                        {/* User Metrics */}
-                        <div className={`${styles.card} ${styles.activeUsersCard}`}>
-                            <div className={styles.activeUsersHeader}>
-                                <div>
-                                    <div className={styles.activeUsersTitle}>
-                                        <UsersRound size={16} strokeWidth={1.9} />
-                                        <span>User Metrics</span>
-                                    </div>
+                    <p className={styles.consoleFootnote}>Claude can make mistakes. Check before acting.</p>
+                </section>
 
-                                    <p>An overview of your active users.</p>
-                                </div>
-
-                                <div className={styles.activeUsersHeaderRight}>
-                                    <div className={styles.activeUsersFilterWrap}>
-                                        <button
-                                            type="button"
-                                            className={styles.activeUsersFilter}
-                                            onClick={() => setActiveUsersFilterOpen((open) => !open)}
-                                        >
-                                            <Clock3 size={13} strokeWidth={1.8} />
-                                            <span>{activeUsersRangeLabel}</span>
-                                            <ChevronDown size={13} strokeWidth={1.8} />
-                                        </button>
-
-                                        {activeUsersFilterOpen ? (
-                                            <div className={styles.activeUsersFilterMenu}>
-                                                {[
-                                                    { label: "24 hrs", value: 24 },
-                                                    { label: "7 days", value: 7 },
-                                                ].map((range) => (
-                                                    <button
-                                                        key={range.value}
-                                                        type="button"
-                                                        className={
-                                                            activeUsersRange === range.value
-                                                                ? styles.activeUsersFilterOptionActive
-                                                                : styles.activeUsersFilterOption
-                                                        }
-                                                        onClick={() => {
-                                                            setActiveUsersRange(range.value as 24 | 7);
-                                                            setActiveUsersFilterOpen(false);
-                                                        }}
-                                                    >
-                                                        {range.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        ) : null}
-                                    </div>
-
-                                    <div className={styles.activeUsersMetricRow}>
-                                        <strong>{activeUsersCurrent.toLocaleString(userLocale)}</strong>
-
-                                        <div>
-                                            <span
-                                                className={
-                                                    activeUsersDelta >= 0
-                                                        ? styles.activeUsersUp
-                                                        : styles.activeUsersDown
-                                                }
-                                            >
-                                                {activeUsersDelta >= 0 ? "↑" : "↓"}{" "}
-                                                {Math.abs(activeUsersPct).toFixed(1)}%{" "}
-                                                ({activeUsersDelta >= 0 ? "+" : "-"}
-                                                {Math.abs(activeUsersDelta).toLocaleString(userLocale)})
-                                            </span>
-
-                                            <p>
-                                                vs. {activeUsersPrevious.toLocaleString(userLocale)} last period
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className={styles.activeUsersLegend}>
-                                <span>
-                                    <i className={styles.activeUsersRetainedDot} />
-                                    Retained
-                                    <strong>
-                                        {activeUsersRetained.toLocaleString(userLocale)}
-                                    </strong>
-                                </span>
-
-                                <span>
-                                    <i className={styles.activeUsersAcquiredDot} />
-                                    Acquired
-                                    <strong>
-                                        {activeUsersAcquired.toLocaleString(userLocale)}
-                                    </strong>
-                                </span>
-
-                                <span className={styles.activeUsersTotal}>
-                                    Total
-                                    <strong>
-                                        {activeUsersCurrent.toLocaleString(userLocale)}
-                                    </strong>
-                                </span>
-                            </div>
-
-                            <div className={styles.activeUsersChartWrap}>
-                                <EChart
-                                    key={`active-users-${activeUsersRange}-${activeUserBreakdownData
-                                        .map((row) => `${row.retained}-${row.acquired}-${row.total}`)
-                                        .join("-")}`}
-                                    option={activeUsersOption(activeUserBreakdownData)}
-                                />
-                            </div>
-                        </div>
-
-                        <AIActionQueue
-                            accounts={activeRiskAccounts}
-                            isDemoMode={isDemoMode}
-                            canRetryPayment={canViewRetryPayment}
-                            senderName={currentUser?.displayName || currentUser?.email?.split("@")[0] || "Team"}
+                {/* Active users + failed payments */}
+                <div className={styles.bottomRow}>
+                <TrendCard
+                    title="Active users"
+                    description={
+                        activeUsersRange === 24
+                            ? "Users active in each hour of the last day."
+                            : "Users active on each of the last 7 days."
+                    }
+                    headlineLabel={activeUsersRange === 24 ? "This hour" : "Today"}
+                    value={activeUsersCurrent.toLocaleString(userLocale)}
+                    change={`${activeUsersPct >= 0 ? "+" : "-"}${Math.abs(activeUsersPct).toFixed(1)}%`}
+                    good={activeUsersPct >= 0}
+                    context={activeUsersRange === 24 ? "vs previous hour" : "vs yesterday"}
+                    tabs={
+                        <RangeTabs
+                            label="Active users range"
+                            options={[
+                                { label: "Last 24 hours", value: 24 as const },
+                                { label: "Last 7 days", value: 7 as const },
+                            ]}
+                            value={activeUsersRange}
+                            onChange={setActiveUsersRange}
                         />
-                    </div>
+                    }
+                >
+                    <EChart
+                        key={`active-users-${activeUsersRange}-${activeUserBreakdownData.map((row) => row.total).join("-")}`}
+                        option={activeUsersLineOption(
+                            activeUserBreakdownData.map((row) => row.label),
+                            activeUserBreakdownData.map((row) => row.tooltipLabel),
+                            activeUserBreakdownData.map((row) => row.total)
+                        )}
+                    />
+                </TrendCard>
+
+                    <section className={`${styles.card} ${styles.trendCard}`} aria-label="Failed payments">
+                        <header className={styles.trendCardHead}>
+                            <div className={styles.trendCardTitle}>
+                                <h3>Failed payments</h3>
+                                <p>Invoices that need a retry.</p>
+                            </div>
+
+                            <div className={styles.trendHeadline}>
+                                <span>At risk</span>
+                                <strong>{formatCurrency(failedPayments?.total ?? 0)}</strong>
+                                <small>
+                                    {failedPayments
+                                        ? `${failedPayments.count} invoice${failedPayments.count === 1 ? "" : "s"}`
+                                        : "Loading…"}
+                                </small>
+                            </div>
+                        </header>
+
+                        <div className={styles.paymentList}>
+                            {failedPaymentsError ? (
+                                <p className={styles.paymentEmpty}>Couldn&apos;t load failed payments.</p>
+                            ) : !failedPayments ? (
+                                <p className={styles.paymentEmpty}>Loading…</p>
+                            ) : failedPayments.items.length === 0 ? (
+                                <p className={styles.paymentEmpty}>No failed payments. Nice.</p>
+                            ) : (
+                                failedPayments.items.map((item) => (
+                                    <div key={item.id} className={styles.paymentRow}>
+                                        <div className={styles.paymentWho}>
+                                            <strong>{item.customer}</strong>
+                                            <span>{formatDaysAgo(item.failedAt)}</span>
+                                        </div>
+                                        <span className={styles.paymentAmount}>{formatCurrency(item.amount)}</span>
+                                        {item.customerId ? (
+                                            <button
+                                                type="button"
+                                                className={styles.consoleButton}
+                                                onClick={() => router.push(`/dashboard/accounts-at-risk/${item.customerId}`)}
+                                            >
+                                                View
+                                            </button>
+                                        ) : (
+                                            <span aria-hidden="true" />
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </section>
                 </div>
+
                 {upgradeOpen && !isDemoMode ? (
                     <div className={styles.upgradeOverlay}>
                         <div className={styles.upgradeModal}>

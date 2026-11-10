@@ -8942,3 +8942,1103 @@
   .statComparison > span:first-child,
   its SVG/path, positive/negative classes, or up/down classes.
 */
+/* ========================================================================== */
+/* CONSOLE STYLE: match the dashboard overview. Prefixed with .page so these  */
+/* rules win over the earlier ones in this file.                              */
+/* ========================================================================== */
+
+.page {
+    --ink: #1f1e1b;
+    --muted: #6f6e69;
+    --faint: #9a9893;
+    --line: #e8e6df;
+    --line-soft: #f0eee8;
+    --wash: #faf9f7;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    min-height: 100vh;
+    margin: -24px;
+    padding: 40px 48px 56px;
+    background: #ffffff;
+    color: var(--ink);
+}
+
+.page > * {
+    width: 100%;
+    max-width: 1180px;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+/* Header */
+.page .header {
+    min-height: 0;
+    padding: 0;
+}
+
+.page .title {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+}
+
+.page .subtitle {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+/* KPI strip: one card, cells divided by thin lines, icon top-right */
+.page .kpiGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.page .kpiCard {
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 0;
+    padding: 18px 20px;
+    border: 0;
+    border-left: 1px solid var(--line-soft);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.page .kpiCard:first-child {
+    border-left: 0;
+}
+
+.page .kpiIcon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    background: var(--wash);
+    color: var(--muted);
+    box-shadow: none;
+}
+
+.page .kpiLabel {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--muted);
+}
+
+.page .kpiValue {
+    margin-top: 8px;
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+}
+
+.page .kpiSub {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--faint);
+}
+
+/* Layout spacing */
+.page .analyticsLayout,
+.page .revenueImpactSection,
+.page .impactTablesGrid {
+    gap: 24px;
+}
+
+.page .primaryGrid {
+    gap: 24px;
+}
+
+.page .analyticsLayout {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Cards */
+.page .performanceCard,
+.page .activeUsersCard,
+.page .revenueOverviewCard,
+.page .customerImpactTableCard {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #ffffff;
+    box-shadow: none;
+}
+
+.page .performanceCard,
+.page .activeUsersCard,
+.page .revenueOverviewCard {
+    padding: 20px 24px;
+}
+
+/* Card headings */
+.page .chartTitle,
+.page .activeUsersHeader h2,
+.page .activeUsersHeader h3,
+.page .activeUsersHeader h4,
+.page .revenueOverviewHeader h2,
+.page .revenueOverviewHeader h3,
+.page .customerImpactTableTop h2,
+.page .customerImpactTableTop h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--ink);
+}
+
+.page .chartMeta,
+.page .activeUsersHeader p,
+.page .customerImpactTableTop p {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.page .revenueOverviewEyebrow {
+    font-size: 12px;
+    color: var(--faint);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.page .performanceLabel {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.page .performanceValue,
+.page .activeUsersValue {
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+}
+
+.page .revenueOverviewValueRow strong {
+    font-size: 26px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+}
+
+.page .performanceDivider {
+    background: var(--line-soft);
+}
+
+/* Filter / period buttons */
+.page .chartFilterButton,
+.page .revenueOverviewPeriod,
+.page .activeUsersMenu {
+    height: 32px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--ink);
+    font-size: 12.5px;
+    box-shadow: none;
+}
+
+/* Small stat tiles under the trend charts: one box with dividers */
+.page .revenueOverviewStats {
+    gap: 0;
+    margin-top: 16px;
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.page .revenueOverviewStats > div {
+    padding: 12px 14px;
+    border: 0;
+    border-radius: 0;
+    border-left: 1px solid var(--line-soft);
+    border-top: 1px solid var(--line-soft);
+    background: transparent;
+    box-shadow: none;
+}
+
+.page .revenueOverviewStats > div span:first-child {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.page .revenueOverviewStats > div strong {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--ink);
+}
+
+.page .statComparison {
+    color: var(--faint);
+}
+
+/* Revenue impact queue table */
+.page .customerImpactTableCard {
+    overflow: hidden;
+    padding: 0;
+}
+
+.page .customerImpactTableTop {
+    padding: 20px 24px 16px;
+}
+
+.page .customerImpactSearch {
+    height: 34px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: none;
+}
+
+.page .customerImpactTable {
+    font-size: 13px;
+}
+
+.page .customerImpactTable th {
+    padding: 10px 16px;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--muted);
+    background: var(--wash);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+
+.page .customerImpactTable td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--ink);
+}
+
+.page .customerImpactTable tbody tr:hover td {
+    background: var(--wash);
+}
+
+.page .customerImpactCopy {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+/* Pills become quiet dot labels */
+.page .customerImpactTable .customerImpactPill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent !important;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.page .customerImpactTable .customerImpactPill::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.page .customerImpactAction {
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--ink);
+    font-size: 12.5px;
+    font-weight: 500;
+    box-shadow: none;
+}
+
+.page .customerImpactAction:hover {
+    background: var(--wash);
+}
+
+.page .customerImpactTableBottom {
+    padding: 12px 16px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+.page .customerImpactCurrentPage {
+    background: var(--ink) !important;
+    border-color: var(--ink) !important;
+    color: #ffffff !important;
+}
+
+@media (max-width: 900px) {
+    .page {
+        padding: 24px 20px 40px;
+    }
+
+    .page .kpiGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .page .kpiCard:nth-child(3) {
+        border-left: 0;
+    }
+
+    .page .kpiCard:nth-child(n + 3) {
+        border-top: 1px solid var(--line-soft);
+    }
+}
+
+/* Stat tiles are 3 across: no outer double lines */
+.page .revenueOverviewStats > div:nth-child(-n + 3) {
+    border-top: 0;
+}
+
+.page .revenueOverviewStats > div:nth-child(3n + 1) {
+    border-left: 0;
+}
+
+/* Legend markers: short lines in the same colours as the chart lines */
+.page .legendRevenue,
+.page .legendChurn,
+.page .legendForecast {
+    width: 12px !important;
+    height: 2px !important;
+    border-radius: 1px !important;
+}
+
+.page .legendRevenue {
+    background: #3b6fe0 !important;
+}
+
+.page .legendChurn {
+    background: #8b83df !important;
+}
+
+.page .legendForecast {
+    background: repeating-linear-gradient(90deg, #3b6fe0 0 4px, transparent 4px 7px) !important;
+}
+
+/* Bigger charts (now with dates along the bottom) */
+.page .performanceChartWrap {
+    height: 170px !important;
+    min-height: 170px !important;
+}
+
+.page .activeUsersChart {
+    height: 300px !important;
+    min-height: 300px !important;
+}
+
+.page .revenueOverviewChart {
+    height: 280px !important;
+    min-height: 280px !important;
+}
+
+/* Revenue Impact Queue grouped by priority */
+.page .customerImpactTable .queueGroupRow td {
+    padding: 10px 16px;
+    background: var(--wash);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line-soft);
+}
+
+.page .customerImpactTable tbody .queueGroupRow:first-child td {
+    border-top: 0;
+}
+
+.page .customerImpactTable .queueGroupRow:hover td {
+    background: var(--wash);
+}
+
+.queueGroupLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+.queueGroupLabel::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.queueGroup_high {
+    color: #b42318;
+}
+
+.queueGroup_medium {
+    color: #b54708;
+}
+
+.queueGroup_low {
+    color: #15803d;
+}
+
+.page .customerImpactTable .queueGroupRow em {
+    margin-left: 10px;
+    font-style: normal;
+    font-size: 12px;
+    color: var(--faint);
+}
+
+/* Four columns now (Impact moved to the group headings) */
+.page .customerImpactTable {
+    min-width: 760px;
+}
+
+.page .customerImpactTable th:nth-child(1),
+.page .customerImpactTable td:nth-child(1) {
+    width: 24%;
+}
+
+.page .customerImpactTable th:nth-child(2),
+.page .customerImpactTable td:nth-child(2) {
+    width: 22%;
+}
+
+.page .customerImpactTable th:nth-child(3),
+.page .customerImpactTable td:nth-child(3) {
+    width: auto;
+}
+
+.page .customerImpactTable th:nth-child(4),
+.page .customerImpactTable td:nth-child(4) {
+    width: 196px;
+    text-align: right;
+}
+
+/* Group header rows span every column */
+.page .customerImpactTable .queueGroupRow td {
+    width: auto;
+    text-align: left;
+}
+
+/* Chart canvases follow the taller boxes */
+.page .revenueOverviewChart > div,
+.page .revenueOverviewChart canvas,
+.page .revenueOverviewChart svg {
+    height: 280px !important;
+    min-height: 280px !important;
+}
+
+.page .activeUsersChart :global(canvas),
+.page .activeUsersChart :global(svg) {
+    height: 300px !important;
+}
+
+/* ========================================================================== */
+/* CONSOLE LAYOUT: full-width sections, one chart per row, plain headings.    */
+/* ========================================================================== */
+
+.page .analyticsLayout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.page .sectionHeading {
+    margin-top: 16px;
+}
+
+.page .sectionHeading h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+}
+
+.page .sectionHeading p {
+    margin: 4px 0 0;
+    font-size: 13.5px;
+    color: var(--muted);
+}
+
+/* Every chart card full width */
+.page .primaryGrid,
+.page .revenueImpactSection {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 24px !important;
+    justify-items: stretch !important;
+    width: 100%;
+}
+
+.page .performanceCard,
+.page .activeUsersCard,
+.page .revenueOverviewCard,
+.page .impactTablesGrid,
+.page .customerImpactTableCard {
+    width: 100% !important;
+    max-width: none !important;
+    grid-column: auto !important;
+}
+
+/* The Accounts section sits outside the revenue grid visually */
+.page .impactTablesGrid {
+    margin-top: 0;
+}
+
+/* Taller, wider charts */
+.page .revenueOverviewChart,
+.page .revenueOverviewChart > div,
+.page .revenueOverviewChart canvas,
+.page .revenueOverviewChart svg {
+    height: 300px !important;
+    min-height: 300px !important;
+}
+
+.page .activeUsersChart,
+.page .activeUsersChart :global(canvas),
+.page .activeUsersChart :global(svg) {
+    height: 300px !important;
+    min-height: 300px !important;
+}
+
+.page .performanceChartWrap {
+    height: 190px !important;
+    min-height: 190px !important;
+}
+
+/* Stat tiles: one row of six under each chart */
+.page .revenueOverviewStats {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    margin-top: 20px;
+}
+
+.page .revenueOverviewStats > div,
+.page .revenueOverviewStats > div:nth-child(-n + 3),
+.page .revenueOverviewStats > div:nth-child(3n + 1) {
+    border-top: 0;
+    border-left: 1px solid var(--line-soft);
+}
+
+.page .revenueOverviewStats > div:first-child {
+    border-left: 0;
+}
+
+@media (max-width: 1000px) {
+    .page .revenueOverviewStats {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+
+    .page .revenueOverviewStats > div:nth-child(n + 4) {
+        border-top: 1px solid var(--line-soft);
+    }
+
+    .page .revenueOverviewStats > div:nth-child(4) {
+        border-left: 0;
+    }
+}
+
+/* An older rule pinned both Overview cards to row 1, creating a hidden
+   second column. Let them flow one per row. */
+.page .primaryGrid > * {
+    grid-row: auto !important;
+    grid-column: 1 / -1 !important;
+}
+
+/* ==================================================================
+   Console layout (v2)
+   Claude Console–style dashboard: flat white page, one KPI strip,
+   two-column chart rows, hairline borders, no glows or shadows.
+   Content is unchanged; this layer only restyles it.
+   ================================================================== */
+.page {
+    --c-ink: #1f1e1b;
+    --c-muted: #6f6e69;
+    --c-faint: #9a9893;
+    --c-line: #e8e6df;
+    --c-line-soft: #f0eee8;
+    --c-wash: #faf9f7;
+    background: #fff !important;
+}
+
+.page::before,
+.page::after {
+    display: none !important;
+}
+
+/* Header */
+.page .header {
+    margin-bottom: 4px;
+}
+
+.page .title {
+    font-size: 26px !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.02em;
+}
+
+/* KPI strip: one bordered row split by hairlines */
+.page .kpiGrid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0 !important;
+    border: 1px solid var(--c-line) !important;
+    border-radius: 10px !important;
+    background: #fff !important;
+    overflow: hidden;
+}
+
+.page .kpiCard {
+    display: block !important;
+    min-height: 0 !important;
+    padding: 18px 20px !important;
+    border: 0 !important;
+    border-left: 1px solid var(--c-line-soft) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.page .kpiCard:first-child {
+    border-left: 0 !important;
+}
+
+.page .kpiIcon {
+    display: none !important;
+}
+
+.page .kpiLabel {
+    font-size: 12.5px !important;
+    font-weight: 400 !important;
+    color: var(--c-muted) !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+}
+
+.page .kpiValue {
+    margin-top: 6px !important;
+    font-size: 24px !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.02em;
+    line-height: 1.2 !important;
+    color: var(--c-ink) !important;
+}
+
+.page .kpiSub {
+    margin-top: 6px !important;
+    font-size: 12px !important;
+    color: var(--c-faint) !important;
+}
+
+/* Section headings */
+.page .sectionHeading {
+    grid-column: 1 / -1 !important;
+    margin: 12px 0 0 !important;
+}
+
+.page .sectionHeading h2 {
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    color: var(--c-ink) !important;
+}
+
+.page .sectionHeading p {
+    margin-top: 3px !important;
+    font-size: 13px !important;
+    color: var(--c-muted) !important;
+}
+
+/* Overview: Metrics (2/3) and User metrics (1/3) side by side */
+.page .analyticsLayout {
+    gap: 16px !important;
+}
+
+.page .primaryGrid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) !important;
+    gap: 16px !important;
+    align-items: stretch !important;
+}
+
+.page .primaryGrid > .performanceCard {
+    grid-column: 1 / 2 !important;
+}
+
+.page .primaryGrid > .activeUsersCard {
+    grid-column: 2 / 3 !important;
+}
+
+.page .primaryGrid > .revenueImpactSection {
+    grid-column: 1 / -1 !important;
+}
+
+/* Shared card look */
+.page .performanceCard,
+.page .activeUsersCard,
+.page .revenueOverviewCard,
+.page .customerImpactTableCard,
+.page .emailCtaCard {
+    padding: 20px !important;
+    border: 1px solid var(--c-line) !important;
+    border-radius: 10px !important;
+    background: #fff !important;
+    box-shadow: none !important;
+}
+
+.page .chartTitle,
+.page .revenueOverviewHeader h3,
+.page .customerImpactTableTop h3 {
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    color: var(--c-ink) !important;
+}
+
+.page .chartMeta,
+.page .customerImpactTableTop p {
+    margin-top: 2px !important;
+    font-size: 12.5px !important;
+    color: var(--c-muted) !important;
+}
+
+.page .revenueOverviewEyebrow {
+    font-size: 11.5px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    color: var(--c-faint) !important;
+}
+
+/* Metrics card: value on the left, compact chart on the right */
+.page .performanceHeader {
+    margin-bottom: 8px !important;
+}
+
+.page .performanceRow {
+    display: grid !important;
+    grid-template-columns: 150px minmax(0, 1fr) !important;
+    align-items: center !important;
+    gap: 16px !important;
+    min-height: 0 !important;
+    padding: 6px 0 !important;
+}
+
+.page .performanceLabel {
+    font-size: 12.5px !important;
+    color: var(--c-muted) !important;
+}
+
+.page .performanceValue {
+    display: block;
+    margin: 4px 0 2px !important;
+    font-size: 22px !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.02em;
+}
+
+.page .performanceChange {
+    font-size: 12px !important;
+    color: var(--c-faint) !important;
+}
+
+.page .performanceChartWrap {
+    height: 150px !important;
+    min-height: 0 !important;
+}
+
+.page .performanceDivider {
+    height: 1px !important;
+    margin: 6px 0 !important;
+    background: var(--c-line-soft) !important;
+}
+
+/* User metrics card */
+.page .activeUsersCard {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.page .activeUsersValueRow {
+    margin: 10px 0 6px !important;
+}
+
+.page .activeUsersValue {
+    font-size: 26px !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.02em;
+}
+
+.page .activeUsersChart {
+    flex: 1 !important;
+    height: auto !important;
+    min-height: 220px !important;
+}
+
+.page .activeUsersMenu {
+    display: none !important;
+}
+
+/* Revenue & churn: the two trend cards side by side */
+.page .revenueImpactSection {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 16px !important;
+}
+
+.page .revenueImpactSection > .sectionHeading,
+.page .revenueImpactSection > .impactTablesGrid,
+.page .revenueImpactSection > :not(.revenueOverviewCard) {
+    grid-column: 1 / -1 !important;
+}
+
+.page .revenueOverviewCard {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+}
+
+.page .revenueOverviewValueRow strong {
+    font-size: 24px !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.02em;
+}
+
+.page .revenueOverviewValueRow span {
+    font-size: 12px !important;
+    color: var(--c-faint) !important;
+}
+
+.page .revenueOverviewPeriod {
+    border: 1px solid var(--c-line) !important;
+    border-radius: 6px !important;
+    background: #fff !important;
+    font-size: 12px !important;
+    color: var(--c-muted) !important;
+}
+
+.page .revenueOverviewChart {
+    height: 200px !important;
+    min-height: 0 !important;
+    margin: 8px 0 0 !important;
+}
+
+/* Stats under each trend chart: 3 x 2 grid with hairlines */
+.page .revenueOverviewStats {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 0 !important;
+    margin-top: 16px !important;
+    border-top: 1px solid var(--c-line-soft) !important;
+}
+
+.page .revenueOverviewStats > div,
+.page .revenueOverviewStats > div:nth-child(-n + 3),
+.page .revenueOverviewStats > div:nth-child(3n + 1),
+.page .revenueOverviewStats > div:first-child {
+    padding: 12px 12px 10px !important;
+    border-top: 0 !important;
+    border-left: 1px solid var(--c-line-soft) !important;
+    background: transparent !important;
+}
+
+.page .revenueOverviewStats > div:nth-child(3n + 1) {
+    border-left: 0 !important;
+}
+
+.page .revenueOverviewStats > div:nth-child(n + 4) {
+    border-top: 1px solid var(--c-line-soft) !important;
+}
+
+.page .revenueOverviewStats span {
+    font-size: 12px !important;
+    color: var(--c-muted) !important;
+}
+
+.page .revenueOverviewStats strong {
+    font-size: 16px !important;
+    font-weight: 500 !important;
+}
+
+.page .revenueOverviewStats small {
+    font-size: 11.5px !important;
+}
+
+/* Accounts table: plain rows, small grey headers */
+.page .impactTablesGrid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+}
+
+.page .customerImpactTableCard {
+    padding: 0 !important;
+    overflow: hidden;
+}
+
+.page .customerImpactTableTop {
+    padding: 16px 20px !important;
+    border-bottom: 1px solid var(--c-line) !important;
+}
+
+.page .customerImpactTable thead th {
+    padding: 10px 16px !important;
+    background: var(--c-wash) !important;
+    border-bottom: 1px solid var(--c-line) !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    color: var(--c-muted) !important;
+}
+
+.page .customerImpactTable tbody td {
+    padding: 12px 16px !important;
+    border-bottom: 1px solid var(--c-line-soft) !important;
+    background: #fff !important;
+    font-size: 13px !important;
+}
+
+.page .customerImpactTable tbody tr:hover td {
+    background: var(--c-wash) !important;
+}
+
+.page .queueGroupRow td {
+    padding: 10px 16px !important;
+    background: #fff !important;
+}
+
+/* Smaller screens */
+@media (max-width: 1100px) {
+    .page .kpiGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .page .kpiCard:nth-child(3) {
+        border-left: 0 !important;
+    }
+
+    .page .kpiCard:nth-child(n + 3) {
+        border-top: 1px solid var(--c-line-soft) !important;
+    }
+
+    .page .primaryGrid,
+    .page .revenueImpactSection {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .page .primaryGrid > .performanceCard,
+    .page .primaryGrid > .activeUsersCard {
+        grid-column: 1 / -1 !important;
+    }
+}
+
+/* Charts fill their (shorter) containers instead of a fixed 250–300px. */
+.page .revenueOverviewChart > div,
+.page .revenueOverviewChart canvas,
+.page .revenueOverviewChart svg,
+.page .performanceChartWrap > div,
+.page .performanceChartWrap canvas,
+.page .performanceChartWrap svg,
+.page .activeUsersChart > div,
+.page .activeUsersChart canvas,
+.page .activeUsersChart svg {
+    height: 100% !important;
+    min-height: 0 !important;
+}
+
+/* Header with toolbar on the right (above the KPI strip so the Export menu shows) */
+.page .header {
+    position: relative !important;
+    z-index: 30 !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: space-between !important;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.page .revenueOverviewHeader {
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.page .revenueOverviewHeader > div:first-child {
+    margin-right: auto;
+}
+
+.page .revenueOverviewStats span {
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+}
+
+/* ======================================================================== */
+/* Console layout: plain white cards, small titles, quiet section headings  */
+/* ======================================================================== */
+
+.page .title {
+    font-size: 24px !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.01em !important;
+}
+
+.page .subtitle {
+    font-size: 13.5px !important;
+    color: var(--c-muted) !important;
+}
+
+.page .sectionHeading h2 {
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0 !important;
+}
+
+.page .sectionHeading p {
+    font-size: 13px !important;
+    color: var(--c-muted) !important;
+}
+
+.page .revenueOverviewCard,
+.page .activeUsersCard,
+.page .customerImpactTableCard {
+    border: 1px solid var(--c-line) !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+    box-shadow: none !important;
+}
+
+.page .revenueOverviewHeader h3,
+.page .activeUsersHeader .chartTitle,
+.page .customerImpactTableTop h3 {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 2px !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    color: var(--c-ink) !important;
+}
+
+.page .activeUsersHeader .chartMeta,
+.page .customerImpactTableTop p {
+    font-size: 12.5px !important;
+    color: var(--c-muted) !important;
+}

@@ -2,6 +2,7 @@
 
 
 import { useEffect, useMemo, useState } from "react";
+import { Download, Gauge, HeartPulse, PoundSterling, Search, UsersRound } from "lucide-react";
 import styles from "./risk.module.css";
 import { getFirebaseAuth } from "@/lib/firebase.client";
 import { onAuthStateChanged } from "firebase/auth";
@@ -301,13 +302,6 @@ function downloadCustomerCsv(rows: RiskRow[]) {
     link.click();
 
     URL.revokeObjectURL(url);
-}
-
-function riskPillClass(level: RiskLevel) {
-    if (level === "critical") return styles.riskScoreCritical;
-    if (level === "high") return styles.riskScoreHigh;
-    if (level === "medium") return styles.riskScoreMedium;
-    return styles.riskScoreLow;
 }
 
 function initials(name: string) {
@@ -697,231 +691,194 @@ export default function AccountsAtRiskClient() {
     return (
         <>
             <div className={styles.page}>
-                <div className={styles.topBar}>
-                    <div className={styles.searchWrap}>
-                        <input
-                            className={styles.searchInput}
-                            placeholder="Search company..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                        <span className={styles.searchIcon}>⌕</span>
-                    </div>
-
-                    <button
-                        className={styles.downloadBtn}
-                        type="button"
-                        onClick={handleDownloadCsv}
-                    >
-                        Download CSV
-                    </button>
-                </div>
-
-                <div className={styles.header}>
-                    <h1 className={styles.title}>Accounts</h1>
-                    <p className={styles.subtitle}>
-                        All accounts, ranked by churn risk and revenue impact.
-                    </p>
-
-                </div>
-
-                <div className={styles.kpiRow}>
-                    <div className={styles.kpiCard}>
+                <div className={styles.content}>
+                    <header className={styles.header}>
                         <div>
-                            <div className={styles.kpiLabel}>Revenue at risk</div>
-                            <div className={styles.kpiValue}>{formatGBP(summary.mrrAtRisk)}</div>
-                            <div className={styles.kpiSubline}>
-                                {trendText(summary.mrrAtRisk, summary.mrrAtRiskDeltaPct, "money")}
-                            </div>
+                            <h1 className={styles.title}>Accounts</h1>
+                            <p className={styles.subtitle}>
+                                All accounts, ranked by churn risk and revenue impact.
+                            </p>
                         </div>
-                        <div className={styles.kpiIcon}>♙</div>
-                    </div>
 
-                    <div className={styles.kpiCard}>
-                        <div>
-                            <div className={styles.kpiLabel}>Churn exposure</div>
-                            <div className={styles.kpiValue}>{summary.riskScore}%</div>
-                            <div className={styles.kpiSubline}>
-                                {trendText(
-                                    summary.riskScore,
-                                    summary.churnProbabilityDeltaPct,
-                                    "percent"
-                                )}
-                            </div>
-                        </div>
-                        <div className={styles.kpiIcon}>◔</div>
-                    </div>
+                        <button className={styles.consoleButton} type="button" onClick={handleDownloadCsv}>
+                            <Download size={14} strokeWidth={1.8} aria-hidden="true" />
+                            Download CSV
+                        </button>
+                    </header>
 
-                    <div className={styles.kpiCard}>
-                        <div>
-                            <div className={styles.kpiLabel}>Total Users</div>
-                            <div className={styles.kpiValue}>
-                                {summary.totalCustomers > 0 ? summary.totalCustomers : DEMO_ROWS.length}
-                            </div>
-                            <div className={styles.kpiSubline}>
-                                {trendText(
-                                    summary.totalCustomers > 0
-                                        ? summary.totalCustomers
-                                        : DEMO_ROWS.length,
+                    <section className={styles.kpiStrip} aria-label="Account metrics">
+                        {[
+                            {
+                                label: "Revenue at risk",
+                                value: formatGBP(summary.mrrAtRisk),
+                                sub: trendText(summary.mrrAtRisk, summary.mrrAtRiskDeltaPct, "money"),
+                                Icon: PoundSterling,
+                            },
+                            {
+                                label: "Churn exposure",
+                                value: `${summary.riskScore}%`,
+                                sub: trendText(summary.riskScore, summary.churnProbabilityDeltaPct, "percent"),
+                                Icon: Gauge,
+                            },
+                            {
+                                label: "Total users",
+                                value: String(summary.totalCustomers > 0 ? summary.totalCustomers : DEMO_ROWS.length),
+                                sub: trendText(
+                                    summary.totalCustomers > 0 ? summary.totalCustomers : DEMO_ROWS.length,
                                     summary.totalCustomersDelta,
                                     "number"
-                                )}
+                                ),
+                                Icon: UsersRound,
+                            },
+                            {
+                                label: "Users health index",
+                                value: String(healthIndex),
+                                sub: `0% ↑ vs ${healthIndex} previous month`,
+                                Icon: HeartPulse,
+                            },
+                        ].map(({ label, value, sub, Icon }) => (
+                            <div key={label} className={styles.kpiCell}>
+                                <div className={styles.kpiTop}>
+                                    <span className={styles.kpiLabel}>{label}</span>
+                                    <span className={styles.kpiIcon}>
+                                        <Icon size={15} strokeWidth={1.8} aria-hidden="true" />
+                                    </span>
+                                </div>
+                                <div className={styles.kpiValue}>{value}</div>
+                                <div className={styles.kpiSubline}>{sub}</div>
+                            </div>
+                        ))}
+                    </section>
+
+                    <section className={styles.tableSection} aria-label="Accounts list">
+                        <div className={styles.toolbar}>
+                            <div className={styles.tabs} role="tablist" aria-label="Filter accounts">
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={filter === "all"}
+                                    className={filter === "all" ? styles.tabActive : undefined}
+                                    onClick={() => setFilter("all")}
+                                >
+                                    All <span>{allButtonCount}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={filter === "critical"}
+                                    className={filter === "critical" ? styles.tabActive : undefined}
+                                    onClick={handleCriticalClick}
+                                >
+                                    Critical <span>{criticalButtonCount}</span>
+                                </button>
+                            </div>
+
+                            <label className={styles.search}>
+                                <Search size={14} strokeWidth={1.8} aria-hidden="true" />
+                                <input
+                                    placeholder="Search company"
+                                    aria-label="Search company"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                            </label>
+                        </div>
+
+                        <div className={styles.tableWrap}>
+                            <table className={styles.table}>
+                                <thead>
+                                    <tr>
+                                        <th>Account</th>
+                                        <th>Risk</th>
+                                        <th>Next step</th>
+                                        <th className={styles.num}>MRR</th>
+                                        <th>Last active</th>
+                                        <th aria-label="Actions" />
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {displayedRows.map((row) => (
+                                        <tr key={row.id}>
+                                            <td>
+                                                <div className={styles.account}>
+                                                    <span className={styles.avatar}>{initials(row.companyName)}</span>
+                                                    <div>
+                                                        <div className={styles.companyName}>{row.companyName}</div>
+                                                        <div className={styles.muted}>{row.email || "—"}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            <td>
+                                                <span className={`${styles.riskDot} ${styles[`risk_${row.riskLevel}`]}`}>
+                                                    {row.riskScore}
+                                                </span>
+                                            </td>
+
+                                            <td>
+                                                <div>{row.nextAction || "Review account"}</div>
+                                                <div className={styles.muted}>{row.reasonLabel}</div>
+                                            </td>
+
+                                            <td className={styles.num}>{formatGBP(row.mrr)}</td>
+
+                                            <td className={styles.muted}>{formatLastActive(row.lastActiveAt)}</td>
+
+                                            <td className={styles.actions}>
+                                                <button
+                                                    className={styles.consoleButton}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        router.push(`/dashboard/accounts-at-risk/${getProfileId(row)}`)
+                                                    }
+                                                >
+                                                    View
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+
+                                    {!loading && displayedRows.length === 0 && (
+                                        <tr>
+                                            <td colSpan={6} className={styles.emptyState}>
+                                                No accounts found.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+
+                            <div className={styles.footer}>
+                                <span>
+                                    Showing {effectiveTotal === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–
+                                    {Math.min(page * PAGE_SIZE, effectiveTotal)} of {effectiveTotal}
+                                </span>
+
+                                <div className={styles.pager}>
+                                    <button
+                                        className={styles.consoleButton}
+                                        disabled={page <= 1}
+                                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                        type="button"
+                                    >
+                                        Previous
+                                    </button>
+                                    <span>
+                                        Page {page} of {totalPages}
+                                    </span>
+                                    <button
+                                        className={styles.consoleButton}
+                                        disabled={page >= totalPages}
+                                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                        type="button"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <div className={styles.kpiIcon}>♧</div>
-                    </div>
-
-                    <div className={styles.kpiCard}>
-                        <div>
-                            <div className={styles.kpiLabel}>Users health index</div>
-                            <div className={styles.kpiValue}>{healthIndex}</div>
-                            <div className={styles.kpiSubline}>
-                                0% ↑ vs {healthIndex} previous month
-                            </div>
-                        </div>
-                        <div className={styles.kpiIcon}>♡</div>
-                    </div>
-                </div>
-
-                <div className={styles.riskGroupButtons}>
-                    <button
-                        className={
-                            filter === "all"
-                                ? styles.riskFilterBtnActive
-                                : styles.riskFilterBtn
-                        }
-                        onClick={() => setFilter("all")}
-                        type="button"
-                    >
-                        All ({allButtonCount})
-                    </button>
-
-                    <button
-                        className={
-                            filter === "critical"
-                                ? styles.riskFilterBtnActive
-                                : styles.riskFilterBtn
-                        }
-                        onClick={handleCriticalClick}
-                        type="button"
-                    >
-                        Critical ({criticalButtonCount})
-                    </button>
-                </div>
-
-                <div className={styles.tableCard}>
-                    <table className={styles.table}>
-                        <thead>
-                            <tr>
-                                <th>Account</th>
-                                <th>Risk</th>
-                                <th>Reason</th>
-                                <th>MRR</th>
-                                <th>Last active</th>
-                                <th className={styles.thActions}>Action</th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            {displayedRows.map((row) => (
-                                <tr key={row.id}>
-                                    <td>
-                                        <div className={styles.accountWrap}>
-                                            <div className={styles.avatar}>
-                                                {initials(row.companyName)}
-                                            </div>
-                                            <div>
-                                                <div className={styles.companyName}>
-                                                    {row.companyName}
-                                                </div>
-                                                <div className={styles.companySub}>
-                                                    {row.email || "—"}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
-
-                                    <td>
-                                        <span
-                                            className={`${styles.riskScorePill} ${riskPillClass(
-                                                row.riskLevel
-                                            )}`}
-                                        >
-                                            {row.riskScore}
-                                        </span>
-                                    </td>
-
-                                    <td>
-                                        <div className={styles.reasonMain}>
-                                            {row.nextAction || "Review account"}
-                                        </div>
-                                        <div className={styles.reasonSubAction}>
-                                            {row.reasonLabel}
-                                        </div>
-                                    </td>
-
-                                    <td className={styles.mrrCell}>{formatGBP(row.mrr)}</td>
-
-                                    <td className={styles.lastActiveCell}>
-                                        {formatLastActive(row.lastActiveAt)}
-                                    </td>
-
-                                    <td className={styles.tdActions}>
-                                        <button
-                                            className={styles.viewBtn}
-                                            type="button"
-                                            onClick={() =>
-                                                router.push(
-                                                    `/dashboard/accounts-at-risk/${getProfileId(row)}`
-                                                )
-                                            }
-                                        >
-                                            View
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-
-                            {!loading && displayedRows.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className={styles.emptyState}>
-                                        No accounts found.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className={styles.paginationRow}>
-                    <div className={styles.paginationInfo}>
-                        Showing {effectiveTotal === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–
-                        {Math.min(page * PAGE_SIZE, effectiveTotal)} of {effectiveTotal}
-                    </div>
-
-                    <div className={styles.paginationBtns}>
-                        <button
-                            className={styles.viewBtn}
-                            disabled={page <= 1}
-                            onClick={() => setPage((p) => Math.max(1, p - 1))}
-                            type="button"
-                        >
-                            Prev
-                        </button>
-
-                        <div className={styles.pagePill}>
-                            {page} / {totalPages}
-                        </div>
-
-                        <button
-                            className={styles.viewBtn}
-                            disabled={page >= totalPages}
-                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                            type="button"
-                        >
-                            Next
-                        </button>
-                    </div>
+                    </section>
                 </div>
             </div>
 

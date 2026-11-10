@@ -97,6 +97,10 @@ type EmailSettingsResponse = {
     senderEmail: string | null;
     senderReplyTo: string | null;
     senderVerifiedAt: string | null;
+    replyDomain?: string | null;
+    replyDomainStatus?: string | null;
+    replyDomainRecords?: EmailDomainRecord[] | null;
+    repliesTo?: string | null;
     senderMatchesDomain: boolean;
     ready: boolean;
 };
@@ -1484,6 +1488,72 @@ function SettingsPageContent() {
                                                             ))}
                                                         </tbody>
                                                     </table>
+                                                </div>
+                                            )}
+
+                                            {!!emailSettings.replyDomain && (
+                                                <div
+                                                    style={{
+                                                        border: "1px solid #e8eaee",
+                                                        borderRadius: 14,
+                                                        padding: 14,
+                                                        background: "#fff",
+                                                        overflowX: "auto",
+                                                    }}
+                                                >
+                                                    <div style={{ marginBottom: 6, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                                                        <strong>Customer replies</strong>
+                                                        <span style={{ fontSize: 13, color: "#6f6e69" }}>
+                                                            {emailSettings.replyDomain} ·{" "}
+                                                            {String(emailSettings.replyDomainStatus || "pending").toLowerCase() === "verified"
+                                                                ? "receiving replies"
+                                                                : emailSettings.replyDomainStatus || "pending"}
+                                                        </span>
+                                                    </div>
+                                                    <p style={{ margin: "0 0 10px", fontSize: 13, color: "#6f6e69", lineHeight: 1.5 }}>
+                                                        Add this record so customer replies land in your Cobrai inbox. It only applies to{" "}
+                                                        <b>{emailSettings.replyDomain}</b>, so your normal email on {emailSettings.sendingDomain} keeps working.
+                                                        {emailSettings.repliesTo ? (
+                                                            <>
+                                                                {" "}Replies currently go to <b>{emailSettings.repliesTo}</b>.
+                                                            </>
+                                                        ) : null}
+                                                    </p>
+
+                                                    {!!emailSettings.replyDomainRecords?.length && (
+                                                        <table
+                                                            style={{
+                                                                width: "100%",
+                                                                borderCollapse: "collapse",
+                                                                fontSize: 14,
+                                                            }}
+                                                        >
+                                                            <thead>
+                                                                <tr>
+                                                                    <th style={{ textAlign: "left", padding: "8px 6px" }}>Type</th>
+                                                                    <th style={{ textAlign: "left", padding: "8px 6px" }}>Name</th>
+                                                                    <th style={{ textAlign: "left", padding: "8px 6px" }}>Value</th>
+                                                                    <th style={{ textAlign: "left", padding: "8px 6px" }}>Priority</th>
+                                                                    <th style={{ textAlign: "left", padding: "8px 6px" }}>Status</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {emailSettings.replyDomainRecords.map((record, index) => (
+                                                                    <tr key={`reply-${record.name || record.record || "record"}-${index}`}>
+                                                                        <td style={{ padding: "8px 6px", verticalAlign: "top" }}>{record.type || "—"}</td>
+                                                                        <td style={{ padding: "8px 6px", verticalAlign: "top", wordBreak: "break-word" }}>
+                                                                            {record.name || record.record || "—"}
+                                                                        </td>
+                                                                        <td style={{ padding: "8px 6px", verticalAlign: "top", wordBreak: "break-word" }}>
+                                                                            {record.value || "—"}
+                                                                        </td>
+                                                                        <td style={{ padding: "8px 6px", verticalAlign: "top" }}>{record.priority ?? "—"}</td>
+                                                                        <td style={{ padding: "8px 6px", verticalAlign: "top" }}>{record.status || "pending"}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    )}
                                                 </div>
                                             )}
 

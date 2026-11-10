@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
+import { replyToAddressFor, syncReplyDomain } from "@/lib/replyDomain";
 import {
     AuthError,
     getWorkspaceFromRequest,
@@ -39,6 +40,9 @@ export async function POST(req: Request) {
                 senderName: true,
                 senderEmail: true,
                 senderReplyTo: true,
+                replyDomain: true,
+                resendReplyDomainId: true,
+                replyDomainStatus: true,
             },
         });
 
@@ -97,6 +101,11 @@ export async function POST(req: Request) {
             },
         });
 
+        // Check (or create) the reply subdomain alongside the sending domain.
+        const reply = updated.sendingDomain
+            ? await syncReplyDomain(resend, workspaceId, updated.sendingDomain, workspace)
+            : { state: null, error: null };
+
         const senderDomain =
             typeof updated.senderEmail === "string" && updated.senderEmail.includes("@")
                 ? updated.senderEmail.split("@")[1]?.toLowerCase() || null
@@ -117,6 +126,9 @@ export async function POST(req: Request) {
                 records: updated.sendingDomainRecords,
                 verifiedAt: updated.senderVerifiedAt,
             },
+            replyDomain: reply.state,
+            replyDomainError: reply.error,
+            repliesTo: replyToAddressFor({ ...updated, ...(reply.state ?? {}) }),
             sender: {
                 name: updated.senderName,
                 email: updated.senderEmail,

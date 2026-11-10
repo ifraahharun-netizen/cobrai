@@ -4,6 +4,7 @@ import {
     AuthError,
     getWorkspaceFromRequest,
 } from "@/lib/auth/getWorkspaceFromRequest";
+import { replyToAddressFor } from "@/lib/replyDomain";
 
 export const runtime = "nodejs";
 
@@ -40,6 +41,9 @@ export async function GET(req: Request) {
                 senderEmail: true,
                 senderReplyTo: true,
                 senderVerifiedAt: true,
+                replyDomain: true,
+                replyDomainStatus: true,
+                replyDomainRecords: true,
             },
         });
 
@@ -61,6 +65,11 @@ export async function GET(req: Request) {
                 senderEmail: workspace.senderEmail,
                 senderReplyTo: workspace.senderReplyTo,
                 senderVerifiedAt: workspace.senderVerifiedAt,
+                replyDomain: workspace.replyDomain,
+                replyDomainStatus: workspace.replyDomainStatus,
+                replyDomainRecords: workspace.replyDomainRecords,
+                // Where customer replies will go (the reply subdomain once verified).
+                repliesTo: replyToAddressFor(workspace),
                 senderMatchesDomain:
                     !!workspace.senderEmail &&
                     !!workspace.sendingDomain &&

@@ -1,5 +1,4 @@
 import type { EChartsOption } from "echarts";
-import * as echarts from "echarts";
 
 const FALLBACK_LOCALE = "en-GB";
 
@@ -90,38 +89,55 @@ function sanitizeValues(values: number[]) {
     );
 }
 
-function getDynamicRange(
+function niceStep(rough: number) {
+    if (!Number.isFinite(rough) || rough <= 0) return 1;
+    const power = Math.pow(10, Math.floor(Math.log10(rough)));
+    const fraction = rough / power;
+    const nice =
+        fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 2.5 ? 2.5 : fraction <= 5 ? 5 : 10;
+    return nice * power;
+}
+
+/**
+ * Evenly spaced y-axis: min, max and interval all land on round numbers,
+ * so tick labels never bunch up or overlap.
+ */
+function niceAxis(
     values: number[],
-    options?: {
-        minimumFloor?: number;
-        minimumPadding?: number;
-        percentagePadding?: number;
-    }
+    options: { floor?: number; minimumSpan?: number; ticks?: number } = {}
 ) {
+    const ticks = options.ticks ?? 4;
+    const floor = options.floor ?? 0;
+
     if (!values.length) {
-        return {
-            min: options?.minimumFloor ?? 0,
-            max: (options?.minimumFloor ?? 0) + 1,
-        };
+        return { min: floor, max: floor + ticks, interval: 1 };
     }
 
     const lowest = Math.min(...values);
     const highest = Math.max(...values);
-    const spread = highest - lowest;
+    const span = Math.max(highest - lowest, options.minimumSpan ?? 1);
+    const interval = niceStep((span * 1.3) / ticks);
 
-    const padding = Math.max(
-        options?.minimumPadding ?? 1,
-        spread * (options?.percentagePadding ?? 0.22),
-        Math.abs(highest) * 0.025
+    const min = Math.max(
+        floor,
+        Math.floor((lowest - span * 0.12) / interval) * interval
     );
+    let max = Math.ceil((highest + span * 0.12) / interval) * interval;
 
-    return {
-        min: Math.max(
-            options?.minimumFloor ?? 0,
-            lowest - padding
-        ),
-        max: highest + padding,
-    };
+    if (max <= min) max = min + interval;
+
+    return { min, max, interval };
+}
+
+function formatCompactCurrency(value: number) {
+    if (Math.abs(value) < 10000) return formatCurrency(value);
+
+    return new Intl.NumberFormat(userLocale, {
+        style: "currency",
+        currency: userCurrency,
+        notation: "compact",
+        maximumFractionDigits: 1,
+    }).format(value);
 }
 
 function getPreviousValue(
@@ -264,31 +280,20 @@ export function churnTrendOption(
     const safeValues = sanitizeValues(values);
     const isSinglePoint = safeValues.length === 1;
 
-    const range = getDynamicRange(safeValues, {
-        minimumFloor: 0,
-        minimumPadding: 0.35,
-        percentagePadding: 0.28,
+    const axis = niceAxis(safeValues, {
+        floor: 0,
+        minimumSpan: 1,
     });
-
-    const yMin = Math.max(
-        0,
-        Math.floor(range.min * 10) / 10
-    );
-
-    const yMax = Math.max(
-        yMin + 1,
-        Math.ceil(range.max * 10) / 10
-    );
 
     return {
         animation: false,
         backgroundColor: "transparent",
 
         grid: {
-            top: 22,
-            right: 14,
-            bottom: 28,
-            left: 8,
+            top: 12,
+            right: 0,
+            bottom: 4,
+            left: 0,
             containLabel: true,
         },
 
@@ -299,8 +304,9 @@ export function churnTrendOption(
             axisPointer: {
                 type: "line",
                 lineStyle: {
-                    color: "rgba(139,92,246,0.20)",
+                    color: "rgba(139,92,246,0.45)",
                     width: 1,
+                    type: "dashed",
                 },
             },
 
@@ -381,21 +387,18 @@ export function churnTrendOption(
                 show: false,
             },
 
+            // Dates are deliberately hidden; the tooltip still shows the period.
             axisLabel: {
-                color: "#9ca3af",
-                fontSize: 10.5,
-                margin: 12,
-                fontWeight: 500,
-                hideOverlap: true,
-                formatter: (value: string) => value || "",
+                show: false,
             },
         },
 
         yAxis: {
             type: "value",
-            min: yMin,
-            max: yMax,
-            splitNumber: 4,
+            position: "left",
+            min: axis.min,
+            max: axis.max,
+            interval: axis.interval,
 
             axisLine: {
                 show: false,
@@ -410,13 +413,13 @@ export function churnTrendOption(
                 fontSize: 10,
                 margin: 10,
                 formatter: (value: number) =>
-                    `${Number(value).toFixed(1)}%`,
+                    `${Number.isInteger(value) ? value : Number(value).toFixed(1)}%`,
             },
 
             splitLine: {
                 lineStyle: {
-                    color: "rgba(148,163,184,0.10)",
-                    type: "dashed",
+                    color: "#eef1f5",
+                    type: "solid",
                     width: 1,
                 },
             },
@@ -431,10 +434,10 @@ export function churnTrendOption(
 
                 showSymbol: isSinglePoint,
                 symbol: "circle",
-                symbolSize: isSinglePoint ? 7 : 5,
+                symbolSize: isSinglePoint ? 7 : 9,
 
                 lineStyle: {
-                    width: 2.6,
+                    width: 1.8,
                     color: "#8b5cf6",
                     cap: "round",
                     join: "round",
@@ -443,7 +446,7 @@ export function churnTrendOption(
                 itemStyle: {
                     color: "#8b5cf6",
                     borderColor: "#ffffff",
-                    borderWidth: 2,
+                    borderWidth: 2.5,
                 },
 
                 emphasis: {
@@ -454,25 +457,6 @@ export function churnTrendOption(
                     },
                 },
 
-                areaStyle: {
-                    opacity: 1,
-                    color: new echarts.graphic.LinearGradient(
-                        0,
-                        0,
-                        0,
-                        1,
-                        [
-                            {
-                                offset: 0,
-                                color: "rgba(139,92,246,0.16)",
-                            },
-                            {
-                                offset: 1,
-                                color: "rgba(139,92,246,0.01)",
-                            },
-                        ]
-                    ),
-                },
             },
         ],
     };
@@ -490,36 +474,20 @@ export function mrrProtectedOption(
     const safeValues = sanitizeValues(values);
     const isSinglePoint = safeValues.length === 1;
 
-    const range = getDynamicRange(safeValues, {
-        minimumFloor: 0,
-        minimumPadding: 120,
-        percentagePadding: 0.24,
+    const axis = niceAxis(safeValues, {
+        floor: 0,
+        minimumSpan: 100,
     });
-
-    const scale =
-        Math.max(...safeValues, 0) >= 10000
-            ? 1000
-            : 100;
-
-    const yMin = Math.max(
-        0,
-        Math.floor(range.min / scale) * scale
-    );
-
-    const yMax = Math.max(
-        yMin + scale,
-        Math.ceil(range.max / scale) * scale
-    );
 
     return {
         animation: false,
         backgroundColor: "transparent",
 
         grid: {
-            top: 22,
-            right: 14,
-            bottom: 28,
-            left: 4,
+            top: 12,
+            right: 0,
+            bottom: 4,
+            left: 0,
             containLabel: true,
         },
 
@@ -530,8 +498,9 @@ export function mrrProtectedOption(
             axisPointer: {
                 type: "line",
                 lineStyle: {
-                    color: "rgba(29,155,240,0.20)",
+                    color: "rgba(59,111,224,0.45)",
                     width: 1,
+                    type: "dashed",
                 },
             },
 
@@ -612,21 +581,18 @@ export function mrrProtectedOption(
                 show: false,
             },
 
+            // Dates are deliberately hidden; the tooltip still shows the period.
             axisLabel: {
-                color: "#9ca3af",
-                fontSize: 10.5,
-                margin: 12,
-                fontWeight: 500,
-                hideOverlap: true,
-                formatter: (value: string) => value || "",
+                show: false,
             },
         },
 
         yAxis: {
             type: "value",
-            min: yMin,
-            max: yMax,
-            splitNumber: 4,
+            position: "left",
+            min: axis.min,
+            max: axis.max,
+            interval: axis.interval,
 
             axisLine: {
                 show: false,
@@ -641,13 +607,13 @@ export function mrrProtectedOption(
                 fontSize: 10,
                 margin: 10,
                 formatter: (value: number) =>
-                    formatCurrency(value),
+                    formatCompactCurrency(value),
             },
 
             splitLine: {
                 lineStyle: {
-                    color: "rgba(148,163,184,0.10)",
-                    type: "dashed",
+                    color: "#eef1f5",
+                    type: "solid",
                     width: 1,
                 },
             },
@@ -662,48 +628,144 @@ export function mrrProtectedOption(
 
                 showSymbol: isSinglePoint,
                 symbol: "circle",
-                symbolSize: isSinglePoint ? 7 : 5,
+                symbolSize: isSinglePoint ? 7 : 9,
 
                 lineStyle: {
-                    width: 2.6,
-                    color: "#1d9bf0",
+                    width: 1.8,
+                    color: "#3b6fe0",
                     cap: "round",
                     join: "round",
                 },
 
                 itemStyle: {
-                    color: "#1d9bf0",
+                    color: "#3b6fe0",
                     borderColor: "#ffffff",
-                    borderWidth: 2,
+                    borderWidth: 2.5,
                 },
 
                 emphasis: {
                     scale: true,
                     itemStyle: {
                         shadowBlur: 12,
-                        shadowColor: "rgba(29,155,240,0.24)",
+                        shadowColor: "rgba(59,111,224,0.24)",
                     },
                 },
 
-                areaStyle: {
-                    opacity: 1,
-                    color: new echarts.graphic.LinearGradient(
-                        0,
-                        0,
-                        0,
-                        1,
-                        [
-                            {
-                                offset: 0,
-                                color: "rgba(29,155,240,0.16)",
-                            },
-                            {
-                                offset: 1,
-                                color: "rgba(29,155,240,0.01)",
-                            },
-                        ]
-                    ),
-                },
+            },
+        ],
+    };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Widget-style line charts (Active users, Acquired & retained)               */
+/* Sharp lines, day labels, dashed horizontal grid, dark hover bubble.        */
+/* -------------------------------------------------------------------------- */
+
+function compactNumber(value: number) {
+    return new Intl.NumberFormat(userLocale, {
+        notation: "compact",
+        maximumFractionDigits: 1,
+    }).format(value);
+}
+
+function widgetAxes(
+    labels: string[],
+    max: number,
+    range?: { min: number; max: number; interval: number }
+): Pick<EChartsOption, "grid" | "xAxis" | "yAxis"> {
+    const step = niceStep((Math.max(max, 1) * 1.1) / 4);
+    const yRange = range ?? {
+        min: 0,
+        max: Math.ceil((Math.max(max, 1) * 1.1) / step) * step,
+        interval: step,
+    };
+
+    return {
+        // Same frame as the Revenue / Churn charts: scale on the right, no dates.
+        grid: { top: 12, right: 0, bottom: 4, left: 0, containLabel: true },
+        xAxis: {
+            type: "category",
+            data: labels,
+            boundaryGap: false,
+            axisTick: { show: false },
+            axisLine: { show: false },
+            axisLabel: { show: false },
+            splitLine: { show: false },
+        },
+        yAxis: {
+            type: "value",
+            position: "left",
+            min: yRange.min,
+            max: yRange.max,
+            interval: yRange.interval,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: {
+                color: "#9ca3af",
+                fontSize: 10,
+                margin: 10,
+                formatter: (value: number) => compactNumber(value),
+            },
+            splitLine: { lineStyle: { color: "#eef1f5", type: "solid", width: 1 } },
+        },
+    };
+}
+
+const DARK_TOOLTIP = {
+    backgroundColor: "#101828",
+    borderWidth: 0,
+    padding: [6, 10] as [number, number],
+    textStyle: { color: "#ffffff", fontSize: 12 },
+    extraCssText: "border-radius:8px; box-shadow:0 8px 20px rgba(16,24,40,0.18);",
+};
+
+/** Active users per day: one blue line with a soft fill. */
+export function activeUsersLineOption(
+    labels: string[],
+    tooltipLabels: string[],
+    values: number[]
+): EChartsOption {
+    const safeValues = sanitizeValues(values);
+
+    return {
+        animation: false,
+        backgroundColor: "transparent",
+        // Fit the scale to the data so day-to-day movement is visible.
+        ...widgetAxes(
+            labels,
+            Math.max(...safeValues, 0),
+            niceAxis(safeValues, { floor: 0, minimumSpan: 10 })
+        ),
+        tooltip: {
+            trigger: "axis",
+            confine: true,
+            ...DARK_TOOLTIP,
+            axisPointer: {
+                type: "shadow",
+                shadowStyle: { color: "rgba(14,165,233,0.06)" },
+            },
+            formatter: (params: unknown) => {
+                const item = (Array.isArray(params) ? params[0] : params) as {
+                    dataIndex?: number;
+                    value?: number;
+                };
+                const index = Number(item?.dataIndex ?? 0);
+                return `<span style="opacity:.7">${tooltipLabels[index] ?? ""}</span><br/><b>${Number(
+                    item?.value ?? 0
+                ).toLocaleString(userLocale)}</b> active users`;
+            },
+        },
+        series: [
+            {
+                name: "Active users",
+                type: "line",
+                data: safeValues,
+                smooth: false,
+                showSymbol: false,
+                symbol: "circle",
+                symbolSize: 8,
+                lineStyle: { width: 1.8, color: "#0ea5e9", join: "round" },
+                itemStyle: { color: "#0ea5e9", borderColor: "#ffffff", borderWidth: 2 },
             },
         ],
     };

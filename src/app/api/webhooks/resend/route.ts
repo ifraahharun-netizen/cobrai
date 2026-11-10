@@ -1,23 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
+import { Resend } from "resend";
 
 import { prisma } from "@/lib/prisma";
-
-function verifySignature(payload: string, signature: string | null) {
-    const secret = process.env.RESEND_WEBHOOK_SECRET;
-
-    if (!secret || !signature) return false;
-
-    const expected = crypto
-        .createHmac("sha256", secret)
-        .update(payload)
-        .digest("hex");
-
-    return crypto.timingSafeEqual(
-        Buffer.from(expected),
-        Buffer.from(signature)
-    );
-}
+import { fileReceivedEmail, verifyResendWebhook } from "@/lib/resendWebhook";
 
 async function reduceCustomerRisk(customerId: string, amount = 0.08) {
     const customer = await prisma.customer.findUnique({
@@ -51,19 +36,34 @@ async function reduceCustomerRisk(customerId: string, amount = 0.08) {
 
 export async function POST(req: NextRequest) {
     try {
+        const secret = process.env.RESEND_WEBHOOK_SECRET;
+        const apiKey = process.env.RESEND_API_KEY;
+
+        if (!secret || !apiKey) {
+            console.error("Resend webhook: RESEND_WEBHOOK_SECRET or RESEND_API_KEY is not set");
+            return NextResponse.json(
+                { ok: false, error: "Webhook not configured" },
+                { status: 503 }
+            );
+        }
+
+        const resend = new Resend(apiKey);
         const rawBody = await req.text();
 
-        const signature =
-            req.headers.get("x-resend-signature") ||
-            req.headers.get("resend-signature");
+        // Resend signs webhooks with Svix (svix-id / svix-timestamp / svix-signature).
+        const event = verifyResendWebhook(resend, req.headers, rawBody, secret);
 
-        const valid = verifySignature(rawBody, signature);
-
-        if (!valid) {
+        if (!event) {
             return NextResponse.json(
                 { ok: false, error: "Invalid signature" },
                 { status: 401 }
             );
+        }
+
+        // Customer emails received on a workspace's reply domain go to the inbox.
+        if (event.type === "email.received") {
+            const result = await fileReceivedEmail(resend, event);
+            return NextResponse.json({ ok: true, ...result });
         }
 
         const body = JSON.parse(rawBody);
@@ -71,10 +71,11 @@ export async function POST(req: NextRequest) {
         const eventType = body.type;
         const data = body.data || {};
 
+        // One email gets several events (delivered, opened, clicked), so dedupe
+        // on Resend's per-event delivery id rather than the email id.
         const providerEventId =
-            data.email_id ||
-            data.id ||
-            crypto.randomUUID();
+            req.headers.get("svix-id") ||
+            `${eventType}:${data.email_id || data.id}`;
 
         const existing = await prisma.providerEvent.findUnique({
             where: {

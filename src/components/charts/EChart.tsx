@@ -25,11 +25,20 @@ export default function EChart({ option, onEvents }: EChartProps) {
             chartRef.current?.resize();
         });
 
+        // Redraw whenever the chart's own box changes size (card width, layout
+        // breakpoints), not just when the window resizes. Without this the
+        // canvas keeps its old size and gets clipped or stretched.
         const resize = () => chartRef.current?.resize();
+        const observer =
+            typeof ResizeObserver !== "undefined"
+                ? new ResizeObserver(() => resize())
+                : null;
+        observer?.observe(ref.current);
         window.addEventListener("resize", resize);
 
         return () => {
             window.cancelAnimationFrame(frame);
+            observer?.disconnect();
             window.removeEventListener("resize", resize);
         };
     }, [option]);

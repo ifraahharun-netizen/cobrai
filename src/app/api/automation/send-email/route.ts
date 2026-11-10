@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
 import { AuthError, getWorkspaceFromRequest } from "@/lib/auth/getWorkspaceFromRequest";
 import { ratelimit } from "@/lib/rateLimit";
+import { replyToAddressFor } from "@/lib/replyDomain";
 export const runtime = "nodejs";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -241,6 +242,8 @@ export async function POST(req: Request) {
                 senderName: true,
                 senderEmail: true,
                 senderReplyTo: true,
+                replyDomain: true,
+                replyDomainStatus: true,
             },
         });
 
@@ -268,7 +271,8 @@ export async function POST(req: Request) {
 
         const senderName = normalizeText(workspace.senderName) || workspace.name || "Cobrai";
         const senderEmail = normalizeText(workspace.senderEmail);
-        const replyTo = normalizeText(workspace.senderReplyTo);
+        // Customer replies go to the workspace's reply subdomain once it is verified.
+        const replyTo = normalizeText(replyToAddressFor(workspace));
 
         const sendingDomain = normalizeText(workspace.sendingDomain).toLowerCase();
         const senderDomain = getEmailDomain(senderEmail);
