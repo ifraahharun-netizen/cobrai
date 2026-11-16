@@ -1,5 +1,6 @@
 "use client";
 
+import { startIntegrationConnect } from "@/lib/integrations/startConnect.client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
@@ -128,9 +129,11 @@ export default function FirstRunModal() {
 
         await markFirstRunCompleted({ selectedSetupStep: "stripe" });
 
-        window.location.href = `/api/integrations/stripe/connect?uid=${encodeURIComponent(
-            user.uid
-        )}`;
+        try {
+            await startIntegrationConnect(user, "stripe");
+        } catch (error) {
+            console.error("Stripe connect failed:", error);
+        }
     }
 
     async function connectHubSpot() {
@@ -138,9 +141,11 @@ export default function FirstRunModal() {
 
         await markFirstRunCompleted({ selectedSetupStep: "hubspot" });
 
-        window.location.href = `/api/integrations/hubspot/connect?uid=${encodeURIComponent(
-            user.uid
-        )}`;
+        try {
+            await startIntegrationConnect(user, "hubspot");
+        } catch (error) {
+            console.error("HubSpot connect failed:", error);
+        }
     }
 
     async function connectResend() {

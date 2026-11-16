@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireUserFromAuthHeader } from "@/lib/serverAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,14 +14,21 @@ async function getWorkspaceIdForUid(uid: string) {
     return user?.workspaceId ?? null;
 }
 
+/**
+ * Starts Stripe Connect for the signed-in user. Call with fetch and an
+ * Authorization: Bearer <Firebase ID token> header; returns { url } to send
+ * the browser to. The user comes from the verified token, never the request.
+ */
 export async function GET(req: Request) {
+    let uid: string;
     try {
-        const { searchParams, origin } = new URL(req.url);
-        const uid = searchParams.get("uid");
+        uid = (await requireUserFromAuthHeader(req)).uid;
+    } catch {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-        if (!uid) {
-            return NextResponse.json({ error: "Missing uid" }, { status: 400 });
-        }
+    try {
+        const { origin } = new URL(req.url);
 
         const workspaceId = await getWorkspaceIdForUid(uid);
 
@@ -63,7 +71,7 @@ export async function GET(req: Request) {
         stripeAuthUrl.searchParams.set("redirect_uri", redirectUri);
         stripeAuthUrl.searchParams.set("state", stateToken);
 
-        const response = NextResponse.redirect(stripeAuthUrl.toString());
+        const response = NextResponse.json({ url: stripeAuthUrl.toString() });
 
         response.cookies.set("stripe_uid", uid, {
             httpOnly: true,
@@ -77,11 +85,6 @@ export async function GET(req: Request) {
     } catch (error) {
         console.error("[Stripe Connect] start failed:", error);
 
-        const appUrl =
-            (process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin).replace(/\/$/, "");
-
-        return NextResponse.redirect(
-            `${appUrl}/dashboard/settings?tab=integration&stripe=error`
-        );
+        return NextResponse.json({ error: "Failed to start Stripe connect." }, { status: 500 });
     }
 }

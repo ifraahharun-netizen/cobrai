@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireUserFromAuthHeader } from "@/lib/serverAuth";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -21,13 +22,15 @@ async function getWorkspaceIdForUid(uid: string) {
 }
 
 export async function POST(req: Request) {
+    let uid: string;
     try {
-        const body = await req.json();
-        const uid = typeof body?.uid === "string" ? body.uid : null;
+        // The user comes from the verified sign-in token, never the request.
+        uid = (await requireUserFromAuthHeader(req)).uid;
+    } catch {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-        if (!uid) {
-            return NextResponse.json({ error: "Missing uid" }, { status: 400 });
-        }
+    try {
 
         const workspaceId = await getWorkspaceIdForUid(uid);
 

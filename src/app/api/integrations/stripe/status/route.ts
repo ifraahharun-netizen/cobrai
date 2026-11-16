@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireUserFromAuthHeader } from "@/lib/serverAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -21,15 +22,15 @@ async function getWorkspaceForUid(uid: string) {
 }
 
 export async function GET(req: NextRequest) {
+    let uid: string;
     try {
-        const uid = req.nextUrl.searchParams.get("uid");
+        // The user comes from the verified sign-in token, never the request.
+        uid = (await requireUserFromAuthHeader(req)).uid;
+    } catch {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-        if (!uid) {
-            return NextResponse.json(
-                { error: "Missing uid" },
-                { status: 400 }
-            );
-        }
+    try {
 
         const workspace = await getWorkspaceForUid(uid);
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { ratelimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +15,22 @@ function isEmail(value: string) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+/** The caller's IP, from the proxy headers the host sets. */
+function clientIp(req: Request) {
+    const forwarded = req.headers.get("x-forwarded-for");
+    return forwarded?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
+}
+
 export async function POST(req: Request) {
+    // Public form (no sign-in), so limit by IP to stop it being used to spam the support inbox.
+    const { success } = await ratelimit.limit(`recover-email:${clientIp(req)}`);
+    if (!success) {
+        return NextResponse.json(
+            { ok: false, error: "Too many requests. Please wait a minute and try again." },
+            { status: 429 }
+        );
+    }
+
     try {
         const body = await req.json();
 

@@ -7,6 +7,7 @@ import styles from "./settings.module.css";
 import { SiHubspot, SiStripe, SiResend } from "react-icons/si";
 import { onAuthStateChanged, updateProfile, type User } from "firebase/auth";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase.client";
+import { startIntegrationConnect } from "@/lib/integrations/startConnect.client";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 
 
@@ -337,13 +338,13 @@ function SettingsPageContent() {
             let stripeState = firestoreState.stripe;
 
             try {
-                const res = await fetch(
-                    `/api/integrations/stripe/status?uid=${encodeURIComponent(uid)}`,
-                    {
-                        method: "GET",
-                        cache: "no-store",
-                    }
-                );
+                // The server reads the user from the sign-in token, not the URL.
+                const token = await auth.currentUser?.getIdToken();
+                const res = await fetch("/api/integrations/stripe/status", {
+                    method: "GET",
+                    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                    cache: "no-store",
+                });
 
                 if (res.ok) {
                     const data = await res.json();
@@ -752,12 +753,7 @@ function SettingsPageContent() {
             setConnectingKey(key);
             setIntegrationMessage(null);
 
-            const url =
-                key === "hubspot"
-                    ? `/api/integrations/hubspot/connect?uid=${firebaseUser.uid}`
-                    : `/api/integrations/stripe/connect?uid=${firebaseUser.uid}`;
-
-            window.location.href = url;
+            await startIntegrationConnect(firebaseUser, key === "hubspot" ? "hubspot" : "stripe");
         } catch (error) {
             console.error(`Failed to start ${key} connection:`, error);
             setConnectingKey(null);
