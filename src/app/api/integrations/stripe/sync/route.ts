@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
+import { requireUserFromAuthHeader } from "@/lib/serverAuth";
 
 import { runWorkspaceAnalyticsPipeline } from "@/lib/analytics/runWorkspaceAnalyticsPipeline";
 
 export const dynamic = "force-dynamic";
-
-type SyncBody = {
-    uid?: string;
-};
 
 function getStripeClient() {
     const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -105,13 +102,15 @@ function getMonthlyAmountMinorFromSubscription(
 }
 
 export async function POST(req: Request) {
+    let uid: string;
     try {
-        const body = (await req.json()) as SyncBody;
-        const uid = typeof body?.uid === "string" ? body.uid : null;
+        // The user comes from the verified sign-in token, never the request.
+        uid = (await requireUserFromAuthHeader(req)).uid;
+    } catch {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-        if (!uid) {
-            return NextResponse.json({ error: "Missing uid" }, { status: 400 });
-        }
+    try {
 
         const workspace = await getWorkspaceForUid(uid);
 

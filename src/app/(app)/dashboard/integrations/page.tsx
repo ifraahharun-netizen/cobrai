@@ -1,5 +1,6 @@
 "use client";
 
+import { startIntegrationConnect } from "@/lib/integrations/startConnect.client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { useRouter } from "next/navigation";
@@ -233,7 +234,11 @@ export default function IntegrationsPage() {
 
 
         if (tool.key === "hubspot") {
-            window.location.href = `/api/integrations/hubspot/connect?uid=${encodeURIComponent(user.uid)}`;
+            try {
+                await startIntegrationConnect(user, "hubspot");
+            } catch (error) {
+                setToast(error instanceof Error ? error.message : "Failed to start HubSpot connect.");
+            }
             return;
         }
 
@@ -243,29 +248,11 @@ export default function IntegrationsPage() {
         }
 
         if (tool.key === "stripe") {
-            const token = await user.getIdToken(true);
-
-            const res = await fetch("/api/integrations/stripe/connect", {
-                method: "GET",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-                cache: "no-store",
-            });
-
-            if (res.redirected) {
-                window.location.href = res.url;
-                return;
+            try {
+                await startIntegrationConnect(user, "stripe");
+            } catch (error) {
+                setToast(error instanceof Error ? error.message : "Failed to start Stripe connect.");
             }
-
-            const data = await res.json().catch(() => null);
-
-            if (data?.url) {
-                window.location.href = data.url;
-                return;
-            }
-
-            setToast(data?.error || "Failed to start Stripe connect.");
             return;
         }
     }

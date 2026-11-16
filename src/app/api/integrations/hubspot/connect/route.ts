@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { requireUserFromAuthHeader } from "@/lib/serverAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,10 +13,6 @@ function getAppBaseUrl(req: NextRequest) {
     }
 
     return req.nextUrl.origin.replace(/\/$/, "");
-}
-
-function safeRedirect(appBaseUrl: string, path: string) {
-    return NextResponse.redirect(new URL(path, appBaseUrl));
 }
 
 function base64Url(buffer: Buffer) {
@@ -34,22 +31,26 @@ function createCodeChallenge(verifier: string) {
     return base64Url(crypto.createHash("sha256").update(verifier).digest());
 }
 
+/**
+ * Starts HubSpot OAuth for the signed-in user. Call with fetch and an
+ * Authorization: Bearer <Firebase ID token> header; returns { url } to send
+ * the browser to. The user comes from the verified token, never the request.
+ */
 export async function GET(req: NextRequest) {
-    const uid = req.nextUrl.searchParams.get("uid");
-    const appBaseUrl = getAppBaseUrl(req);
-
-    if (!uid || uid.length > 128) {
-        return safeRedirect(appBaseUrl, "/dashboard/settings?error=missing_uid");
+    let uid: string;
+    try {
+        uid = (await requireUserFromAuthHeader(req)).uid;
+    } catch {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const appBaseUrl = getAppBaseUrl(req);
 
     const clientId = process.env.HUBSPOT_CLIENT_ID;
 
     if (!clientId) {
         console.error("Missing HUBSPOT_CLIENT_ID");
-        return safeRedirect(
-            appBaseUrl,
-            "/dashboard/settings?error=hubspot_not_configured"
-        );
+        return NextResponse.json({ error: "HubSpot is not configured." }, { status: 500 });
     }
 
     const redirectUri =
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest) {
         `&code_challenge=${encodeURIComponent(codeChallenge)}` +
         `&code_challenge_method=S256`;
 
-    const response = NextResponse.redirect(authUrl);
+    const response = NextResponse.json({ url: authUrl });
 
     response.cookies.set("hubspot_uid", uid, {
         httpOnly: true,
