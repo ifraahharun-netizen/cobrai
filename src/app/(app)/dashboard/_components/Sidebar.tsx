@@ -40,7 +40,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
     return (
         <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ""}`}>
-            <div className={styles.header}>
+            <div className={`${styles.header} ${onToggle ? styles.headerFoldable : ""}`}>
                 <Link href="/dashboard" aria-label="Cobrai home" className={styles.brandLink}>
                     {collapsed ? (
                         <Image
@@ -64,6 +64,23 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                         />
                     )}
                 </Link>
+
+                {onToggle ? (
+                    <button
+                        type="button"
+                        className={styles.foldButton}
+                        onClick={onToggle}
+                        aria-expanded={!collapsed}
+                        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    >
+                        {collapsed ? (
+                            <PanelLeftOpen size={16} strokeWidth={1.8} aria-hidden="true" />
+                        ) : (
+                            <PanelLeftClose size={16} strokeWidth={1.8} aria-hidden="true" />
+                        )}
+                    </button>
+                ) : null}
             </div>
 
             <nav className={styles.section} aria-label="Main">
@@ -110,24 +127,6 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                     <span className={styles.label}>Sign out</span>
                 </button>
 
-                {onToggle ? (
-                    <button
-                        type="button"
-                        className={`${styles.item} ${styles.collapseItem}`}
-                        onClick={onToggle}
-                        aria-expanded={!collapsed}
-                        {...(collapsed
-                            ? { "aria-label": "Expand sidebar", "data-tooltip": "Expand sidebar" }
-                            : {})}
-                    >
-                        {collapsed ? (
-                            <PanelLeftOpen size={16} strokeWidth={1.8} aria-hidden="true" />
-                        ) : (
-                            <PanelLeftClose size={16} strokeWidth={1.8} aria-hidden="true" />
-                        )}
-                        <span className={styles.label}>Collapse</span>
-                    </button>
-                ) : null}
             </div>
         </aside>
     );

@@ -3772,3 +3772,833 @@ button.kpiTile:focus-visible {
         width: 100%;
     }
 }
+
+/* ======================================================================== */
+/* Overview refresh: calmer KPI cards, chart cards on                      */
+/* white with neutral greys, stats as a tidy list under each chart.         */
+/* ======================================================================== */
+
+.kpiTiles .kpiTile,
+.kpiTiles .kpiTile:first-child,
+.kpiTiles .kpiTile:nth-child(n) {
+    gap: 0;
+    padding: 16px 18px 16px;
+    border: 1px solid #ebebeb;
+    border-radius: 12px;
+    background: #fff;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.kpiTiles .kpiTile:hover {
+    border-color: #dedede;
+    box-shadow: 0 1px 2px rgba(24, 24, 27, 0.04);
+}
+
+.kpiTiles .kpiTileTop {
+    align-items: center;
+    min-height: 22px;
+    gap: 8px;
+}
+
+.kpiTiles .kpiTileLabel {
+    min-width: 0;
+    gap: 2px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #71717a;
+}
+
+.kpiTileLabelText {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.kpiTiles .kpiTileLink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: #a1a1aa;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.kpiTiles .kpiTile:hover .kpiTileLink {
+    color: #52525b;
+    border-color: #ebebeb;
+}
+
+.kpiTiles .kpiTileLink:hover {
+    background: #f5f5f5;
+    color: #18181b;
+}
+
+.kpiTileBody {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.kpiTileFigures {
+    min-width: 0;
+}
+
+.kpiTiles .kpiTileValue {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+    color: #18181b;
+    white-space: nowrap;
+}
+
+.kpiTiles .kpiTileSub {
+    margin-top: 8px;
+    gap: 6px;
+    font-size: 11.5px;
+    color: #a1a1aa;
+    white-space: nowrap;
+}
+
+.kpiTiles .changeBadge {
+    padding: 2px 6px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 500;
+}
+
+.kpiTiles .change_good {
+    background: #ecf7f1;
+    color: #1f7a4d;
+}
+
+.kpiTiles .change_bad {
+    background: #fdf0ef;
+    color: #b8423e;
+}
+
+.kpiTiles .change_neutral {
+    background: #f4f4f5;
+    color: #52525b;
+}
+
+/* Chart cards */
+.chartGrid {
+    gap: 16px;
+}
+
+.gridCard,
+.extraCard,
+.riskCard {
+    border-color: #ebebeb !important;
+}
+
+.chartGrid > .gridCard {
+    padding: 20px 20px 16px !important;
+}
+
+.segmented {
+    border-color: #ebebeb;
+    background: #f7f7f8;
+}
+
+.segmented button {
+    color: #71717a;
+}
+
+.segmented button[aria-selected="true"] {
+    color: #18181b;
+    box-shadow: 0 1px 2px rgba(24, 24, 27, 0.08);
+}
+
+.headDelta {
+    color: #a1a1aa;
+}
+
+/* Stats under the MRR and churn charts: one tidy list, label left, value and change right */
+.statsGrid.statsGrid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    margin-top: 12px !important;
+    border-top: 1px solid #f0f0f0 !important;
+}
+
+.statsGrid.statsGrid > div,
+.statsGrid.statsGrid > div:nth-child(3n + 2),
+.statsGrid.statsGrid > div:nth-child(3n + 3) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto 64px;
+    align-items: baseline;
+    column-gap: 14px;
+    padding: 9px 0 !important;
+    border: 0 !important;
+    border-bottom: 1px solid #f4f4f5 !important;
+}
+
+.statsGrid.statsGrid > div:last-child,
+.statsGrid.statsGrid > div:nth-last-child(-n + 3):last-child {
+    border-bottom: 0 !important;
+}
+
+.statsGrid.statsGrid > div:nth-last-child(-n + 3) {
+    border-bottom: 1px solid #f4f4f5 !important;
+}
+
+.statsGrid.statsGrid > div:last-child {
+    border-bottom: 0 !important;
+}
+
+.statsGrid.statsGrid > div > span:first-child {
+    font-size: 12.5px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    color: #71717a !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.statsGrid.statsGrid strong {
+    margin: 0 !important;
+    font-size: 13.5px !important;
+    font-weight: 500 !important;
+    color: #18181b !important;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.statsGrid.statsGrid small {
+    display: flex !important;
+    justify-content: flex-end;
+    margin: 0 !important;
+    font-size: 11.5px !important;
+    white-space: nowrap;
+}
+
+/* "vs previous month" repeats on every row: one caption above the list says it,
+   and each row keeps it for screen readers only. */
+.statsGrid.statsGrid::before {
+    content: "This month · change vs previous month";
+    display: block;
+    padding: 10px 0 2px;
+    font-size: 11px;
+    color: #a1a1aa;
+}
+
+.statsGrid.statsGrid small > span:last-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+/* No change figure for this row: show a dash */
+.statsGrid.statsGrid small:has(> span:only-child)::before {
+    content: "—";
+    color: #d4d4d8;
+}
+
+/* ---- Subscribers and Recoverable revenue cards ---- */
+
+/* Big number under the card title, same as MRR and churn */
+.cardHeadline {
+    margin-top: 10px;
+}
+
+.gridCard .subscribersChart.subscribersChart {
+    flex: 1 1 232px !important;
+    height: auto !important;
+    min-height: 232px !important;
+    margin-top: 8px !important;
+}
+
+/* Link at the foot of a card */
+.cardFooterLink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    height: 34px;
+    margin-top: auto;
+    padding: 0 12px;
+    border: 1px solid #ebebeb;
+    border-radius: 8px;
+    background: #fff;
+    color: #3f3f46;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.cardFooterLink:hover {
+    background: #f7f7f8;
+    border-color: #dedede;
+    color: #18181b;
+}
+
+.cardFooterLink:focus-visible {
+    outline: 2px solid #3b6fe0;
+    outline-offset: 2px;
+}
+
+/* The layout around the chart grid sizes to content; keep the grid full width. */
+.chartGrid.chartGrid {
+    width: 100%;
+    align-self: stretch;
+}
+
+/* ---- Recoverable revenue: donut card ---- */
+
+.chartGrid .recoverCard {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 20px 20px 16px !important;
+}
+
+.recoverHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.recoverHead h3 {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: #18181b;
+}
+
+.recoverHead p {
+    margin: 4px 0 0;
+    font-size: 12.5px;
+    color: #a1a1aa;
+}
+
+.recoverBody {
+    display: grid;
+    grid-template-columns: 196px minmax(0, 1fr);
+    align-items: center;
+    gap: 28px;
+    flex: 1;
+}
+
+.recoverDonut {
+    position: relative;
+    width: 196px;
+    height: 196px;
+}
+
+.recoverDonut > div:first-child {
+    width: 100%;
+    height: 100%;
+}
+
+.recoverCentre {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.recoverCentre strong {
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: #18181b;
+    font-variant-numeric: tabular-nums;
+}
+
+.recoverCentre span {
+    margin-top: 2px;
+    font-size: 12px;
+    color: #a1a1aa;
+}
+
+.recoverLegend {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.recoverLegend li {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid #f4f4f5;
+}
+
+.recoverLegend li:last-child {
+    border-bottom: 0;
+}
+
+.recoverLegend li > i {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+}
+
+.recoverName,
+.recoverValue {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    font-size: 13px;
+    color: #3f3f46;
+}
+
+.recoverName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.recoverValue {
+    align-items: flex-end;
+    font-weight: 500;
+    color: #18181b;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.recoverName small,
+.recoverValue small {
+    font-size: 11.5px;
+    font-weight: 400;
+    color: #a1a1aa;
+}
+
+.recoverEmpty {
+    flex: 1;
+    margin: 0;
+    font-size: 13px;
+    color: #a1a1aa;
+}
+
+@media (max-width: 1180px) {
+    .recoverBody {
+        grid-template-columns: minmax(0, 1fr);
+        justify-items: center;
+        gap: 16px;
+    }
+
+    .recoverLegend {
+        width: 100%;
+    }
+}
+
+/* ---- Subscribers chart: Console-style legend ---- */
+.subsLegend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin: 14px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+    color: #6b6a65;
+}
+
+.subsLegend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.subsLegend i {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+}
+
+/* ---- Page header and section headings, matching the Dashboard ---- */
+.pageTitle.pageTitle {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: #1f1e1b;
+}
+
+.pageSubtitle.pageSubtitle {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: #6f6e69;
+}
+
+.dataPill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.dataPill::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.dataPillDemo {
+    background: #fffaeb;
+    color: #b54708;
+}
+
+.dataPillLive {
+    background: #ecf7f1;
+    color: #1f7a4d;
+}
+
+.chartGrid > .gridSection {
+    grid-column: 1 / -1;
+    margin-top: 12px;
+}
+
+.chartGrid > .gridSection:first-child {
+    margin-top: 8px;
+}
+
+.gridSection h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: #1f1e1b;
+}
+
+.gridSection p {
+    margin: 6px 0 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: #6f6e69;
+}
+
+.subsLegend b {
+    margin-left: 2px;
+    font-weight: 600;
+    color: #18181b;
+    font-variant-numeric: tabular-nums;
+}
+
+.subsLegend .subsNet {
+    margin-left: auto;
+    color: #a1a1aa;
+}
+
+.subsLegend .subsNet b.deltaGood {
+    color: #237a54;
+}
+
+.subsLegend .subsNet b.deltaBad {
+    color: #b8423e;
+}
+
+/* Net change key: a small ringed dot, like the markers on the chart */
+.subsLegend i.subsNetKey {
+    width: 8px;
+    height: 8px;
+    border: 2px solid #18181b;
+    border-radius: 50%;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+/* ---- Claude's summary: top action and watch list ---- */
+.readTopAction {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 14px 16px;
+    border: 1px solid #e3eafb;
+    border-radius: 10px;
+    background: #f7f9fe;
+}
+
+.readTopActionIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid #e3eafb;
+    color: #3b6fe0;
+}
+
+.readTopActionBody {
+    min-width: 0;
+}
+
+.readTopActionLabel {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #3b6fe0;
+}
+
+.readTopActionBody strong {
+    display: block;
+    margin-top: 3px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #18181b;
+}
+
+.readTopActionBody p {
+    margin: 4px 0 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #52525b;
+}
+
+.readTopActionAccounts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.readTopActionAccounts li {
+    padding: 2px 8px;
+    border: 1px solid #e3eafb;
+    border-radius: 999px;
+    background: #fff;
+    font-size: 11.5px;
+    color: #3f3f46;
+}
+
+.readTopActionSide {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.readTopActionValue {
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: #18181b;
+    font-variant-numeric: tabular-nums;
+}
+
+.readWatch {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: #52525b;
+}
+
+.readWatchLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 500;
+    color: #18181b;
+    white-space: nowrap;
+}
+
+.readWatch ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.readWatch li::before {
+    content: "·";
+    margin-right: 6px;
+    color: #a1a1aa;
+}
+
+@media (max-width: 760px) {
+    .readTopAction {
+        grid-template-columns: 30px minmax(0, 1fr);
+    }
+
+    .readTopActionSide {
+        grid-column: 2;
+        align-items: flex-start;
+    }
+}
+
+/* ======================================================================== */
+/* Metrics sidebar, Claude Console style: a calm tinted panel, sentence-    */
+/* case section headings, quiet grey icons, soft grey active state.        */
+/* ======================================================================== */
+
+.withNav .pageNav {
+    width: 200px;
+    padding: 12px 8px;
+    border: 1px solid #ececec;
+    border-radius: 12px;
+    background: #fafafa;
+    font-size: 13.5px;
+}
+
+.withNav .pageNavFolded {
+    width: 52px;
+    padding: 12px 6px;
+}
+
+.withNav .pageNavHead {
+    height: 32px;
+    margin-bottom: 4px;
+    padding-left: 8px;
+}
+
+.withNav .pageNavFolded .pageNavHead {
+    padding-left: 0;
+}
+
+.withNav .pageNavHead span {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-transform: none;
+    color: #18181b;
+}
+
+.withNav .pageNavFold {
+    color: #71717a;
+}
+
+.withNav .pageNavFold:hover {
+    background: rgba(24, 24, 27, 0.05);
+    color: #18181b;
+}
+
+.pageNavGroup {
+    margin: 14px 0 4px;
+    padding: 0 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #8f8f96;
+}
+
+.pageNavList > li:first-child .pageNavGroup {
+    margin-top: 6px;
+}
+
+.pageNavRule {
+    width: 20px;
+    margin: 8px auto;
+    border: 0;
+    border-top: 1px solid #e4e4e7;
+}
+
+.withNav .pageNavList > li + li {
+    margin-top: 1px;
+}
+
+.withNav .pageNavItem {
+    gap: 9px;
+    height: 34px;
+    padding: 0 7px;
+    border-radius: 8px;
+    color: #3f3f46;
+    font-size: 13px;
+    font-weight: 400;
+}
+
+.withNav .pageNavFolded .pageNavItem {
+    padding: 0;
+}
+
+.withNav .pageNavItem:hover {
+    background: rgba(24, 24, 27, 0.045);
+    color: #18181b;
+}
+
+.withNav .pageNavItemActive,
+.withNav .pageNavItemActive:hover {
+    background: #fff;
+    color: #18181b;
+    font-weight: 500;
+    box-shadow:
+        0 0 0 1px #e8e8ea,
+        0 1px 2px rgba(24, 24, 27, 0.05);
+}
+
+.withNav .pageNavIcon {
+    color: #71717a;
+}
+
+.withNav .pageNavItem:hover .pageNavIcon,
+.withNav .pageNavItemActive .pageNavIcon {
+    color: #18181b;
+}
+
+/* Count on the right: plain grey number, like Console */
+.withNav .pageNavBadge {
+    min-width: 0;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    color: #8f8f96;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.withNav .pageNavKbd {
+    padding: 0 5px;
+    border: 1px solid #e4e4e7;
+    border-radius: 5px;
+    background: #fff;
+    color: #8f8f96;
+    font-size: 11px;
+    line-height: 18px;
+}
+
+.withNav.withNav {
+    gap: 20px;
+}

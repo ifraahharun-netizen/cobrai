@@ -1,9 +1,10 @@
 "use client";
 
+import { ArrowUpRight } from "lucide-react";
 import InfoTip from "./InfoTip";
 import styles from "./metrics.module.css";
 
-/** One KPI card: label with info tip, value, change line, and a link to its chart. */
+/** One KPI card: label with info tip, value, change line, and a link to its detail. */
 export default function KpiTile({
     label,
     value,
@@ -32,23 +33,33 @@ export default function KpiTile({
         <div className={styles.kpiTile}>
             <div className={styles.kpiTileTop}>
                 <span className={styles.kpiTileLabel}>
-                    {label}
+                    <span className={styles.kpiTileLabelText}>{label}</span>
                     {info ? <InfoTip text={info} label={label} /> : null}
                 </span>
                 {onAction && actionLabel ? (
-                    <button type="button" className={styles.kpiTileLink} onClick={onAction}>
-                        {actionLabel}
+                    <button
+                        type="button"
+                        className={styles.kpiTileLink}
+                        onClick={onAction}
+                        aria-label={`${actionLabel}: ${label}`}
+                        title={actionLabel}
+                    >
+                        <ArrowUpRight size={14} strokeWidth={1.8} aria-hidden="true" />
                     </button>
                 ) : null}
             </div>
-            <div className={styles.kpiTileValue}>{value}</div>
-            <div className={styles.kpiTileSub}>
-                {change ? (
-                    <span className={`${styles.changeBadge} ${styles[`change_${tone}`]}`}>
-                        {change.direction === "up" ? "↑" : change.direction === "down" ? "↓" : "→"} {change.text}
-                    </span>
-                ) : null}
-                <span>{changeLabel}</span>
+            <div className={styles.kpiTileBody}>
+                <div className={styles.kpiTileFigures}>
+                    <div className={styles.kpiTileValue}>{value}</div>
+                    <div className={styles.kpiTileSub}>
+                        {change ? (
+                            <span className={`${styles.changeBadge} ${styles[`change_${tone}`]}`}>
+                                {change.direction === "up" ? "↑" : change.direction === "down" ? "↓" : "→"} {change.text}
+                            </span>
+                        ) : null}
+                        <span>{changeLabel}</span>
+                    </div>
+                </div>
             </div>
         </div>
     );

@@ -131,8 +131,38 @@
     text-overflow: ellipsis;
 }
 
-.collapseItem {
+/* Fold toggle in the header, beside the logo */
+.header {
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.foldButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
     color: #667085;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease,
+        opacity 0.12s ease;
+}
+
+.foldButton:hover {
+    background: #f5f6f8;
+    color: #101828;
+}
+
+.foldButton:focus-visible {
+    outline: 2px solid #bfdbfe;
+    outline-offset: 1px;
 }
 
 /* ===================== Folded: icon-only rail ===================== */
@@ -143,8 +173,30 @@
 }
 
 .collapsed .header {
+    position: relative;
     justify-content: center;
     padding: 0;
+}
+
+/* Folded: the logo mark turns into the expand button on hover or focus */
+.collapsed .foldButton {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 36px;
+    height: 36px;
+    transform: translate(-50%, -50%);
+    background: #ffffff;
+    opacity: 0;
+}
+
+.collapsed .headerFoldable:hover .foldButton,
+.collapsed .foldButton:focus-visible {
+    opacity: 1;
+}
+
+.collapsed .foldButton:hover {
+    background: #f5f6f8;
 }
 
 .collapsed .sectionLabel {
