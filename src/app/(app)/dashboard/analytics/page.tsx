@@ -46,7 +46,8 @@ import {
     Check,
 } from "lucide-react";
 
-import * as echarts from "echarts";
+// Only the gradient helper is used here; the core build keeps the full library out of this page.
+import * as echarts from "echarts/core";
 
 
 import { canAccessFeature, type PlanTier } from "@/lib/permissions";

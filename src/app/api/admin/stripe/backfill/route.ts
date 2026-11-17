@@ -209,6 +209,6 @@ export async function POST(req: Request) {
             { status: 200 }
         );
     } catch (e: any) {
-        return NextResponse.json({ ok: false, error: e?.message ?? "Backfill failed" }, { status: 500 });
+        return NextResponse.json({ ok: false, error: "Backfill failed" }, { status: 500 });
     }
 }

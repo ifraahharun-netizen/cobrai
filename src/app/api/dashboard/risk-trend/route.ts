@@ -182,6 +182,6 @@ export async function GET(req: Request) {
 
         });
     } catch (e: any) {
-        return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+        return NextResponse.json({ ok: false, error: "Failed" }, { status: 500 });
     }
 }

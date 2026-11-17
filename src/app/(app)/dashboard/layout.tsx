@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { onAuthStateChanged, type User } from "firebase/auth";
 
@@ -11,8 +12,11 @@ import Sidebar from "./_components/Sidebar";
 import TrialUpgradeGate, {
     type TrialStatus,
 } from "./_components/TrialUpgradeGate";
-import FirstRunModal from "./onboarding/FirstRunModal";
 import styles from "./dashboardLayout.module.css";
+
+// Loaded on demand: it's the only part of every dashboard page that uses
+// Firestore, so the database library stays out of the main bundle.
+const FirstRunModal = dynamic(() => import("./onboarding/FirstRunModal"), { ssr: false });
 
 const jakarta = Plus_Jakarta_Sans({
     subsets: ["latin"],
