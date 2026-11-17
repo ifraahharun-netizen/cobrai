@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MessageCircleQuestion, RefreshCw, Sparkles } from "lucide-react";
+import { Eye, MessageCircleQuestion, RefreshCw, Sparkles, Target } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase.client";
 import type { ChartNote, MetricKey, MetricsRead, MetricsSnapshot } from "@/lib/ai/claudeMetricsRead";
@@ -25,6 +25,8 @@ const METRIC_LABEL: Record<MetricKey, string> = {
     churnRate: "Churn rate",
     mrrProtected: "MRR protected",
     activeUsers: "Active users",
+    subscribers: "Subscribers",
+    recovery: "Recovery",
 };
 
 const HEALTH_LABEL: Record<MetricsRead["health"], string> = {
@@ -110,6 +112,17 @@ export default function ClaudeMetricsRead({
 
     const stale = Boolean(read && analysis?.period && periodLabel && analysis.period !== periodLabel);
     const topFindings = read ? read.findings.slice(0, 3) : [];
+    // Older saved reads have no top action or watch list; show them when present.
+    const topAction = read?.topAction ?? null;
+    const watchNext = read?.watchNext?.slice(0, 3) ?? [];
+    const currency = analysis?.metrics?.currency || snapshot?.currency || "GBP";
+    const money = (value: number) => {
+        try {
+            return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
+        } catch {
+            return String(Math.round(value));
+        }
+    };
 
     return (
         <section className={`${styles.readCard} ${styles.readBar}`} aria-labelledby="claude-read-title">
@@ -168,6 +181,46 @@ export default function ClaudeMetricsRead({
 
             {error ? <div className={styles.error} role="alert">{error}</div> : null}
 
+            {read && !analysing && topAction ? (
+                <div className={styles.readTopAction}>
+                    <span className={styles.readTopActionIcon} aria-hidden="true">
+                        <Target size={15} strokeWidth={1.8} />
+                    </span>
+                    <div className={styles.readTopActionBody}>
+                        <span className={styles.readTopActionLabel}>Do this first</span>
+                        <strong>{topAction.title}</strong>
+                        <p>{topAction.detail}</p>
+                        {topAction.accounts.length ? (
+                            <ul className={styles.readTopActionAccounts} aria-label="Accounts">
+                                {topAction.accounts.slice(0, 4).map((name) => (
+                                    <li key={name}>{name}</li>
+                                ))}
+                            </ul>
+                        ) : null}
+                    </div>
+                    <div className={styles.readTopActionSide}>
+                        {typeof topAction.value === "number" && topAction.value > 0 ? (
+                            <span className={styles.readTopActionValue}>{money(topAction.value)}</span>
+                        ) : null}
+                        {onAsk ? (
+                            <button
+                                type="button"
+                                className={styles.button}
+                                onClick={() =>
+                                    onAsk(
+                                        `Help me with: "${topAction.title}". ${topAction.detail} Give me the steps and a short message I can send${
+                                            topAction.accounts.length ? ` to ${topAction.accounts.join(", ")}` : ""
+                                        }.`
+                                    )
+                                }
+                            >
+                                How do I do this?
+                            </button>
+                        ) : null}
+                    </div>
+                </div>
+            ) : null}
+
             {read && !analysing && topFindings.length ? (
                 <ul className={styles.readPoints}>
                     {topFindings.map((finding) => (
@@ -196,6 +249,20 @@ export default function ClaudeMetricsRead({
                         </li>
                     ))}
                 </ul>
+            ) : null}
+
+            {read && !analysing && watchNext.length ? (
+                <div className={styles.readWatch}>
+                    <span className={styles.readWatchLabel}>
+                        <Eye size={13} strokeWidth={1.8} aria-hidden="true" />
+                        Watch next
+                    </span>
+                    <ul>
+                        {watchNext.map((item) => (
+                            <li key={item}>{item}</li>
+                        ))}
+                    </ul>
+                </div>
             ) : null}
 
             {read && !analysing ? (

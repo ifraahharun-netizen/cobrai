@@ -10,6 +10,8 @@ export type NavItem = {
     icon?: ReactNode;
     /** Small count on the right, e.g. accounts still to act on. */
     badge?: number | string | null;
+    /** Section heading the item sits under, Console style. */
+    group?: string;
 };
 
 const FOLD_KEY = "cobrai.metrics.navFolded";
@@ -105,10 +107,13 @@ export default function MetricsNav({
             </div>
 
             <ul className={styles.pageNavList}>
-                {items.map((item) => {
+                {items.map((item, index) => {
                     const isActive = active === item.id;
+                    const startsGroup = Boolean(item.group) && item.group !== items[index - 1]?.group;
                     return (
                         <li key={item.id}>
+                            {startsGroup && !folded ? <p className={styles.pageNavGroup}>{item.group}</p> : null}
+                            {startsGroup && folded && index > 0 ? <hr className={styles.pageNavRule} /> : null}
                             <button
                                 type="button"
                                 className={`${styles.pageNavItem} ${isActive ? styles.pageNavItemActive : ""}`}

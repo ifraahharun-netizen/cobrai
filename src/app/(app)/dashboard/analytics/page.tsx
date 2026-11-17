@@ -27,8 +27,8 @@ import { getEmailRecommendation } from "@/lib/emailRecommendations";
 
 import {
     Users,
-    Clock3,
     ChevronDown,
+    ArrowRight,
     PoundSterling,
     TriangleAlert,
     TrendingDown,
@@ -71,7 +71,6 @@ import CohortHeatmap from "./CohortHeatmap";
 import RetentionCurveCard from "./RetentionCurveCard";
 import AccountDrawer, { type DrawerAccount } from "./AccountDrawer";
 import {
-    PERIODS,
     buildDemoCohorts,
     buildMrrMovement,
     computeRetention,
@@ -93,10 +92,11 @@ type ChartRecord = { [key: string]: unknown };
 
 const DASH_BLUE = "#3b6fe0";
 const DASH_BLUE_LIGHT = "#c9d9fb";
-const CHURN_VIOLET = "#7c5cdb";
-const CHART_INK = "#1f1e1b";
-const GRID_DOT = "#dedbd3";
-const AXIS_TEXT = "#9a9893";
+const CHURN_VIOLET = "#d0574f"; // churn line: red
+const MRR_GREEN = "#2f9461"; // MRR line: green
+const CHART_INK = "#18181b";
+const GRID_DOT = "#e4e4e7";
+const AXIS_TEXT = "#a1a1aa";
 
 function asList(value: unknown): ChartRecord[] {
     if (Array.isArray(value)) return value as ChartRecord[];
@@ -121,13 +121,13 @@ const DOTTED = { show: true, lineStyle: { color: GRID_DOT, type: [1, 5] as numbe
 
 function toDashboardChart(
     option: EChartsOption,
-    opts: { yFormat?: (value: number) => string } = {}
+    opts: { yFormat?: (value: number) => string; lineColour?: string } = {}
 ): EChartsOption {
     const source = option as ChartRecord;
     const seriesList = asList(source.series);
     const isBar = seriesList.some((s) => s.type === "bar");
     const firstLine = seriesList.find((s) => s.type === "line");
-    const accent = String(recolour((firstLine?.lineStyle as ChartRecord | undefined)?.color) || DASH_BLUE);
+    const accent = opts.lineColour ?? String(recolour((firstLine?.lineStyle as ChartRecord | undefined)?.color) || DASH_BLUE);
 
     const xAxis = asList(source.xAxis).map((axis) => ({
         ...axis,
@@ -159,7 +159,7 @@ function toDashboardChart(
             ...(opts.yFormat ? { formatter: opts.yFormat } : {}),
         },
         splitLine: isBar
-            ? { show: true, lineStyle: { color: "#ebe9e3", type: [4, 4] as number[], width: 1 } }
+            ? { show: true, lineStyle: { color: "#f0f0f2", type: "solid", width: 1 } }
             : DOTTED,
     }));
 
@@ -169,7 +169,7 @@ function toDashboardChart(
     const series = seriesList.map((item) => {
         if (item.type === "line") {
             const lineStyle = (item.lineStyle as ChartRecord) ?? {};
-            const colour = String(recolour(lineStyle.color) || DASH_BLUE);
+            const colour = opts.lineColour ?? String(recolour(lineStyle.color) || DASH_BLUE);
             const dashed = Boolean(lineStyle.type && lineStyle.type !== "solid");
             return {
                 ...item,
@@ -177,7 +177,7 @@ function toDashboardChart(
                 showSymbol: false,
                 symbol: "circle",
                 symbolSize: 11,
-                lineStyle: { ...lineStyle, width: dashed ? 1.4 : 1.8, color: colour },
+                lineStyle: { ...lineStyle, width: dashed ? 1.4 : 2, color: colour },
                 itemStyle: { color: colour },
                 // Ring on the hovered point.
                 emphasis: {
@@ -198,7 +198,7 @@ function toDashboardChart(
                             x2: 0,
                             y2: 1,
                             colorStops: [
-                                { offset: 0, color: alpha(colour, 0.14) },
+                                { offset: 0, color: alpha(colour, 0.16) },
                                 { offset: 1, color: alpha(colour, 0) },
                             ],
                         },
@@ -236,9 +236,9 @@ function toDashboardChart(
             borderWidth: 0,
             padding: hasCustomFormatter ? [10, 12] : [7, 10],
             textStyle: { color: "#ffffff", fontSize: 11.5, fontWeight: 400 },
-            extraCssText: "border-radius:8px;box-shadow:0 8px 24px rgba(31,30,27,.18);",
+            extraCssText: "border-radius:8px;box-shadow:0 8px 24px rgba(24,24,27,.18);",
             axisPointer: isBar
-                ? { type: "shadow", shadowStyle: { color: "rgba(31,30,27,0.035)" } }
+                ? { type: "shadow", shadowStyle: { color: "rgba(24,24,27,0.04)" } }
                 : { type: "line", z: 0, lineStyle: { color: alpha(accent, 0.55), width: 1.2, type: "solid" } },
         },
         xAxis,
@@ -697,16 +697,6 @@ function getWorkspaceCurrency(summary?: DashboardSummary | null) {
 }
 
 
-const chartRangeOptions: Array<{ label: string; value: RangeKey }> = [
-    { label: "3 months", value: "3m" },
-    { label: "6 months", value: "6m" },
-    { label: "12 months", value: "12m" },
-];
-
-function getRangeLabel(value: RangeKey) {
-    if (value === "current") return "Current month";
-    return chartRangeOptions.find((option) => option.value === value)?.label ?? "6 months";
-}
 function getRangeMonths(range: RangeKey) {
     if (range === "current") return 0;
     if (range === "3m") return 3;
@@ -1976,6 +1966,18 @@ function getQueueDomain(row: RecoveryQueueItem) {
     return `${row.name.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 22) || "account"}.com`;
 }
 
+/** Subscriber chart colours. */
+/* Subscribers chart: solid blue returning, light blue new, coral churned. */
+const SUBS_RETURNING = "#3b6fe0";
+const SUBS_NEW = "#a9c1f5";
+const SUBS_CHURNED = "#e0705f";
+
+/** Distinct colours for the recoverable revenue groups, in rank order (biggest first). */
+const RISK_SHADES = ["#3b6fe0", "#2f9e8f", "#e3a33b", "#e0705f", "#8b6fd6"];
+function riskShade(index: number) {
+    return RISK_SHADES[Math.min(index, RISK_SHADES.length - 1)];
+}
+
 function getQueueTone(type?: RecoveryQueueItem["type"]) {
     if (type === "upsell_opportunity" || type === "expansion_momentum") return "green";
     if (type === "reactivation") return "amber";
@@ -2093,13 +2095,10 @@ export default function AnalyticsPage() {
     const [churnRange, setChurnRange] = useState<RangeKey>("12m");
 
 
-    const [aiRevenueFilterOpen, setAiRevenueFilterOpen] = useState(false);
 
     const [workspaceAi, setWorkspaceAi] = useState<AiWorkspaceRes | null>(null);
     const [upgradeOpen, setUpgradeOpen] = useState(false);
 
-    const [mrrFilterOpen, setMrrFilterOpen] = useState(false);
-    const [churnFilterOpen, setChurnFilterOpen] = useState(false);
 
     const [emailModalOpen, setEmailModalOpen] = useState(false);
     const [emailModalRow, setEmailModalRow] = useState<RecoveryQueueItem | null>(null);
@@ -4464,6 +4463,7 @@ export default function AnalyticsPage() {
 
         return {
             currentTotal,
+            previousTotal,
             deltaPct,
         };
     }, [subscriberChartRows]);
@@ -4498,134 +4498,128 @@ export default function AnalyticsPage() {
             };
         });
 
+        const lastIndex = source.length - 1;
+        const tipRow = (colour: string, label: string, value: string) =>
+            `<div style="display:flex;align-items:center;justify-content:space-between;gap:28px;margin-top:6px">` +
+            `<span style="display:inline-flex;align-items:center;gap:8px;color:rgba(255,255,255,.7)">` +
+            `<i style="width:8px;height:8px;border-radius:2px;background:${colour}"></i>${label}</span>` +
+            `<b style="font-weight:500;color:#fff;font-variant-numeric:tabular-nums">${value}</b></div>`;
+
         return {
             backgroundColor: "transparent",
-            animation: false,
-            legend: {
-                top: 0,
-                left: 0,
-                itemWidth: 8,
-                itemHeight: 8,
-                itemGap: 14,
-                textStyle: {
-                    color: "#6b7280",
-                    fontSize: 10,
-                    fontWeight: 400,
-                },
-                data: ["Retained", "Acquired"],
-            },
+            animationDuration: 650,
+            animationEasing: "cubicOut",
             tooltip: {
                 trigger: "axis",
-                axisPointer: {
-                    type: "line",
-                    lineStyle: {
-                        color: "#d1d5db",
-                        width: 1,
-                        type: "dashed",
-                    },
-                },
-                backgroundColor: "#ffffff",
-                borderColor: "#e5e7eb",
-                borderWidth: 1,
-                padding: 10,
-                extraCssText: "box-shadow:0 10px 30px rgba(15,23,42,.10);border-radius:10px;",
-                textStyle: {
-                    color: "#111827",
-                    fontSize: 11,
-                    fontWeight: 400,
-                },
-                formatter: (params: any) => {
+                axisPointer: { type: "shadow", shadowStyle: { color: "rgba(59,111,224,0.05)" } },
+                // Dark tooltip, same as the other charts on this page.
+                backgroundColor: CHART_INK,
+                borderWidth: 0,
+                padding: [10, 12],
+                extraCssText: "border-radius:8px;box-shadow:0 8px 24px rgba(24,24,27,.18);",
+                textStyle: { color: "#ffffff", fontSize: 11.5, fontWeight: 400 },
+                formatter: (params: unknown) => {
                     const items = Array.isArray(params) ? params : [params];
-                    const dataIndex = Number(items[0]?.dataIndex ?? 0);
-                    const row = source[dataIndex];
-
+                    const row = source[Number((items[0] as { dataIndex?: number })?.dataIndex ?? 0)];
                     if (!row) return "";
-
-                    return `
-                        <div style="min-width:170px">
-                            <div style="font-size:11px;font-weight:500;color:#ffffff;margin-bottom:8px">${row.tooltipMonth}</div>
-                            <div style="display:flex;justify-content:space-between;gap:24px;margin-bottom:6px">
-                                <span style="color:rgba(255,255,255,.62)">Retained users</span>
-                                <strong style="font-weight:500;color:#ffffff">${Math.round(row.retained)}</strong>
-                            </div>
-                            <div style="display:flex;justify-content:space-between;gap:24px;margin-bottom:6px">
-                                <span style="color:rgba(255,255,255,.62)">Acquired users</span>
-                                <strong style="font-weight:500;color:#ffffff">${Math.round(row.acquired)}</strong>
-                            </div>
-                            <div style="display:flex;justify-content:space-between;gap:24px;margin-bottom:6px">
-                                <span style="color:rgba(255,255,255,.62)">Churned users</span>
-                                <strong style="font-weight:500;color:#ffffff">${Math.round(row.churned)}</strong>
-                            </div>
-                            <div style="height:1px;background:rgba(255,255,255,.14);margin:7px 0"></div>
-                            <div style="display:flex;justify-content:space-between;gap:24px">
-                                <span style="color:rgba(255,255,255,.85)">Total users</span>
-                                <strong style="font-weight:500;color:#ffffff">${Math.round(row.total)}</strong>
-                            </div>
-                        </div>
-                    `;
+                    return (
+                        `<div style="min-width:180px">` +
+                        `<div style="font-weight:500;color:#fff;margin-bottom:2px">${row.tooltipMonth}</div>` +
+                        tipRow(SUBS_RETURNING, "Returning", String(Math.round(row.retained))) +
+                        tipRow(SUBS_NEW, "New", String(Math.round(row.acquired))) +
+                        tipRow(SUBS_CHURNED, "Churned", String(Math.round(row.churned))) +
+                        `<div style="height:1px;background:rgba(255,255,255,.14);margin:8px 0 2px"></div>` +
+                        `<div style="display:flex;justify-content:space-between;gap:28px;margin-top:6px">` +
+                        `<span style="color:rgba(255,255,255,.85)">Total subscribers</span>` +
+                        `<b style="font-weight:500;color:#fff;font-variant-numeric:tabular-nums">${Math.round(row.total)}</b></div>` +
+                        `</div>`
+                    );
                 },
             },
-            grid: {
-                top: 42,
-                right: 12,
-                bottom: 24,
-                left: 36,
-                containLabel: false,
-            },
+            grid: { top: 18, right: 0, bottom: 0, left: 0, containLabel: true },
+            // No visible axes: bars only. Month and values show in the hover card.
             xAxis: {
                 type: "category",
                 data: source.map((point) => point.month),
                 axisLine: { show: false },
                 axisTick: { show: false },
-                axisLabel: {
-                    color: "#6b7280",
-                    fontSize: 10,
-                    interval: 0,
-                },
+                axisLabel: { show: false },
             },
-            yAxis: [
-                {
-                    type: "value",
-                    min: 0,
-                    splitNumber: 4,
-                    axisLine: { show: false },
-                    axisTick: { show: false },
-                    axisLabel: {
-                        color: "#9ca3af",
-                        fontSize: 10,
-                    },
-                    splitLine: {
-                        lineStyle: {
-                            color: "#f1f5f9",
-                            width: 1,
-                        },
-                    },
-                },
-            ],
+            yAxis: {
+                type: "value",
+                min: 0,
+                axisLine: { show: false },
+                axisTick: { show: false },
+                axisLabel: { show: false },
+                splitLine: { show: false },
+            },
             series: [
+                // Stacked blocks like the reference: solid returning at the base,
+                // light new in the middle, coral churned on top.
                 {
-                    name: "Retained",
+                    name: "Returning",
                     type: "bar",
-                    stack: "users",
+                    stack: "subs",
                     data: source.map((point) => point.retained),
-                    barWidth: "48%",
+                    barWidth: "62%",
+                    barMaxWidth: 34,
                     itemStyle: {
-                        color: "#6490f0ff",
-                        borderRadius: [0, 0, 3, 3],
+                        color: SUBS_RETURNING,
+                        borderRadius: 5,
+                        // White border reads as a small gap between the stacked blocks.
+                        borderColor: "#ffffff",
+                        borderWidth: 1.5,
                     },
                     emphasis: { disabled: true },
+                    animationDelay: (index: number) => index * 35 + 0,
                 },
                 {
-                    name: "Acquired",
+                    name: "New",
                     type: "bar",
-                    stack: "users",
+                    stack: "subs",
                     data: source.map((point) => point.acquired),
-                    barWidth: "48%",
+                    barWidth: "62%",
+                    barMaxWidth: 34,
                     itemStyle: {
-                        color: "#60b7f1ff",
-                        borderRadius: [6, 6, 0, 0],
+                        color: SUBS_NEW,
+                        borderRadius: 5,
+                        // White border reads as a small gap between the stacked blocks.
+                        borderColor: "#ffffff",
+                        borderWidth: 1.5,
                     },
                     emphasis: { disabled: true },
+                    animationDelay: (index: number) => index * 35 + 40,
+                },
+                {
+                    name: "Churned",
+                    type: "bar",
+                    stack: "subs",
+                    data: source.map((point, index) => ({
+                        value: point.churned,
+                        label:
+                            index === lastIndex
+                                ? {
+                                    show: true,
+                                    position: "top",
+                                    distance: 6,
+                                    formatter: () => String(Math.round(source[index].total)),
+                                    color: "#18181b",
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                }
+                                : { show: false },
+                    })),
+                    barWidth: "62%",
+                    barMaxWidth: 34,
+                    barMinHeight: 10,
+                    itemStyle: {
+                        color: SUBS_CHURNED,
+                        borderRadius: 5,
+                        borderColor: "#ffffff",
+                        borderWidth: 1.5,
+                    },
+                    emphasis: { disabled: true },
+                    animationDelay: (index: number) => index * 35 + 80,
                 },
             ],
         };
@@ -4643,16 +4637,17 @@ export default function AnalyticsPage() {
         return (value: number) => fmt.format(value);
     }, [workspaceCurrency]);
     const dashMrrTrendOption = useMemo(
-        () => toDashboardChart(mrrTrendOption, { yFormat: compactMoney }),
+        () => toDashboardChart(mrrTrendOption, { yFormat: compactMoney, lineColour: MRR_GREEN }),
         [mrrTrendOption, compactMoney]
     );
     const dashChurnTrendMiniOption = useMemo(
         () => toDashboardChart(churnTrendMiniOption, { yFormat: (v) => `${v}%` }),
         [churnTrendMiniOption]
     );
-    const dashActiveUsersBarOption = useMemo(() => toDashboardChart(activeUsersBarOption), [activeUsersBarOption]);
-    const dashMrrMiniForecastOption = useMemo(() => toDashboardChart(mrrMiniForecastOption), [mrrMiniForecastOption]);
-    const dashChurnImpactOption = useMemo(() => toDashboardChart(churnImpactOption), [churnImpactOption]);
+    // Styled in place (its own colours and labels), so it skips the shared line-chart restyle.
+    const dashActiveUsersBarOption = activeUsersBarOption;
+    const dashMrrMiniForecastOption = useMemo(() => toDashboardChart(mrrMiniForecastOption, { lineColour: MRR_GREEN }), [mrrMiniForecastOption]);
+    const dashChurnImpactOption = useMemo(() => toDashboardChart(churnImpactOption, { lineColour: CHURN_VIOLET }), [churnImpactOption]);
 
     /* ---------------------------------------------------------------------- */
     /* Period, comparison, Claude's chart notes, movement and cohorts          */
@@ -4661,11 +4656,14 @@ export default function AnalyticsPage() {
     const periodN = periodMonths(period);
     const periodLabel = periodLong(period);
 
-    function selectPeriod(next: PeriodKey) {
-        setPeriod(next);
-        setMrrRange(next);
-        setChurnRange(next);
-    }
+    // There is no period switch any more, so every view shows the last 12 months
+    // (this also resets a shorter period left over from before).
+    useEffect(() => {
+        if (period === "12m") return;
+        setPeriod("12m");
+        setMrrRange("12m");
+        setChurnRange("12m");
+    }, [period]);
 
     // Number the notes in chart order so the markers match the list below.
     const numberedNotes = useMemo(() => {
@@ -4967,6 +4965,82 @@ export default function AnalyticsPage() {
         return { list, total };
     }, [queueRows]);
 
+    // What Claude's summary reads: the headline figures plus subscriber movement,
+    // the recoverable revenue and accounts behind it, and next month's forecast,
+    // so it can find what the cards above don't already say.
+    const claudeReadSnapshot = useMemo<MetricsSnapshot>(
+        () => ({
+            ...claudeSnapshot,
+            subscriberMovement: {
+                labels: subscriberChartRows.map((row) => String(row.month)),
+                returning: subscriberChartRows.map((row) => Number(row.retained || 0)),
+                new: subscriberChartRows.map((row) => Number(row.newSubscribers ?? row.trials ?? 0)),
+                churned: subscriberChartRows.map((row) => Number(row.churned || 0)),
+            },
+            recovery: {
+                total: riskGroups.total / 100,
+                groups: riskGroups.list.slice(0, 10).map((group) => ({
+                    action: group.label.slice(0, 60),
+                    accounts: group.accounts,
+                    value: group.valueMinor / 100,
+                })),
+                accounts: [...queueRows]
+                    .sort((a, b) => Number(b.valueMinor || 0) - Number(a.valueMinor || 0))
+                    .slice(0, 12)
+                    .map((row) => ({
+                        name: String(row.name || "Account").slice(0, 120),
+                        action: String(row.opportunity || formatQueueType(row.type)).slice(0, 60),
+                        value: Number(row.valueMinor || 0) / 100,
+                        reason: String(row.whyNow || row.reason || "").slice(0, 300),
+                        suggestedAction: String(row.suggestedAction || row.action || "").slice(0, 300),
+                    })),
+            },
+            forecast: {
+                nextMonthMrr: Number.isFinite(Number(projectedMrr)) ? Number(projectedMrr) : null,
+                nextMonthChurnRate: Number.isFinite(Number(projectedChurn)) ? Number(projectedChurn) : null,
+                expectedCancellations: Number.isFinite(forecastChurnedUsers) ? forecastChurnedUsers : null,
+            },
+        }),
+        [claudeSnapshot, subscriberChartRows, riskGroups, queueRows, projectedMrr, projectedChurn, forecastChurnedUsers]
+    );
+
+    // Donut of recoverable revenue by action, darkest slice for the biggest group.
+    const recoverableDonutOption = useMemo<EChartsOption>(() => {
+        const money = (minor: number) => formatCurrencyFromMinor(minor, workspaceCurrency);
+        return {
+            animationDuration: 500,
+            tooltip: {
+                trigger: "item",
+                backgroundColor: "#18181b",
+                borderWidth: 0,
+                padding: [7, 10],
+                textStyle: { color: "#ffffff", fontSize: 11.5 },
+                extraCssText: "border-radius:8px;box-shadow:0 8px 24px rgba(24,24,27,.18);",
+                formatter: (params: unknown) => {
+                    const p = params as { name: string; value: number; percent: number };
+                    return `${p.name}<br/><b>${money(p.value)}</b> · ${Math.round(p.percent)}%`;
+                },
+            },
+            series: [
+                {
+                    type: "pie",
+                    radius: ["68%", "92%"],
+                    center: ["50%", "50%"],
+                    padAngle: 2,
+                    itemStyle: { borderRadius: 4 },
+                    label: { show: false },
+                    labelLine: { show: false },
+                    emphasis: { scale: true, scaleSize: 4 },
+                    data: riskGroups.list.map((group, index) => ({
+                        name: group.label,
+                        value: group.valueMinor,
+                        itemStyle: { color: riskShade(index) },
+                    })),
+                },
+            ],
+        };
+    }, [riskGroups, workspaceCurrency]);
+
     // Opens the Ask Claude page, sending the question straight away if there is one.
     function openAsk(question?: string) {
         selectView("ask");
@@ -5057,15 +5131,16 @@ export default function AnalyticsPage() {
 
     const openCount = queueRows.filter((row) => !isHandled(row)).length;
     const navItems: NavItem[] = [
-        { id: "overview", label: "Overview", icon: <LayoutGrid size={15} strokeWidth={1.8} /> },
-        { id: "retention", label: "Retention", icon: <Repeat size={15} strokeWidth={1.8} /> },
+        { id: "overview", label: "Overview", icon: <LayoutGrid size={16} strokeWidth={1.7} />, group: "Analytics" },
+        { id: "retention", label: "Retention", icon: <Repeat size={16} strokeWidth={1.7} />, group: "Analytics" },
         {
             id: "accounts",
             label: "Accounts to act on",
-            icon: <ListChecks size={15} strokeWidth={1.8} />,
+            icon: <ListChecks size={16} strokeWidth={1.7} />,
             badge: hasAiRevenueAccess && openCount ? openCount : null,
+            group: "Act",
         },
-        { id: "ask", label: "Ask Claude", icon: <Sparkles size={15} strokeWidth={1.8} />, badge: "⌘K" },
+        { id: "ask", label: "Ask Claude", icon: <Sparkles size={16} strokeWidth={1.7} />, badge: "⌘K", group: "Act" },
     ];
 
     function selectView(next: string) {
@@ -5115,34 +5190,17 @@ export default function AnalyticsPage() {
             <>
                 <div className={styles.header}>
                     <div>
-                        <p className={metricStyles.crumb}>Metrics</p>
-                        <h1 className={styles.title}>{VIEW_META[view].title}</h1>
-
-                        <p className={styles.subtitle}>{VIEW_META[view].subtitle}</p>
-                        <p className={metricStyles.syncNote}>
-                            <i aria-hidden="true" />
-                            {isDemoMode ? "Demo data" : "Live data"}
-                            {timeAgo(lastRefreshedAt, nowTick) ? ` · Updated ${timeAgo(lastRefreshedAt, nowTick)}` : ""}
-                        </p>
+                        <h1 className={`${styles.title} ${metricStyles.pageTitle}`}>{VIEW_META[view].title}</h1>
+                        <p className={`${styles.subtitle} ${metricStyles.pageSubtitle}`}>{VIEW_META[view].subtitle}</p>
                     </div>
 
                     <div className={metricStyles.toolbar}>
-                        {view === "overview" || view === "retention" ? (
-                        <div className={metricStyles.segmented} role="tablist" aria-label="Period">
-                            {PERIODS.map((option) => (
-                                <button
-                                    key={option.key}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={period === option.key}
-                                    onClick={() => selectPeriod(option.key)}
-                                    title={option.long}
-                                >
-                                    {option.label}
-                                </button>
-                            ))}
-                        </div>
-                        ) : null}
+                        <span
+                            className={`${metricStyles.dataPill} ${isDemoMode ? metricStyles.dataPillDemo : metricStyles.dataPillLive}`}
+                            title={timeAgo(lastRefreshedAt, nowTick) ? `Updated ${timeAgo(lastRefreshedAt, nowTick)}` : undefined}
+                        >
+                            {isDemoMode ? "Demo data" : "Live data"}
+                        </span>
                         {view !== "ask" ? (
                         <>
                         <div className={metricStyles.exportWrap}>
@@ -5251,7 +5309,7 @@ export default function AnalyticsPage() {
 
                 {/* Claude interprets the metrics */}
                 <ClaudeMetricsRead
-                    snapshot={claudeSnapshot}
+                    snapshot={claudeReadSnapshot}
                     onAsk={openAsk}
                     onNotes={handleChartNotes}
                     periodLabel={periodLabel}
@@ -5262,12 +5320,13 @@ export default function AnalyticsPage() {
                 <div className={styles.analyticsLayout}>
                     {view === "overview" ? (
                     <>
-                    <div className={styles.sectionHeading}>
-                        <h2>Revenue and churn</h2>
-                        <p>How recurring revenue, cancellations and your customer base are trending.</p>
-                    </div>
 
                     <section className={metricStyles.chartGrid}>
+                        <div className={metricStyles.gridSection}>
+                            <h2>Revenue and churn</h2>
+                            <p>How recurring revenue and cancellations are trending.</p>
+                        </div>
+
                         {/* MRR */}
                         <div id="metrics-mrr" className={`${styles.revenueOverviewCard} ${metricStyles.gridCard} ${flash("metrics-mrr")}`}>
                             <div className={styles.revenueOverviewHeader}>
@@ -5342,49 +5401,6 @@ export default function AnalyticsPage() {
                                             <span>{formatDeltaPctLabel(drawerInsights.mrr.deltaPct)} vs previous month</span>
                                         )}
                                     </div>
-                                    <div className={metricStyles.rangeRow}>
-                                        <div className={styles.chartFilterWrap}>
-                                            <button
-                                                type="button"
-                                                className={styles.chartFilterButton}
-                                                onClick={() => {
-                                                    setMrrFilterOpen((open) => !open);
-                                                    setChurnFilterOpen(false);
-                                                    setAiRevenueFilterOpen(false);
-                                                }}
-                                            >
-                                                <Clock3 size={13} strokeWidth={1.8} />
-                                                <span>{getRangeLabel(mrrRange)}</span>
-                                                <ChevronDown size={13} strokeWidth={1.8} />
-                                            </button>
-
-                                            {mrrFilterOpen ? (
-                                                <div className={styles.chartFilterMenu}>
-                                                    {chartRangeOptions.map((option) => (
-                                                        <button
-                                                            key={option.value}
-                                                            type="button"
-                                                            className={`${styles.chartFilterOption} ${mrrRange === option.value
-                                                                ? styles.chartFilterOptionActive
-                                                                : ""
-                                                                }`}
-                                                            onClick={() => {
-                                                                if (option.value === "current") {
-                                                                    setMrrRange(option.value);
-                                                                    setChurnRange(option.value);
-                                                                } else {
-                                                                    selectPeriod(option.value);
-                                                                }
-                                                                setMrrFilterOpen(false);
-                                                            }}
-                                                        >
-                                                            {option.label}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            ) : null}
-                                        </div>
-                                    </div>
                                     <div className={styles.revenueOverviewChart}>
                                         <EChart option={mrrChartOption} onEvents={mrrChartEvents} />
                                     </div>
@@ -5407,7 +5423,7 @@ export default function AnalyticsPage() {
                             )}
 
                             {hasAiRevenueAccess ? (
-                                <div className={`${styles.revenueOverviewStats} ${metricStyles.statsGrid}`}>
+                                <div className={metricStyles.statsGrid}>
                                     <div>
                                         <span>Next month forecast</span>
                                         <strong>{formatMoneyAmount(projectedMrr, workspaceCurrency)}</strong>
@@ -5514,9 +5530,6 @@ export default function AnalyticsPage() {
                                             <span>{formatDeltaPpLabel(churnDeltaPp)} vs previous month</span>
                                         )}
                                     </div>
-                                    <div className={metricStyles.rangeRow}>
-                                        <span className={metricStyles.rangeNote}>{getRangeLabel(mrrRange)}</span>
-                                    </div>
                                     <div className={styles.revenueOverviewChart}>
                                         <EChart option={churnChartOption} onEvents={churnChartEvents} />
                                     </div>
@@ -5539,7 +5552,7 @@ export default function AnalyticsPage() {
                             )}
 
                             {hasAiRevenueAccess ? (
-                                <div className={`${styles.revenueOverviewStats} ${styles.churnForecastStats} ${metricStyles.statsGrid}`}>
+                                <div className={metricStyles.statsGrid}>
                                     <div>
                                         <span>Forecast churn rate</span>
                                         <strong>{formatPct(projectedChurn)}</strong>
@@ -5590,6 +5603,11 @@ export default function AnalyticsPage() {
                         </div>
 
                         {/* Subscribers */}
+                        <div className={metricStyles.gridSection}>
+                            <h2>Customers and recovery</h2>
+                            <p>Who is staying, who is new, and the revenue you can still win back.</p>
+                        </div>
+
                         <div id="metrics-subscribers" className={`${styles.activeUsersCard} ${metricStyles.gridCard} ${flash("metrics-subscribers")}`}>
                             <div className={styles.activeUsersHeader}>
                                 <div>
@@ -5600,7 +5618,6 @@ export default function AnalyticsPage() {
                                             text="Active subscribers each month, split into returning customers and new sign-ups. Use it to see whether growth comes from keeping customers or only from winning new ones."
                                         />
                                     </div>
-                                    <div className={styles.chartMeta}>Returning and new subscribers by month</div>
                                 </div>
 
                                 <ExplainButton
@@ -5612,36 +5629,70 @@ export default function AnalyticsPage() {
                                 />
                             </div>
 
-                            <div className={styles.activeUsersValueRow}>
-                                <strong className={styles.activeUsersValue}>
-                                    {Math.round(subscriberChartSummary.currentTotal)}
-                                </strong>
-                                <span className={styles.activeUsersDelta}>
-                                    {formatDeltaPctLabel(subscriberChartSummary.deltaPct)}
-                                </span>
+                            <div className={`${styles.revenueOverviewValueRow} ${metricStyles.cardHeadline}`}>
+                                {subscriberChartSummary.deltaPct !== null ? (
+                                    <span className={metricStyles.headDelta}>
+                                        <b
+                                            className={
+                                                subscriberChartSummary.deltaPct >= 0
+                                                    ? metricStyles.deltaGood
+                                                    : metricStyles.deltaBad
+                                            }
+                                        >
+                                            {subscriberChartSummary.currentTotal - subscriberChartSummary.previousTotal >= 0 ? "+" : "−"}
+                                            {Math.abs(Math.round(subscriberChartSummary.currentTotal - subscriberChartSummary.previousTotal))} (
+                                            {Math.abs(subscriberChartSummary.deltaPct).toFixed(1)}%)
+                                        </b>
+                                        <span>· vs last month</span>
+                                    </span>
+                                ) : null}
                             </div>
 
-                            <div className={styles.activeUsersChart}>
+                            {(() => {
+                                const latest = subscriberChartRows[subscriberChartRows.length - 1];
+                                const returning = Math.round(Number(latest?.retained || 0));
+                                const fresh = Math.round(Number(latest?.newSubscribers ?? latest?.trials ?? 0));
+                                const churned = Math.round(Number(latest?.churned || 0));
+                                const net = fresh - churned;
+                                return (
+                                    <ul className={metricStyles.subsLegend} aria-label="This month">
+                                        <li><i style={{ background: SUBS_RETURNING }} aria-hidden="true" />Returning <b>{returning}</b></li>
+                                        <li><i style={{ background: SUBS_NEW }} aria-hidden="true" />New <b>{fresh}</b></li>
+                                        <li><i style={{ background: SUBS_CHURNED }} aria-hidden="true" />Churned <b>{churned}</b></li>
+                                        <li className={metricStyles.subsNet}>
+                                            Net{" "}
+                                            <b className={net >= 0 ? metricStyles.deltaGood : metricStyles.deltaBad}>
+                                                {net >= 0 ? "+" : "−"}{Math.abs(net)}
+                                            </b>{" "}
+                                            this month
+                                        </li>
+                                    </ul>
+                                );
+                            })()}
+
+                            <div className={`${styles.activeUsersChart} ${metricStyles.subscribersChart}`}>
                                 <EChart option={dashActiveUsersBarOption} />
                             </div>
+
                         </div>
 
-                        {/* Revenue at stake */}
+                        {/* Recoverable revenue: donut by action needed, with a ranked legend */}
                         {hasAiRevenueAccess ? (
-                            <section id="metrics-risk" className={`${metricStyles.riskCard} ${metricStyles.gridCard} ${flash("metrics-risk")}`} aria-labelledby="risk-breakdown-title">
-                                <div className={metricStyles.riskHead}>
+                            <section
+                                id="metrics-risk"
+                                className={`${metricStyles.recoverCard} ${metricStyles.gridCard} ${flash("metrics-risk")}`}
+                                aria-labelledby="recoverable-title"
+                            >
+                                <div className={metricStyles.recoverHead}>
                                     <div>
-                                        <h3 id="risk-breakdown-title">
+                                        <h3 id="recoverable-title">
                                             Recoverable revenue
                                             <InfoTip
                                                 label="Recoverable revenue"
-                                                text="Revenue you can still save or grow, grouped by what it takes: fixing failed payments, re-engaging quiet accounts, or offering upgrades. Start with the biggest bar."
+                                                text="Revenue you can still save or grow, grouped by what it takes: fixing failed payments, re-engaging quiet accounts, or offering upgrades. Start with the biggest slice."
                                             />
                                         </h3>
-                                        <p>
-                                            {formatCurrencyFromMinor(riskGroups.total, workspaceCurrency)} across{" "}
-                                            {queueRows.length} accounts, grouped by the action needed.
-                                        </p>
+                                        <p>By the action each account needs</p>
                                     </div>
                                     <ExplainButton
                                         label="What should I do first?"
@@ -5652,42 +5703,54 @@ export default function AnalyticsPage() {
                                         }
                                     />
                                 </div>
+
                                 {riskGroups.total > 0 ? (
-                                    <div className={metricStyles.segmentBar} aria-hidden="true">
-                                        {riskGroups.list.map((group) => (
-                                            <i
-                                                key={group.label}
-                                                className={metricStyles[`tone_${group.tone}`]}
-                                                style={{ flexGrow: group.valueMinor }}
-                                            />
-                                        ))}
+                                    <div className={metricStyles.recoverBody}>
+                                        <div className={metricStyles.recoverDonut}>
+                                            <EChart option={recoverableDonutOption} />
+                                            <div className={metricStyles.recoverCentre} aria-hidden="true">
+                                                <strong>{formatCurrencyFromMinor(riskGroups.total, workspaceCurrency)}</strong>
+                                                <span>
+                                                    {queueRows.length} {queueRows.length === 1 ? "account" : "accounts"}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <ol className={metricStyles.recoverLegend}>
+                                            {riskGroups.list.map((group, index) => {
+                                                const share = (group.valueMinor / riskGroups.total) * 100;
+                                                return (
+                                                    <li key={group.label}>
+                                                        <i style={{ background: riskShade(index) }} aria-hidden="true" />
+                                                        <span className={metricStyles.recoverName}>
+                                                            {group.label}
+                                                            <small>
+                                                                {group.accounts} {group.accounts === 1 ? "account" : "accounts"}
+                                                            </small>
+                                                        </span>
+                                                        <span className={metricStyles.recoverValue}>
+                                                            {formatCurrencyFromMinor(group.valueMinor, workspaceCurrency)}
+                                                            <small>{Math.round(share)}%</small>
+                                                        </span>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ol>
                                     </div>
-                                ) : null}
-                                <ul className={metricStyles.riskList}>
-                                    {riskGroups.list.map((group) => {
-                                        const share = riskGroups.total ? (group.valueMinor / riskGroups.total) * 100 : 0;
-                                        return (
-                                            <li key={group.label}>
-                                                <span className={metricStyles.riskLabel}>
-                                                    <i className={metricStyles[`tone_${group.tone}`]} aria-hidden="true" />
-                                                    {group.label}
-                                                </span>
-                                                <span className={metricStyles.riskBar} aria-hidden="true">
-                                                    <b
-                                                        className={metricStyles[`tone_${group.tone}`]}
-                                                        style={{ width: `${Math.max(2, share)}%` }}
-                                                    />
-                                                </span>
-                                                <span className={metricStyles.riskValue}>
-                                                    {formatCurrencyFromMinor(group.valueMinor, workspaceCurrency)}
-                                                </span>
-                                                <span className={metricStyles.riskMeta}>
-                                                    {group.accounts} {group.accounts === 1 ? "account" : "accounts"} · {Math.round(share)}%
-                                                </span>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
+                                ) : (
+                                    <p className={metricStyles.recoverEmpty}>
+                                        Nothing to recover right now. Accounts that need action will show here.
+                                    </p>
+                                )}
+
+                                <button
+                                    type="button"
+                                    className={metricStyles.cardFooterLink}
+                                    onClick={() => selectView("accounts")}
+                                >
+                                    View accounts to act on
+                                    <ArrowRight size={14} strokeWidth={1.8} aria-hidden="true" />
+                                </button>
                             </section>
                         ) : null}
                     </section>
