@@ -4,9 +4,9 @@
     --ink: #1f1e1b;
     --muted: #6f6e69;
     --faint: #9a9893;
-    --line: #e8e6df;
-    --line-soft: #f0eee8;
-    --wash: #faf9f7;
+    --line: #ebebeb;
+    --line-soft: #f3f3f3;
+    --wash: #fafafa;
     --accent: #c96442;
     min-height: 100vh;
     margin: -24px;
@@ -102,7 +102,7 @@
     gap: 2px;
     padding: 12px 8px;
     border-right: 1px solid var(--line);
-    background: var(--wash);
+    background: #fff;
 }
 
 .folder {
@@ -136,13 +136,13 @@
 }
 
 .folder:hover {
-    background: #f2f0eb;
+    background: #f5f5f5;
     color: var(--ink);
 }
 
 .folderActive,
 .folderActive:hover {
-    background: #ece9e2;
+    background: #f0f0f0;
     color: var(--ink);
     font-weight: 500;
 }
@@ -172,7 +172,7 @@
 }
 
 .search:focus-within {
-    border-color: #cfccc3;
+    border-color: #d4d4d4;
 }
 
 .search input {
@@ -213,7 +213,7 @@
 
 .rowActive,
 .rowActive:hover {
-    background: #f4f2ed;
+    background: #f5f5f5;
     box-shadow: inset 2px 0 0 var(--ink);
 }
 
@@ -225,7 +225,7 @@
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    background: #efece5;
+    background: #f2f2f2;
     color: var(--muted);
     font-size: 11px;
     font-weight: 600;
@@ -524,7 +524,7 @@
 }
 
 .composer textarea:focus {
-    border-color: #cfccc3;
+    border-color: #d4d4d4;
 }
 
 .composerBar {
@@ -758,7 +758,7 @@
 }
 
 .composeBox:focus-within {
-    border-color: #cfccc3;
+    border-color: #d4d4d4;
 }
 
 .composeField {
@@ -803,7 +803,7 @@
     gap: 12px;
     padding: 10px 14px;
     border-top: 1px solid var(--line-soft);
-    background: var(--wash);
+    background: #fff;
     font-size: 12px;
     color: var(--faint);
 }
@@ -854,7 +854,7 @@
     width: 42px;
     height: 42px;
     border-radius: 50%;
-    background: #efece5;
+    background: #f2f2f2;
     color: var(--muted);
     font-size: 14px;
     font-weight: 600;
@@ -1114,7 +1114,7 @@
 }
 
 .foldToggle:hover {
-    background: #ece9e2;
+    background: #f0f0f0;
     color: var(--ink);
 }
 
@@ -1382,7 +1382,7 @@
 }
 
 .rowStar:hover {
-    background: #ece9e2;
+    background: #f0f0f0;
     color: var(--ink);
 }
 
@@ -1503,7 +1503,7 @@
 
 .toolButtonOn,
 .toolButtonOn:hover {
-    background: #ece9e2;
+    background: #f0f0f0;
     color: var(--ink);
 }
 

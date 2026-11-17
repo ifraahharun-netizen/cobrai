@@ -9329,15 +9329,15 @@
 }
 
 .page .legendRevenue {
-    background: #3b6fe0 !important;
+    background: #2f9461 !important;
 }
 
 .page .legendChurn {
-    background: #8b83df !important;
+    background: #d0574f !important;
 }
 
 .page .legendForecast {
-    background: repeating-linear-gradient(90deg, #3b6fe0 0 4px, transparent 4px 7px) !important;
+    background: repeating-linear-gradient(90deg, #2f9461 0 4px, transparent 4px 7px) !important;
 }
 
 /* Bigger charts (now with dates along the bottom) */
@@ -9836,7 +9836,7 @@
 }
 
 .page .revenueOverviewChart {
-    height: 200px !important;
+    height: 232px !important;
     min-height: 0 !important;
     margin: 8px 0 0 !important;
 }

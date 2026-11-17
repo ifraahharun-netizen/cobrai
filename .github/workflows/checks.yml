@@ -1,0 +1,63 @@
+# Runs on every pull request and every push to main: type-check, then a full
+# production build. A red check here means the change would break the deploy.
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Type-check and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Placeholders so modules that read keys at import time can load during
+      # the build. Nothing connects to these; real values live in Vercel.
+      DATABASE_URL: postgresql://user:pass@localhost:5432/db
+      DIRECT_URL: postgresql://user:pass@localhost:5432/db
+      STRIPE_SECRET_KEY: sk_test_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_placeholder
+      STRIPE_CONNECT_WEBHOOK_SECRET: whsec_placeholder
+      RESEND_API_KEY: re_placeholder
+      OPENAI_API_KEY: sk-placeholder
+      ANTHROPIC_API_KEY: sk-ant-placeholder
+      TOKEN_ENC_KEY: 0000000000000000000000000000000000000000000000000000000000000000
+      FIREBASE_PROJECT_ID: placeholder
+      FIREBASE_CLIENT_EMAIL: ci@placeholder.iam.gserviceaccount.com
+      FIREBASE_PRIVATE_KEY: placeholder
+      NEXT_PUBLIC_FIREBASE_API_KEY: placeholder
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: placeholder.firebaseapp.com
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: placeholder
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: placeholder.appspot.com
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "0"
+      NEXT_PUBLIC_FIREBASE_APP_ID: placeholder
+      NEXT_PUBLIC_APP_URL: https://cobrai.uk
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Type-check
+        run: npx tsc --noEmit -p .
+
+      - name: Build
+        run: npx next build

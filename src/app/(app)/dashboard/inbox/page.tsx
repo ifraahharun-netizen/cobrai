@@ -14,6 +14,7 @@ import {
     ArchiveRestore,
     Eye,
     Inbox as InboxIcon,
+    Layers,
     MailOpen,
     MessageSquareReply,
     MousePointerClick,
@@ -425,6 +426,21 @@ export default function InboxPage() {
                     ))}
 
                     <p className={styles.navLabel}>Channels</p>
+                    <button
+                        type="button"
+                        title={foldersFolded ? "All channels" : "Show emails from every channel"}
+                        className={`${styles.folder} ${channel === null ? styles.folderActive : ""}`}
+                        aria-pressed={channel === null}
+                        onClick={() => {
+                            setChannel(null);
+                            setSelectedKey(null);
+                        }}
+                    >
+                        <span className={styles.channelIcon} aria-hidden="true">
+                            <Layers size={12} strokeWidth={1.8} />
+                        </span>
+                        <span>All channels</span>
+                    </button>
                     {INBOX_CHANNELS.map(({ key, label, hint }) => {
                         const active = channel === key;
                         return (
