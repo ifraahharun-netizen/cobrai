@@ -63,7 +63,7 @@ export async function GET(req: Request) {
     } catch (e: any) {
         console.error("dashboard/metrics/mrr-protected GET failed:", e);
         return NextResponse.json(
-            { ok: false, error: e?.message ?? "Failed to load MRR protected" },
+            { ok: false, error: "Failed to load MRR protected" },
             { status: 500 }
         );
     }

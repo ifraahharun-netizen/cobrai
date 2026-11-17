@@ -34,7 +34,7 @@ export async function GET(req: Request) {
   } catch (error: any) {
     console.error("GET /api/customers failed", error);
     return NextResponse.json(
-      { error: error?.message || "Failed to load customers" },
+      { error: "Failed to load customers" },
       { status: 500 }
     );
   }

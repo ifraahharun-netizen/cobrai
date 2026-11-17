@@ -61,10 +61,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
             {
                 ok: false,
-                error:
-                    error instanceof Error
-                        ? error.message
-                        : "Failed to disconnect HubSpot",
+                error: "Failed to disconnect HubSpot",
             },
             { status: 500 }
         );

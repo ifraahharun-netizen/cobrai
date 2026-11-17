@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ ok: true, points });
     } catch (e: any) {
         return NextResponse.json(
-            { ok: false, error: e?.message ?? "Unknown error" },
+            { ok: false, error: "Unknown error" },
             { status: 401 }
         );
     }

@@ -6,7 +6,8 @@ import { Check } from "lucide-react";
 import styles from "./settings.module.css";
 import { SiHubspot, SiStripe, SiResend } from "react-icons/si";
 import { onAuthStateChanged, updateProfile, type User } from "firebase/auth";
-import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase.client";
+import { getFirebaseAuth } from "@/lib/firebase.client";
+import { getFirebaseDb } from "@/lib/firebase.data.client";
 import { startIntegrationConnect } from "@/lib/integrations/startConnect.client";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 

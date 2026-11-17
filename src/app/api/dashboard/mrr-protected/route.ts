@@ -30,13 +30,13 @@ export async function GET(req: Request) {
 
         // Auth error → 401
         if (msg.toLowerCase().includes("authorization") || msg.toLowerCase().includes("token")) {
-            return NextResponse.json({ ok: false, error: msg }, { status: 401 });
+            return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
         }
 
         console.error("GET /api/dashboard/mrr-protected failed:", e);
 
         return NextResponse.json(
-            { ok: false, error: msg },
+            { ok: false, error: "Failed to load MRR protected" },
             { status: 500 }
         );
     }

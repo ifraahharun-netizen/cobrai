@@ -1,8 +1,40 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import * as echarts from "echarts";
+// Modular ECharts: only the chart types and parts the app uses are bundled,
+// instead of the whole library (~1 MB). Add to the list below when a chart
+// needs a new series type or component.
+import * as echarts from "echarts/core";
+import { BarChart, LineChart, PieChart } from "echarts/charts";
+import {
+    AriaComponent,
+    DatasetComponent,
+    GridComponent,
+    LegendComponent,
+    MarkAreaComponent,
+    MarkLineComponent,
+    MarkPointComponent,
+    TooltipComponent,
+} from "echarts/components";
+import { LabelLayout } from "echarts/features";
+import { CanvasRenderer } from "echarts/renderers";
 import type { EChartsOption, ECharts } from "echarts";
+
+echarts.use([
+    BarChart,
+    LineChart,
+    PieChart,
+    AriaComponent,
+    DatasetComponent,
+    GridComponent,
+    LegendComponent,
+    MarkAreaComponent,
+    MarkLineComponent,
+    MarkPointComponent,
+    TooltipComponent,
+    LabelLayout,
+    CanvasRenderer,
+]);
 
 type EChartProps = {
     option: EChartsOption;

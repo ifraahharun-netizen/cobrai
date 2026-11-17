@@ -692,7 +692,7 @@ export async function GET(
         console.error("GET /api/dashboard/accounts-at-risk/[id] error:", e);
 
         return NextResponse.json(
-            { ok: false, error: e?.message || "Failed to load account" },
+            { ok: false, error: "Failed to load account" },
             { status: 500 }
         );
     }

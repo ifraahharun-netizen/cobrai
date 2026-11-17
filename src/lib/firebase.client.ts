@@ -7,17 +7,17 @@ import {
     browserLocalPersistence,
     type Auth,
 } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
-import { getStorage, type FirebaseStorage } from "firebase/storage";
+
+// Sign-in only. Firestore and Storage live in firebase.data.client.ts so pages
+// that just need the signed-in user (login, signup, most of the dashboard)
+// don't download them.
 
 type FirebaseInitResult =
-    | { ok: true; auth: Auth; db: Firestore; storage: FirebaseStorage }
+    | { ok: true; auth: Auth }
     | { ok: false; error: string };
 
 let app: FirebaseApp | null = null;
 let authInstance: Auth | null = null;
-let dbInstance: Firestore | null = null;
-let storageInstance: FirebaseStorage | null = null;
 let persistencePromise: Promise<void> | null = null;
 
 const firebaseConfig = {
@@ -29,7 +29,7 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-function initApp(): FirebaseApp {
+export function getFirebaseApp(): FirebaseApp {
     if (app) return app;
 
     if (!firebaseConfig.apiKey) {
@@ -43,7 +43,7 @@ function initApp(): FirebaseApp {
 export function getFirebaseAuth(): Auth {
     if (authInstance) return authInstance;
 
-    authInstance = getAuth(initApp());
+    authInstance = getAuth(getFirebaseApp());
 
     persistencePromise = setPersistence(
         authInstance,
@@ -63,25 +63,11 @@ export async function waitForFirebasePersistence() {
     }
 }
 
-export function getFirebaseDb(): Firestore {
-    if (dbInstance) return dbInstance;
-    dbInstance = getFirestore(initApp());
-    return dbInstance;
-}
-
-export function getFirebaseStorage(): FirebaseStorage {
-    if (storageInstance) return storageInstance;
-    storageInstance = getStorage(initApp());
-    return storageInstance;
-}
-
 export function getFirebaseAuthSafe(): FirebaseInitResult {
     try {
         return {
             ok: true,
             auth: getFirebaseAuth(),
-            db: getFirebaseDb(),
-            storage: getFirebaseStorage(),
         };
     } catch (e: any) {
         return {

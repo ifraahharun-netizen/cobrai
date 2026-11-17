@@ -191,7 +191,7 @@ export async function GET(req: Request) {
         console.error("dashboard/summary GET failed:", e);
 
         return NextResponse.json(
-            { ok: false, error: e?.message ?? "Analytics summary failed" },
+            { ok: false, error: "Analytics summary failed" },
             { status: 500 }
         );
     }

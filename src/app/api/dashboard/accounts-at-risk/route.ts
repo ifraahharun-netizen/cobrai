@@ -797,10 +797,12 @@ export async function GET(
                     ? 404
                     : 500;
 
+        // Only known, user-safe messages go back to the browser; anything else
+        // (database, Stripe, internal) stays in the server log above.
         return NextResponse.json(
             {
                 ok: false,
-                error: msg,
+                error: status === 500 ? "Failed to load accounts at risk" : msg,
             },
             {
                 status,

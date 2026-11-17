@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { SiHubspot, SiStripe, SiResend } from "react-icons/si";
-import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase.client";
+import { getFirebaseAuth } from "@/lib/firebase.client";
+import { getFirebaseDb } from "@/lib/firebase.data.client";
 import styles from "./onboarding.module.css";
 
 const auth = getFirebaseAuth();
