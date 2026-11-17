@@ -1597,9 +1597,7 @@ export async function GET(req: Request) {
             {
                 ok: false,
 
-                error:
-                    e?.message ??
-                    "Failed to load analytics timeseries",
+                error: "Failed to load analytics timeseries",
             },
             { status: 500 }
         );

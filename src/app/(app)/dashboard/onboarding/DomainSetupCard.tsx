@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase.client";
+import { getFirebaseAuth } from "@/lib/firebase.client";
+import { getFirebaseDb } from "@/lib/firebase.data.client";
 import styles from "./onboarding.module.css";
 
 const auth = getFirebaseAuth();

@@ -56,7 +56,7 @@ export async function GET(req: Request) {
     } catch (e: any) {
         console.error("integrations/status GET failed:", e);
         return NextResponse.json(
-            { ok: false, error: e?.message || "Failed to load integrations status" },
+            { ok: false, error: "Failed to load integrations status" },
             { status: 500 }
         );
     }

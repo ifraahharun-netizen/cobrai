@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
     } catch (err: any) {
         console.error("Retention generate error:", err);
         return NextResponse.json(
-            { ok: false, error: err?.message ?? "Failed to generate retention plan" },
+            { ok: false, error: "Failed to generate retention plan" },
             { status: err?.message === "Unauthorized" ? 401 : 500 }
         );
     }

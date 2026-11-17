@@ -156,6 +156,6 @@ export async function GET(req: NextRequest) {
             },
         });
     } catch (e: any) {
-        return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
+        return NextResponse.json({ ok: false, error: "Failed to load retention impact" }, { status: 500 });
     }
 }
