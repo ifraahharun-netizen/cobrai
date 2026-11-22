@@ -27,6 +27,14 @@ type CustomerInput = {
     seatDropPct?: number | null;
 
     recentSuccessActions?: number | null;
+
+    failedPayments?: number | null;
+
+    subscriptionStatus?: string | null;
+
+    cancelAtPeriodEnd?: boolean | null;
+
+    mrrChangePct?: number | null;
 };
 
 function primaryReason(signals: { key: string; label: string }[]) {
@@ -71,6 +79,18 @@ export function buildAccountRisk(
 
         recentSuccessActions:
             customer.recentSuccessActions,
+
+        failedPayments:
+            customer.failedPayments,
+
+        subscriptionStatus:
+            customer.subscriptionStatus,
+
+        cancelAtPeriodEnd:
+            customer.cancelAtPeriodEnd,
+
+        mrrChangePct:
+            customer.mrrChangePct,
     });
 
     const primary =

@@ -25,6 +25,12 @@ export type ActivityRow = {
     totalSubscribers?: number | null;
     churned?: number | null;
     upgrades?: number | null;
+    // Exact movement from the API (minor units), when it has per-customer data.
+    startMrrMinor?: number | null;
+    newMrrMinor?: number | null;
+    expansionMrrMinor?: number | null;
+    contractionMrrMinor?: number | null;
+    churnedMrrMinor?: number | null;
 };
 
 export function monthName(monthKey: string, withYear = true) {
@@ -79,6 +85,19 @@ export function buildMrrMovement(mrr: Point[], churn: Point[], activity: Activit
         const key = mrr[i].x.slice(0, 7);
         const churnPct = churnBy.get(key) ?? 0;
         const row = activityBy.get(key);
+
+        if (row && typeof row.startMrrMinor === "number" && typeof row.newMrrMinor === "number") {
+            months.push({
+                month: key,
+                startMrr: row.startMrrMinor / 100,
+                endMrr: end,
+                newMrr: row.newMrrMinor / 100,
+                expansion: Number(row.expansionMrrMinor || 0) / 100,
+                contraction: Number(row.contractionMrrMinor || 0) / 100,
+                churned: Number(row.churnedMrrMinor || 0) / 100,
+            });
+            continue;
+        }
 
         const churned = (start * churnPct) / 100;
         const subscribers = Number(row?.totalSubscribers || 0);

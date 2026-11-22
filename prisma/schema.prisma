@@ -30,6 +30,10 @@ model Workspace {
   trialStartedAt           DateTime?
   trialUsed                Boolean   @default(false)
 
+  // Set once the last 12 months of MRR history have been rebuilt from the
+  // connected Stripe account. Null means the next sync rebuilds history.
+  stripeHistoryBackfilledAt DateTime?
+
   resendDomainId       String?
   sendingDomain        String?
   sendingDomainStatus  String?
@@ -78,12 +82,24 @@ model Workspace {
   @@map("workspace")
 }
 
+// Money units: every *Minor / mrr Int column holds MINOR units (pence/cents) of
+// the row's currency. Exceptions, kept for backwards compatibility and marked
+// on the column: AccountRisk.mrr, Event.value, WorkspaceAnalyticsSnapshot money
+// columns are MAJOR units (pounds/dollars) as Float.
 model Customer {
   id               String    @id @default(uuid())
+  // When the row was created in Cobrai (sync date). Use customerSince for the
+  // real "became a customer" date.
   createdAt        DateTime  @default(now())
   name             String
   email            String?
+  // Current MRR in MINOR units (pence). Excludes trialing and unpaid
+  // subscriptions, includes discounts. See src/lib/stripe-connect/mrr.ts.
   mrr              Int       @default(0)
+  // Currency of mrr (ISO code, upper case). Null = workspace currency.
+  currency         String?
+  // Stripe customer.created (or the CRM create date for HubSpot-only rows).
+  customerSince    DateTime?
   churnRisk        Float     @default(0)
   healthScore      Int       @default(50)
   lastActiveAt     DateTime?
@@ -124,6 +140,7 @@ model Event {
   customerId  String
   type        String
   occurredAt  DateTime  @default(now())
+  // Money values are MAJOR units (pounds).
   value       Float?
   isDemo      Boolean   @default(false)
   customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
@@ -134,16 +151,24 @@ model Event {
 }
 
 model Invoice {
-  id          String    @id @default(cuid())
-  workspaceId String
-  customerId  String
-  status      String
-  amount      Int
-  dueAt       DateTime
-  paidAt      DateTime?
-  isDemo      Boolean   @default(false)
-  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id              String    @id @default(cuid())
+  workspaceId     String
+  customerId      String
+  status          String
+  // MINOR units of `currency`.
+  amount          Int
+  dueAt           DateTime
+  paidAt          DateTime?
+  isDemo          Boolean   @default(false)
+  // Stripe invoice id for invoices synced from a connected account.
+  stripeInvoiceId String?   @unique
+  currency        String?
+  attemptCount    Int       @default(0)
+  // Set when a payment attempt on this invoice failed. A paid invoice with
+  // failedAt set counts as recovered revenue.
+  failedAt        DateTime?
+  customer        Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, dueAt])
   @@index([customerId, status])
@@ -217,6 +242,7 @@ model AccountRisk {
   riskScore         Int
   reasonKey         String
   reasonLabel       String
+  // MAJOR units (pounds), unlike Customer.mrr.
   mrr               Float     @default(0)
   updatedAt         DateTime  @updatedAt
   createdAt         DateTime  @default(now())
@@ -338,7 +364,11 @@ model MrrSnapshot {
   workspaceId      String
   stripeCustomerId String
   month            String
+  // MRR at the end of `month` (or now, for the current month), MINOR units.
   mrrMinor         Int
+  // MRR of subscriptions that were still in trial (not counted in mrrMinor).
+  trialMrrMinor    Int            @default(0)
+  currency         String?
   active           Boolean        @default(true)
   firstSeenMonth   String?
   createdAt        DateTime       @default(now())

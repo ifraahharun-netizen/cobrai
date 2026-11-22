@@ -1,3 +1,4 @@
+import { AT_RISK_THRESHOLD } from "@/lib/risk/thresholds";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getWorkspaceIdFromRequest } from "@/lib/workspace.server";
@@ -637,8 +638,15 @@ export async function GET(req: Request) {
         tier: true,
         demoMode: true,
         trialEndsAt: true,
+        currency: true,
       },
     });
+
+    // MRR sums cover the workspace's currency only (minor units).
+    const workspaceCurrency = (ws?.currency || "GBP").toUpperCase();
+    const inWorkspaceCurrency = {
+      OR: [{ currency: null }, { currency: workspaceCurrency }],
+    };
 
     const now = new Date();
     const currentMonthDate = startOfUtcMonth(now);
@@ -670,9 +678,17 @@ export async function GET(req: Request) {
       connectedIntegrations.length > 0 &&
       (mrrSnapshotCount > 0 || accountRiskCount > 0);
 
+    // Local dev shows demo data by default. Set COBRAI_FORCE_DEMO=false to run
+    // the live path locally (e.g. against a Stripe test-mode connected
+    // account); COBRAI_FORCE_DEMO=true forces demo data anywhere.
+    const forceDemoEnv = process.env.COBRAI_FORCE_DEMO?.trim().toLowerCase();
+    const forceDemo =
+      forceDemoEnv === "true" ||
+      (forceDemoEnv !== "false" && process.env.NODE_ENV === "development");
+
     const effectiveDemoMode =
       ws?.demoMode === true ||
-      process.env.NODE_ENV === "development";
+      forceDemo;
 
 
     const isDemo = effectiveDemoMode === true;
@@ -709,6 +725,7 @@ export async function GET(req: Request) {
           workspaceId,
           month: thisMonth,
           active: true,
+          ...inWorkspaceCurrency,
         },
         _sum: { mrrMinor: true },
       }),
@@ -718,6 +735,7 @@ export async function GET(req: Request) {
           workspaceId,
           month: prevMonth,
           active: true,
+          ...inWorkspaceCurrency,
         },
         _sum: { mrrMinor: true },
       }),
@@ -791,6 +809,7 @@ export async function GET(req: Request) {
         where: {
           workspaceId,
           month: { in: months },
+          ...inWorkspaceCurrency,
         },
 
         select: {
@@ -1021,8 +1040,15 @@ export async function GET(req: Request) {
     const totalMrr = Math.round(Number(currentMrrAgg._sum.mrrMinor || 0) / 100);
     const previousTotalMrr = Math.round(Number(previousMrrAgg._sum.mrrMinor || 0) / 100);
 
-    const atRiskAccounts = risks.length;
-    const mrrAtRisk = risks.reduce<number>((sum, r) => sum + Number(r.mrr || 0), 0);
+    // AccountRisk.mrr is MAJOR units.
+    const atRiskAgg = await prisma.accountRisk.aggregate({
+      where: { workspaceId, riskScore: { gte: AT_RISK_THRESHOLD } },
+      _sum: { mrr: true },
+      _count: { _all: true },
+    });
+    const atRiskAccounts = atRiskAgg._count._all;
+    const mrrAtRisk = Number(atRiskAgg._sum.mrr || 0);
+    const hasMrrSnapshots = mrrSnapshotCount > 0;
 
     const customerByStripeId = new Map(
       customersRecent
@@ -1415,47 +1441,39 @@ export async function GET(req: Request) {
           (i) => i.provider
         ),
 
+      // kpis money values are MINOR units (the Metrics page formats them
+      // from minor). Live snapshot sums win over the stored analytics
+      // snapshot, which can lag.
       kpis: {
-        totalMrr:
-          latestAnalyticsSnapshot
-            ?.totalMrr ?? totalMrr,
+        totalMrr: hasMrrSnapshots
+          ? Number(currentMrrAgg._sum.mrrMinor || 0)
+          : Math.round(Number(latestAnalyticsSnapshot?.totalMrr ?? 0) * 100),
 
-        mrrAtRisk:
-          latestAnalyticsSnapshot
-            ?.mrrAtRisk ?? mrrAtRisk,
+        mrrAtRisk: Math.round(mrrAtRisk * 100),
 
-        atRiskAccounts:
-          latestAnalyticsSnapshot
-            ?.atRiskAccounts ??
-          atRiskAccounts,
+        atRiskAccounts,
 
         retentionPct:
-          latestAnalyticsSnapshot
-            ?.retentionRate ??
-          (latestChurnPct === null
-            ? null
-            : Number(
-              (
-                100 - latestChurnPct
-              ).toFixed(1)
-            )),
+          hasMrrSnapshots && latestChurnPct !== null
+            ? Number((100 - latestChurnPct).toFixed(1))
+            : latestAnalyticsSnapshot?.retentionRate ?? null,
 
-        churnPct:
-          latestAnalyticsSnapshot
-            ?.predictedChurnRate ??
-          latestChurnPct,
+        churnPct: hasMrrSnapshots
+          ? latestChurnPct
+          : latestAnalyticsSnapshot?.predictedChurnRate ?? latestChurnPct,
       },
 
+      // *Trend money values are MAJOR units (the main dashboard formats them
+      // as-is).
       totalMrrTrend: isDemo
         ? {
           current: 69700,
           previous: 64200,
         }
         : {
-          current:
-            latestAnalyticsSnapshot
-              ?.totalMrr ??
-            totalMrr,
+          current: hasMrrSnapshots
+            ? totalMrr
+            : latestAnalyticsSnapshot?.totalMrr ?? totalMrr,
 
           previous:
             previousTotalMrr,
@@ -1481,8 +1499,7 @@ export async function GET(req: Request) {
         }
         : {
           current:
-            latestAnalyticsSnapshot
-              ?.mrrAtRisk ??
+            mrrAtRisk ||
             currentMrrAtRiskFromSnapshots,
 
           previous:
