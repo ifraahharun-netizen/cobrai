@@ -1,4 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { computeMonthlyMetrics } from "@/lib/stripe-connect/metrics";
+
+/*
+ * Units: Customer.mrr and MrrSnapshot.mrrMinor are MINOR units (pence).
+ * AccountRisk.mrr and WorkspaceAnalyticsSnapshot money columns are MAJOR.
+ * MRR snapshots are written only by the Stripe sync / webhook
+ * (src/lib/stripe-connect/sync.ts); this pipeline only reads them.
+ */
 
 function safeNumber(value: unknown) {
     const n = Number(value);
@@ -125,8 +133,8 @@ function getEngagementNarrative(args: {
 }
 
 function getMonthKey(date: Date) {
-    return `${date.getFullYear()}-${String(
-        date.getMonth() + 1
+    return `${date.getUTCFullYear()}-${String(
+        date.getUTCMonth() + 1
     ).padStart(2, "0")}`;
 }
 
@@ -140,9 +148,11 @@ export async function runWorkspaceAnalyticsPipeline(
 
     const previousMonthDate =
         new Date(
-            now.getFullYear(),
-            now.getMonth() - 1,
-            1
+            Date.UTC(
+                now.getUTCFullYear(),
+                now.getUTCMonth() - 1,
+                1
+            )
         );
 
     const previousMonthKey =
@@ -167,6 +177,7 @@ export async function runWorkspaceAnalyticsPipeline(
                 id: true,
                 tier: true,
                 demoMode: true,
+                currency: true,
             },
         }),
 
@@ -220,6 +231,26 @@ export async function runWorkspaceAnalyticsPipeline(
         ),
     ]);
 
+    const snapshotRows =
+        await prisma.mrrSnapshot.findMany({
+            where: {
+                workspaceId,
+                month: {
+                    in: [
+                        previousMonthKey,
+                        currentMonthKey,
+                    ],
+                },
+            },
+            select: {
+                stripeCustomerId: true,
+                month: true,
+                mrrMinor: true,
+                trialMrrMinor: true,
+                currency: true,
+            },
+        });
+
     if (!workspace) {
         throw new Error(
             "Workspace not found"
@@ -241,10 +272,11 @@ export async function runWorkspaceAnalyticsPipeline(
             (r) => r.riskScore >= 70
         );
 
+    // Customers with no activity data are unknown, not inactive.
     const inactiveCustomers =
         customers.filter((c) => {
             if (!c.lastActiveAt) {
-                return true;
+                return false;
             }
 
             const diff =
@@ -263,14 +295,37 @@ export async function runWorkspaceAnalyticsPipeline(
             return days >= 14;
         });
 
-    const totalMrrMinor =
-        activeCustomers.reduce(
+    const workspaceCurrency = (
+        workspace.currency || "GBP"
+    ).toUpperCase();
+
+    const currencyRows =
+        snapshotRows.filter(
+            (r) =>
+                !r.currency ||
+                r.currency.toUpperCase() ===
+                workspaceCurrency
+        );
+
+    const [previousMonthMetrics, currentMonthMetrics] =
+        computeMonthlyMetrics(
+            currencyRows,
+            [previousMonthKey, currentMonthKey]
+        );
+
+    const hasSnapshots =
+        currencyRows.length > 0;
+
+    // Customer.mrr is already in minor units.
+    const totalMrrMinor = hasSnapshots
+        ? currentMonthMetrics.mrrMinor
+        : activeCustomers.reduce(
             (sum, customer) =>
                 sum +
                 Math.round(
                     safeNumber(
                         customer.mrr
-                    ) * 100
+                    )
                 ),
             0
         );
@@ -294,7 +349,7 @@ export async function runWorkspaceAnalyticsPipeline(
                     Math.round(
                         safeNumber(
                             customer.mrr
-                        ) * 100
+                        )
                     );
 
                 const churnRisk =
@@ -318,8 +373,11 @@ export async function runWorkspaceAnalyticsPipeline(
             0
         );
 
-    const churnRatePct =
-        customers.length > 0
+    // Logo churn this month: customers paying at the end of last month
+    // who are no longer paying.
+    const churnRatePct = hasSnapshots
+        ? currentMonthMetrics.churnPct ?? 0
+        : customers.length > 0
             ? Math.round(
                 (churnedCustomers.length /
                     customers.length) *
@@ -336,8 +394,9 @@ export async function runWorkspaceAnalyticsPipeline(
             ) / 10
             : 0;
 
-    const previousMrrMinor =
-        previousSnapshot?.totalMrr
+    const previousMrrMinor = hasSnapshots
+        ? previousMonthMetrics.mrrMinor
+        : previousSnapshot?.totalMrr
             ? Math.round(previousSnapshot.totalMrr * 100)
             : 0;
     const deltaMinor =
@@ -417,68 +476,6 @@ export async function runWorkspaceAnalyticsPipeline(
         );
 
     /*
-     * Create MRR snapshot
-     */
-
-    for (const customer of activeCustomers) {
-        if (
-            !customer.stripeCustomerId
-        ) {
-            continue;
-        }
-
-        await prisma.mrrSnapshot.upsert(
-            {
-                where: {
-                    workspaceId_stripeCustomerId_month:
-                    {
-                        workspaceId,
-
-                        stripeCustomerId:
-                            customer.stripeCustomerId,
-
-                        month:
-                            currentMonthKey,
-                    },
-                },
-
-                update: {
-                    mrrMinor:
-                        Math.round(
-                            safeNumber(
-                                customer.mrr
-                            ) * 100
-                        ),
-
-                    active: true,
-                },
-
-                create: {
-                    workspaceId,
-
-                    stripeCustomerId:
-                        customer.stripeCustomerId,
-
-                    month:
-                        currentMonthKey,
-
-                    mrrMinor:
-                        Math.round(
-                            safeNumber(
-                                customer.mrr
-                            ) * 100
-                        ),
-
-                    active: true,
-
-                    firstSeenMonth:
-                        currentMonthKey,
-                },
-            }
-        );
-    }
-
-    /*
      * Workspace analytics snapshot
      */
 
@@ -530,9 +527,10 @@ export async function runWorkspaceAnalyticsPipeline(
             Math.round(
                 safeNumber(
                     customer.mrr
-                ) * 100
+                )
             );
 
+        // No activity source: engagement is unknown (null), not zero.
         const inactiveDays =
             customer.lastActiveAt
                 ? Math.floor(
@@ -545,20 +543,24 @@ export async function runWorkspaceAnalyticsPipeline(
                         60 *
                         24)
                 )
-                : 999;
+                : null;
 
         const engagementScore =
-            inactiveDays <= 3
-                ? 95
-                : inactiveDays <= 7
-                    ? 78
-                    : inactiveDays <= 14
-                        ? 55
-                        : 30;
+            inactiveDays === null
+                ? null
+                : inactiveDays <= 3
+                    ? 95
+                    : inactiveDays <= 7
+                        ? 78
+                        : inactiveDays <= 14
+                            ? 55
+                            : 30;
 
         const billingScore =
             customer.status ===
-                "past_due"
+                "past_due" ||
+                customer.status ===
+                "unpaid"
                 ? 25
                 : 92;
 
@@ -598,16 +600,20 @@ export async function runWorkspaceAnalyticsPipeline(
                         engagementScore,
 
                     activeDays7d:
-                        inactiveDays <= 7
-                            ? 7 -
-                            inactiveDays
-                            : 0,
+                        inactiveDays === null
+                            ? null
+                            : inactiveDays <= 7
+                                ? 7 -
+                                inactiveDays
+                                : 0,
 
                     activeDays30d:
-                        inactiveDays <= 30
-                            ? 30 -
-                            inactiveDays
-                            : 0,
+                        inactiveDays === null
+                            ? null
+                            : inactiveDays <= 30
+                                ? 30 -
+                                inactiveDays
+                                : 0,
                 },
             }
         );

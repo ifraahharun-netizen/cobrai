@@ -41,6 +41,17 @@ export type ComputeRiskScoreArgs = {
     seatDropPct?: number | null;
 
     recentSuccessActions?: number | null;
+
+    /*
+     * Billing signals from the connected Stripe account. These carry the
+     * score for Stripe customers until there is a product-usage source.
+     */
+    subscriptionStatus?: string | null;
+
+    cancelAtPeriodEnd?: boolean | null;
+
+    /** MRR change vs. last month, in percent (negative = downgrade). */
+    mrrChangePct?: number | null;
 };
 
 export type ComputeRiskScoreResult = {
@@ -260,6 +271,65 @@ export function computeRiskScore(
         });
     }
 
+    const subscriptionStatus = (
+        args.subscriptionStatus || ""
+    ).toLowerCase();
+
+    if (subscriptionStatus === "past_due") {
+        score += 40;
+
+        signals.push({
+            key: "past_due",
+            label: "Subscription is past due",
+            impact: 40,
+        });
+    } else if (subscriptionStatus === "unpaid") {
+        score += 55;
+
+        signals.push({
+            key: "unpaid",
+            label: "Subscription unpaid after failed retries",
+            impact: 55,
+        });
+    }
+
+    if (args.cancelAtPeriodEnd) {
+        score += 60;
+
+        signals.push({
+            key: "cancel_scheduled",
+            label: "Cancellation scheduled at period end",
+            impact: 60,
+        });
+    }
+
+    const mrrChangePct = Number(
+        args.mrrChangePct ?? 0
+    );
+
+    if (
+        Number.isFinite(mrrChangePct) &&
+        mrrChangePct <= -10
+    ) {
+        const impact = clamp(
+            Math.round(
+                Math.abs(mrrChangePct) * 0.5
+            ),
+            8,
+            25
+        );
+
+        score += impact;
+
+        signals.push({
+            key: "downgrade",
+            label: `Downgraded: MRR down ${Math.round(
+                Math.abs(mrrChangePct)
+            )}% vs last month`,
+            impact,
+        });
+    }
+
     const usageDropPct =
         Number(
             args.usageDropPct ?? 0
@@ -397,9 +467,20 @@ export function computeRiskScore(
     const nextActions: string[] =
         [];
 
-    if (billingIssues) {
+    if (
+        billingIssues ||
+        failedPayments > 0 ||
+        subscriptionStatus === "past_due" ||
+        subscriptionStatus === "unpaid"
+    ) {
         nextActions.push(
             "Trigger billing recovery workflow"
+        );
+    }
+
+    if (args.cancelAtPeriodEnd) {
+        nextActions.push(
+            "Reach out before the cancellation takes effect"
         );
     }
 
@@ -431,6 +512,10 @@ export function computeRiskScore(
             "Continue monitoring account health"
         );
     }
+
+    signals.sort(
+        (a, b) => b.impact - a.impact
+    );
 
     const summary =
         signals.length

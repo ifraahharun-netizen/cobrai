@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { subscriptionMrr } from "@/lib/stripe-connect/mrr";
+import {
+    customerIdForStripeCustomer,
+    refreshConnectedCustomer,
+    upsertInvoiceFromStripe,
+    upsertStripeCustomerMirror,
+} from "@/lib/stripe-connect/sync";
 
 export const dynamic = "force-dynamic";
 
@@ -25,71 +32,9 @@ function getWebhookSecret() {
     return secret;
 }
 
-function unixToDate(value?: number | null) {
-    return value ? new Date(value * 1000) : null;
-}
-
-function getMonthKey(date = new Date()) {
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-function getSubscriptionPeriod(subscription: Stripe.Subscription) {
-    const primaryItem = subscription.items.data[0] as
-        | (Stripe.SubscriptionItem & {
-            current_period_start?: number | null;
-            current_period_end?: number | null;
-        })
-        | undefined;
-
-    return {
-        currentPeriodStart: unixToDate(primaryItem?.current_period_start ?? null),
-        currentPeriodEnd: unixToDate(primaryItem?.current_period_end ?? null),
-    };
-}
-
-function getMonthlyAmountMinorFromSubscription(
-    subscription: Stripe.Subscription
-): number {
-    const activeStatuses = new Set([
-        "active",
-        "trialing",
-        "past_due",
-        "unpaid",
-    ]);
-
-    if (!activeStatuses.has(subscription.status)) {
-        return 0;
-    }
-
-    let total = 0;
-
-    for (const item of subscription.items.data) {
-        const price = item.price;
-
-        if (!price?.recurring) continue;
-        if (price.recurring.usage_type === "metered") continue;
-
-        const unitAmount = price.unit_amount ?? 0;
-        const quantity = item.quantity ?? 1;
-        const interval = price.recurring.interval;
-        const intervalCount = price.recurring.interval_count ?? 1;
-
-        let monthly = 0;
-
-        if (interval === "month") {
-            monthly = (unitAmount * quantity) / intervalCount;
-        } else if (interval === "year") {
-            monthly = (unitAmount * quantity) / (12 * intervalCount);
-        } else if (interval === "week") {
-            monthly = (unitAmount * quantity * 52) / (12 * intervalCount);
-        } else if (interval === "day") {
-            monthly = (unitAmount * quantity * 365) / (12 * intervalCount);
-        }
-
-        total += Math.round(monthly);
-    }
-
-    return total;
+function customerIdOf(value: string | { id: string } | null | undefined) {
+    if (!value) return null;
+    return typeof value === "string" ? value : value.id;
 }
 
 async function getWorkspaceByStripeAccountId(stripeAccountId: string) {
@@ -104,163 +49,68 @@ async function getWorkspaceByStripeAccountId(stripeAccountId: string) {
     });
 }
 
-async function upsertStripeCustomer(params: {
+/*
+ * A cancellation that was scheduled and then withdrawn is revenue saved.
+ * Recorded as an Event (value in MAJOR units) for the "Revenue saved" metric.
+ */
+async function recordCancellationReversal(args: {
     workspaceId: string;
-    customer: Stripe.Customer;
-}) {
-    const { workspaceId, customer } = params;
-
-    await prisma.stripeCustomer.upsert({
-        where: {
-            stripeId: customer.id,
-        },
-        update: {
-            workspaceId,
-            email: customer.email ?? null,
-            name: customer.name ?? null,
-        },
-        create: {
-            workspaceId,
-            stripeId: customer.id,
-            email: customer.email ?? null,
-            name: customer.name ?? null,
-        },
-    });
-}
-
-async function upsertStripeSubscription(params: {
-    workspaceId: string;
+    customerId: string;
     subscription: Stripe.Subscription;
+    previous: Partial<Stripe.Subscription> | undefined;
 }) {
-    const { workspaceId, subscription } = params;
+    const { subscription, previous } = args;
+    const wasScheduled =
+        previous?.cancel_at_period_end === true ||
+        (typeof previous?.cancel_at === "number" && previous.cancel_at > 0);
+    const nowScheduled =
+        subscription.cancel_at_period_end || !!subscription.cancel_at;
 
-    const stripeCustomerId =
-        typeof subscription.customer === "string"
-            ? subscription.customer
-            : subscription.customer?.id;
+    if (!wasScheduled || nowScheduled) return;
+    if (subscription.status !== "active" && subscription.status !== "past_due") return;
 
-    if (!stripeCustomerId) return;
+    const { mrrMinor } = subscriptionMrr(subscription);
+    if (mrrMinor <= 0) return;
 
-    const { currentPeriodStart, currentPeriodEnd } =
-        getSubscriptionPeriod(subscription);
-
-    await prisma.stripeSubscription.upsert({
-        where: {
-            stripeId: subscription.id,
-        },
-        update: {
-            workspaceId,
-            stripeCustomerId,
-            status: subscription.status,
-            currency: subscription.currency ?? null,
-            currentPeriodStart,
-            currentPeriodEnd,
-            cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
-            canceledAt: unixToDate(subscription.canceled_at),
-            endedAt: unixToDate(subscription.ended_at),
-        },
-        create: {
-            workspaceId,
-            stripeId: subscription.id,
-            stripeCustomerId,
-            status: subscription.status,
-            currency: subscription.currency ?? null,
-            currentPeriodStart,
-            currentPeriodEnd,
-            cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
-            canceledAt: unixToDate(subscription.canceled_at),
-            endedAt: unixToDate(subscription.ended_at),
-        },
-    });
-
-    const month = getMonthKey();
-    const mrrMinor = getMonthlyAmountMinorFromSubscription(subscription);
-
-    await prisma.mrrSnapshot.upsert({
-        where: {
-            workspaceId_stripeCustomerId_month: {
-                workspaceId,
-                stripeCustomerId,
-                month,
-            },
-        },
-        update: {
-            mrrMinor,
-            active: mrrMinor > 0,
-        },
-        create: {
-            workspaceId,
-            stripeCustomerId,
-            month,
-            mrrMinor,
-            active: mrrMinor > 0,
-            firstSeenMonth: month,
+    await prisma.event.create({
+        data: {
+            workspaceId: args.workspaceId,
+            customerId: args.customerId,
+            type: "cancellation_reversed",
+            value: mrrMinor / 100,
         },
     });
 }
 
-async function markInvoiceFailure(params: {
+async function recordPaymentFailureAction(args: {
     workspaceId: string;
+    customerId: string;
+    stripeCustomerId: string;
     invoice: Stripe.Invoice;
 }) {
-    const { workspaceId, invoice } = params;
-
-    const stripeCustomerId =
-        typeof invoice.customer === "string"
-            ? invoice.customer
-            : invoice.customer?.id;
-
-    if (!stripeCustomerId) return;
-
-    const customer = await prisma.customer.findFirst({
-        where: {
-            workspaceId,
-            stripeCustomerId,
-        },
-        select: {
-            id: true,
-            name: true,
-            email: true,
-            riskScore: true,
-            mrr: true,
-        },
-    });
-
+    const { invoice } = args;
     const amountMinor =
         typeof invoice.amount_due === "number" ? invoice.amount_due : 0;
 
-    if (customer) {
-        await prisma.actionExecution.create({
-            data: {
-                workspaceId,
-                customerId: customer.id,
-                actionType: "retry_payment",
-                channel: "manual",
-                title: "Payment failed",
-                subject: invoice.number
-                    ? `Invoice ${invoice.number} payment failed`
-                    : "Invoice payment failed",
-                body: "Stripe reported a failed payment on the connected account.",
-                reason: "invoice.payment_failed",
-                status: "pending",
-                metadata: {
-                    stripeInvoiceId: invoice.id,
-                    stripeCustomerId,
-                    amountDueMinor: amountMinor,
-                    hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
-                } as Prisma.JsonObject,
-            },
-        });
-    }
-
-    await prisma.integration.updateMany({
-        where: {
-            workspaceId,
-            provider: "stripe",
-        },
+    await prisma.actionExecution.create({
         data: {
-            lastSyncError: null,
-            lastSyncedAt: new Date(),
+            workspaceId: args.workspaceId,
+            customerId: args.customerId,
+            actionType: "retry_payment",
+            channel: "manual",
+            title: "Payment failed",
+            subject: invoice.number
+                ? `Invoice ${invoice.number} payment failed`
+                : "Invoice payment failed",
+            body: "Stripe reported a failed payment on the connected account.",
+            reason: "invoice.payment_failed",
+            status: "pending",
+            metadata: {
+                stripeInvoiceId: invoice.id,
+                stripeCustomerId: args.stripeCustomerId,
+                amountDueMinor: amountMinor,
+                hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
+            } as Prisma.JsonObject,
         },
     });
 }
@@ -304,6 +154,14 @@ export async function POST(req: Request) {
             return NextResponse.json({ received: true });
         }
 
+        // Stripe retries deliveries; one-off side effects (actions, saved
+        // revenue events) only run on the first delivery. Recomputed state is
+        // idempotent and always runs.
+        const alreadySeen = await prisma.stripeEvent.findUnique({
+            where: { id: event.id },
+            select: { id: true },
+        });
+
         await prisma.stripeEvent.upsert({
             where: {
                 id: event.id,
@@ -317,78 +175,93 @@ export async function POST(req: Request) {
             },
         });
 
+        const base = {
+            workspaceId: workspace.id,
+            stripeAccount: stripeAccountId,
+            stripe,
+        };
+
         switch (event.type) {
             case "customer.created":
             case "customer.updated": {
                 const customer = event.data.object as Stripe.Customer;
 
                 if (!customer.deleted) {
-                    await upsertStripeCustomer({
-                        workspaceId: workspace.id,
-                        customer,
-                    });
+                    await upsertStripeCustomerMirror(workspace.id, customer);
                 }
                 break;
             }
 
             case "customer.subscription.created":
             case "customer.subscription.updated":
-            case "customer.subscription.deleted": {
+            case "customer.subscription.deleted":
+            case "customer.subscription.paused":
+            case "customer.subscription.resumed": {
                 const subscription = event.data.object as Stripe.Subscription;
+                const stripeCustomerId = customerIdOf(subscription.customer);
+                if (!stripeCustomerId) break;
 
-                const stripeCustomerId =
-                    typeof subscription.customer === "string"
-                        ? subscription.customer
-                        : subscription.customer?.id;
+                // Recompute the customer from ALL their subscriptions, never
+                // from this one alone.
+                const refreshed = await refreshConnectedCustomer({
+                    ...base,
+                    stripeCustomerId,
+                });
 
-                if (stripeCustomerId) {
-                    const fullCustomer = await stripe.customers.retrieve(
-                        stripeCustomerId,
-                        {},
-                        {
-                            stripeAccount: stripeAccountId,
-                        }
-                    );
-
-                    if (!("deleted" in fullCustomer) || !fullCustomer.deleted) {
-                        await upsertStripeCustomer({
-                            workspaceId: workspace.id,
-                            customer: fullCustomer as Stripe.Customer,
-                        });
-                    }
+                if (
+                    refreshed &&
+                    !alreadySeen &&
+                    event.type === "customer.subscription.updated"
+                ) {
+                    await recordCancellationReversal({
+                        workspaceId: workspace.id,
+                        customerId: refreshed.customerId,
+                        subscription,
+                        previous: event.data.previous_attributes as
+                            | Partial<Stripe.Subscription>
+                            | undefined,
+                    });
                 }
 
-                const fullSubscription = await stripe.subscriptions.retrieve(
-                    subscription.id,
-                    {
-                        expand: ["items.data.price"],
-                    },
-                    {
-                        stripeAccount: stripeAccountId,
-                    }
-                );
-
-                await upsertStripeSubscription({
-                    workspaceId: workspace.id,
-                    subscription: fullSubscription,
-                });
-
                 break;
             }
 
-            case "invoice.payment_failed": {
-                const invoice = event.data.object as Stripe.Invoice;
-
-                await markInvoiceFailure({
-                    workspaceId: workspace.id,
-                    invoice,
-                });
-                break;
-            }
-
+            case "invoice.payment_failed":
             case "invoice.paid":
-            case "invoice.finalized":
-            case "customer.deleted":
+            case "invoice.marked_uncollectible": {
+                const invoice = event.data.object as Stripe.Invoice;
+                const stripeCustomerId = customerIdOf(
+                    invoice.customer as string | { id: string } | null
+                );
+                if (!stripeCustomerId) break;
+
+                const customerId = await customerIdForStripeCustomer({
+                    ...base,
+                    stripeCustomerId,
+                });
+                if (!customerId) break;
+
+                await upsertInvoiceFromStripe({
+                    workspaceId: workspace.id,
+                    customerId,
+                    invoice,
+                    failedNow: event.type === "invoice.payment_failed",
+                });
+
+                if (event.type === "invoice.payment_failed" && !alreadySeen) {
+                    await recordPaymentFailureAction({
+                        workspaceId: workspace.id,
+                        customerId,
+                        stripeCustomerId,
+                        invoice,
+                    });
+                }
+
+                // Status (past_due/active) and risk follow the invoice.
+                await refreshConnectedCustomer({ ...base, stripeCustomerId });
+                break;
+            }
+
             default:
                 break;
         }
