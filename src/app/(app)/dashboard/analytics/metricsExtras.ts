@@ -113,15 +113,12 @@ export function computeRetention(movement: MovementMonth[]) {
     const churned = sum("churned");
     const newMrr = sum("newMrr");
 
-    // Compound each month's retention of the revenue that existed at its start,
-    // so revenue from customers who joined mid-period doesn't distort it.
-    let nrr = 1;
-    let grr = 1;
-    for (const m of movement) {
-        if (!m.startMrr) continue;
-        nrr *= (m.startMrr + m.expansion - m.contraction - m.churned) / m.startMrr;
-        grr *= Math.max(0, m.startMrr - m.contraction - m.churned) / m.startMrr;
-    }
+    // Worked out from the same period totals the Revenue movement chart shows,
+    // so the headline percentages always reconcile with that chart:
+    //   GRR = (start − downgrades − cancellations) ÷ start
+    //   NRR = (start + upgrades − downgrades − cancellations) ÷ start
+    const grr = Math.max(0, start - contraction - churned) / start;
+    const nrr = Math.max(0, start + expansion - contraction - churned) / start;
 
     return {
         nrr: nrr * 100,

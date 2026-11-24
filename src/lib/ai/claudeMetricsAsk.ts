@@ -52,6 +52,12 @@ How to answer:
 - Never invent customers, events, causes or numbers that aren't in the data. Treat null as unknown, not zero.
 - Plain text only: no markdown headings, bold or tables.
 
+What the metrics contain, when present:
+- subscriberMovement: for each month, returning, new and churned (cancelled) subscribers. Use it for questions about growth, sign-ups and cancellations.
+- recovery: the revenue that can still be won back, by action (groups) and per account (accounts, with each account's action, value, reason and suggested next step).
+- forecast: next month's projected MRR, churn rate and expected cancellations.
+Call each account's action by its exact label from the data (for example "Engagement recovery", not "usage recovery"). The headline revenue-at-risk figure and the queue's value at stake are measured differently; if they don't add up, say so briefly rather than forcing them to match.
+
 Also return followUps: three short follow-up questions (at most 9 words each) the user might ask next, specific to their data.
 
 Money is in the currency given. Percentages are percent values (2.6 means 2.6%). Lower churn and lower revenue at risk are good.`;

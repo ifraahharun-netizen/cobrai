@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ArrowUpRight } from "lucide-react";
 import InfoTip from "./InfoTip";
 import styles from "./metrics.module.css";
@@ -14,6 +15,7 @@ export default function KpiTile({
     better,
     actionLabel,
     onAction,
+    icon,
 }: {
     label: string;
     value: string;
@@ -26,6 +28,8 @@ export default function KpiTile({
     better: "up" | "down";
     actionLabel?: string;
     onAction?: () => void;
+    /** Icon shown in a small box at the top right, as on the main Dashboard. */
+    icon?: ReactNode;
 }) {
     const tone = !change || change.direction === "flat" ? "neutral" : change.direction === better ? "good" : "bad";
 
@@ -39,13 +43,17 @@ export default function KpiTile({
                 {onAction && actionLabel ? (
                     <button
                         type="button"
-                        className={styles.kpiTileLink}
+                        className={`${styles.kpiTileLink} ${icon ? styles.kpiIconBox : ""}`}
                         onClick={onAction}
                         aria-label={`${actionLabel}: ${label}`}
                         title={actionLabel}
                     >
-                        <ArrowUpRight size={14} strokeWidth={1.8} aria-hidden="true" />
+                        {icon ?? <ArrowUpRight size={14} strokeWidth={1.8} aria-hidden="true" />}
                     </button>
+                ) : icon ? (
+                    <span className={styles.kpiIconBox} aria-hidden="true">
+                        {icon}
+                    </span>
                 ) : null}
             </div>
             <div className={styles.kpiTileBody}>

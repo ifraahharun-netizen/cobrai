@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, RotateCcw, Sparkles, X } from "lucide-react";
+import { ArrowUp, CalendarCheck, PhoneCall, RotateCcw, TrendingDown, TriangleAlert, X } from "lucide-react";
+import ClaudeMark from "./ClaudeMark";
 import { getFirebaseAuth } from "@/lib/firebase.client";
 import type { MetricsSnapshot } from "@/lib/ai/claudeMetricsRead";
 import type { AskAccount } from "@/lib/ai/claudeMetricsAsk";
@@ -58,12 +59,13 @@ function AnswerText({ text }: { text: string }) {
     );
 }
 
-const STARTER_HINTS: Record<string, string> = {
-    [STARTERS[0]]: "Revenue at risk",
-    [STARTERS[1]]: "Who to contact",
-    [STARTERS[2]]: "Churn trend",
-    [STARTERS[3]]: "This week's plan",
-};
+/** Suggestion cards under the message box on the empty page. */
+const STARTER_CARDS = [
+    { question: STARTERS[0], title: "Revenue at risk", text: "Where your recurring revenue is exposed right now.", Icon: TriangleAlert },
+    { question: STARTERS[1], title: "Who to contact", text: "The accounts to reach first, and what to say.", Icon: PhoneCall },
+    { question: STARTERS[2], title: "Churn trend", text: "What's driving churn up or down, month by month.", Icon: TrendingDown },
+    { question: STARTERS[3], title: "This week's plan", text: "A short, prioritised plan to keep customers.", Icon: CalendarCheck },
+];
 
 /**
  * Chat for asking Claude about the Metrics page. Every question is answered
@@ -180,114 +182,137 @@ export default function AskClaudePanel({
         !loading && Boolean(lastAssistant?.followUps?.length) && turns[turns.length - 1] === lastAssistant;
 
     if (variant === "page") {
+        // The message box: centred on the empty page, pinned to the bottom in a conversation.
+        const composer = (
+            <div className={styles.chatComposerBlock}>
+                <form
+                    className={styles.chatComposer}
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        void ask(input);
+                    }}
+                >
+                    <textarea
+                        ref={inputRef}
+                        value={input}
+                        onChange={(event) => setInput(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === "Enter" && !event.shiftKey) {
+                                event.preventDefault();
+                                void ask(input);
+                            }
+                        }}
+                        placeholder="Ask anything about your revenue, churn or accounts…"
+                        aria-label="Question for Claude"
+                        rows={2}
+                        maxLength={500}
+                    />
+                    <div className={styles.chatComposerBar}>
+                        <span className={styles.chatComposerHint}>
+                            <ClaudeMark size={12} />
+                            Claude · your metrics and accounts
+                        </span>
+                        <button
+                            type="submit"
+                            className={styles.askSend}
+                            disabled={!input.trim() || loading}
+                            aria-label="Ask Claude"
+                        >
+                            <ArrowUp size={16} strokeWidth={2} aria-hidden="true" />
+                        </button>
+                    </div>
+                </form>
+                <p className={styles.askDisclaimer}>Claude can make mistakes. Check before acting.</p>
+            </div>
+        );
+
         return (
             <section className={styles.chatPage} hidden={!open} aria-label="Ask Claude">
-                <div className={styles.chatScroll} ref={scrollRef} aria-live="polite">
-                    <div className={styles.chatColumn}>
-                        {turns.length === 0 ? (
-                            <div className={styles.chatEmpty}>
-                                <span className={styles.chatMark} aria-hidden="true">
-                                    <Sparkles size={18} strokeWidth={1.8} />
-                                </span>
-                                <h2>What would you like to know?</h2>
-                                <p>
-                                    Claude answers from your revenue, churn and subscriber figures and the accounts in your
-                                    queue{snapshot.source === "demo" ? " (demo data)" : ""}.
-                                </p>
-                                <div className={styles.chatStarters}>
-                                    {STARTERS.map((starter) => (
-                                        <button key={starter} type="button" onClick={() => void ask(starter)}>
-                                            <span>{STARTER_HINTS[starter]}</span>
-                                            {starter}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className={styles.chatThreadHead}>
-                                <span>Conversation about your metrics</span>
-                                <button type="button" onClick={() => setTurns([])} disabled={loading}>
-                                    <RotateCcw size={13} strokeWidth={1.8} aria-hidden="true" />
-                                    New chat
-                                </button>
-                            </div>
-                        )}
+                <header className={styles.chatTop}>
+                    <span className={styles.chatTopTitle}>
+                        <span className={styles.chatTopMark} aria-hidden="true">
+                            <ClaudeMark size={13} />
+                        </span>
+                        Ask Claude
+                    </span>
+                    {snapshot.source === "demo" ? <span className={styles.chatTopPill}>Demo data</span> : null}
+                    {turns.length ? (
+                        <button type="button" className={styles.chatNewButton} onClick={() => setTurns([])} disabled={loading}>
+                            <RotateCcw size={13} strokeWidth={1.8} aria-hidden="true" />
+                            New chat
+                        </button>
+                    ) : null}
+                </header>
 
-                        {turns.map((turn, index) =>
-                            turn.role === "user" ? (
-                                <div key={index} className={styles.chatUser}>
-                                    {turn.text}
-                                </div>
-                            ) : (
-                                <div key={index} className={`${styles.chatAnswer} ${turn.error ? styles.askAnswerError : ""}`}>
-                                    <span className={styles.chatMarkSmall} aria-hidden="true">
-                                        <Sparkles size={12} strokeWidth={2} />
-                                    </span>
-                                    <div className={styles.chatAnswerBody}>
-                                        <AnswerText text={turn.text} />
-                                    </div>
-                                </div>
-                            )
-                        )}
-
-                        {loading ? (
-                            <div className={`${styles.askThinking} ${styles.chatThinking}`}>
-                                <span />
-                                <span />
-                                <span />
-                                Claude is reading your numbers…
-                            </div>
-                        ) : null}
-
-                        {showFollowUps ? (
-                            <div className={styles.chatFollowUps}>
-                                {lastAssistant!.followUps!.map((followUp) => (
-                                    <button key={followUp} type="button" onClick={() => void ask(followUp)}>
-                                        {followUp}
+                {turns.length === 0 ? (
+                    <div className={styles.chatWelcome}>
+                        <div className={styles.chatWelcomeInner}>
+                            <span className={styles.chatOrb} aria-hidden="true">
+                                <ClaudeMark size={22} />
+                            </span>
+                            <h2>What would you like to know?</h2>
+                            <p>
+                                Claude answers from your revenue, churn and subscriber figures and the accounts in your
+                                queue{snapshot.source === "demo" ? " (demo data)" : ""}.
+                            </p>
+                            {composer}
+                            <div className={styles.chatCards}>
+                                {STARTER_CARDS.map(({ question, title, text, Icon }) => (
+                                    <button key={question} type="button" onClick={() => void ask(question)}>
+                                        <span className={styles.chatCardIcon} aria-hidden="true">
+                                            <Icon size={15} strokeWidth={1.8} />
+                                        </span>
+                                        <strong>{title}</strong>
+                                        <span>{text}</span>
                                     </button>
                                 ))}
                             </div>
-                        ) : null}
-                    </div>
-                </div>
-
-                <div className={styles.chatComposerWrap}>
-                    <form
-                        className={styles.chatComposer}
-                        onSubmit={(event) => {
-                            event.preventDefault();
-                            void ask(input);
-                        }}
-                    >
-                        <textarea
-                            ref={inputRef}
-                            value={input}
-                            onChange={(event) => setInput(event.target.value)}
-                            onKeyDown={(event) => {
-                                if (event.key === "Enter" && !event.shiftKey) {
-                                    event.preventDefault();
-                                    void ask(input);
-                                }
-                            }}
-                            placeholder="Ask about revenue, churn or accounts…"
-                            aria-label="Question for Claude"
-                            rows={2}
-                            maxLength={500}
-                        />
-                        <div className={styles.chatComposerBar}>
-                            <span>Enter to send · Shift+Enter for a new line</span>
-                            <button
-                                type="submit"
-                                className={styles.askSend}
-                                disabled={!input.trim() || loading}
-                                aria-label="Ask Claude"
-                            >
-                                <ArrowUp size={16} strokeWidth={2} aria-hidden="true" />
-                            </button>
                         </div>
-                    </form>
-                    <p className={styles.askDisclaimer}>Claude can make mistakes. Check before acting.</p>
-                </div>
+                    </div>
+                ) : (
+                    <>
+                        <div className={styles.chatScroll} ref={scrollRef} aria-live="polite">
+                            <div className={styles.chatColumn}>
+                                {turns.map((turn, index) =>
+                                    turn.role === "user" ? (
+                                        <div key={index} className={styles.chatUser}>
+                                            {turn.text}
+                                        </div>
+                                    ) : (
+                                        <div key={index} className={`${styles.chatAnswer} ${turn.error ? styles.askAnswerError : ""}`}>
+                                            <span className={styles.chatMarkSmall} aria-hidden="true">
+                                                <ClaudeMark size={12} />
+                                            </span>
+                                            <div className={styles.chatAnswerBody}>
+                                                <AnswerText text={turn.text} />
+                                            </div>
+                                        </div>
+                                    )
+                                )}
+
+                                {loading ? (
+                                    <div className={`${styles.askThinking} ${styles.chatThinking}`}>
+                                        <span />
+                                        <span />
+                                        <span />
+                                        Claude is reading your numbers…
+                                    </div>
+                                ) : null}
+
+                                {showFollowUps ? (
+                                    <div className={styles.chatFollowUps}>
+                                        {lastAssistant!.followUps!.map((followUp) => (
+                                            <button key={followUp} type="button" onClick={() => void ask(followUp)}>
+                                                {followUp}
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+                        <div className={styles.chatComposerWrap}>{composer}</div>
+                    </>
+                )}
             </section>
         );
     }
@@ -301,7 +326,7 @@ export default function AskClaudePanel({
             <aside className={styles.askPanel} role="dialog" aria-modal="true" aria-labelledby="ask-claude-title">
                 <header className={styles.askHead}>
                     <span className={styles.claudeTag}>
-                        <Sparkles size={11} strokeWidth={2} aria-hidden="true" />
+                        <ClaudeMark size={11} />
                         Claude
                     </span>
                     <h2 id="ask-claude-title">Ask about your metrics</h2>
