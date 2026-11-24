@@ -33,7 +33,20 @@ export type TrialAtStakeAccount = {
     reason: string;
     riskScore: number;
     mrrMinor: number;
+    /** The step Cobrai would take next (shown blurred until they pay). */
+    nextStep: string;
 };
+
+/** Suggested next step for an at-risk account, from its risk reason. */
+export function nextStepForReason(reasonKey: string, reasonLabel: string): string {
+    const text = `${reasonKey} ${reasonLabel}`.toLowerCase();
+    if (/payment|billing|invoice|past_due|unpaid|card/.test(text)) return "Retry the payment and email the billing contact";
+    if (/cancel/.test(text)) return "Reach out before the cancellation takes effect";
+    if (/downgrad|contraction|seat/.test(text)) return "Offer a plan review call before they downgrade further";
+    if (/inactiv|login|usage|engagement|adoption|quiet/.test(text)) return "Send a re-engagement email with a tailored tip";
+    if (/upgrade|expansion|upsell/.test(text)) return "Suggest the plan that fits their growth";
+    return "Book a personal check-in from your team";
+}
 
 export type TrialAtStake = {
     /** Recurring revenue Cobrai is tracking this month. */
@@ -68,7 +81,7 @@ async function loadAtStake(workspaceId: string, now: Date): Promise<TrialAtStake
             where: riskWhere,
             orderBy: [{ mrr: "desc" }, { riskScore: "desc" }],
             take: 3,
-            select: { companyName: true, reasonLabel: true, riskScore: true, mrr: true },
+            select: { companyName: true, reasonKey: true, reasonLabel: true, riskScore: true, mrr: true },
         }),
         prisma.invoice.aggregate({
             where: { workspaceId, isDemo: false, failedAt: { not: null }, paidAt: null, status: { notIn: ["paid", "void", "uncollectible"] } },
@@ -89,6 +102,7 @@ async function loadAtStake(workspaceId: string, now: Date): Promise<TrialAtStake
             reason: r.reasonLabel,
             riskScore: r.riskScore,
             mrrMinor: clampCurrencyMinor(Number(r.mrr || 0) * 100),
+            nextStep: nextStepForReason(r.reasonKey, r.reasonLabel),
         })),
     };
 }

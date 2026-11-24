@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "firebase/auth";
-import { ArrowRight, Check, CreditCard, Lock, RotateCcw, ShieldCheck, TriangleAlert } from "lucide-react";
+import { ArrowRight, Check, CreditCard, Lock, RotateCcw, ShieldCheck, Sparkles, TriangleAlert } from "lucide-react";
 
 import styles from "./TrialUpgradeGate.module.css";
 
@@ -21,7 +21,7 @@ type TrialAtStake = {
     atRiskAccounts: number;
     failedPaymentsMinor: number;
     failedPayments: number;
-    topAccounts: Array<{ name: string; reason: string; riskScore: number; mrrMinor: number }>;
+    topAccounts: Array<{ name: string; reason: string; riskScore: number; mrrMinor: number; nextStep?: string }>;
 };
 
 export type TrialStatus = {
@@ -114,6 +114,29 @@ export default function TrialUpgradeGate({ user, status }: Props) {
     const recoverableMinor = stake.atRiskMinor + stake.failedPaymentsMinor;
     const hasData = stake.mrrTrackedMinor > 0 || recoverableMinor > 0 || impact.accountsMonitored > 0;
 
+    // Average monthly value of an at-risk account, used for "pays for itself" maths.
+    const avgAccountMinor = stake.atRiskAccounts > 0 ? stake.atRiskMinor / stake.atRiskAccounts : 0;
+    /** Plain-English payback for a plan, from this customer's own numbers. Pro also counts failed payments it retries. */
+    function paybackLine(tier: PaidTier): string | null {
+        const price = PLANS[tier].priceMinor;
+        const failed = tier === "pro" ? stake.failedPaymentsMinor : 0;
+        if (failed >= price) {
+            return `Recovering your ${money(failed, currency)} of failed payments covers it on its own.`;
+        }
+        if (avgAccountMinor <= 0) return null;
+        const n = Math.ceil((price - failed) / avgAccountMinor);
+        if (n > stake.atRiskAccounts) return null;
+        const accounts = `${n} of your ${stake.atRiskAccounts} at-risk accounts`;
+        return failed > 0
+            ? `Recovering your ${money(failed, currency)} of failed payments and keeping ${accounts} covers it.`
+            : `Pays for itself if it keeps ${accounts}.`;
+    }
+    const savedSoFar = [
+        impact.revenueProtectedMinor > 0 ? `${money(impact.revenueProtectedMinor, currency)} of revenue protected` : null,
+        impact.paymentsRecovered > 0 ? plural(impact.paymentsRecovered, "failed payment") + " recovered" : null,
+        impact.customersRetained > 0 ? plural(impact.customersRetained, "customer") + " kept" : null,
+    ].filter(Boolean) as string[];
+
     // Pro when there's money to recover automatically or more at risk than Pro costs.
     const recommended: PaidTier =
         stake.failedPayments > 0 || recoverableMinor >= PLANS.pro.priceMinor ? "pro" : "starter";
@@ -139,7 +162,7 @@ export default function TrialUpgradeGate({ user, status }: Props) {
         { label: "Accounts monitored", value: impact.accountsMonitored.toLocaleString("en-GB") },
         { label: "Risks flagged", value: impact.highRiskAccounts.toLocaleString("en-GB") },
         { label: "AI actions", value: impact.aiActionsGenerated.toLocaleString("en-GB") },
-        { label: "Revenue protected", value: money(impact.revenueProtectedMinor, currency) },
+        { label: "Payments recovered", value: impact.paymentsRecovered.toLocaleString("en-GB") },
     ];
 
     useEffect(() => {
@@ -209,7 +232,9 @@ export default function TrialUpgradeGate({ user, status }: Props) {
                             : "Your free trial has ended"}
                     </h1>
                     <p id="trial-report-subtitle" className={styles.subtitle}>
-                        {hasData
+                        {hasData && stake.atRiskMinor > 0
+                            ? `If these ${plural(stake.atRiskAccounts, "account")} cancel, you lose ${money(stake.atRiskMinor * 12, currency)} a year. Cobrai has a next step ready for each one. Choose a plan to act on it. Your data and history are kept.`
+                            : hasData
                             ? "Here's what Cobrai found in your business. Choose a plan to act on it. Your data and history are kept."
                             : "Choose a plan to keep using Cobrai. Your workspace and settings are kept."}
                     </p>
@@ -224,16 +249,27 @@ export default function TrialUpgradeGate({ user, status }: Props) {
                                 <span className={styles.stakeSub}>
                                     a month · {plural(stake.atRiskAccounts, "account")}
                                 </span>
+                                {stake.atRiskMinor > 0 ? (
+                                    <span className={styles.stakeNote}>{money(stake.atRiskMinor * 12, currency)} a year if they leave</span>
+                                ) : null}
                             </div>
                             <div className={styles.stakeCell}>
                                 <span className={styles.stakeLabel}>Failed payments to recover</span>
                                 <strong className={styles.stakeValue}>{money(stake.failedPaymentsMinor, currency)}</strong>
                                 <span className={styles.stakeSub}>{plural(stake.failedPayments, "unpaid invoice")}</span>
+                                {stake.failedPayments > 0 ? (
+                                    <span className={styles.stakeNote}>Pro retries these for you</span>
+                                ) : null}
                             </div>
                             <div className={styles.stakeCell}>
                                 <span className={styles.stakeLabel}>Recurring revenue tracked</span>
                                 <strong className={styles.stakeValue}>{money(stake.mrrTrackedMinor, currency)}</strong>
                                 <span className={styles.stakeSub}>a month, from your billing data</span>
+                                {stake.mrrTrackedMinor > 0 && recoverableMinor > 0 ? (
+                                    <span className={styles.stakeNote}>
+                                        {Math.round((recoverableMinor / stake.mrrTrackedMinor) * 100)}% of it needs attention
+                                    </span>
+                                ) : null}
                             </div>
                         </section>
 
@@ -252,6 +288,13 @@ export default function TrialUpgradeGate({ user, status }: Props) {
                                             <span className={styles.accountMain}>
                                                 <strong>{account.name}</strong>
                                                 <span>{account.reason} · risk {account.riskScore}/100</span>
+                                                {account.nextStep ? (
+                                                    <span className={styles.nextStep}>
+                                                        <Sparkles size={12} strokeWidth={1.8} aria-hidden="true" />
+                                                        Next step:
+                                                        <em aria-label="Unlock to see the next step">{account.nextStep}</em>
+                                                    </span>
+                                                ) : null}
                                             </span>
                                             <span className={styles.accountValue}>
                                                 {money(account.mrrMinor, currency)}
@@ -275,8 +318,14 @@ export default function TrialUpgradeGate({ user, status }: Props) {
                         <section className={styles.splitRow}>
                             <div className={styles.card}>
                                 <div className={styles.cardHead}>
-                                    <h2>During your trial</h2>
+                                    <h2>What Cobrai did in your trial</h2>
                                 </div>
+                                {savedSoFar.length ? (
+                                    <p className={styles.savedLine}>
+                                        <Check size={14} strokeWidth={2} aria-hidden="true" />
+                                        {savedSoFar.join(" · ")}
+                                    </p>
+                                ) : null}
                                 <dl className={styles.activityGrid}>
                                     {trialActivity.map((item) => (
                                         <div key={item.label}>
@@ -320,6 +369,9 @@ export default function TrialUpgradeGate({ user, status }: Props) {
                                         <span>/ month</span>
                                     </div>
                                     <p className={styles.planTagline}>{plan.tagline}</p>
+                                    {paybackLine(tier) ? (
+                                        <p className={styles.planPayback}>{paybackLine(tier)}</p>
+                                    ) : null}
                                     <ul className={styles.planFeatures}>
                                         {plan.features.map((feature) => (
                                             <li key={feature}>
