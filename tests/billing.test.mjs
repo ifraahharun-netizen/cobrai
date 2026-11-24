@@ -71,3 +71,37 @@ test("an active trial unlocks Pro features; once it ends, the plan decides", () 
     assert.equal(canAccessFeature({ plan: "starter", feature: "automations", trialEndsAt: new Date(now - DAY) }), false);
     assert.equal(canAccessFeature({ plan: "pro", feature: "automations", trialEndsAt: null }), true);
 });
+
+import { isWorkspaceLocked, parseExemptEmails, hasActiveSubscription } from "../src/lib/billing/access-rules.ts";
+
+test("lock: trial ended and nobody paying → locked; still in trial or paying → open", () => {
+    const now = new Date("2026-11-24T12:00:00Z");
+    const ended = new Date("2026-11-20T00:00:00Z");
+    const future = new Date("2026-12-01T00:00:00Z");
+    assert.equal(isWorkspaceLocked({ trialEndsAt: ended, subscriptions: [], now }), true);
+    assert.equal(isWorkspaceLocked({ trialEndsAt: future, subscriptions: [], now }), false);
+    assert.equal(isWorkspaceLocked({ trialEndsAt: null, subscriptions: [], now }), false, "trial not started yet");
+    assert.equal(isWorkspaceLocked({ trialEndsAt: ended, subscriptions: [{ status: "active", currentPeriodEnd: future }], now }), false);
+    assert.equal(isWorkspaceLocked({ trialEndsAt: ended, subscriptions: [{ status: "past_due", currentPeriodEnd: future }], now }), false);
+});
+
+test("lock: cancelled, expired or ended subscriptions don't keep access", () => {
+    const now = new Date("2026-11-24T12:00:00Z");
+    const ended = new Date("2026-11-20T00:00:00Z");
+    const future = new Date("2026-12-01T00:00:00Z");
+    assert.equal(isWorkspaceLocked({ trialEndsAt: ended, subscriptions: [{ status: "canceled", currentPeriodEnd: future }], now }), true);
+    assert.equal(isWorkspaceLocked({ trialEndsAt: ended, subscriptions: [{ status: "active", currentPeriodEnd: ended }], now }), true);
+    assert.equal(isWorkspaceLocked({ trialEndsAt: ended, subscriptions: [{ status: "active", endedAt: ended }], now }), true);
+    assert.equal(hasActiveSubscription([{ status: "unpaid", currentPeriodEnd: future }], now), false);
+});
+
+test("lock: exempt owners never lock, matching email case-insensitively", () => {
+    const now = new Date("2026-11-24T12:00:00Z");
+    const ended = new Date("2026-11-20T00:00:00Z");
+    const exempt = parseExemptEmails(" Founder@Example.com , friend@example.com,, ");
+    assert.equal(exempt.size, 2);
+    assert.equal(isWorkspaceLocked({ trialEndsAt: ended, subscriptions: [], ownerEmail: "founder@example.com", exemptEmails: exempt, now }), false);
+    assert.equal(isWorkspaceLocked({ trialEndsAt: ended, subscriptions: [], ownerEmail: "someone@else.com", exemptEmails: exempt, now }), true);
+    assert.equal(isWorkspaceLocked({ trialEndsAt: ended, subscriptions: [], ownerEmail: null, exemptEmails: exempt, now }), true);
+    assert.equal(parseExemptEmails(undefined).size, 0);
+});

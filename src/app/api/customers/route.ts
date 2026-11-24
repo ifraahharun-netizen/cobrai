@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDemoCustomers } from "@/lib/demo/customers";
 import { getLiveCustomers } from "@/lib/live/customer";
 import { getWorkspaceDataMode } from "@/lib/workspace/getWorkspaceDataMode";
+import { paymentRequiredFromError } from "@/lib/billing/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,9 @@ export async function GET(req: Request) {
       rows: getDemoCustomers(),
     });
   } catch (error: any) {
+      const paymentRequired = paymentRequiredFromError(error);
+      if (paymentRequired) return paymentRequired;
+
     console.error("GET /api/customers failed", error);
     return NextResponse.json(
       { error: "Failed to load customers" },

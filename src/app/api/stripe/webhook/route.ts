@@ -7,6 +7,7 @@ import { runWorkspaceAnalyticsPipeline } from "@/lib/analytics/runWorkspaceAnaly
 
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
+import { clearAccessCache } from "@/lib/billing/access";
 
 import {
     tierFromSubscription as tierFromStripe,
@@ -99,6 +100,9 @@ async function updateWorkspacePlan(
     workspaceId: string,
     tier: PlanTier
 ) {
+    // Paying (or cancelling) changes access straight away, not after the cache expires.
+    clearAccessCache(workspaceId);
+
     await prisma.workspace.update({
         where: {
             id: workspaceId,

@@ -26,7 +26,8 @@ const jakarta = Plus_Jakarta_Sans({
 
 // The expired-trial "AI Retention Report" paywall is switched off for now.
 // Set this back to true to lock the dashboard again when a trial ends.
-const TRIAL_GATE_ENABLED = false;
+// Lock the dashboard once the free trial ends without a paid plan (the API enforces it too).
+const TRIAL_GATE_ENABLED = true;
 
 type TrialStatusSuccessResponse =TrialStatus & {
     ok: true;

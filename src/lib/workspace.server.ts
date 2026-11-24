@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
+import { assertPaidAccess } from "@/lib/billing/access";
 
 function getBearerToken(req: Request) {
     const authHeader =
@@ -113,6 +114,9 @@ export async function getWorkspaceIdFromRequest(
 
         return workspace.id;
     }
+
+    // Billing: a workspace whose trial ended without a paid plan gets a 402.
+    await assertPaidAccess(user.workspaceId);
 
     return user.workspaceId;
 }

@@ -1,15 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 
-export class AuthError extends Error {
-    status: number;
+import { AuthError } from "@/lib/auth/errors";
+import { assertPaidAccess } from "@/lib/billing/access";
 
-    constructor(message: string, status = 401) {
-        super(message);
-        this.name = "AuthError";
-        this.status = status;
-    }
-}
+export { AuthError };
 
 function extractBearerToken(req: Request) {
     const authHeader = req.headers.get("authorization") ?? "";
@@ -20,11 +15,15 @@ function extractBearerToken(req: Request) {
     }
 
     return token.trim();
-
-    return token;
 }
 
-export async function getWorkspaceFromRequest(req: Request) {
+/**
+ * Resolves the signed-in user's workspace. Also enforces billing: once the free
+ * trial ends without a paid plan this throws a 402 (PaymentRequiredError).
+ * Pass { allowLocked: true } only for routes a locked customer still needs,
+ * such as contacting support.
+ */
+export async function getWorkspaceFromRequest(req: Request, options: { allowLocked?: boolean } = {}) {
     const token = extractBearerToken(req);
     const decoded = await verifyFirebaseIdToken(token);
 
@@ -43,6 +42,10 @@ export async function getWorkspaceFromRequest(req: Request) {
 
     if (!user.workspaceId) {
         throw new AuthError("No workspace found for this user", 403);
+    }
+
+    if (!options.allowLocked) {
+        await assertPaidAccess(user.workspaceId);
     }
 
     return {

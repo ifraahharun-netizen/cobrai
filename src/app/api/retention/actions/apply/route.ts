@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
+import { paymentRequiredResponse } from "@/lib/billing/access";
 
 function bearer(req: Request) {
     const auth = req.headers.get("authorization") || "";
@@ -24,6 +25,11 @@ export async function POST(req: NextRequest) {
         if (!user?.workspaceId) {
             return NextResponse.json({ ok: false, error: "No workspace" }, { status: 401 });
         }
+
+        // Billing: trial ended without a paid plan → 402.
+        const locked = await paymentRequiredResponse(user.workspaceId);
+        if (locked) return locked;
+
 
         // ✅ Parse body early (so we have actionId before we do anything else)
         const body = await req.json().catch(() => ({}));

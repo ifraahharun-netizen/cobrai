@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getWorkspaceIdFromRequest } from "@/lib/workspace.server";
 import { getDemoCustomers } from "@/lib/demo/customers";
+import { paymentRequiredFromError } from "@/lib/billing/access";
 
 type RiskLevel = "critical" | "high" | "medium" | "low";
 
@@ -689,6 +690,9 @@ export async function GET(
             },
         });
     } catch (e: any) {
+        const paymentRequired = paymentRequiredFromError(e);
+        if (paymentRequired) return paymentRequired;
+
         console.error("GET /api/dashboard/accounts-at-risk/[id] error:", e);
 
         return NextResponse.json(

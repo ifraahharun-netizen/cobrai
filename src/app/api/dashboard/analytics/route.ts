@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 import { prisma } from "@/lib/prisma";
+import { paymentRequiredResponse } from "@/lib/billing/access";
 
 export const runtime = "nodejs";
 
@@ -288,6 +289,11 @@ export async function GET(req: Request) {
         });
 
         const workspace = user?.workspace;
+
+        // Billing: trial ended without a paid plan → 402.
+        const locked = await paymentRequiredResponse(workspace?.id);
+        if (locked) return locked;
+
 
         /**
          * Missing workspace

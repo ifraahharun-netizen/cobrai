@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { isOwnerExempt, parseExemptEmails } from "@/lib/billing/access-rules";
 
 export const TRIAL_LENGTH_DAYS = 14;
 
@@ -67,6 +68,7 @@ export async function getOrStartWorkspaceTrial(
         where: { id: workspaceId },
         select: {
             id: true,
+            ownerEmail: true,
             tier: true,
             currency: true,
             trialStartedAt: true,
@@ -115,6 +117,7 @@ export async function getOrStartWorkspaceTrial(
             },
             select: {
                 id: true,
+                ownerEmail: true,
                 tier: true,
                 currency: true,
                 trialStartedAt: true,
@@ -138,7 +141,13 @@ export async function getOrStartWorkspaceTrial(
     const trialActive =
         !hasActiveSubscription &&
         Boolean(trialEndsAt && trialEndsAt.getTime() > now.getTime());
+    // Owners on BILLING_EXEMPT_EMAILS never see the lock (same rule as the API check).
+    const accessExempt = isOwnerExempt(
+        workspace.ownerEmail,
+        parseExemptEmails(process.env.BILLING_EXEMPT_EMAILS)
+    );
     const trialExpired =
+        !accessExempt &&
         !hasActiveSubscription &&
         Boolean(trialEndsAt && trialEndsAt.getTime() <= now.getTime());
 
