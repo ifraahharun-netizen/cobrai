@@ -22,8 +22,76 @@ export type WorkspaceTrialState = {
     hasActiveSubscription: boolean;
     daysRemaining: number;
     impact: TrialImpact;
+    /** What's at stake in the business right now (live data, demo rows excluded). */
+    atStake: TrialAtStake;
+    currency: string;
     summary: string;
 };
+
+export type TrialAtStakeAccount = {
+    name: string;
+    reason: string;
+    riskScore: number;
+    mrrMinor: number;
+};
+
+export type TrialAtStake = {
+    /** Recurring revenue Cobrai is tracking this month. */
+    mrrTrackedMinor: number;
+    /** Monthly revenue from accounts flagged at risk (score 60+). */
+    atRiskMinor: number;
+    atRiskAccounts: number;
+    /** Failed invoices that haven't been paid yet. */
+    failedPaymentsMinor: number;
+    failedPayments: number;
+    /** Biggest at-risk accounts, largest first. */
+    topAccounts: TrialAtStakeAccount[];
+};
+
+function monthKeyUtc(date: Date) {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+async function loadAtStake(workspaceId: string, now: Date): Promise<TrialAtStake> {
+    const riskWhere = { workspaceId, isDemo: false, riskScore: { gte: 60 } };
+    const [mrr, riskAgg, topRisks, failed] = await Promise.all([
+        prisma.mrrSnapshot.aggregate({
+            where: { workspaceId, month: monthKeyUtc(now), active: true },
+            _sum: { mrrMinor: true },
+        }),
+        prisma.accountRisk.aggregate({
+            where: riskWhere,
+            _count: { id: true },
+            _sum: { mrr: true },
+        }),
+        prisma.accountRisk.findMany({
+            where: riskWhere,
+            orderBy: [{ mrr: "desc" }, { riskScore: "desc" }],
+            take: 3,
+            select: { companyName: true, reasonLabel: true, riskScore: true, mrr: true },
+        }),
+        prisma.invoice.aggregate({
+            where: { workspaceId, isDemo: false, failedAt: { not: null }, paidAt: null, status: { notIn: ["paid", "void", "uncollectible"] } },
+            _count: { id: true },
+            _sum: { amount: true },
+        }),
+    ]);
+
+    return {
+        mrrTrackedMinor: clampCurrencyMinor(mrr._sum.mrrMinor),
+        // AccountRisk.mrr is in major units.
+        atRiskMinor: clampCurrencyMinor(Number(riskAgg._sum.mrr || 0) * 100),
+        atRiskAccounts: riskAgg._count.id,
+        failedPaymentsMinor: clampCurrencyMinor(failed._sum.amount),
+        failedPayments: failed._count.id,
+        topAccounts: topRisks.map((r) => ({
+            name: r.companyName,
+            reason: r.reasonLabel,
+            riskScore: r.riskScore,
+            mrrMinor: clampCurrencyMinor(Number(r.mrr || 0) * 100),
+        })),
+    };
+}
 
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
     "active",
@@ -175,6 +243,7 @@ export async function getOrStartWorkspaceTrial(
         retainedOutcomes,
         paymentsRecovered,
         latestNarrative,
+        atStake,
     ] = await Promise.all([
         prisma.customer.count({
             where: {
@@ -221,6 +290,7 @@ export async function getOrStartWorkspaceTrial(
                 narrative: true,
             },
         }),
+        loadAtStake(workspaceId, now),
     ]);
 
     const impact: TrialImpact = {
@@ -244,6 +314,8 @@ export async function getOrStartWorkspaceTrial(
         hasActiveSubscription,
         daysRemaining,
         impact,
+        atStake,
+        currency: (workspace.currency || "GBP").toUpperCase(),
         summary:
             latestNarrative?.narrative?.trim() ||
             makeFallbackSummary(impact, workspace.currency || "GBP"),
