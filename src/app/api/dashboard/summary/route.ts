@@ -342,7 +342,8 @@ function isProtectedRevenueEvent(type: string) {
     t.includes("retained") ||
     t.includes("retention_saved") ||
     t.includes("payment_recovered") ||
-    t.includes("billing_recovered")
+    t.includes("billing_recovered") ||
+    t === "cancellation_reversed"
   );
 }
 

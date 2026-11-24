@@ -28,6 +28,7 @@ import {
 } from "./mrr";
 
 import { AT_RISK_THRESHOLD } from "@/lib/risk/thresholds";
+import { billingRiskInputs, type CustomerInvoiceRow } from "@/lib/risk/billingRisk";
 export { AT_RISK_THRESHOLD };
 
 const SUBSCRIPTION_EXPAND = ["data.discounts", "data.items.data.discounts"];
@@ -202,7 +203,6 @@ export async function upsertInvoiceFromStripe(args: {
 // ---------------------------------------------------------------------------
 // Customer state + risk
 
-type CustomerInvoiceRow = { status: string; dueAt: Date; paidAt: Date | null; failedAt: Date | null };
 
 export function deriveCustomerStatus(subs: Stripe.Subscription[]) {
     const statuses = subs.map((s) => s.status);
@@ -293,28 +293,6 @@ export async function applyCustomerState(args: {
     });
 
     return customer.id;
-}
-
-export function billingRiskInputs(args: {
-    mrrMinor: number;
-    previousMonthMrrMinor: number | null;
-    subscriptionStatus: string;
-    cancelAtPeriodEnd: boolean;
-    invoices: CustomerInvoiceRow[];
-}) {
-    const unpaid = args.invoices.filter((i) => i.status === "failed" || i.status === "uncollectible");
-    const prev = args.previousMonthMrrMinor;
-    return {
-        churnRisk: null,
-        healthScore: null,
-        lastActiveAt: null, // no usage source yet: unknown, not inactive
-        invoices: unpaid.map((i) => ({ status: "failed", dueAt: i.dueAt, paidAt: i.paidAt })),
-        failedPayments: unpaid.length,
-        subscriptionStatus: args.subscriptionStatus,
-        cancelAtPeriodEnd: args.cancelAtPeriodEnd,
-        mrrChangePct: prev && prev > 0 ? ((args.mrrMinor - prev) / prev) * 100 : null,
-        mrr: args.mrrMinor,
-    };
 }
 
 async function applyBillingRisk(args: {
@@ -635,7 +613,8 @@ export async function syncConnectedStripeWorkspace(
             subscriptions: subs,
             coupons,
             previousMonthMrrMinor: prevMrr.get(stripeCustomerId) ?? null,
-            invoices: cobraiId ? invoicesByCustomer.get(cobraiId) ?? [] : [],
+            // Same window as the accounts-at-risk route: latest 20 invoices.
+            invoices: cobraiId ? (invoicesByCustomer.get(cobraiId) ?? []).slice(0, 20) : [],
         });
     }
 

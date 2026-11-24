@@ -300,9 +300,9 @@ async function findOrCreateCobraiCustomer(args: {
                 id: existing.id,
             },
 
+            // An invoice amount isn't MRR (a yearly invoice is 12 months), so
+            // MRR is left to the subscription sync.
             data: {
-                mrr: args.amount || 0,
-
                 status:
                     args.status === "paid"
                         ? "active"
@@ -330,7 +330,7 @@ async function findOrCreateCobraiCustomer(args: {
                     args.stripeCustomer?.email ||
                     null,
 
-                mrr: args.amount || 0,
+                mrr: 0,
 
                 churnRisk:
                     args.status === "paid"
@@ -518,7 +518,8 @@ async function handleInvoiceEvent(
             dueAt ||
             new Date(),
 
-        value: amount,
+        // Event.value is MAJOR units; invoice amounts are minor.
+        value: amount / 100,
     });
 
     if (eventType === "payment_successful") {
@@ -587,7 +588,8 @@ async function handleInvoiceEvent(
                 reasonLabel:
                     "Payment failed",
 
-                mrr: amount,
+                // AccountRisk.mrr is MAJOR units.
+                mrr: amount / 100,
             },
 
             create: {
@@ -608,7 +610,8 @@ async function handleInvoiceEvent(
                 reasonLabel:
                     "Payment failed",
 
-                mrr: amount,
+                // AccountRisk.mrr is MAJOR units.
+                mrr: amount / 100,
                 isDemo: false,
             },
         });

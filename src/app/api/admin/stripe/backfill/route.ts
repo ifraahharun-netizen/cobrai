@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
+import { buildMonthlyCustomerMrr } from "@/lib/stripe-connect/mrr";
+import { syncConnectedStripeWorkspace } from "@/lib/stripe-connect/sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,20 +20,6 @@ function monthKeyUTC(d: Date) {
     const y = d.getUTCFullYear();
     const m = String(d.getUTCMonth() + 1).padStart(2, "0");
     return `${y}-${m}`;
-}
-
-function priceToMonthlyMinor(item: any): number {
-    const price = item?.price;
-    const unit = Number(price?.unit_amount ?? 0);
-    if (!Number.isFinite(unit) || unit <= 0) return 0;
-
-    const qty = Number(item?.quantity ?? 1);
-    const interval = price?.recurring?.interval; // month|year
-    const intervalCount = Number(price?.recurring?.interval_count ?? 1);
-
-    if (interval === "month") return Math.round((unit * qty) / intervalCount);
-    if (interval === "year") return Math.round((unit * qty) / (12 * intervalCount));
-    return 0;
 }
 
 async function workspaceIdFromUid(uid: string) {
@@ -77,8 +65,24 @@ export async function POST(req: Request) {
         // Load Stripe key from workspace
         const ws = await prisma.workspace.findUnique({
             where: { id: workspaceId },
-            select: { stripeSecretKeyEnc: true },
+            select: { stripeSecretKeyEnc: true, stripeAccountId: true },
         });
+
+        // Connected accounts: the shared sync, rebuilding 12 months of history.
+        if (ws?.stripeAccountId) {
+            const r = await syncConnectedStripeWorkspace(workspaceId, { rebuildHistory: true });
+            return NextResponse.json(
+                {
+                    ok: true,
+                    workspaceId,
+                    customers: r.customers,
+                    subscriptions: r.subscriptions,
+                    snapshots: r.monthsWritten.length,
+                    totalMrrMinor: r.totalMrrMinor,
+                },
+                { status: 200 }
+            );
+        }
 
         if (!ws?.stripeSecretKeyEnc) {
             return NextResponse.json({ ok: false, error: "Stripe not connected" }, { status: 400 });
@@ -123,7 +127,8 @@ export async function POST(req: Request) {
         for (; ;) {
             const resp = (await (stripe as any).subscriptions.list({
                 limit: 100,
-                expand: ["data.items.data.price"],
+                status: "all",
+                expand: ["data.discounts"],
                 ...(starting_after ? { starting_after } : {}),
             })) as Stripe.ApiList<Stripe.Subscription>;
 
@@ -142,7 +147,10 @@ export async function POST(req: Request) {
         let subCount = 0;
         let snapCount = 0;
 
+        const knownCustomerIds = new Set(customers.map((c) => c.id));
         for (const s of subs) {
+            const subCustomerId = typeof s.customer === "string" ? s.customer : s.customer.id;
+            if (!knownCustomerIds.has(subCustomerId)) continue; // deleted customer
             const stripeCustomerId = typeof s.customer === "string" ? s.customer : s.customer.id;
 
             const { start, end } = getPeriodFromItems(s);
@@ -181,28 +189,31 @@ export async function POST(req: Request) {
 
             subCount++;
 
-            const items = (s.items?.data ?? []) as any[];
-            const mrrMinor = items.reduce((acc, it) => acc + priceToMonthlyMinor(it), 0);
-
-            const active = ["active", "trialing", "past_due", "unpaid"].includes(String(s.status));
-
-            // cohort start: if we don't have one, use first snapshot month
-            const earliest = await prisma.mrrSnapshot.findFirst({
-                where: { workspaceId, stripeCustomerId },
-                select: { firstSeenMonth: true, month: true },
-                orderBy: { month: "asc" },
-            });
-
-            const firstSeenMonth = earliest?.firstSeenMonth ?? earliest?.month ?? month;
-
-            await prisma.mrrSnapshot.upsert({
-                where: { workspaceId_stripeCustomerId_month: { workspaceId, stripeCustomerId, month } },
-                update: { mrrMinor, active, firstSeenMonth },
-                create: { workspaceId, stripeCustomerId, month, mrrMinor, active, firstSeenMonth },
-            });
-
-            snapCount++;
         }
+
+        // Current-month snapshot per customer: the sum of ALL their
+        // subscriptions, using the shared MRR definition (minor units).
+        const rows = buildMonthlyCustomerMrr(subs, [month], new Date());
+        const known = new Set(customers.map((c) => c.id));
+        await prisma.$transaction([
+            prisma.mrrSnapshot.deleteMany({ where: { workspaceId, month } }),
+            prisma.mrrSnapshot.createMany({
+                data: rows
+                    .filter((r) => known.has(r.stripeCustomerId))
+                    .map((r) => ({
+                        workspaceId,
+                        stripeCustomerId: r.stripeCustomerId,
+                        month,
+                        mrrMinor: r.mrrMinor,
+                        trialMrrMinor: r.trialMrrMinor,
+                        currency: r.currency,
+                        active: r.mrrMinor > 0,
+                        firstSeenMonth: month,
+                    })),
+                skipDuplicates: true,
+            }),
+        ]);
+        snapCount = rows.length;
 
         return NextResponse.json(
             { ok: true, workspaceId, customers: customers.length, subscriptions: subCount, snapshots: snapCount },

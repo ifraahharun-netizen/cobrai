@@ -7,6 +7,7 @@ import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 
 import { buildAccountRisk } from "@/lib/risk/buildAccountRisk";
 import { buildRiskForecast } from "@/lib/risk/buildRiskForecast";
+import { billingRiskInputs } from "@/lib/risk/billingRisk";
 
 type RiskLevel =
     | "critical"
@@ -519,6 +520,8 @@ export async function GET(
                         updatedAt:
                             true,
 
+                        stripeCustomerId: true,
+
                         status: true,
 
                         invoices: {
@@ -559,6 +562,54 @@ export async function GET(
                 }
             );
 
+        /*
+         * Stripe-billed customers are scored from billing signals with the
+         * same inputs the Stripe sync uses (src/lib/risk/billingRisk.ts), so
+         * this list agrees with Customer.riskScore and AccountRisk.
+         */
+        const now = new Date();
+        const prevMonthDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+        const prevMonthKey = `${prevMonthDate.getUTCFullYear()}-${String(prevMonthDate.getUTCMonth() + 1).padStart(2, "0")}`;
+
+        const stripeCustomerIds = customers
+            .map((c) => c.stripeCustomerId)
+            .filter((id): id is string => !!id);
+
+        const [stripeSubs, prevSnapshots, stripeInvoices] = stripeCustomerIds.length
+            ? await Promise.all([
+                prisma.stripeSubscription.findMany({
+                    where: { workspaceId: workspace.id, stripeCustomerId: { in: stripeCustomerIds } },
+                    select: { stripeCustomerId: true, status: true, cancelAtPeriodEnd: true },
+                }),
+                prisma.mrrSnapshot.findMany({
+                    where: { workspaceId: workspace.id, month: prevMonthKey, stripeCustomerId: { in: stripeCustomerIds } },
+                    select: { stripeCustomerId: true, mrrMinor: true },
+                }),
+                prisma.invoice.findMany({
+                    where: { workspaceId: workspace.id, stripeInvoiceId: { not: null } },
+                    select: { customerId: true, status: true, dueAt: true, paidAt: true, failedAt: true },
+                    orderBy: { dueAt: "desc" },
+                }),
+            ])
+            : [[], [], []];
+
+        const cancelScheduled = new Set(
+            stripeSubs
+                .filter(
+                    (s) =>
+                        s.cancelAtPeriodEnd &&
+                        ["active", "past_due", "trialing"].includes(s.status)
+                )
+                .map((s) => s.stripeCustomerId)
+        );
+        const prevMrrByStripeId = new Map(prevSnapshots.map((r) => [r.stripeCustomerId, r.mrrMinor]));
+        const stripeInvoicesByCustomer = new Map<string, typeof stripeInvoices>();
+        for (const inv of stripeInvoices) {
+            const list = stripeInvoicesByCustomer.get(inv.customerId) ?? [];
+            if (list.length < 20) list.push(inv);
+            stripeInvoicesByCustomer.set(inv.customerId, list);
+        }
+
         const computed: RiskRow[] =
             [];
 
@@ -595,6 +646,17 @@ export async function GET(
                     previousRiskScore:
                         previousSnapshot?.riskScore ??
                         null,
+
+                    ...(c.stripeCustomerId
+                        ? billingRiskInputs({
+                            mrrMinor: Number(c.mrr || 0),
+                            previousMonthMrrMinor:
+                                prevMrrByStripeId.get(c.stripeCustomerId) ?? null,
+                            subscriptionStatus: c.status || "",
+                            cancelAtPeriodEnd: cancelScheduled.has(c.stripeCustomerId),
+                            invoices: stripeInvoicesByCustomer.get(c.id) ?? [],
+                        })
+                        : {}),
                 });
 
             const riskScore =
