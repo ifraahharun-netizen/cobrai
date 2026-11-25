@@ -771,10 +771,8 @@ export async function GET(
                         .nextActions?.[0] ||
                     "Review account",
 
-                mrr:
-                    Number(
-                        c.mrr || 0
-                    ),
+                // Customer.mrr is stored in pence; the Accounts pages show pounds.
+                mrr: Number(c.mrr || 0) / 100,
 
                 updatedAt:
                     (

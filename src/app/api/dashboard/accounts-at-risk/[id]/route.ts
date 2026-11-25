@@ -273,7 +273,7 @@ function makeDemoResponse(id: string) {
 
             nextAction,
 
-            mrr: customer.mrr ?? 0,
+            mrr: (customer.mrr ?? 0) / 100, // pence → pounds
 
             updatedAt: now.toISOString(),
 
@@ -310,7 +310,7 @@ function makeDemoResponse(id: string) {
                         nowMs - 1000 * 60 * 60 * 24
                     ).toISOString(),
 
-                    amount: customer.mrr ?? 0,
+                    amount: (customer.mrr ?? 0) / 100,
 
                     status:
                         reasonLabel
@@ -631,7 +631,8 @@ export async function GET(
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
         const companyName = customer?.name || risk?.companyName || "Unknown account";
-        const mrr = customer?.mrr ?? risk?.mrr ?? 0;
+        // Customer.mrr is in pence; AccountRisk.mrr is already in pounds.
+        const mrr = customer?.mrr != null ? customer.mrr / 100 : risk?.mrr ?? 0;
 
         return NextResponse.json({
             ok: true,

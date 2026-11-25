@@ -203,14 +203,38 @@ const DEMO_ANALYTICS: DemoAnalyticsSeries = {
     ],
 };
 
+/** The last `count` month keys (YYYY-MM, UTC), oldest first, ending with the current month. */
+function rollingMonthKeys(count: number, now = new Date()): string[] {
+    const keys: string[] = [];
+    for (let i = count - 1; i >= 0; i--) {
+        const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+        keys.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`);
+    }
+    return keys;
+}
+
+/**
+ * Demo data always ends at the current month (so comparisons read
+ * "vs last month", not a date long past), and subscriber movement adds up:
+ * returning = last month's total − cancelled, and returning + new = total.
+ */
 function cloneDemoAnalytics(): DemoAnalyticsSeries {
+    const keys = rollingMonthKeys(DEMO_ANALYTICS.mrr.length);
+    const relabel = <T extends { month: string }>(points: T[]): T[] =>
+        points.map((point, index) => ({ ...point, month: keys[index] ?? point.month }));
+
+    const activity = relabel(DEMO_ANALYTICS.activityByMonth);
+    for (let i = 0; i < activity.length; i++) {
+        const row = activity[i];
+        const retained = i === 0 ? row.totalSubscribers - row.newSubscribers : activity[i - 1].totalSubscribers - row.churned;
+        activity[i] = { ...row, retained, newSubscribers: Math.max(0, row.totalSubscribers - retained) };
+    }
+
     return {
-        mrr: DEMO_ANALYTICS.mrr.map((point) => ({ ...point })),
-        churn: DEMO_ANALYTICS.churn.map((point) => ({ ...point })),
-        mau: DEMO_ANALYTICS.mau.map((point) => ({ ...point })),
-        activityByMonth: DEMO_ANALYTICS.activityByMonth.map((point) => ({
-            ...point,
-        })),
+        mrr: relabel(DEMO_ANALYTICS.mrr),
+        churn: relabel(DEMO_ANALYTICS.churn),
+        mau: relabel(DEMO_ANALYTICS.mau),
+        activityByMonth: activity,
     };
 }
 

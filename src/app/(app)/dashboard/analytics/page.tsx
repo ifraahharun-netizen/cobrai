@@ -4836,6 +4836,7 @@ export default function AnalyticsPage() {
                 returning: subscriberChartRows.map((row) => Number(row.retained || 0)),
                 new: subscriberChartRows.map((row) => Number(row.newSubscribers ?? row.trials ?? 0)),
                 churned: subscriberChartRows.map((row) => Number(row.churned || 0)),
+                total: subscriberChartRows.map((row) => Number(row.totalSubscribers || 0)),
             },
             recovery: {
                 total: riskGroups.total / 100,
