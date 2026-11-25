@@ -10,19 +10,6 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 });
 
 /**
- * Enforced policy: only directives that cannot break the app. No other site
- * may frame it (clickjacking), no plugins, no <base> hijacking, and forms only
- * post back here.
- */
-const contentSecurityPolicy = [
-    "frame-ancestors 'none'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "upgrade-insecure-requests",
-].join("; ");
-
-/**
  * Sentry's CSP report endpoint, worked out from the DSN
  * (https://<key>@o<org>.ingest.<region>.sentry.io/<project>).
  */
@@ -40,44 +27,50 @@ function sentryCspReportUri() {
 }
 
 /**
- * Report-only policy: what the strict policy will be. The browser applies
- * nothing, it only reports what would have been blocked (to Sentry when a DSN
- * is set, otherwise to the browser console). Once the reports are clean,
- * switch it to Content-Security-Policy.
+ * Enforced Content Security Policy. Browsers block anything not listed here,
+ * and report each block to Sentry (when a DSN is set).
  *
  * Allowed sources are the services the app really uses: Firebase sign-in and
- * Firestore (*.googleapis.com), Google Fonts, Flaticon icons, Termly policy
- * embeds and Sentry. Stripe and HubSpot are full-page redirects, which a CSP
- * does not restrict. Inline scripts are still allowed because Next.js and the
- * Firebase config use them; removing that needs a nonce on every page.
+ * Firestore (*.googleapis.com, the *.firebaseapp.com auth frame), Google
+ * Fonts, Flaticon icons, Termly policy embeds and Sentry. Stripe and HubSpot
+ * are full-page redirects, which a CSP does not restrict. Inline scripts are
+ * still allowed because Next.js and the Firebase config use them; removing
+ * that needs a nonce on every page.
  *
- * Known report before enforcing: Termly's embed-policy.min.js uses eval()
- * (Settings → Support & Compliance → Terms/Privacy). Either link to Termly's
- * hosted policy pages instead of embedding them, or add 'unsafe-eval'.
+ * Adding a new third-party script, font, iframe or API called from the
+ * browser? Add its host here, or the browser will block it.
  */
 const reportUri = sentryCspReportUri();
-const strictPolicyReportOnly = [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://app.termly.io",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn-uicons.flaticon.com",
-    "font-src 'self' data: https://fonts.gstatic.com https://cdn-uicons.flaticon.com",
-    "img-src 'self' data: blob: https:",
-    "connect-src 'self' https://*.googleapis.com https://*.ingest.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://app.termly.io",
-    "frame-src 'self' https://app.termly.io https://*.firebaseapp.com",
-    "worker-src 'self' blob:",
-    "manifest-src 'self'",
-    "frame-ancestors 'none'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    ...(reportUri ? [`report-uri ${reportUri}`] : []),
-].join("; ");
+
+function buildPolicy({ allowEval = false } = {}) {
+    return [
+        "default-src 'self'",
+        `script-src 'self' 'unsafe-inline'${allowEval ? " 'unsafe-eval'" : ""} https://app.termly.io`,
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn-uicons.flaticon.com",
+        "font-src 'self' data: https://fonts.gstatic.com https://cdn-uicons.flaticon.com",
+        "img-src 'self' data: blob: https:",
+        "connect-src 'self' https://*.googleapis.com https://*.ingest.sentry.io https://*.ingest.de.sentry.io https://*.ingest.us.sentry.io https://app.termly.io",
+        "frame-src 'self' https://app.termly.io https://*.firebaseapp.com",
+        "worker-src 'self' blob:",
+        "manifest-src 'self'",
+        "frame-ancestors 'none'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "upgrade-insecure-requests",
+        ...(reportUri ? [`report-uri ${reportUri}`] : []),
+    ].join("; ");
+}
+
+const contentSecurityPolicy = buildPolicy();
+// Termly's embed-policy.min.js uses eval(), so only the three legal pages
+// allow it. Everywhere else eval stays blocked.
+const legalPagesPolicy = buildPolicy({ allowEval: true });
 
 const securityHeaders = [
     // Browsers only ever use HTTPS for this site and its subdomains (2 years).
     { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
     { key: "Content-Security-Policy", value: contentSecurityPolicy },
-    { key: "Content-Security-Policy-Report-Only", value: strictPolicyReportOnly },
     // Older browsers' version of frame-ancestors 'none'.
     { key: "X-Frame-Options", value: "DENY" },
     { key: "X-Content-Type-Options", value: "nosniff" },
@@ -93,7 +86,14 @@ const nextConfig = {
     poweredByHeader: false,
 
     async headers() {
-        return [{ source: "/:path*", headers: securityHeaders }];
+        return [
+            { source: "/:path*", headers: securityHeaders },
+            // Later rules override earlier ones for the same header.
+            {
+                source: "/:page(privacy|terms|cookie-policy)",
+                headers: [{ key: "Content-Security-Policy", value: legalPagesPolicy }],
+            },
+        ];
     },
 };
 
