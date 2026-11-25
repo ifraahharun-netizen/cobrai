@@ -864,7 +864,15 @@ export default function CustomerDetailPage() {
                 }
 
                 if (!cancelled) {
-                    setAccount(enrichedAccount || buildAccountFromDetails(id, detailsJson));
+                    // Prefer the row the account API returns (it has last active,
+                    // reason and MRR in pounds) over rebuilding it from details.
+                    const apiRow = (detailsJson as { row?: Partial<RiskRow> }).row;
+                    setAccount(
+                        enrichedAccount ||
+                        (apiRow
+                            ? { ...buildAccountFromDetails(id, detailsJson), ...apiRow }
+                            : buildAccountFromDetails(id, detailsJson))
+                    );
                     setLoading(false);
                 }
 

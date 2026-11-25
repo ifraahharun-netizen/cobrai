@@ -65,12 +65,13 @@ export function getDemoDashboardData(userLocale: string) {
     const months = monthLabels(userLocale, 6);
     const currentMonthDays = currentMonthDayLabels(userLocale);
 
-    // Daily views of this month: MRR (the Total MRR chart) and churn.
+    // Daily views of this month: revenue saved so far (builds to this month's
+    // total) and churn.
     const currentMonthMrrProtectedValues = dailyPath(
         currentMonthDays.length,
-        story.totalMrr.previous,
-        story.totalMrr.current,
-        18,
+        0,
+        story.revenueSaved.current,
+        0,
         0
     );
     const currentMonthChurnPct = dailyPath(
@@ -175,8 +176,10 @@ export function getDemoDashboardData(userLocale: string) {
                 accountsSaved: savedRows.length,
                 actionsExecuted,
                 successRate: Math.round((savedRows.length / actionsExecuted) * 100),
-                mrrProtectedPct: Math.abs(
-                    percentChange(latest(mrrProtectedValues), previous(mrrProtectedValues))
+                mrrProtectedPct: Number(
+                    Math.abs(
+                        percentChange(latest(mrrProtectedValues), previous(mrrProtectedValues))
+                    ).toFixed(1)
                 ),
                 accountsSavedPct: 0,
                 actionsExecutedPct: 0,

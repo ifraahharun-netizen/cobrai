@@ -3937,8 +3937,10 @@ export default function AnalyticsPage() {
     const retainedUsers = Number(currentSubscriberActivity?.retained ?? 0);
     const previousRetainedUsers = Number(previousSubscriberActivity?.retained ?? 0);
 
+    // Demo has no server drivers; use the same split as the MRR hover.
     const expansionMrrMinor = Number(
-        drawerInsights.mrr.drivers?.expansionMinor ?? 0
+        drawerInsights.mrr.drivers?.expansionMinor ??
+        (isDemoMode ? demoMrrDrivers.expansionMinor : 0)
     );
     const previousExpansionMrrMinor =
         typeof mrrDeltaPct === "number" && Number.isFinite(mrrDeltaPct)
@@ -3946,7 +3948,10 @@ export default function AnalyticsPage() {
             : null;
 
     const revenueLostMinor = Math.abs(
-        Number(drawerInsights.mrr.drivers?.churnedMinor ?? 0)
+        Number(
+            drawerInsights.mrr.drivers?.churnedMinor ??
+            (isDemoMode ? demoMrrDrivers.churnedMinor : 0)
+        )
     );
     const previousRevenueLostMinor =
         typeof churnDeltaPp === "number" && Number.isFinite(churnDeltaPp)

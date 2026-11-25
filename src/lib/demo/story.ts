@@ -47,7 +47,7 @@ export const DEMO_ACCOUNT_SIGNALS: Record<string, DemoAccountSignal> = {
     },
     "demo-kite-labs": {
         reasonLabel: "Failed payment, no activity in 25 days",
-        reason: "Renewal payment failed and the main user hasn't logged in for 25 days.",
+        reason: "Latest payment failed and the main user hasn't logged in for 25 days.",
         nextAction: "Send a personal check-in and fix the card on file.",
         tags: ["billing", "usage"],
         failedPaymentMinor: 12900,

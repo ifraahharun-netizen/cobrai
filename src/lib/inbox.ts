@@ -282,7 +282,7 @@ export function demoThreads(): InboxThread[] {
     const extras: Record<string, Pick<InboxAccount, "previousRiskScore" | "activeDays30d" | "website" | "riskReasons" | "recentActions">> = {
         "demo-kite-labs": {
             website: "kitelabs.io", previousRiskScore: 75, activeDays30d: 3,
-            riskReasons: ["Renewal payment failed", "No activity in 25 days", "Analyst (main user) left the team"],
+            riskReasons: ["Latest payment failed", "No activity in 25 days", "Analyst (main user) left the team"],
             recentActions: [
                 { title: "Renewal check-in", at: ago(30), status: "sent", opened: true, replied: true },
                 { title: "Reporting feature tips", at: ago(24 * 16), status: "sent", opened: false, replied: false },
