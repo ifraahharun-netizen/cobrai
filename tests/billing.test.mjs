@@ -105,3 +105,40 @@ test("lock: exempt owners never lock, matching email case-insensitively", () => 
     assert.equal(isWorkspaceLocked({ trialEndsAt: ended, subscriptions: [], ownerEmail: null, exemptEmails: exempt, now }), true);
     assert.equal(parseExemptEmails(undefined).size, 0);
 });
+
+import { buildTrialEndingEmail } from "../src/lib/billing/trialEmail.ts";
+
+const EMAIL_BASE = {
+    currency: "GBP",
+    appUrl: "https://cobrai.uk/",
+    atRiskMinor: 0,
+    atRiskAccounts: 0,
+    failedPaymentsMinor: 0,
+    failedPayments: 0,
+    topAccounts: [],
+};
+
+test("trial email: leads with the customer's own numbers when there are any", () => {
+    const { subject, text, html } = buildTrialEndingEmail({
+        ...EMAIL_BASE,
+        daysRemaining: 3,
+        atRiskMinor: 43100,
+        atRiskAccounts: 8,
+        failedPaymentsMinor: 27600,
+        failedPayments: 3,
+        topAccounts: [{ name: "Kite <Labs>", reason: "Payment failed twice", mrrMinor: 14900 }],
+    });
+    assert.equal(subject, "Your Cobrai trial ends in 3 days: £707 a month needs attention");
+    assert.match(text, /£431 a month at risk across 8 accounts \(£5,172 a year if they leave\)/);
+    assert.match(text, /£276 in 3 failed payments/);
+    assert.match(text, /https:\/\/cobrai\.uk\/dashboard/);
+    assert.match(html, /Kite &lt;Labs&gt;/, "account names are escaped");
+    assert.doesNotMatch(html, /Kite <Labs>/);
+});
+
+test("trial email: honest short reminder without data; says 'tomorrow' on the last day", () => {
+    const { subject, text } = buildTrialEndingEmail({ ...EMAIL_BASE, daysRemaining: 1 });
+    assert.equal(subject, "Your Cobrai trial ends tomorrow");
+    assert.doesNotMatch(text, /£0/);
+    assert.match(text, /connected Stripe/);
+});

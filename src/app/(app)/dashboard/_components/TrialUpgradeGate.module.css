@@ -534,6 +534,84 @@
     line-height: 1.45;
 }
 
+/* Reminder mode + no-data connect card */
+.topRight {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.closeButton {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.closeButton:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+}
+
+.connectCard {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 20px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--card);
+}
+
+.connectIcon {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.connectCopy h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.connectCopy p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.connectCard .secondaryButton {
+    width: auto;
+    margin-top: 0;
+    white-space: nowrap;
+}
+
+.talkLink {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    color: var(--ink);
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.talkLink:hover {
+    text-decoration: underline;
+}
+
 /* Phone */
 @media (max-width: 720px) {
     .page {
@@ -565,6 +643,19 @@
 
     .accountMain span {
         white-space: normal;
+    }
+
+    .connectCard {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .connectCard .secondaryButton {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+
+    .talkLink {
+        margin-left: 0;
     }
 }
 

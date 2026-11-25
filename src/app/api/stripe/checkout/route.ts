@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
 import { requireOwnedWorkspace } from "@/lib/apiAuth";
+import { trackConversion } from "@/lib/billing/conversion";
 
 type CheckoutTier = "starter" | "pro";
 
@@ -144,6 +145,8 @@ export async function POST(req: Request) {
             success_url: `${appUrl}/dashboard/settings?tab=manage-plan&checkout=success`,
             cancel_url: `${appUrl}/dashboard/settings?tab=manage-plan&checkout=cancelled`,
         });
+
+        await trackConversion(workspaceId, "checkout_started", { tier });
 
         return NextResponse.json({ url: session.url });
     } catch (error: any) {

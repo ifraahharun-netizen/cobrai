@@ -21,6 +21,8 @@ export type WorkspaceTrialState = {
     trialActive: boolean;
     hasActiveSubscription: boolean;
     daysRemaining: number;
+    /** Owner is on BILLING_EXEMPT_EMAILS: never locked, never nudged to pay. */
+    accessExempt: boolean;
     impact: TrialImpact;
     /** What's at stake in the business right now (live data, demo rows excluded). */
     atStake: TrialAtStake;
@@ -65,7 +67,7 @@ function monthKeyUtc(date: Date) {
     return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-async function loadAtStake(workspaceId: string, now: Date): Promise<TrialAtStake> {
+export async function loadAtStake(workspaceId: string, now: Date): Promise<TrialAtStake> {
     const riskWhere = { workspaceId, isDemo: false, riskScore: { gte: 60 } };
     const [mrr, riskAgg, topRisks, failed] = await Promise.all([
         prisma.mrrSnapshot.aggregate({
@@ -327,6 +329,7 @@ export async function getOrStartWorkspaceTrial(
         trialActive,
         hasActiveSubscription,
         daysRemaining,
+        accessExempt,
         impact,
         atStake,
         currency: (workspace.currency || "GBP").toUpperCase(),

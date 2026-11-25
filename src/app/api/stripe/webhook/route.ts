@@ -13,6 +13,7 @@ import {
     tierFromSubscription as tierFromStripe,
     type PlanTier,
 } from "@/lib/billing/tier";
+import { trackConversion } from "@/lib/billing/conversion";
 
 function toDate(value?: number | null): Date | null {
     return typeof value === "number"
@@ -735,6 +736,8 @@ export async function POST(
                 }
 
                 const safeWorkspaceId = workspaceId;
+
+                await trackConversion(safeWorkspaceId, "checkout_completed", { tier: requestedTier });
 
                 await updateSavedStripeEventWorkspace(
                     event.id,

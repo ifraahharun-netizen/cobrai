@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "firebase/auth";
-import { ArrowRight, Check, CreditCard, Lock, RotateCcw, ShieldCheck, Sparkles, TriangleAlert } from "lucide-react";
+import { ArrowRight, Check, Clock, CreditCard, Lock, MessageCircle, PlugZap, RotateCcw, ShieldCheck, Sparkles, TriangleAlert, X } from "lucide-react";
+
+import { firstTimeThisSession, trackConversionEvent } from "@/lib/billing/trackClient";
 
 import styles from "./TrialUpgradeGate.module.css";
 
@@ -33,6 +35,7 @@ export type TrialStatus = {
     trialActive: boolean;
     hasActiveSubscription: boolean;
     daysRemaining: number;
+    accessExempt?: boolean;
     impact: TrialImpact;
     atStake?: TrialAtStake;
     currency?: string;
@@ -42,7 +45,12 @@ export type TrialStatus = {
 type Props = {
     user: User;
     status: TrialStatus;
+    /** "locked": shown when the trial has ended (default). "reminder": opened from the banner before it ends; closable. */
+    mode?: "locked" | "reminder";
+    onClose?: () => void;
 };
+
+const SUPPORT_EMAIL = "cobrai@cobrai.uk";
 
 type PaidTier = "starter" | "pro";
 
@@ -102,9 +110,12 @@ function formatDate(iso: string | null) {
         : d.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
 }
 
-export default function TrialUpgradeGate({ user, status }: Props) {
+export default function TrialUpgradeGate({ user, status, mode = "locked", onClose }: Props) {
     const [checkoutLoading, setCheckoutLoading] = useState<PaidTier | null>(null);
     const [checkoutError, setCheckoutError] = useState("");
+    const [connecting, setConnecting] = useState(false);
+    const isReminder = mode === "reminder";
+    const visible = isReminder ? !status.hasActiveSubscription : status.trialExpired && !status.hasActiveSubscription;
 
     const currency = status.currency || "GBP";
     const stake = status.atStake ?? EMPTY_AT_STAKE;
@@ -166,18 +177,58 @@ export default function TrialUpgradeGate({ user, status }: Props) {
     ];
 
     useEffect(() => {
-        if (!status.trialExpired) return;
+        if (!visible) return;
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = "hidden";
         return () => {
             document.body.style.overflow = previousOverflow;
         };
-    }, [status.trialExpired]);
+    }, [visible]);
+
+    // Funnel: one view per tab session for the lock screen; every open for the reminder.
+    useEffect(() => {
+        if (!visible) return;
+        if (isReminder) trackConversionEvent(user, "reminder_viewed");
+        else if (firstTimeThisSession(`cobrai:report_viewed:${status.workspaceId}`)) {
+            trackConversionEvent(user, "report_viewed", { hasData });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visible, isReminder]);
+
+    useEffect(() => {
+        if (!visible || !isReminder || !onClose) return;
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [visible, isReminder, onClose]);
+
+    async function connectStripe() {
+        if (connecting) return;
+        setConnecting(true);
+        setCheckoutError("");
+        trackConversionEvent(user, "connect_stripe_clicked", { from: mode });
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch("/api/integrations/stripe/connect", {
+                headers: { Authorization: `Bearer ${token}` },
+                cache: "no-store",
+            });
+            const data = (await response.json().catch(() => null)) as { url?: string; error?: string } | null;
+            if (!response.ok || !data?.url) throw new Error(data?.error || "Couldn't start the Stripe connection.");
+            window.location.assign(data.url);
+        } catch (error) {
+            setCheckoutError(error instanceof Error ? error.message : "Couldn't start the Stripe connection.");
+            setConnecting(false);
+        }
+    }
 
     async function continueWithPlan(tier: PaidTier) {
         if (checkoutLoading) return;
         setCheckoutLoading(tier);
         setCheckoutError("");
+        trackConversionEvent(user, "plan_clicked", { tier, from: mode, recommended: tier === recommended });
 
         try {
             const token = await user.getIdToken();
@@ -200,7 +251,7 @@ export default function TrialUpgradeGate({ user, status }: Props) {
         }
     }
 
-    if (!status.trialExpired || status.hasActiveSubscription) {
+    if (!visible) {
         return null;
     }
 
@@ -218,9 +269,27 @@ export default function TrialUpgradeGate({ user, status }: Props) {
             <div className={styles.page}>
                 <header className={styles.topBar}>
                     <span className={styles.brand}>Cobrai</span>
-                    <span className={styles.statusPill}>
-                        <Lock size={12} strokeWidth={2} aria-hidden="true" />
-                        {endedOn ? `Trial ended ${endedOn}` : "Trial ended"}
+                    <span className={styles.topRight}>
+                        <span className={styles.statusPill}>
+                            {isReminder ? (
+                                <>
+                                    <Clock size={12} strokeWidth={2} aria-hidden="true" />
+                                    {status.daysRemaining > 0
+                                        ? `Trial ends in ${plural(status.daysRemaining, "day")}`
+                                        : "Trial ends today"}
+                                </>
+                            ) : (
+                                <>
+                                    <Lock size={12} strokeWidth={2} aria-hidden="true" />
+                                    {endedOn ? `Trial ended ${endedOn}` : "Trial ended"}
+                                </>
+                            )}
+                        </span>
+                        {isReminder && onClose ? (
+                            <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Close">
+                                <X size={16} strokeWidth={2} aria-hidden="true" />
+                            </button>
+                        ) : null}
                     </span>
                 </header>
 
@@ -229,6 +298,8 @@ export default function TrialUpgradeGate({ user, status }: Props) {
                     <h1 id="trial-report-title" className={styles.title}>
                         {hasData && recoverableMinor > 0
                             ? <>{money(recoverableMinor, currency)} a month needs your attention</>
+                            : isReminder
+                            ? "Keep Cobrai running after your trial"
                             : "Your free trial has ended"}
                     </h1>
                     <p id="trial-report-subtitle" className={styles.subtitle}>
@@ -236,6 +307,8 @@ export default function TrialUpgradeGate({ user, status }: Props) {
                             ? `If these ${plural(stake.atRiskAccounts, "account")} cancel, you lose ${money(stake.atRiskMinor * 12, currency)} a year. Cobrai has a next step ready for each one. Choose a plan to act on it. Your data and history are kept.`
                             : hasData
                             ? "Here's what Cobrai found in your business. Choose a plan to act on it. Your data and history are kept."
+                            : isReminder
+                            ? "Choose a plan now and nothing changes when your trial ends."
                             : "Choose a plan to keep using Cobrai. Your workspace and settings are kept."}
                     </p>
                 </section>
@@ -345,6 +418,24 @@ export default function TrialUpgradeGate({ user, status }: Props) {
                     </>
                 ) : null}
 
+                {!hasData ? (
+                    <section className={styles.connectCard}>
+                        <span className={styles.connectIcon} aria-hidden="true">
+                            <PlugZap size={18} strokeWidth={1.8} />
+                        </span>
+                        <div className={styles.connectCopy}>
+                            <h2>See what&apos;s at stake in your business</h2>
+                            <p>
+                                Connect Stripe and Cobrai shows the revenue at risk, failed payments to recover and
+                                the accounts to act on first. It takes about a minute and is read-only.
+                            </p>
+                        </div>
+                        <button type="button" className={styles.secondaryButton} onClick={connectStripe} disabled={connecting}>
+                            {connecting ? "Opening Stripe…" : "Connect Stripe"}
+                        </button>
+                    </section>
+                ) : null}
+
                 <section className={styles.plansSection} aria-labelledby="trial-plans-title">
                     <div className={styles.plansHead}>
                         <h2 id="trial-plans-title">Choose a plan</h2>
@@ -404,7 +495,14 @@ export default function TrialUpgradeGate({ user, status }: Props) {
                 <footer className={styles.trustRow}>
                     <span><CreditCard size={14} strokeWidth={1.8} aria-hidden="true" /> Secure checkout by Stripe</span>
                     <span><RotateCcw size={14} strokeWidth={1.8} aria-hidden="true" /> Cancel anytime</span>
-                    <span><ShieldCheck size={14} strokeWidth={1.8} aria-hidden="true" /> Access returns the moment you pay</span>
+                    <span><ShieldCheck size={14} strokeWidth={1.8} aria-hidden="true" /> {isReminder ? "Nothing changes when you pay" : "Access returns the moment you pay"}</span>
+                    <a
+                        className={styles.talkLink}
+                        href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Question about Cobrai plans")}`}
+                        onClick={() => trackConversionEvent(user, "talk_to_us_clicked", { from: mode })}
+                    >
+                        <MessageCircle size={14} strokeWidth={1.8} aria-hidden="true" /> Not sure yet? Talk to us
+                    </a>
                 </footer>
             </div>
         </div>
