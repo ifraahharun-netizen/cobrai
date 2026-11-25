@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "firebase/auth";
-import { ArrowRight, Check, Clock, CreditCard, Lock, MessageCircle, PlugZap, RotateCcw, ShieldCheck, Sparkles, TriangleAlert, X } from "lucide-react";
+import { ArrowRight, Check, Clock, CreditCard, Lock, MessageCircle, PlugZap, RotateCcw, ShieldCheck, TriangleAlert, X } from "lucide-react";
 
 import { firstTimeThisSession, trackConversionEvent } from "@/lib/billing/trackClient";
 
@@ -363,7 +363,6 @@ export default function TrialUpgradeGate({ user, status, mode = "locked", onClos
                                                 <span>{account.reason} · risk {account.riskScore}/100</span>
                                                 {account.nextStep ? (
                                                     <span className={styles.nextStep}>
-                                                        <Sparkles size={12} strokeWidth={1.8} aria-hidden="true" />
                                                         Next step:
                                                         <em aria-label="Unlock to see the next step">{account.nextStep}</em>
                                                     </span>

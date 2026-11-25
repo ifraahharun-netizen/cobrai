@@ -20,7 +20,6 @@ import {
     MousePointerClick,
     Search,
     Send,
-    Sparkles,
     Star,
 } from "lucide-react";
 import type { IconType } from "react-icons";
@@ -377,7 +376,6 @@ export default function InboxPage() {
 
             {data?.setupRequired ? (
                 <div className={styles.banner} role="status">
-                    <Sparkles size={14} aria-hidden="true" />
                     Showing sent emails only. To receive replies, apply the inbox database migration
                     (<code>npx prisma migrate deploy</code>) and connect inbound email.
                 </div>

@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import type { EChartsOption } from "echarts";
-import { Sparkles } from "lucide-react";
 import { computeRetention, monthName, type MovementMonth } from "./metricsExtras";
 import InfoTip from "./InfoTip";
 import styles from "./metrics.module.css";
@@ -244,7 +243,6 @@ export default function RevenueMovementCard({
                         )
                     }
                 >
-                    <Sparkles size={13} strokeWidth={1.8} aria-hidden="true" />
                     Explain
                 </button>
                 </div>

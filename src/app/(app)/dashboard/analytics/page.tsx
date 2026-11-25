@@ -41,7 +41,6 @@ import {
     RotateCcw,
     TrendingUp,
     ChevronRight,
-    Sparkles,
     LayoutGrid,
     Repeat,
     ListChecks,
@@ -1888,7 +1887,6 @@ function buildMiniChartPath(values: number[]) {
 function ExplainButton({ onClick, label = "Explain" }: { onClick: () => void; label?: string }) {
     return (
         <button type="button" className={metricStyles.explainButton} onClick={onClick} title="Ask Claude to explain this">
-            <Sparkles size={12} strokeWidth={2} aria-hidden="true" />
             {label}
         </button>
     );

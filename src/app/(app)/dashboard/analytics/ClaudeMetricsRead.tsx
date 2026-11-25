@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, MessageCircleQuestion, RefreshCw, Sparkles, Target } from "lucide-react";
+import { Eye, MessageCircleQuestion, RefreshCw, Target } from "lucide-react";
 import { onAuthStateChanged } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase.client";
 import type { ChartNote, MetricKey, MetricsRead, MetricsSnapshot } from "@/lib/ai/claudeMetricsRead";
@@ -128,7 +128,6 @@ export default function ClaudeMetricsRead({
         <section className={`${styles.readCard} ${styles.readBar}`} aria-labelledby="claude-read-title">
             <div className={styles.readBarRow}>
                 <span className={styles.claudeTag}>
-                    <Sparkles size={11} strokeWidth={2} aria-hidden="true" />
                     Claude&apos;s summary
                 </span>
 
@@ -169,11 +168,7 @@ export default function ClaudeMetricsRead({
                         disabled={analysing}
                         title={read ? "Run Claude's summary again on the latest numbers" : undefined}
                     >
-                        {read ? (
-                            <RefreshCw size={13} strokeWidth={1.8} aria-hidden="true" />
-                        ) : (
-                            <Sparkles size={14} strokeWidth={1.8} aria-hidden="true" />
-                        )}
+                        {read ? <RefreshCw size={13} strokeWidth={1.8} aria-hidden="true" /> : null}
                         {analysing ? "Analysing…" : read ? "Refresh" : "Summarise"}
                     </button>
                 </div>
