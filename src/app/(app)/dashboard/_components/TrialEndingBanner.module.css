@@ -5,9 +5,9 @@
     gap: 12px;
     margin: 0 0 16px;
     padding: 10px 12px 10px 14px;
-    border: 1px solid #f0d9cf;
+    border: 1px solid #e8e6dc;
     border-radius: 10px;
-    background: #fdf6f2;
+    background: #fafaf9;
     color: #1f1e1d;
 }
 
@@ -18,7 +18,7 @@
     height: 28px;
     border-radius: 8px;
     background: #ffffff;
-    color: #d97757;
+    color: #3d3d3a;
 }
 
 .text {
@@ -66,13 +66,13 @@
 }
 
 .dismiss:hover {
-    background: #f6ebe5;
+    background: #f0efec;
     color: #1f1e1d;
 }
 
 .cta:focus-visible,
 .dismiss:focus-visible {
-    outline: 2px solid #d97757;
+    outline: 2px solid #1f1e1d;
     outline-offset: 2px;
 }
 
