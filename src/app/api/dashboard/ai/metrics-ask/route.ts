@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { ratelimit } from "@/lib/rateLimit";
-import { loadSnapshot } from "@/lib/ai/metricsSnapshot";
+import { loadSnapshot, MetricsUnavailableError } from "@/lib/ai/metricsSnapshot";
+import { AuthError } from "@/lib/auth/errors";
 import { ClaudeNotConfiguredError, ClaudeRefusedError } from "@/lib/ai/claudeCustomerBehaviour";
 import { MetricsSnapshotSchema, type MetricsSnapshot } from "@/lib/ai/claudeMetricsRead";
 import { askAboutMetrics, AskAccountSchema, AskTurnSchema } from "@/lib/ai/claudeMetricsAsk";
+import { claudeLimitResponse, recordClaudeUsage } from "@/lib/ai/claudeUsage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,15 +49,25 @@ export async function POST(req: Request) {
             ? { ...sent.data, currency: snapshot.currency, source: snapshot.source }
             : snapshot;
 
+        const overLimit = await claudeLimitResponse(workspaceId);
+        if (overLimit) return overLimit;
+
         const result = await askAboutMetrics({
             snapshot: figures,
             accounts: parsed.data.accounts,
             history: parsed.data.history,
             question: parsed.data.question,
         });
+        await recordClaudeUsage(workspaceId, "metrics_ask");
 
         return NextResponse.json(result);
     } catch (error) {
+        if (error instanceof MetricsUnavailableError) {
+            return NextResponse.json({ error: error.message }, { status: 503 });
+        }
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         if (error instanceof ClaudeNotConfiguredError) {
             return NextResponse.json({ error: error.message }, { status: 503 });
         }

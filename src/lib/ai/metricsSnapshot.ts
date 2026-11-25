@@ -97,6 +97,14 @@ async function liveSnapshot(req: Request, currency: string): Promise<MetricsSnap
     };
 }
 
+/** The workspace's live numbers couldn't be loaded (so there's nothing true to analyse). */
+export class MetricsUnavailableError extends Error {
+    constructor() {
+        super("Couldn't load your latest numbers. Please try again in a moment.");
+        this.name = "MetricsUnavailableError";
+    }
+}
+
 export async function loadSnapshot(req: Request) {
     const { workspaceId } = await getWorkspaceFromRequest(req);
 
@@ -108,9 +116,12 @@ export async function loadSnapshot(req: Request) {
     if (!workspace) return { workspaceId, snapshot: null };
 
     const currency = workspace.currency || "GBP";
-    const snapshot = workspace.demoMode
-        ? demoSnapshot(currency)
-        : (await liveSnapshot(req, currency)) ?? demoSnapshot(currency);
+    if (workspace.demoMode) return { workspaceId, snapshot: demoSnapshot(currency) };
+
+    // Never fall back to demo figures for a real workspace: Claude would advise
+    // on numbers that aren't the customer's. Fail clearly instead.
+    const snapshot = await liveSnapshot(req, currency);
+    if (!snapshot) throw new MetricsUnavailableError();
 
     return { workspaceId, snapshot };
 }

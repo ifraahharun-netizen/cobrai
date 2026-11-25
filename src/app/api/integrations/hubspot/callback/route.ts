@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { encrypt } from "@/lib/crypto";
+import { hubSpotExpiresAt } from "@/lib/hubspot/tokens";
 import { syncHubSpotWorkspace } from "@/lib/hubspot/sync";
 
 export const runtime = "nodejs";
@@ -164,7 +165,7 @@ export async function GET(req: NextRequest) {
                 accessTokenEnc: encrypt(accessToken),
                 refreshTokenEnc: encrypt(refreshToken),
                 externalAccountId: hubId,
-                metadata: { scope, connectedAt },
+                metadata: { scope, connectedAt, expiresAt: hubSpotExpiresAt(data?.expires_in) },
                 lastSyncedAt: null,
                 lastSyncError: null,
             },
@@ -173,7 +174,7 @@ export async function GET(req: NextRequest) {
                 accessTokenEnc: encrypt(accessToken),
                 refreshTokenEnc: encrypt(refreshToken),
                 externalAccountId: hubId,
-                metadata: { scope, connectedAt },
+                metadata: { scope, connectedAt, expiresAt: hubSpotExpiresAt(data?.expires_in) },
                 lastSyncError: null,
             },
         });

@@ -64,7 +64,7 @@ const PLANS: Record<PaidTier, { name: string; priceMinor: number; tagline: strin
             "MRR, churn and retention analytics",
             "Customer health scores",
             "AI-written retention emails",
-            "Claude summaries of your metrics",
+            "Claude summaries and questions (100 a month)",
         ],
     },
     pro: {
@@ -76,7 +76,7 @@ const PLANS: Record<PaidTier, { name: string; priceMinor: number; tagline: strin
             "Automatic failed-payment recovery",
             "Retention automations and workflows",
             "Revenue forecasting and drivers",
-            "Unlimited Ask Claude",
+            "Claude summaries and questions (500 a month)",
         ],
     },
 };

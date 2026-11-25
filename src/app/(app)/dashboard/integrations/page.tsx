@@ -103,6 +103,7 @@ export default function IntegrationsPage() {
     const [toast, setToast] = useState<string | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [syncingHubSpot, setSyncingHubSpot] = useState(false);
+    const [syncingStripe, setSyncingStripe] = useState(false);
     const [loadingStatus, setLoadingStatus] = useState(true);
     const [busyKey, setBusyKey] = useState<string | null>(null);
     const [integrationRows, setIntegrationRows] = useState<IntegrationRow[]>([]);
@@ -336,6 +337,36 @@ export default function IntegrationsPage() {
         }
     }
 
+    async function runStripeSync() {
+        try {
+            if (!user) {
+                setToast("Please sign in first.");
+                return;
+            }
+
+            setSyncingStripe(true);
+            const token = await user.getIdToken(true);
+            const res = await fetch("/api/integrations/stripe/sync", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json().catch(() => null);
+
+            if (!res.ok || !data?.ok) {
+                throw new Error(data?.error || "Stripe sync failed");
+            }
+
+            const customers = Number(data.synced?.customers ?? 0);
+            setToast(`Stripe sync complete • ${customers} ${customers === 1 ? "customer" : "customers"} updated`);
+            await loadStatus();
+        } catch (e: any) {
+            setToast(e?.message || "Stripe sync failed");
+        } finally {
+            setSyncingStripe(false);
+        }
+    }
+
+    const stripeConnected = tools.some((t) => t.key === "stripe" && t.status === "connected");
     const connectedCount = tools.filter((t) => t.status === "connected").length;
 
     // Toasts disappear after a few seconds.
@@ -371,6 +402,17 @@ export default function IntegrationsPage() {
                     </div>
 
                     <div className={styles.headerActions}>
+                        {stripeConnected ? (
+                            <button
+                                type="button"
+                                className={styles.button}
+                                onClick={runStripeSync}
+                                disabled={syncingStripe || loadingStatus}
+                            >
+                                <RotateCcw size={14} strokeWidth={1.8} aria-hidden="true" />
+                                {syncingStripe ? "Syncing Stripe…" : "Sync Stripe"}
+                            </button>
+                        ) : null}
                         <button
                             type="button"
                             className={styles.button}

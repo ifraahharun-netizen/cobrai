@@ -6,8 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { encrypt } from "@/lib/crypto";
 import { getAdminDb } from "@/lib/firebaseAdmin";
 import { FieldValue } from "firebase-admin/firestore";
+import { syncStripeAfterConnect } from "@/lib/stripe-connect/afterConnect";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
@@ -190,6 +192,8 @@ export async function GET(req: Request) {
         await prisma.stripeOAuthState.delete({
             where: { stateToken: state },
         });
+
+        syncStripeAfterConnect(workspaceId);
 
         return NextResponse.redirect(`${redirectBase}&stripe=connected`);
     } catch (error: any) {

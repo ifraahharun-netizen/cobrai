@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { ratelimit } from "@/lib/rateLimit";
-import { loadSnapshot } from "@/lib/ai/metricsSnapshot";
+import { loadSnapshot, MetricsUnavailableError } from "@/lib/ai/metricsSnapshot";
+import { AuthError } from "@/lib/auth/errors";
 import { ClaudeNotConfiguredError, ClaudeRefusedError } from "@/lib/ai/claudeCustomerBehaviour";
 import {
     interpretMetrics,
     MetricsSnapshotSchema,
     type MetricsSnapshot,
 } from "@/lib/ai/claudeMetricsRead";
+import { claudeLimitResponse, recordClaudeUsage } from "@/lib/ai/claudeUsage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +21,12 @@ export async function GET(req: Request) {
         if (!snapshot) return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
         return NextResponse.json({ metrics: snapshot });
     } catch (error) {
+        if (error instanceof MetricsUnavailableError) {
+            return NextResponse.json({ error: error.message }, { status: 503 });
+        }
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         console.error("Metrics snapshot failed", error);
         return NextResponse.json({ error: "Could not load metrics." }, { status: 500 });
     }
@@ -50,7 +58,11 @@ export async function POST(req: Request) {
             ? { ...sent.data, currency: snapshot.currency, source: snapshot.source }
             : snapshot;
 
+        const overLimit = await claudeLimitResponse(workspaceId);
+        if (overLimit) return overLimit;
+
         const read = await interpretMetrics(figures);
+        await recordClaudeUsage(workspaceId, "metrics_read");
 
         return NextResponse.json({
             metrics: figures,
@@ -58,6 +70,12 @@ export async function POST(req: Request) {
             analysedAt: new Date().toISOString(),
         });
     } catch (error) {
+        if (error instanceof MetricsUnavailableError) {
+            return NextResponse.json({ error: error.message }, { status: 503 });
+        }
+        if (error instanceof AuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         if (error instanceof ClaudeNotConfiguredError) {
             return NextResponse.json({ error: error.message }, { status: 503 });
         }

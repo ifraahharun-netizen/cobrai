@@ -142,3 +142,24 @@ test("trial email: honest short reminder without data; says 'tomorrow' on the la
     assert.doesNotMatch(text, /£0/);
     assert.match(text, /connected Stripe/);
 });
+
+import { CLAUDE_MONTHLY_LIMITS, claudePlanFor, claudeLimitMessage, monthStartUtc } from "../src/lib/ai/claudeUsageRules.ts";
+
+test("Claude allowance: trials get the trial allowance even though they run on the Pro tier", () => {
+    const now = new Date("2026-11-25T12:00:00Z");
+    const future = new Date("2026-12-01T00:00:00Z");
+    const past = new Date("2026-11-01T00:00:00Z");
+    assert.equal(claudePlanFor({ tier: "pro", trialEndsAt: future, hasPaidSubscription: false, now }), "trial");
+    assert.equal(claudePlanFor({ tier: "free", trialEndsAt: past, hasPaidSubscription: false, now }), "trial");
+    assert.equal(claudePlanFor({ tier: "pro", trialEndsAt: future, hasPaidSubscription: true, now }), "pro");
+    assert.equal(claudePlanFor({ tier: "starter", trialEndsAt: past, hasPaidSubscription: true, now }), "starter");
+    assert.equal(claudePlanFor({ tier: "scale", trialEndsAt: null, hasPaidSubscription: true, now }), "pro");
+    assert.ok(CLAUDE_MONTHLY_LIMITS.trial < CLAUDE_MONTHLY_LIMITS.starter);
+    assert.ok(CLAUDE_MONTHLY_LIMITS.starter < CLAUDE_MONTHLY_LIMITS.pro);
+});
+
+test("Claude allowance: resets on the 1st (UTC) and explains itself", () => {
+    assert.equal(monthStartUtc(new Date("2026-11-25T23:59:00Z")).toISOString(), "2026-11-01T00:00:00.000Z");
+    assert.match(claudeLimitMessage("starter", 100), /all 100 Claude requests included with Starter.*Upgrade/);
+    assert.doesNotMatch(claudeLimitMessage("pro", 500), /Upgrade/);
+});
