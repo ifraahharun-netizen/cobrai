@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getWorkspaceIdFromRequest } from "@/lib/workspace.server";
 import { writeDailyAccountRiskSnapshotsForWorkspace } from "@/lib/account-risk-snapshots";
 import { paymentRequiredFromError } from "@/lib/billing/access";
+import { getDemoDashboardData } from "@/lib/demo/dashboard";
+import { getDemoStory } from "@/lib/demo/story";
 
 type HistoryRow = {
   id: string;
@@ -1222,10 +1224,15 @@ export async function GET(req: Request) {
     const currentMonthNewSubscribers = subscriptionsCurrentMonth.filter((s) => s.status !== "trialing").length;
     const currentMonthUpgrades = eventsCurrentMonth.filter((e) => isUpgradeEvent(e.type)).length;
 
-    const newTrials = isDemo && liveNewTrials === 0 ? 12 : liveNewTrials;
-    const newSubscriptions = isDemo && liveNewSubscriptions === 0 ? 18 : liveNewSubscriptions;
-    const reactivations = isDemo && liveReactivations === 0 ? 5 : liveReactivations;
-    const failedSubscriptions = isDemo && liveFailedSubscriptions === 0 ? 3 : liveFailedSubscriptions;
+    // Demo figures all come from the shared demo story (src/lib/demo/story.ts)
+    // so the Dashboard, Metrics, Accounts and Claude agree.
+    const demoStory = isDemo ? getDemoStory() : null;
+    const demoDashboard = isDemo ? getDemoDashboardData("en-GB") : null;
+
+    const newTrials = demoStory ? demoStory.subscribers.trials : liveNewTrials;
+    const newSubscriptions = demoStory ? demoStory.subscribers.newThisMonth : liveNewSubscriptions;
+    const reactivations = demoStory ? 2 : liveReactivations;
+    const failedSubscriptions = demoStory ? demoStory.failedPayments.length : liveFailedSubscriptions;
 
     const eventHistory: HistoryRow[] = (eventsLast30Days as EventForInsight[])
       .map((e): HistoryRow | null => {
@@ -1284,58 +1291,30 @@ export async function GET(req: Request) {
       .sort((a, b) => +new Date(b.occurredAt) - +new Date(a.occurredAt))
       .slice(0, 8);
 
-    const demoHistory: HistoryRow[] = [
-      {
-        id: "demo_1",
-        customerId: "demo_brightdesk",
-        type: "subscription_created",
-        label: "New subscription",
-        company: "BrightDesk",
-        occurredAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        valueMinor: 12900,
-        email: "hello@brightdesk.io",
-      },
-      {
-        id: "demo_2",
-        customerId: "demo_northstar",
-        type: "trial_started",
-        label: "New trial",
-        company: "Northstar AI",
-        occurredAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-        valueMinor: null,
-        email: "team@northstarai.com",
-      },
-      {
-        id: "demo_3",
-        customerId: "demo_orbitflow",
-        type: "reactivated",
-        label: "Reactivation",
-        company: "OrbitFlow",
-        occurredAt: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
-        valueMinor: 8900,
-        email: "ops@orbitflow.io",
-      },
-      {
-        id: "demo_4",
-        customerId: "demo_canvashub",
-        type: "invoice_payment_failed",
-        label: "Failed subscription",
-        company: "Canvas Hub",
-        occurredAt: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(),
-        valueMinor: 4900,
-        email: "billing@canvashub.co",
-      },
-      {
-        id: "demo_5",
-        customerId: "demo_signalforge",
-        type: "subscription_created",
-        label: "New subscription",
-        company: "Signal Forge",
-        occurredAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-        valueMinor: 15900,
-        email: "hello@signalforge.io",
-      },
-    ];
+    const demoHistory: HistoryRow[] = demoStory
+      ? [
+        ...demoStory.failedPayments.map((a, index) => ({
+          id: `demo_failed_${a.id}`,
+          customerId: a.id,
+          type: "invoice_payment_failed",
+          label: "Failed subscription",
+          company: a.name,
+          occurredAt: new Date(Date.now() - (index * 20 + 6) * 60 * 60 * 1000).toISOString(),
+          valueMinor: a.signal.failedPaymentMinor ?? null,
+          email: a.email ?? null,
+        })),
+        ...demoStory.saved.map((a, index) => ({
+          id: `demo_saved_${a.id}`,
+          customerId: a.id,
+          type: a.signal.savedBy?.toLowerCase().includes("payment") ? "payment_recovered" : "cancellation_reversed",
+          label: a.signal.savedBy ?? "Revenue saved",
+          company: a.name,
+          occurredAt: new Date(Date.now() - (index * 4 + 3) * 24 * 60 * 60 * 1000).toISOString(),
+          valueMinor: a.signal.savedThisMonthMinor ?? null,
+          email: a.email ?? null,
+        })),
+      ].sort((a, b) => +new Date(b.occurredAt) - +new Date(a.occurredAt))
+      : [];
 
     const customerStatuses = customersRecent.map((c) => (c.status || "").toLowerCase());
 
@@ -1346,12 +1325,14 @@ export async function GET(req: Request) {
       newSubscribers: currentMonthNewSubscribers,
     };
 
-    const customerMixDemo = {
-      active: 128,
-      trial: 22,
-      upgraded: 14,
-      newSubscribers: 16,
-    };
+    const customerMixDemo = demoStory
+      ? {
+        active: demoStory.subscribers.current,
+        trial: demoStory.subscribers.trials,
+        upgraded: demoStory.subscribers.upgrades,
+        newSubscribers: demoStory.subscribers.newThisMonth,
+      }
+      : customerMixLive;
 
     const liveOpportunities = subscriptionsLast30Days.slice(0, 3).map((s, index) => {
       const customer = s.stripeCustomerId ? customerByStripeId.get(s.stripeCustomerId) : null;
@@ -1366,32 +1347,7 @@ export async function GET(req: Request) {
       };
     });
 
-    const demoOpportunities = [
-      {
-        id: "11",
-        company: "BrightOps",
-        email: "ops@brightops.com",
-        signal: "Annual plan upgrade",
-        upside: 133,
-        updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-      },
-      {
-        id: "12",
-        company: "KiteCRM",
-        email: "finance@kitecrm.com",
-        signal: "New subscription started",
-        upside: 98,
-        updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString(),
-      },
-      {
-        id: "13",
-        company: "CedarWorks",
-        email: "hello@cedarworks.io",
-        signal: "Recovered failed payment",
-        upside: 64,
-        updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 6).toISOString(),
-      },
-    ];
+    const demoOpportunities = demoDashboard?.opportunities ?? [];
 
     const persistedInsights =
       (
@@ -1446,7 +1402,13 @@ export async function GET(req: Request) {
       // kpis money values are MINOR units (the Metrics page formats them
       // from minor). Live snapshot sums win over the stored analytics
       // snapshot, which can lag.
-      kpis: {
+      kpis: demoStory ? {
+        totalMrr: Math.round(demoStory.totalMrr.current * 100),
+        mrrAtRisk: Math.round(demoStory.mrrAtRisk.current * 100),
+        atRiskAccounts: demoStory.atRisk.length,
+        retentionPct: Number((100 - demoStory.churnPct.current).toFixed(1)),
+        churnPct: demoStory.churnPct.current,
+      } : {
         totalMrr: hasMrrSnapshots
           ? Number(currentMrrAgg._sum.mrrMinor || 0)
           : Math.round(Number(latestAnalyticsSnapshot?.totalMrr ?? 0) * 100),
@@ -1467,10 +1429,10 @@ export async function GET(req: Request) {
 
       // *Trend money values are MAJOR units (the main dashboard formats them
       // as-is).
-      totalMrrTrend: isDemo
+      totalMrrTrend: demoDashboard
         ? {
-          current: 69700,
-          previous: 64200,
+          current: demoDashboard.kpis.totalMrrCurrent,
+          previous: demoDashboard.kpis.totalMrrPrevious,
         }
         : {
           current: hasMrrSnapshots
@@ -1481,10 +1443,10 @@ export async function GET(req: Request) {
             previousTotalMrr,
         },
 
-      mrrProtected: isDemo
+      mrrProtected: demoDashboard
         ? {
-          current: 1420,
-          previous: 1200,
+          current: demoDashboard.kpis.mrrProtectedCurrent,
+          previous: demoDashboard.kpis.mrrProtectedPrevious,
         }
         : {
           current:
@@ -1494,10 +1456,10 @@ export async function GET(req: Request) {
             previousMonthProtectedMrr,
         },
 
-      mrrAtRiskTrend: isDemo
+      mrrAtRiskTrend: demoDashboard
         ? {
-          current: 12300,
-          previous: 14100,
+          current: demoDashboard.kpis.mrrAtRiskCurrent,
+          previous: demoDashboard.kpis.mrrAtRiskPrevious,
         }
         : {
           current:
@@ -1508,10 +1470,10 @@ export async function GET(req: Request) {
             previousMrrAtRiskFromSnapshots,
         },
 
-      churnProxyTrend: isDemo
+      churnProxyTrend: demoDashboard
         ? {
-          current: 3.4,
-          previous: 3.9,
+          current: demoDashboard.kpis.churnProxyCurrent,
+          previous: demoDashboard.kpis.churnProxyPrevious,
         }
         : {
           current:
@@ -1524,7 +1486,10 @@ export async function GET(req: Request) {
             previousChurnPct ?? 0,
         },
 
-      accountsFlaggedTrend: {
+      accountsFlaggedTrend: demoStory ? {
+        current: demoStory.atRisk.length,
+        previous: demoStory.atRisk.length + 1,
+      } : {
         current:
           latestAnalyticsSnapshot
             ?.atRiskAccounts ??
@@ -1534,48 +1499,17 @@ export async function GET(req: Request) {
           previousFlaggedAccounts.length,
       },
 
-      mrrProtectedChart: isDemo
+      mrrProtectedChart: demoDashboard
         ? {
-          months: [
-            "Oct",
-            "Nov",
-            "Dec",
-            "Jan",
-            "Feb",
-            "Mar",
-          ],
-
-          values: [
-            420,
-            510,
-            480,
-            620,
-            590,
-            710,
-          ],
+          months: months.map(monthLabel),
+          values: demoDashboard.mrrProtectedValues,
         }
         : liveMrrProtectedChart,
 
-      churnTrend: isDemo
+      churnTrend: demoDashboard
         ? {
-          months: [
-            "Oct",
-            "Nov",
-            "Dec",
-            "Jan",
-            "Feb",
-            "Mar",
-          ],
-
-          values: [
-            5.8,
-            5.1,
-            4.7,
-            4.3,
-            3.9,
-            3.4,
-          ],
-
+          months: months.map(monthLabel),
+          values: demoDashboard.churnPct,
           unavailable: false,
         }
         : {
@@ -1589,49 +1523,25 @@ export async function GET(req: Request) {
           unavailable: false,
         },
 
-      insights: isDemo
+      insights: demoStory
         ? [
           {
-            title:
-              "Highest risk driver",
-
-            text:
-              "Low feature adoption is driving churn risk.",
-
-            kind: "adoption",
-
-            accountIds: [
-              "demo_1",
-              "demo_2",
-            ],
-          },
-
-          {
-            title:
-              "Billing alert",
-
-            text:
-              "Failed payments are creating immediate retention risk.",
-
+            title: "Highest risk driver",
+            text: "Failed payments are the biggest risk: CedarWorks and Kite Labs.",
             kind: "billing",
-
-            accountIds: [
-              "demo_3",
-            ],
+            accountIds: demoStory.failedPayments.map((a) => a.id),
           },
-
           {
-            title:
-              "Quick win",
-
-            text:
-              "Guided onboarding is the fastest retention lever today.",
-
-            kind: "onboarding",
-
-            accountIds: [
-              "demo_4",
-            ],
+            title: "Usage drop",
+            text: "Usage has fallen at NovaPay and BrightDesk.",
+            kind: "usage",
+            accountIds: ["demo-nova-pay", "demo-brightdesk"],
+          },
+          {
+            title: "Quick win",
+            text: "Orbit CRM has an open support issue; resolving it is the fastest save.",
+            kind: "support",
+            accountIds: ["demo-orbit-crm"],
           },
         ]
         : persistedInsights,
@@ -1642,91 +1552,8 @@ export async function GET(req: Request) {
       businessNarrative:
         persistedBusinessNarrative,
 
-      riskAccounts: isDemo
-        ? [
-          {
-            id: "demo_1",
-
-            company:
-              "CedarWorks",
-
-            reason:
-              "Usage dropped sharply in the last 14 days",
-
-            risk: 88,
-
-            mrr: 219,
-
-            tags: ["usage"],
-
-            updatedAt:
-              new Date().toISOString(),
-
-            email:
-              "team@cedarworks.io",
-          },
-
-          {
-            id: "demo_2",
-
-            company:
-              "Kite Labs",
-
-            reason:
-              "Renewal window approaching + downgrade signals",
-
-            risk: 82,
-
-            mrr: 129,
-
-            tags: [
-              "adoption",
-            ],
-
-            updatedAt:
-              new Date(
-                Date.now() -
-                1000 *
-                60 *
-                60 *
-                24
-              ).toISOString(),
-
-            email:
-              "hello@kitelabs.io",
-          },
-
-          {
-            id: "demo_3",
-
-            company:
-              "Northstar AI",
-
-            reason:
-              "Failed payment + low engagement",
-
-            risk: 61,
-
-            mrr: 349,
-
-            tags: [
-              "billing",
-            ],
-
-            updatedAt:
-              new Date(
-                Date.now() -
-                1000 *
-                60 *
-                60 *
-                24 *
-                3
-              ).toISOString(),
-
-            email:
-              "billing@northstarai.com",
-          },
-        ]
+      riskAccounts: demoDashboard
+        ? demoDashboard.riskAccounts
         : liveRiskAccounts,
 
       opportunities: isDemo

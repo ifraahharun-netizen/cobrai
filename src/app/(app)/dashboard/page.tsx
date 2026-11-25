@@ -652,12 +652,12 @@ export default function DashboardPage() {
         (point) => Number(point.valuePct || 0)
     );
 
-    const baseDemoMrrMonths = demoAnalyticsSeries.mrr.map(
+    // The "Revenue protected" chart: revenue saved per month (the same series
+    // as the MRR protected KPI and the live chart), not total MRR.
+    const baseDemoMrrMonths = demoAnalyticsSeries.mrr.slice(-6).map(
         (point) => point.month
     );
-    const baseDemoMrrVals = demoAnalyticsSeries.mrr.map(
-        (point) => Number(point.valueMinor || 0) / 100
-    );
+    const baseDemoMrrVals = demoDashboardData.mrrProtectedValues.slice(-6);
 
     const detailedDemoMrrTrend = useMemo(
         () =>

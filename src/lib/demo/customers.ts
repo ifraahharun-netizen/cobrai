@@ -1,3 +1,5 @@
+import { DEMO_ACCOUNT_SIGNALS } from "./story";
+
 export type CobraiCustomerListItem = {
     id: string;
     name: string;
@@ -17,6 +19,11 @@ export type CobraiCustomerListItem = {
 
 
 
+/** Relative to today, so "no activity in 25 days" stays true whenever the demo is opened. */
+function lastActiveDaysAgo(days: number) {
+    return new Date(Date.now() - (days * 24 + 3) * 60 * 60 * 1000).toISOString();
+}
+
 export function getDemoCustomers(): CobraiCustomerListItem[] {
     return [
         {
@@ -29,7 +36,7 @@ export function getDemoCustomers(): CobraiCustomerListItem[] {
             churnRisk: 91,
             riskScore: 91,
             healthScore: 22,
-            lastActiveAt: "2026-04-12T10:00:00.000Z",
+            lastActiveAt: lastActiveDaysAgo(9),
             createdAt: "2025-11-08T09:00:00.000Z",
             status: "Critical risk",
             stripeCustomerId: null,
@@ -45,7 +52,7 @@ export function getDemoCustomers(): CobraiCustomerListItem[] {
             churnRisk: 87,
             riskScore: 87,
             healthScore: 28,
-            lastActiveAt: "2026-04-04T09:00:00.000Z",
+            lastActiveAt: lastActiveDaysAgo(25),
             createdAt: "2025-10-14T09:00:00.000Z",
             status: "Critical risk",
             stripeCustomerId: null,
@@ -61,7 +68,7 @@ export function getDemoCustomers(): CobraiCustomerListItem[] {
             churnRisk: 76,
             riskScore: 76,
             healthScore: 41,
-            lastActiveAt: "2026-04-18T13:00:00.000Z",
+            lastActiveAt: lastActiveDaysAgo(6),
             createdAt: "2025-12-02T09:00:00.000Z",
             status: "High risk",
             stripeCustomerId: null,
@@ -77,7 +84,7 @@ export function getDemoCustomers(): CobraiCustomerListItem[] {
             churnRisk: 69,
             riskScore: 69,
             healthScore: 48,
-            lastActiveAt: "2026-04-20T16:00:00.000Z",
+            lastActiveAt: lastActiveDaysAgo(5),
             createdAt: "2026-01-05T09:00:00.000Z",
             status: "Medium risk",
             stripeCustomerId: null,
@@ -93,7 +100,7 @@ export function getDemoCustomers(): CobraiCustomerListItem[] {
             churnRisk: 63,
             riskScore: 63,
             healthScore: 52,
-            lastActiveAt: "2026-04-21T11:00:00.000Z",
+            lastActiveAt: lastActiveDaysAgo(4),
             createdAt: "2026-01-18T09:00:00.000Z",
             status: "Medium risk",
             stripeCustomerId: null,
@@ -109,7 +116,7 @@ export function getDemoCustomers(): CobraiCustomerListItem[] {
             churnRisk: 58,
             riskScore: 58,
             healthScore: 56,
-            lastActiveAt: "2026-04-22T15:00:00.000Z",
+            lastActiveAt: lastActiveDaysAgo(3),
             createdAt: "2026-02-02T09:00:00.000Z",
             status: "Medium risk",
             stripeCustomerId: null,
@@ -125,7 +132,7 @@ export function getDemoCustomers(): CobraiCustomerListItem[] {
             churnRisk: 48,
             riskScore: 48,
             healthScore: 66,
-            lastActiveAt: "2026-04-25T10:00:00.000Z",
+            lastActiveAt: lastActiveDaysAgo(2),
             createdAt: "2026-02-12T09:00:00.000Z",
             status: "Low risk",
             stripeCustomerId: null,
@@ -141,7 +148,7 @@ export function getDemoCustomers(): CobraiCustomerListItem[] {
             churnRisk: 44,
             riskScore: 44,
             healthScore: 70,
-            lastActiveAt: "2026-04-26T12:00:00.000Z",
+            lastActiveAt: lastActiveDaysAgo(2),
             createdAt: "2026-02-24T09:00:00.000Z",
             status: "Low risk",
             stripeCustomerId: null,
@@ -157,7 +164,7 @@ export function getDemoCustomers(): CobraiCustomerListItem[] {
             churnRisk: 39,
             riskScore: 39,
             healthScore: 74,
-            lastActiveAt: "2026-04-27T09:00:00.000Z",
+            lastActiveAt: lastActiveDaysAgo(1),
             createdAt: "2026-03-01T09:00:00.000Z",
             status: "Low risk",
             stripeCustomerId: null,
@@ -173,7 +180,7 @@ export function getDemoCustomers(): CobraiCustomerListItem[] {
             churnRisk: 35,
             riskScore: 35,
             healthScore: 78,
-            lastActiveAt: "2026-04-28T10:00:00.000Z",
+            lastActiveAt: lastActiveDaysAgo(1),
             createdAt: "2026-03-08T09:00:00.000Z",
             status: "Low risk",
             stripeCustomerId: null,
@@ -189,7 +196,7 @@ export function getDemoCustomers(): CobraiCustomerListItem[] {
             churnRisk: 28,
             riskScore: 28,
             healthScore: 84,
-            lastActiveAt: "2026-04-28T14:00:00.000Z",
+            lastActiveAt: lastActiveDaysAgo(0),
             createdAt: "2026-03-15T09:00:00.000Z",
             status: "Healthy",
             stripeCustomerId: null,
@@ -205,7 +212,7 @@ export function getDemoCustomers(): CobraiCustomerListItem[] {
             churnRisk: 22,
             riskScore: 22,
             healthScore: 89,
-            lastActiveAt: "2026-04-29T08:00:00.000Z",
+            lastActiveAt: lastActiveDaysAgo(0),
             createdAt: "2026-03-22T09:00:00.000Z",
             status: "Healthy",
             stripeCustomerId: null,
@@ -235,6 +242,29 @@ export function getDemoRecoveryQueue() {
             const isCritical = churnRisk >= 85;
             const isHighRisk = churnRisk >= 70;
             const isMediumRisk = churnRisk >= 55;
+            // Failed payments come from the shared demo story (CedarWorks, Kite Labs).
+            const failedPaymentMinor = DEMO_ACCOUNT_SIGNALS[customer.id]?.failedPaymentMinor ?? 0;
+
+            if (failedPaymentMinor > 0) {
+                return {
+                    id: customer.id,
+                    customerId: customer.id,
+                    accountRiskId: customer.id,
+                    type: "billing_recovery" as DemoRecoveryQueueType,
+                    priority: isCritical ? "Critical" : isHighRisk ? "High" : "Medium",
+                    name: customer.name,
+                    email: customer.email,
+                    reason: DEMO_ACCOUNT_SIGNALS[customer.id].reason,
+                    action: "Retry the failed subscription payment",
+                    opportunity: "Billing recovery",
+                    whyNow: DEMO_ACCOUNT_SIGNALS[customer.id].reason,
+                    suggestedAction:
+                        "Retry the failed subscription payment and send a billing recovery email if the retry is unsuccessful.",
+                    valueMinor: failedPaymentMinor,
+                    confidence: 92,
+                    lastEventAt: customer.lastActiveAt,
+                };
+            }
 
             const type: DemoRecoveryQueueType = isCritical
                 ? "immediate_attention"

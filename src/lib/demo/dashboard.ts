@@ -1,4 +1,4 @@
-import { getDemoCustomers } from "./customers";
+import { getDemoStory } from "./story";
 
 function latest(values: number[]) {
     return values[values.length - 1] ?? 0;
@@ -43,96 +43,49 @@ function currentMonthDayLabels(userLocale: string) {
     });
 }
 
-function clamp(value: number, min: number, max: number) {
-    return Math.min(max, Math.max(min, value));
-}
 
-function getAccountName(customer: any, fallback: string) {
-    return customer?.name ?? customer?.account ?? fallback;
-}
 
-function realisticMrrProtectedTrend(length: number) {
-    let value = 620;
-
+/**
+ * Daily points for the current month that move from last month's value to
+ * this month's, with a little day-to-day noise, and end exactly on `to`.
+ */
+function dailyPath(length: number, from: number, to: number, noise: number, decimals: number) {
     return Array.from({ length }, (_, index) => {
-        const progress = length <= 1 ? 1 : index / (length - 1);
-
-        const trendLift = 28 + progress * 34;
-        const weekdayPush = [16, -10, 22, 8, 36, -18, 12][index % 7];
-        const campaignSpike =
-            index === Math.floor(length * 0.45) ||
-                index === Math.floor(length * 0.72)
-                ? 140
-                : 0;
-
-        const dip =
-            index === Math.floor(length * 0.35) ||
-                index === Math.floor(length * 0.62)
-                ? -95
-                : 0;
-
-        const wave = Math.sin(index * 0.85) * 42;
-
-        value = value + trendLift + weekdayPush + wave * 0.32 + campaignSpike + dip;
-
-        return Math.round(clamp(value, 520, 2200));
+        if (index === length - 1) return to;
+        const progress = length <= 1 ? 1 : (index + 1) / length;
+        const wobble =
+            (Math.sin(index * 1.37) * 0.6 + [0.3, -0.2, 0.4, -0.1, -0.3, 0.2, -0.15][index % 7]) * noise;
+        const value = from + (to - from) * progress + wobble;
+        return Number(value.toFixed(decimals));
     });
-}
-
-function realisticCurrentMonthChurn(length: number) {
-    let value = 4.8;
-
-    return Array.from({ length }, (_, index) => {
-        const progress = length <= 1 ? 1 : index / (length - 1);
-
-        const downwardPressure = 0.055 + progress * 0.025;
-        const weeklyNoise = [0.12, -0.08, 0.16, -0.04, -0.14, 0.09, -0.06][index % 7];
-        const saveImpact =
-            index === Math.floor(length * 0.42) ||
-                index === Math.floor(length * 0.7)
-                ? -0.34
-                : 0;
-
-        const smallSpike =
-            index === Math.floor(length * 0.28) ||
-                index === Math.floor(length * 0.58)
-                ? 0.26
-                : 0;
-
-        value = value - downwardPressure + weeklyNoise + saveImpact + smallSpike;
-
-        return Number(clamp(value, 2.4, 5.2).toFixed(1));
-    });
-}
-
-function realisticSixMonthMrr() {
-    return [690, 1040, 930, 1460, 1320, 1856];
-}
-
-function realisticSixMonthChurn() {
-    return [4.6, 4.9, 4.2, 4.4, 3.6, 2.8];
 }
 
 export function getDemoDashboardData(userLocale: string) {
-    const customers = getDemoCustomers();
+    const story = getDemoStory();
     const months = monthLabels(userLocale, 6);
     const currentMonthDays = currentMonthDayLabels(userLocale);
 
-    const currentMonthMrrProtectedValues = realisticMrrProtectedTrend(
-        currentMonthDays.length
+    // Daily views of this month: revenue saved so far (builds to this month's
+    // total) and churn.
+    const currentMonthMrrProtectedValues = dailyPath(
+        currentMonthDays.length,
+        0,
+        story.revenueSaved.current,
+        0,
+        0
+    );
+    const currentMonthChurnPct = dailyPath(
+        currentMonthDays.length,
+        story.churnPct.previous,
+        story.churnPct.current,
+        0.12,
+        1
     );
 
-    const currentMonthChurnPct = realisticCurrentMonthChurn(
-        currentMonthDays.length
-    );
-
-    const totalMrrSeries = [75100, 76800, 78200, 79400, 81250, 80700];
-
-    const mrrAtRiskSeries = [7800, 7200, 6900, 6400, 6150, 5700];
-
-    const churnPct = realisticSixMonthChurn();
-
-    const mrrProtectedValues = realisticSixMonthMrr();
+    const totalMrrSeries = story.series.mrr.slice(-6).map((p) => Number(p.valueMinor) / 100);
+    const mrrAtRiskSeries = story.mrrAtRisk.sixMonths;
+    const churnPct = story.churnSixMonths;
+    const mrrProtectedValues = story.revenueSaved.sixMonths;
 
     const activeUsersValues = [
         128, 136, 129, 144, 139, 157, 151, 166, 159, 172,
@@ -140,63 +93,39 @@ export function getDemoDashboardData(userLocale: string) {
         176, 194, 188, 173, 181, 169, 178, 186, 179, 191,
     ];
 
-    const riskAccounts = [
-        {
-            id: "demo-kite-labs",
-            company: "Kite Labs",
-            email: "finance@kitelabs.io",
-            reason: "Renewal window approaching with lower engagement signals.",
-            risk: 87,
-            mrr: 1850,
-            tags: ["renewal", "usage"],
-            updatedAt: demoIsoDate(1),
-        },
-        {
-            id: "demo-cedarworks",
-            company: "CedarWorks",
-            email: "success@cedarworks.io",
-            reason: "Product usage dropped during the last 14 days.",
-            risk: 82,
-            mrr: 1460,
-            tags: ["usage"],
-            updatedAt: demoIsoDate(2),
-        },
-        {
-            id: "demo-novapay",
-            company: "NovaPay",
-            email: "ops@novapay.io",
-            reason: "Health score is declining before the next billing cycle.",
-            risk: 76,
-            mrr: 1320,
-            tags: ["health", "billing"],
-            updatedAt: demoIsoDate(3),
-        },
-        {
-            id: "demo-peak-ops",
-            company: "Peak Ops",
-            email: "billing@peakops.io",
-            reason: "Payment retry needed after a failed invoice.",
-            risk: 69,
-            mrr: 1070,
-            tags: ["billing"],
-            updatedAt: demoIsoDate(4),
-        },
-    ];
+    // Ids match getDemoCustomers(), so every row opens its account page.
+    const riskAccounts = story.atRisk.map((account, index) => ({
+        id: account.id,
+        company: account.name,
+        email: account.email ?? "",
+        reason: account.signal.reason,
+        risk: account.risk,
+        mrr: account.mrrMajor,
+        tags: account.signal.tags,
+        updatedAt: demoIsoDate(index + 1),
+    }));
 
-    const opportunities = [
-        {
-            id: "demo-brightops",
-            company: "BrightOps",
-            email: "team@brightops.io",
-            signal: "Usage increased this month. Recommend annual upgrade outreach.",
-            upside: 1650,
-            updatedAt: demoIsoDate(2),
-        },
-    ];
+    const opportunities = story.opportunities.map(({ account, upside }, index) => ({
+        id: account.id,
+        company: account.name,
+        email: account.email ?? "",
+        signal: `${account.signal.reason} ${account.signal.nextAction}`,
+        upside,
+        updatedAt: demoIsoDate(index + 2),
+    }));
 
-    const savedAccount = riskAccounts[0];
-    const retainedAccount = riskAccounts[1];
-    const pendingAccount = riskAccounts[2];
+    const savedRows = story.saved.map((account, index) => ({
+        account,
+        minor: Number(account.signal.savedThisMonthMinor || 0),
+        date: demoIsoDate(index * 4 + 3),
+    }));
+
+    const pendingRows = story.critical.map((account, index) => ({
+        account,
+        date: demoIsoDate(index + 1),
+    }));
+
+    const actionsExecuted = savedRows.length + pendingRows.length;
 
     return {
         churnMonths: months,
@@ -213,6 +142,16 @@ export function getDemoDashboardData(userLocale: string) {
 
         riskAccounts,
         opportunities,
+
+        /** Headline numbers shared with the summary API and Claude (MAJOR units). */
+        story: {
+            subscribers: story.subscribers.current,
+            subscribersPrevious: story.subscribers.previous,
+            atRiskAccounts: story.atRisk.length,
+            criticalAccounts: story.critical.length,
+            failedPaymentsTotal: story.failedPaymentsTotal,
+            weightedRisk: story.weightedRisk,
+        },
 
         kpis: {
             totalMrrCurrent: latest(totalMrrSeries),
@@ -233,79 +172,63 @@ export function getDemoDashboardData(userLocale: string) {
             workspaceTier: "pro",
             connectedIntegrations: [],
             kpis: {
-                mrrProtectedMinor: latest(mrrProtectedValues) * 100,
-                accountsSaved: 3,
-                actionsExecuted: 6,
-                successRate: 67,
-                mrrProtectedPct: Math.abs(
-                    percentChange(latest(mrrProtectedValues), previous(mrrProtectedValues))
+                mrrProtectedMinor: Math.round(latest(mrrProtectedValues) * 100),
+                accountsSaved: savedRows.length,
+                actionsExecuted,
+                successRate: Math.round((savedRows.length / actionsExecuted) * 100),
+                mrrProtectedPct: Number(
+                    Math.abs(
+                        percentChange(latest(mrrProtectedValues), previous(mrrProtectedValues))
+                    ).toFixed(1)
                 ),
-                accountsSavedPct: 18,
-                actionsExecutedPct: 12,
-                successRatePct: 7,
+                accountsSavedPct: 0,
+                actionsExecutedPct: 0,
+                successRatePct: 0,
             },
-            recentMrrSaved: [
-                {
-                    id: "demo-saved-kite-labs",
-                    account: savedAccount.company,
-                    mrrSavedMinor: 92000,
-                    date: demoIsoDate(1),
-                },
-                {
-                    id: "demo-saved-cedarworks",
-                    account: retainedAccount.company,
-                    mrrSavedMinor: 61000,
-                    date: demoIsoDate(2),
-                },
-            ],
+            recentMrrSaved: savedRows.map(({ account, minor, date }) => ({
+                id: `demo-saved-${account.id}`,
+                account: account.name,
+                mrrSavedMinor: minor,
+                date,
+            })),
             nextPriorityAccounts: riskAccounts.slice(0, 3).map((account) => ({
                 id: account.id,
-                account: getAccountName(account, "At-risk account"),
+                account: account.company,
                 aiReason: account.reason,
-                aiAction: "Send a personalised retention check-in this week.",
-                mrrMinor: account.mrr * 100,
+                aiAction: story.accounts.find((a) => a.id === account.id)?.signal.nextAction
+                    ?? "Send a personalised retention check-in this week.",
+                mrrMinor: Math.round(account.mrr * 100),
                 riskScore: account.risk,
             })),
             progressBreakdown: [
-                {
-                    id: "demo-progress-kite-labs",
-                    accountId: savedAccount.id,
-                    customerId: savedAccount.id,
-                    account: savedAccount.company,
-                    action: "Renewal protection email",
-                    aiReason: "At-risk revenue was protected after a targeted retention action.",
+                ...savedRows.map(({ account, minor, date }) => ({
+                    id: `demo-progress-${account.id}`,
+                    accountId: account.id,
+                    customerId: account.id,
+                    account: account.name,
+                    action: account.signal.savedBy ?? "Retention check-in",
+                    aiReason: account.signal.reason,
                     outcome: "success" as const,
-                    mrrSavedMinor: 92000,
-                    riskScore: 63,
-                    date: demoIsoDate(1),
-                    kind: "email" as const,
-                },
-                {
-                    id: "demo-progress-cedarworks",
-                    accountId: retainedAccount.id,
-                    customerId: retainedAccount.id,
-                    account: retainedAccount.company,
-                    action: "Usage recovery check-in",
-                    aiReason: "Engagement recovered after a personalised success message.",
-                    outcome: "success" as const,
-                    mrrSavedMinor: 61000,
-                    riskScore: 58,
-                    date: demoIsoDate(2),
-                    kind: "email" as const,
-                },
-                {
-                    id: "demo-progress-novapay",
-                    accountId: pendingAccount.id,
-                    customerId: pendingAccount.id,
-                    account: pendingAccount.company,
-                    action: "Billing risk follow-up",
-                    aiReason: "Health score is still declining and needs owner attention.",
+                    mrrSavedMinor: minor,
+                    riskScore: account.risk,
+                    date,
+                    kind: account.signal.savedBy?.toLowerCase().includes("payment")
+                        ? ("retry_payment" as const)
+                        : ("email" as const),
+                })),
+                ...pendingRows.map(({ account, date }) => ({
+                    id: `demo-progress-${account.id}`,
+                    accountId: account.id,
+                    customerId: account.id,
+                    account: account.name,
+                    action: "Billing recovery email",
+                    aiReason: account.signal.reason,
                     outcome: "pending" as const,
                     mrrSavedMinor: 0,
-                    riskScore: pendingAccount.risk,
-                    date: demoIsoDate(3),
-                    kind: "retry_payment" as const,
-                },
+                    riskScore: account.risk,
+                    date,
+                    kind: "email" as const,
+                })),
             ],
             actionPerformance: [],
         },

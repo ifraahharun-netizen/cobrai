@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getWorkspaceIdFromRequest } from "@/lib/workspace.server";
 import { getDemoCustomers } from "@/lib/demo/customers";
+import { DEMO_ACCOUNT_SIGNALS } from "@/lib/demo/story";
 import { paymentRequiredFromError } from "@/lib/billing/access";
 
 type RiskLevel = "critical" | "high" | "medium" | "low";
@@ -101,12 +102,16 @@ function makeDemoResponse(id: string) {
 
     const riskDelta = riskScore - previousRiskScore;
 
-    const reasonLabel = reasonFromScore(
+    // Same reason, action and failed payment as Accounts and the Dashboard.
+    const signal = DEMO_ACCOUNT_SIGNALS[customer.id];
+    const paymentFailed = Boolean(signal?.failedPaymentMinor);
+
+    const reasonLabel = signal?.reasonLabel ?? reasonFromScore(
         riskScore,
         customer.status
     );
 
-    const nextAction = actionFromScore(
+    const nextAction = signal?.nextAction ?? actionFromScore(
         riskScore,
         reasonLabel
     );
@@ -123,6 +128,11 @@ function makeDemoResponse(id: string) {
         }[]
     > = {
         "demo-cedarworks": [
+            {
+                type: "payment_failed",
+                label: "Subscription payment failed",
+                offsetHours: 9,
+            },
             {
                 type: "usage_dropped",
                 label: "Weekly product usage dropped by 42%",
@@ -145,7 +155,7 @@ function makeDemoResponse(id: string) {
             },
         ],
 
-        "demo-kitelabs": [
+        "demo-kite-labs": [
             {
                 type: "payment_failed",
                 label: "Subscription payment failed",
@@ -168,20 +178,20 @@ function makeDemoResponse(id: string) {
             },
         ],
 
-        "demo-novasync": [
+        "demo-launchgrid": [
             {
-                type: "plan_upgraded",
-                label: "Customer upgraded to Pro",
+                type: "seats_added",
+                label: "Customer added two seats",
                 offsetHours: 20,
             },
             {
                 type: "payment_successful",
-                label: "Annual invoice paid successfully",
+                label: "Monthly invoice paid successfully",
                 offsetHours: 18,
             },
             {
                 type: "risk_decreased",
-                label: "Risk score decreased to 28",
+                label: `Risk score decreased to ${riskScore}`,
                 offsetHours: 10,
             },
             {
@@ -191,7 +201,7 @@ function makeDemoResponse(id: string) {
             },
         ],
 
-        "demo-orbitflow": [
+        "demo-brightdesk": [
             {
                 type: "inactivity_detected",
                 label: "No activity detected for 14 days",
@@ -211,7 +221,12 @@ function makeDemoResponse(id: string) {
     };
 
     const scenario =
-        scenarios[id] || scenarios["demo-cedarworks"];
+        scenarios[id] ||
+        (paymentFailed
+            ? scenarios["demo-kite-labs"]
+            : riskScore >= 60
+                ? scenarios["demo-brightdesk"]
+                : scenarios["demo-launchgrid"]);
 
     const demoActivity = [
         {
@@ -300,10 +315,8 @@ function makeDemoResponse(id: string) {
             paymentHistory: [
                 {
                     label:
-                        reasonLabel
-                            .toLowerCase()
-                            .includes("billing")
-                            ? "Payment needs attention"
+                        paymentFailed
+                            ? "Payment failed"
                             : "Latest subscription payment",
 
                     at: new Date(
@@ -313,9 +326,7 @@ function makeDemoResponse(id: string) {
                     amount: (customer.mrr ?? 0) / 100,
 
                     status:
-                        reasonLabel
-                            .toLowerCase()
-                            .includes("billing")
+                        paymentFailed
                             ? "failed"
                             : "paid",
                 },

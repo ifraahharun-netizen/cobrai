@@ -22,6 +22,7 @@ import {
 import { getDemoRecoveryQueue } from "@/lib/demo/customers";
 
 import { buildDemoSeries } from "@/lib/demo/analytics";
+import { getDemoStory } from "@/lib/demo/story";
 
 import { getEmailRecommendation } from "@/lib/emailRecommendations";
 
@@ -2689,20 +2690,24 @@ export default function AnalyticsPage() {
     };
 
 
+    // Demo fallbacks come from the shared demo story, so Metrics matches the
+    // Dashboard, Accounts and Claude.
+    const demoStory = useMemo(() => getDemoStory(), []);
+
     const demoKpis = {
         totalMrr:
             summary?.kpis?.totalMrr &&
                 summary.kpis.totalMrr > 0
                 ? summary.kpis.totalMrr
                 : isDemoMode
-                    ? 223000
+                    ? Math.round(demoStory.totalMrr.current * 100)
                     : 0,
 
         mrrProtected:
             mrrProtected && mrrProtected > 0
                 ? mrrProtected
                 : isDemoMode
-                    ? 268000
+                    ? Math.round(demoStory.revenueSaved.current * 100)
                     : 0,
 
         mrrAtRisk:
@@ -2710,7 +2715,7 @@ export default function AnalyticsPage() {
                 summary.kpis.mrrAtRisk > 0
                 ? summary.kpis.mrrAtRisk
                 : isDemoMode
-                    ? 43100
+                    ? Math.round(demoStory.mrrAtRisk.current * 100)
                     : 0,
 
         churnPct:
@@ -2718,7 +2723,7 @@ export default function AnalyticsPage() {
                 summary.kpis.churnPct > 0
                 ? summary.kpis.churnPct
                 : isDemoMode
-                    ? 2.6
+                    ? demoStory.churnPct.current
                     : 0,
 
         atRiskAccounts:
@@ -2726,7 +2731,7 @@ export default function AnalyticsPage() {
                 summary.kpis.atRiskAccounts > 0
                 ? summary.kpis.atRiskAccounts
                 : isDemoMode
-                    ? 8
+                    ? demoStory.atRisk.length
                     : 0,
     };
 
@@ -3780,27 +3785,29 @@ export default function AnalyticsPage() {
         demoAnalytics.activityByMonth.length - 2
         ];
 
-    const demoMrrDrivers = {
-        newMinor:
-            (demoLatestActivity?.newSubscribers ?? 0) * 1200,
+    // Same split as buildMrrMovement (the Revenue movement chart), so the
+    // hover adds up to the month's MRR change: churned = opening MRR × churn,
+    // new = new subscribers × revenue per subscriber, the rest is expansion.
+    const demoMrrDrivers = (() => {
+        const mrrPoints = demoAnalytics.mrr;
+        const endMinor = Number(mrrPoints[mrrPoints.length - 1]?.valueMinor || 0);
+        const startMinor = Number(mrrPoints[mrrPoints.length - 2]?.valueMinor || 0);
+        const churnPctNow = Number(demoAnalytics.churn[demoAnalytics.churn.length - 1]?.valuePct || 0);
+        const subscribers = Number(demoLatestActivity?.totalSubscribers || 0);
+        const arpaMinor = subscribers > 0 ? endMinor / subscribers : 0;
+        const churnedMinor = Math.round((startMinor * churnPctNow) / 100);
+        const newMinor = Math.round(Number(demoLatestActivity?.newSubscribers || 0) * arpaMinor);
+        const expansionMinor = Math.max(0, endMinor - startMinor - newMinor + churnedMinor);
 
-        expansionMinor:
-            (demoLatestActivity?.retained ?? 0) * 340,
-
-        churnedMinor:
-            (demoLatestActivity?.churned ?? 0) * 700,
-
-        retainedPct:
-            demoLatestActivity?.totalSubscribers
-                ? Math.round(
-                    (
-                        (demoLatestActivity.totalSubscribers -
-                            demoLatestActivity.churned) /
-                        demoLatestActivity.totalSubscribers
-                    ) * 100
-                )
+        return {
+            newMinor,
+            expansionMinor,
+            churnedMinor,
+            retainedPct: subscribers
+                ? Math.round(((subscribers - Number(demoLatestActivity?.churned || 0)) / subscribers) * 100)
                 : 0,
-    };
+        };
+    })();
     const mrrHoverData = {
         current: latestMrrPoint?.y ?? 0,
 
@@ -3930,8 +3937,10 @@ export default function AnalyticsPage() {
     const retainedUsers = Number(currentSubscriberActivity?.retained ?? 0);
     const previousRetainedUsers = Number(previousSubscriberActivity?.retained ?? 0);
 
+    // Demo has no server drivers; use the same split as the MRR hover.
     const expansionMrrMinor = Number(
-        drawerInsights.mrr.drivers?.expansionMinor ?? 0
+        drawerInsights.mrr.drivers?.expansionMinor ??
+        (isDemoMode ? demoMrrDrivers.expansionMinor : 0)
     );
     const previousExpansionMrrMinor =
         typeof mrrDeltaPct === "number" && Number.isFinite(mrrDeltaPct)
@@ -3939,7 +3948,10 @@ export default function AnalyticsPage() {
             : null;
 
     const revenueLostMinor = Math.abs(
-        Number(drawerInsights.mrr.drivers?.churnedMinor ?? 0)
+        Number(
+            drawerInsights.mrr.drivers?.churnedMinor ??
+            (isDemoMode ? demoMrrDrivers.churnedMinor : 0)
+        )
     );
     const previousRevenueLostMinor =
         typeof churnDeltaPp === "number" && Number.isFinite(churnDeltaPp)
