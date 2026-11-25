@@ -4,6 +4,7 @@ import { getLiveCustomerDetail } from "@/lib/live/customerDetail";
 import { getWorkspaceDataMode } from "@/lib/workspace/getWorkspaceDataMode";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 import { prisma } from "@/lib/prisma";
+import { paymentRequiredFromError } from "@/lib/billing/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,6 +90,9 @@ export async function GET(
             mode: "demo",
         });
     } catch (error: any) {
+        const paymentRequired = paymentRequiredFromError(error);
+        if (paymentRequired) return paymentRequired;
+
         console.error("GET /api/customers/[id] failed", error);
 
         const message = String(error?.message || "Failed to load customer");

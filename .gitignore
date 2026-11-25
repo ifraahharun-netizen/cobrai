@@ -45,5 +45,7 @@ next-env.d.ts
 # HubSpot config file
 hubspot.config.yml
 *.json
+# vercel.json holds the cron schedule and must be committed.
+!vercel.json
 .env
 .env.local

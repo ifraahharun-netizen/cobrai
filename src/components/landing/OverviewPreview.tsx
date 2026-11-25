@@ -3,7 +3,7 @@ import {
     BarChart3,
     Inbox,
     LayoutGrid,
-    Sparkles,
+    MessageCircle,
     Users,
 } from "lucide-react";
 
@@ -100,7 +100,7 @@ export default function OverviewPreview() {
                     <span className={styles.navActive}><LayoutGrid size={14} /> Overview</span>
                     <span><BarChart3 size={14} /> Retention</span>
                     <span><Users size={14} /> Accounts</span>
-                    <span><Sparkles size={14} /> Ask Claude</span>
+                    <span><MessageCircle size={14} /> Ask Claude</span>
                     <div className={styles.navGroup}>Engage</div>
                     <span><Inbox size={14} /> Inbox</span>
                 </aside>
@@ -145,7 +145,7 @@ export default function OverviewPreview() {
 
                         <section className={`${styles.card} ${styles.claude}`}>
                             <div className={styles.claudeHead}>
-                                <Sparkles size={14} /> Claude&rsquo;s read
+                                Claude&rsquo;s read
                             </div>
                             <p className={styles.claudeLead}>
                                 <strong>Two accounts hold 69% of the revenue at risk.</strong>{" "}

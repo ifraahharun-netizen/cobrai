@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { prisma } from "@/lib/prisma";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
+import { paymentRequiredResponse } from "@/lib/billing/access";
 
 type Tier = "starter" | "pro" | "scale";
 
@@ -32,6 +33,11 @@ export async function POST(req: NextRequest) {
         }
 
         const workspaceId = user.workspaceId;
+
+        // Billing: trial ended without a paid plan → 402.
+        const locked = await paymentRequiredResponse(workspaceId);
+        if (locked) return locked;
+
 
         // 2) Body
         const body = await req.json().catch(() => ({} as any));

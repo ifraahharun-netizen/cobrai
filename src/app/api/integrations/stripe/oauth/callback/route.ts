@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { syncStripeAfterConnect } from "@/lib/stripe-connect/afterConnect";
 
 export const dynamic = "force-dynamic";
+// The first Stripe sync runs after the redirect, inside this function's lifetime.
+export const maxDuration = 300;
 
 function getAppBaseUrl(req: NextRequest) {
     const envUrl =
@@ -203,6 +206,8 @@ export async function GET(req: NextRequest) {
                 },
             },
         });
+
+        syncStripeAfterConnect(user.workspaceId);
 
         const response = NextResponse.redirect(
             new URL("/dashboard/settings?stripe=connected", appBaseUrl)

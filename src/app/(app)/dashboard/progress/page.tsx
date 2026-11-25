@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { mrrProtectedOption } from "@/components/charts/options";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase.client";
-import { Download, PoundSterling, Search, Sparkles, TrendingUp, UserCheck, Zap } from "lucide-react";
+import { Download, Lightbulb, PoundSterling, Search, TrendingUp, UserCheck, Zap } from "lucide-react";
 import styles from "./actionImpact.module.css";
 import { getUpgradeMessage } from "@/lib/permissions";
 
@@ -637,7 +637,7 @@ export default function ProgressPage() {
                 {data?.aiInsight?.headline ? (
                     <section className={styles.insightBanner} aria-label="Impact summary">
                         <span className={styles.insightIcon}>
-                            <Sparkles size={15} strokeWidth={1.8} aria-hidden="true" />
+                            <Lightbulb size={15} strokeWidth={1.8} aria-hidden="true" />
                         </span>
                         <div className={styles.insightBody}>
                             <strong>{data.aiInsight.headline}</strong>

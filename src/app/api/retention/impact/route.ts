@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
+import { paymentRequiredResponse } from "@/lib/billing/access";
 
 function bearer(req: Request) {
     const m = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i);
@@ -60,6 +61,11 @@ export async function GET(req: NextRequest) {
         });
 
         if (!user?.workspaceId) throw new Error("No workspace");
+
+        // Billing: trial ended without a paid plan → 402.
+        const locked = await paymentRequiredResponse(user.workspaceId);
+        if (locked) return locked;
+
 
         const period = req.nextUrl.searchParams.get("period") ?? "month";
         const from = range(period);

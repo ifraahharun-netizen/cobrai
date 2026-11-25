@@ -4,6 +4,7 @@ import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 
 import { buildDemoSeries } from "@/lib/demo/analytics";
 import { computeMonthlyMetrics, type MonthMetrics } from "@/lib/stripe-connect/metrics";
+import { paymentRequiredResponse } from "@/lib/billing/access";
 
 /*
  * Units: Customer.mrr and MrrSnapshot.mrrMinor are MINOR units (pence).
@@ -364,6 +365,11 @@ export async function GET(req: Request) {
 
         const workspaceId =
             user.workspaceId;
+
+        // Billing: trial ended without a paid plan → 402.
+        const locked = await paymentRequiredResponse(workspaceId);
+        if (locked) return locked;
+
 
         const trialActive =
             !!user.workspace

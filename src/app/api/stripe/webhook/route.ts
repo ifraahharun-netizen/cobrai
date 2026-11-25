@@ -7,8 +7,13 @@ import { runWorkspaceAnalyticsPipeline } from "@/lib/analytics/runWorkspaceAnaly
 
 import { prisma } from "@/lib/prisma";
 import { getStripeClient } from "@/lib/stripe";
+import { clearAccessCache } from "@/lib/billing/access";
 
-type PlanTier = "free" | "starter" | "pro";
+import {
+    tierFromSubscription as tierFromStripe,
+    type PlanTier,
+} from "@/lib/billing/tier";
+import { trackConversion } from "@/lib/billing/conversion";
 
 function toDate(value?: number | null): Date | null {
     return typeof value === "number"
@@ -16,27 +21,18 @@ function toDate(value?: number | null): Date | null {
         : null;
 }
 
-function isActiveSubscriptionStatus(status: string): boolean {
-    return (
-        status === "trialing" ||
-        status === "active" ||
-        status === "past_due"
-    );
-}
-
+/** Plan for a subscription, from the price actually paid (see lib/billing/tier). */
 function tierFromSubscription(
-    status: string,
-    requestedTier: string | null | undefined
+    subscription: Stripe.Subscription,
+    fallbackTier?: string | null
 ): PlanTier {
-    if (!isActiveSubscriptionStatus(status)) {
-        return "free";
-    }
-
-    if (requestedTier === "pro") {
-        return "pro";
-    }
-
-    return "starter";
+    return tierFromStripe({
+        status: subscription.status,
+        priceIds: subscription.items.data.map((item) => item.price?.id),
+        metadataTier: subscription.metadata?.tier ?? fallbackTier,
+        proPriceId: process.env.STRIPE_PRICE_PRO,
+        starterPriceId: process.env.STRIPE_PRICE_STARTER,
+    });
 }
 
 function getStripeCustomerId(
@@ -105,6 +101,9 @@ async function updateWorkspacePlan(
     workspaceId: string,
     tier: PlanTier
 ) {
+    // Paying (or cancelling) changes access straight away, not after the cache expires.
+    clearAccessCache(workspaceId);
+
     await prisma.workspace.update({
         where: {
             id: workspaceId,
@@ -738,6 +737,8 @@ export async function POST(
 
                 const safeWorkspaceId = workspaceId;
 
+                await trackConversion(safeWorkspaceId, "checkout_completed", { tier: requestedTier });
+
                 await updateSavedStripeEventWorkspace(
                     event.id,
                     safeWorkspaceId
@@ -854,12 +855,7 @@ export async function POST(
                     await updateWorkspacePlan(
                         safeWorkspaceId,
 
-                        tierFromSubscription(
-                            subscription.status,
-
-                            subscription.metadata?.tier ??
-                            requestedTier
-                        )
+                        tierFromSubscription(subscription, requestedTier)
                     );
                 } else {
                     await updateWorkspacePlan(
@@ -1007,10 +1003,7 @@ export async function POST(
                 await updateWorkspacePlan(
                     safeWorkspaceId,
 
-                    tierFromSubscription(
-                        subscription.status,
-                        subscription.metadata?.tier
-                    )
+                    tierFromSubscription(subscription)
                 );
 
                 await runWorkspaceAnalyticsPipeline(

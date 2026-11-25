@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 import { NextRequest, NextResponse } from "next/server";
+import { paymentRequiredResponse } from "@/lib/billing/access";
 
 function getBearerToken(req: NextRequest) {
     const authHeader = req.headers.get("authorization") || "";
@@ -40,6 +41,11 @@ function monthKey(d: Date) {
 export async function GET(req: NextRequest) {
     try {
         const workspaceId = await getWorkspaceIdFromAuth(req);
+
+        // Billing: trial ended without a paid plan → 402.
+        const locked = await paymentRequiredResponse(workspaceId);
+        if (locked) return locked;
+
 
         // last 6 months including current month
         const now = new Date();

@@ -1,4 +1,3 @@
-import { Sparkles } from "lucide-react";
 
 import styles from "./claude.module.css";
 
@@ -35,7 +34,7 @@ export function BehaviourVisual() {
             <div className={styles.panel}>
                 <div className={styles.panelHead}>
                     <span className={styles.claudeLabel}>
-                        <Sparkles size={14} /> Claude
+                        Claude
                     </span>
                 </div>
                 <div className={styles.panelBody}>
@@ -140,7 +139,7 @@ export function ForecastVisual() {
 
             <div className={styles.driversCol}>
                 <span className={styles.claudeLabel}>
-                    <Sparkles size={14} /> Claude
+                    Claude
                 </span>
                 <p className={styles.text}>
                     Without action, MRR slides £41k by May. Most of that is three

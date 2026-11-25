@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
 import { averageRetentionCurve, monthName, type Cohort } from "./metricsExtras";
 import InfoTip from "./InfoTip";
 import styles from "./metrics.module.css";
@@ -112,7 +111,6 @@ export default function CohortHeatmap({
                             )
                         }
                     >
-                        <Sparkles size={13} strokeWidth={1.8} aria-hidden="true" />
                         Explain
                     </button>
                 ) : null}

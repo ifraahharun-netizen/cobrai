@@ -12,6 +12,7 @@ import Sidebar from "./_components/Sidebar";
 import TrialUpgradeGate, {
     type TrialStatus,
 } from "./_components/TrialUpgradeGate";
+import TrialEndingBanner, { shouldShowTrialBanner } from "./_components/TrialEndingBanner";
 import styles from "./dashboardLayout.module.css";
 
 // Loaded on demand: it's the only part of every dashboard page that uses
@@ -26,7 +27,8 @@ const jakarta = Plus_Jakarta_Sans({
 
 // The expired-trial "AI Retention Report" paywall is switched off for now.
 // Set this back to true to lock the dashboard again when a trial ends.
-const TRIAL_GATE_ENABLED = false;
+// Lock the dashboard once the free trial ends without a paid plan (the API enforces it too).
+const TRIAL_GATE_ENABLED = true;
 
 type TrialStatusSuccessResponse =TrialStatus & {
     ok: true;
@@ -54,6 +56,7 @@ export default function DashboardLayout({
     const [authChecked, setAuthChecked] = useState(false);
     const [user, setUser] = useState<User | null>(null);
     const [trialStatus, setTrialStatus] = useState<TrialStatus | null>(null);
+    const [reportOpen, setReportOpen] = useState(false);
     const [trialChecked, setTrialChecked] = useState(false);
     const [trialError, setTrialError] = useState("");
     // Folded sidebar is remembered in this browser.
@@ -301,7 +304,12 @@ export default function DashboardLayout({
                     <Sidebar collapsed={railOnly} onToggle={isNarrow ? undefined : toggleSidebar} />
                 </aside>
 
-                <main className={styles.main}>{children}</main>
+                <main className={styles.main}>
+                    {TRIAL_GATE_ENABLED && shouldShowTrialBanner(trialStatus) ? (
+                        <TrialEndingBanner user={user} status={trialStatus} onOpenReport={() => setReportOpen(true)} />
+                    ) : null}
+                    {children}
+                </main>
 
                 {!dashboardLocked ? <FirstRunModal /> : null}
             </div>
@@ -310,6 +318,16 @@ export default function DashboardLayout({
                 <TrialUpgradeGate
                     user={user}
                     status={trialStatus}
+                />
+            ) : null}
+
+            {/* Same report, opened early from the "trial ends soon" banner. */}
+            {TRIAL_GATE_ENABLED && reportOpen && !dashboardLocked ? (
+                <TrialUpgradeGate
+                    user={user}
+                    status={trialStatus}
+                    mode="reminder"
+                    onClose={() => setReportOpen(false)}
                 />
             ) : null}
         </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getWorkspaceIdFromRequest } from "@/lib/workspace.server";
+import { paymentRequiredFromError } from "@/lib/billing/access";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,9 @@ export async function GET(req: Request) {
             mrrProtected: pennies,
         });
     } catch (e: any) {
+        const paymentRequired = paymentRequiredFromError(e);
+        if (paymentRequired) return paymentRequired;
+
         const msg = String(e?.message ?? "Unknown error");
 
         // Auth error → 401

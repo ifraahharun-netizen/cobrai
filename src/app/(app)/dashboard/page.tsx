@@ -9,6 +9,7 @@ import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { getDemoDashboardData } from "@/lib/demo/dashboard";
 import { buildDemoSeries } from "@/lib/demo/analytics";
 import {
+    Lightbulb,
     PoundSterling,
     AlertTriangle,
     TrendingDown,
@@ -22,7 +23,6 @@ import {
     Activity,
     MessageCircleWarning,
     TrendingUp,
-    Sparkles,
     LogOut,
     type LucideIcon,
 } from "lucide-react";
@@ -1626,10 +1626,10 @@ export default function DashboardPage() {
         }
 
         if (item.type === "health") {
-            return { Icon: Sparkles, label: "Insight", tone: styles.insightNeutral };
+            return { Icon: Lightbulb, label: "Insight", tone: styles.insightNeutral };
         }
 
-        return { Icon: Sparkles, label: "Insight", tone: styles.insightNeutral };
+        return { Icon: Lightbulb, label: "Insight", tone: styles.insightNeutral };
     };
     const activeUsersSeries =
         activeUsersRange === 24
@@ -1962,7 +1962,6 @@ export default function DashboardPage() {
                             <h2 id="insights-title" className={styles.sectionTitle}>
                                 Customer insights
                                 <span className={styles.claudeTag}>
-                                    <Sparkles size={11} strokeWidth={2} aria-hidden="true" />
                                     Claude
                                 </span>
                             </h2>

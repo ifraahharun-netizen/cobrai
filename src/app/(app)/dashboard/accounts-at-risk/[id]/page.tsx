@@ -12,7 +12,7 @@ import type { PlanTier } from "@/lib/permissions";
 import { getEmailRecommendation } from "@/lib/emailRecommendations";
 import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
 import { Inter } from "next/font/google";
-import { ChevronLeft, ChevronRight, Download, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download} from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"], display: "swap" });
 
@@ -1532,7 +1532,6 @@ export default function CustomerDetailPage() {
                             <section aria-labelledby="claude-read">
                                 <div className={ui.sectionHead}>
                                     <h2 id="claude-read" className={ui.sectionTitle}>
-                                        <Sparkles size={14} strokeWidth={1.8} aria-hidden="true" />
                                         Claude&apos;s read
                                     </h2>
                                 </div>

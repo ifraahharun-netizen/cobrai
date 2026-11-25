@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import prisma from "@/lib/prisma";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
+import { assertPaidAccess } from "@/lib/billing/access";
 
 /**
  * Reads Firebase ID token from:
@@ -40,6 +41,9 @@ export async function requireWorkspace() {
             },
         });
     }
+
+    // Billing: a workspace whose trial ended without a paid plan gets a 402.
+    if (user.workspaceId) await assertPaidAccess(user.workspaceId);
 
     return { workspaceId: user.workspaceId, firebaseUid, email };
 }

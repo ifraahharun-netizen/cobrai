@@ -71,7 +71,7 @@ export async function POST(req: Request) {
         let plan = "demo";
 
         try {
-            const auth = await getWorkspaceFromRequest(req);
+            const auth = await getWorkspaceFromRequest(req, { allowLocked: true }); // locked customers can still reach support
             workspaceId = auth.workspaceId;
 
             const workspace = await prisma.workspace.findUnique({

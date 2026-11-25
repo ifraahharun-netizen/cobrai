@@ -8,6 +8,7 @@ import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 import { buildAccountRisk } from "@/lib/risk/buildAccountRisk";
 import { buildRiskForecast } from "@/lib/risk/buildRiskForecast";
 import { billingRiskInputs } from "@/lib/risk/billingRisk";
+import { paymentRequiredFromError } from "@/lib/billing/access";
 
 type RiskLevel =
     | "critical"
@@ -846,6 +847,9 @@ export async function GET(
             summary,
         });
     } catch (e: any) {
+        const paymentRequired = paymentRequiredFromError(e);
+        if (paymentRequired) return paymentRequired;
+
         console.error("Accounts at risk route failed:", e);
 
         const msg =

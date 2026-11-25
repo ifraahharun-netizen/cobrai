@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getWorkspaceIdFromRequest } from "@/lib/workspace.server";
 import { writeDailyAccountRiskSnapshotsForWorkspace } from "@/lib/account-risk-snapshots";
+import { paymentRequiredFromError } from "@/lib/billing/access";
 
 type HistoryRow = {
   id: string;
@@ -1760,6 +1761,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json(response);
   } catch (e: any) {
+      const paymentRequired = paymentRequiredFromError(e);
+      if (paymentRequired) return paymentRequired;
+
     console.error("GET /api/dashboard/summary failed:", e);
 
     return NextResponse.json(

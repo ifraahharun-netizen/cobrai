@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { isOwnerExempt, parseExemptEmails } from "@/lib/billing/access-rules";
 
 export const TRIAL_LENGTH_DAYS = 14;
 
@@ -20,9 +21,93 @@ export type WorkspaceTrialState = {
     trialActive: boolean;
     hasActiveSubscription: boolean;
     daysRemaining: number;
+    /** Owner is on BILLING_EXEMPT_EMAILS: never locked, never nudged to pay. */
+    accessExempt: boolean;
     impact: TrialImpact;
+    /** What's at stake in the business right now (live data, demo rows excluded). */
+    atStake: TrialAtStake;
+    currency: string;
     summary: string;
 };
+
+export type TrialAtStakeAccount = {
+    name: string;
+    reason: string;
+    riskScore: number;
+    mrrMinor: number;
+    /** The step Cobrai would take next (shown blurred until they pay). */
+    nextStep: string;
+};
+
+/** Suggested next step for an at-risk account, from its risk reason. */
+export function nextStepForReason(reasonKey: string, reasonLabel: string): string {
+    const text = `${reasonKey} ${reasonLabel}`.toLowerCase();
+    if (/payment|billing|invoice|past_due|unpaid|card/.test(text)) return "Retry the payment and email the billing contact";
+    if (/cancel/.test(text)) return "Reach out before the cancellation takes effect";
+    if (/downgrad|contraction|seat/.test(text)) return "Offer a plan review call before they downgrade further";
+    if (/inactiv|login|usage|engagement|adoption|quiet/.test(text)) return "Send a re-engagement email with a tailored tip";
+    if (/upgrade|expansion|upsell/.test(text)) return "Suggest the plan that fits their growth";
+    return "Book a personal check-in from your team";
+}
+
+export type TrialAtStake = {
+    /** Recurring revenue Cobrai is tracking this month. */
+    mrrTrackedMinor: number;
+    /** Monthly revenue from accounts flagged at risk (score 60+). */
+    atRiskMinor: number;
+    atRiskAccounts: number;
+    /** Failed invoices that haven't been paid yet. */
+    failedPaymentsMinor: number;
+    failedPayments: number;
+    /** Biggest at-risk accounts, largest first. */
+    topAccounts: TrialAtStakeAccount[];
+};
+
+function monthKeyUtc(date: Date) {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+export async function loadAtStake(workspaceId: string, now: Date): Promise<TrialAtStake> {
+    const riskWhere = { workspaceId, isDemo: false, riskScore: { gte: 60 } };
+    const [mrr, riskAgg, topRisks, failed] = await Promise.all([
+        prisma.mrrSnapshot.aggregate({
+            where: { workspaceId, month: monthKeyUtc(now), active: true },
+            _sum: { mrrMinor: true },
+        }),
+        prisma.accountRisk.aggregate({
+            where: riskWhere,
+            _count: { id: true },
+            _sum: { mrr: true },
+        }),
+        prisma.accountRisk.findMany({
+            where: riskWhere,
+            orderBy: [{ mrr: "desc" }, { riskScore: "desc" }],
+            take: 3,
+            select: { companyName: true, reasonKey: true, reasonLabel: true, riskScore: true, mrr: true },
+        }),
+        prisma.invoice.aggregate({
+            where: { workspaceId, isDemo: false, failedAt: { not: null }, paidAt: null, status: { notIn: ["paid", "void", "uncollectible"] } },
+            _count: { id: true },
+            _sum: { amount: true },
+        }),
+    ]);
+
+    return {
+        mrrTrackedMinor: clampCurrencyMinor(mrr._sum.mrrMinor),
+        // AccountRisk.mrr is in major units.
+        atRiskMinor: clampCurrencyMinor(Number(riskAgg._sum.mrr || 0) * 100),
+        atRiskAccounts: riskAgg._count.id,
+        failedPaymentsMinor: clampCurrencyMinor(failed._sum.amount),
+        failedPayments: failed._count.id,
+        topAccounts: topRisks.map((r) => ({
+            name: r.companyName,
+            reason: r.reasonLabel,
+            riskScore: r.riskScore,
+            mrrMinor: clampCurrencyMinor(Number(r.mrr || 0) * 100),
+            nextStep: nextStepForReason(r.reasonKey, r.reasonLabel),
+        })),
+    };
+}
 
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set([
     "active",
@@ -67,6 +152,7 @@ export async function getOrStartWorkspaceTrial(
         where: { id: workspaceId },
         select: {
             id: true,
+            ownerEmail: true,
             tier: true,
             currency: true,
             trialStartedAt: true,
@@ -115,6 +201,7 @@ export async function getOrStartWorkspaceTrial(
             },
             select: {
                 id: true,
+                ownerEmail: true,
                 tier: true,
                 currency: true,
                 trialStartedAt: true,
@@ -138,7 +225,13 @@ export async function getOrStartWorkspaceTrial(
     const trialActive =
         !hasActiveSubscription &&
         Boolean(trialEndsAt && trialEndsAt.getTime() > now.getTime());
+    // Owners on BILLING_EXEMPT_EMAILS never see the lock (same rule as the API check).
+    const accessExempt = isOwnerExempt(
+        workspace.ownerEmail,
+        parseExemptEmails(process.env.BILLING_EXEMPT_EMAILS)
+    );
     const trialExpired =
+        !accessExempt &&
         !hasActiveSubscription &&
         Boolean(trialEndsAt && trialEndsAt.getTime() <= now.getTime());
 
@@ -166,6 +259,7 @@ export async function getOrStartWorkspaceTrial(
         retainedOutcomes,
         paymentsRecovered,
         latestNarrative,
+        atStake,
     ] = await Promise.all([
         prisma.customer.count({
             where: {
@@ -212,6 +306,7 @@ export async function getOrStartWorkspaceTrial(
                 narrative: true,
             },
         }),
+        loadAtStake(workspaceId, now),
     ]);
 
     const impact: TrialImpact = {
@@ -234,7 +329,10 @@ export async function getOrStartWorkspaceTrial(
         trialActive,
         hasActiveSubscription,
         daysRemaining,
+        accessExempt,
         impact,
+        atStake,
+        currency: (workspace.currency || "GBP").toUpperCase(),
         summary:
             latestNarrative?.narrative?.trim() ||
             makeFallbackSummary(impact, workspace.currency || "GBP"),

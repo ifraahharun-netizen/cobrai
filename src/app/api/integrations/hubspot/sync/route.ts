@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/apiAuth";
 import { syncHubSpotWorkspace } from "@/lib/hubspot/sync";
+import { getHubSpotAccessToken, HubSpotReconnectError } from "@/lib/hubspot/tokens";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +48,8 @@ export async function POST(req: Request) {
             );
         }
 
-        const accessToken = integration.accessTokenEnc;
+        // Decrypts the stored token, refreshing it first if it has expired.
+        const accessToken = await getHubSpotAccessToken(user.workspaceId);
 
         const result = await syncHubSpotWorkspace({
             workspaceId: user.workspaceId,
@@ -72,6 +74,9 @@ export async function POST(req: Request) {
             result,
         });
     } catch (e) {
+        if (e instanceof HubSpotReconnectError) {
+            return NextResponse.json({ ok: false, error: e.message }, { status: 409 });
+        }
         console.error("hubspot sync POST failed:", e);
 
         return NextResponse.json(

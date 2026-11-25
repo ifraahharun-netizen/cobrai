@@ -11,6 +11,7 @@ import {
     interpretCustomerBehaviour,
     type BehaviourCustomerInput,
 } from "@/lib/ai/claudeCustomerBehaviour";
+import { claudeLimitResponse, recordClaudeUsage } from "@/lib/ai/claudeUsage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -169,10 +170,14 @@ export async function POST(req: Request) {
             source = "demo";
         }
 
+        const overLimit = await claudeLimitResponse(workspaceId);
+        if (overLimit) return overLimit;
+
         const report = await interpretCustomerBehaviour({
             customers,
             currency: workspace.currency || "GBP",
         });
+        await recordClaudeUsage(workspaceId, "customer_behaviour");
 
         // Attach the MRR we sent so the table can show it without trusting the model's numbers.
         const mrrById = new Map(customers.map((customer) => [customer.id, customer.mrr]));

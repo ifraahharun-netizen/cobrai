@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
+import { paymentRequiredResponse } from "@/lib/billing/access";
 
 function bearer(req: Request) {
     const auth = req.headers.get("authorization") || "";
@@ -31,6 +32,11 @@ export async function GET(req: NextRequest) {
             select: { workspaceId: true },
         });
         if (!user?.workspaceId) return NextResponse.json({ ok: false, error: "No workspace" }, { status: 401 });
+
+        // Billing: trial ended without a paid plan → 402.
+        const locked = await paymentRequiredResponse(user.workspaceId);
+        if (locked) return locked;
+
 
         const customers: any[] = await prisma.customer.findMany({
             where: { workspaceId: user.workspaceId },

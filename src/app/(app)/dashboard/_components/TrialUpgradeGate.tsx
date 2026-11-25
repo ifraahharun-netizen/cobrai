@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "firebase/auth";
+import { ArrowRight, Check, Clock, CreditCard, Lock, MessageCircle, PlugZap, RotateCcw, ShieldCheck, TriangleAlert, X } from "lucide-react";
+
+import { firstTimeThisSession, trackConversionEvent } from "@/lib/billing/trackClient";
 
 import styles from "./TrialUpgradeGate.module.css";
 
@@ -14,6 +17,15 @@ type TrialImpact = {
     paymentsRecovered: number;
 };
 
+type TrialAtStake = {
+    mrrTrackedMinor: number;
+    atRiskMinor: number;
+    atRiskAccounts: number;
+    failedPaymentsMinor: number;
+    failedPayments: number;
+    topAccounts: Array<{ name: string; reason: string; riskScore: number; mrrMinor: number; nextStep?: string }>;
+};
+
 export type TrialStatus = {
     workspaceId: string;
     tier: string;
@@ -23,453 +35,475 @@ export type TrialStatus = {
     trialActive: boolean;
     hasActiveSubscription: boolean;
     daysRemaining: number;
+    accessExempt?: boolean;
     impact: TrialImpact;
+    atStake?: TrialAtStake;
+    currency?: string;
     summary: string;
 };
 
 type Props = {
     user: User;
     status: TrialStatus;
+    /** "locked": shown when the trial has ended (default). "reminder": opened from the banner before it ends; closable. */
+    mode?: "locked" | "reminder";
+    onClose?: () => void;
 };
 
-type MetricIconName = "shield" | "users" | "monitor" | "warning" | "spark";
+const SUPPORT_EMAIL = "cobrai@cobrai.uk";
+
 type PaidTier = "starter" | "pro";
 
-function formatCurrencyMinor(value: number) {
+const PLANS: Record<PaidTier, { name: string; priceMinor: number; tagline: string; features: string[] }> = {
+    starter: {
+        name: "Starter",
+        priceMinor: 9900,
+        tagline: "See churn risk early and act on it yourself.",
+        features: [
+            "Accounts ranked by risk and revenue",
+            "MRR, churn and retention analytics",
+            "Customer health scores",
+            "AI-written retention emails",
+            "Claude summaries and questions (100 a month)",
+        ],
+    },
+    pro: {
+        name: "Pro",
+        priceMinor: 29900,
+        tagline: "Recover revenue automatically and forecast what's next.",
+        features: [
+            "Everything in Starter",
+            "Automatic failed-payment recovery",
+            "Retention automations and workflows",
+            "Revenue forecasting and drivers",
+            "Claude summaries and questions (500 a month)",
+        ],
+    },
+};
+
+const EMPTY_AT_STAKE: TrialAtStake = {
+    mrrTrackedMinor: 0,
+    atRiskMinor: 0,
+    atRiskAccounts: 0,
+    failedPaymentsMinor: 0,
+    failedPayments: 0,
+    topAccounts: [],
+};
+
+function money(minor: number, currency: string) {
     return new Intl.NumberFormat("en-GB", {
         style: "currency",
-        currency: "GBP",
+        currency,
         maximumFractionDigits: 0,
-    }).format(Math.max(0, value) / 100);
+    }).format(Math.max(0, minor) / 100);
 }
 
-function MetricIcon({ name }: { name: MetricIconName }) {
-    if (name === "shield") {
-        return (
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 3.2 18.3 5.6v5.2c0 4.4-2.6 8.1-6.3 10-3.7-1.9-6.3-5.6-6.3-10V5.6L12 3.2Z" />
-                <path d="M12 8v7M9.7 10.4h4.6" />
-            </svg>
-        );
-    }
-
-    if (name === "users") {
-        return (
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="9" cy="8.1" r="2.7" />
-                <path d="M4.6 17.6v-1.1c0-2 1.6-3.6 3.6-3.6h1.6c2 0 3.6 1.6 3.6 3.6v1.1" />
-                <circle cx="16.7" cy="9.1" r="2.1" />
-                <path d="M15.6 13.5h.9c1.7 0 3.1 1.4 3.1 3.1v1" />
-            </svg>
-        );
-    }
-
-    if (name === "monitor") {
-        return (
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="m4.4 15.9 4.1-4.3 3.1 2.9 6-7" />
-                <path d="M14.8 7.5h3.1v3.1" />
-            </svg>
-        );
-    }
-
-    if (name === "warning") {
-        return (
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="m12 4 8.2 14.1H3.8L12 4Z" />
-                <path d="M12 9v4.5M12 16.7h.01" />
-            </svg>
-        );
-    }
-
-    return (
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m13.2 2.8-7 10.1h5.3l-.7 8.3 7-10.3h-5.2l.6-8.1Z" />
-        </svg>
-    );
+function plural(n: number, one: string, many = `${one}s`) {
+    return `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;
 }
 
-function CheckIcon({ filled = false }: { filled?: boolean }) {
-    return (
-        <span
-            className={`${styles.checkIcon} ${filled ? styles.checkIconFilled : ""}`}
-            aria-hidden="true"
-        >
-            <svg viewBox="0 0 16 16">
-                <path d="m4 8.2 2.4 2.4L12 5.4" />
-            </svg>
-        </span>
-    );
+function formatDate(iso: string | null) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime())
+        ? null
+        : d.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
 }
 
-export default function TrialUpgradeGate({ user, status }: Props) {
+export default function TrialUpgradeGate({ user, status, mode = "locked", onClose }: Props) {
     const [checkoutLoading, setCheckoutLoading] = useState<PaidTier | null>(null);
     const [checkoutError, setCheckoutError] = useState("");
+    const [connecting, setConnecting] = useState(false);
+    const isReminder = mode === "reminder";
+    const visible = isReminder ? !status.hasActiveSubscription : status.trialExpired && !status.hasActiveSubscription;
 
-    const protectedRevenue = useMemo(
-        () => formatCurrencyMinor(status.impact.revenueProtectedMinor),
-        [status.impact.revenueProtectedMinor],
-    );
+    const currency = status.currency || "GBP";
+    const stake = status.atStake ?? EMPTY_AT_STAKE;
+    const impact = status.impact;
 
-    const metrics = useMemo(
-        () => [
-            {
-                label: "Revenue Protected",
-                value: protectedRevenue,
-                description: "Estimated MRR protected from churn",
-                icon: "shield" as const,
-            },
-            {
-                label: "Customers Saved",
-                value: status.impact.customersRetained.toLocaleString("en-GB"),
-                description: "Customers retained during your trial",
-                icon: "users" as const,
-            },
-            {
-                label: "Accounts Monitored",
-                value: status.impact.accountsMonitored.toLocaleString("en-GB"),
-                description: "Active accounts analysed by Cobrai",
-                icon: "monitor" as const,
-            },
-            {
-                label: "High-Risk Accounts",
-                value: status.impact.highRiskAccounts.toLocaleString("en-GB"),
-                description: "Accounts flagged with elevated churn risk",
-                icon: "warning" as const,
-            },
-            {
-                label: "AI Recommendations",
-                value: status.impact.aiActionsGenerated.toLocaleString("en-GB"),
-                description: "Retention actions generated by AI",
-                icon: "spark" as const,
-            },
-        ],
-        [
-            protectedRevenue,
-            status.impact.accountsMonitored,
-            status.impact.aiActionsGenerated,
-            status.impact.customersRetained,
-            status.impact.highRiskAccounts,
-        ],
-    );
+    // Monthly revenue Cobrai can help keep: at-risk accounts plus unpaid failed invoices.
+    const recoverableMinor = stake.atRiskMinor + stake.failedPaymentsMinor;
+    const hasData = stake.mrrTrackedMinor > 0 || recoverableMinor > 0 || impact.accountsMonitored > 0;
+
+    // Average monthly value of an at-risk account, used for "pays for itself" maths.
+    const avgAccountMinor = stake.atRiskAccounts > 0 ? stake.atRiskMinor / stake.atRiskAccounts : 0;
+    /** Plain-English payback for a plan, from this customer's own numbers. Pro also counts failed payments it retries. */
+    function paybackLine(tier: PaidTier): string | null {
+        const price = PLANS[tier].priceMinor;
+        const failed = tier === "pro" ? stake.failedPaymentsMinor : 0;
+        if (failed >= price) {
+            return `Recovering your ${money(failed, currency)} of failed payments covers it on its own.`;
+        }
+        if (avgAccountMinor <= 0) return null;
+        const n = Math.ceil((price - failed) / avgAccountMinor);
+        if (n > stake.atRiskAccounts) return null;
+        const accounts = `${n} of your ${stake.atRiskAccounts} at-risk accounts`;
+        return failed > 0
+            ? `Recovering your ${money(failed, currency)} of failed payments and keeping ${accounts} covers it.`
+            : `Pays for itself if it keeps ${accounts}.`;
+    }
+    const savedSoFar = [
+        impact.revenueProtectedMinor > 0 ? `${money(impact.revenueProtectedMinor, currency)} of revenue protected` : null,
+        impact.paymentsRecovered > 0 ? plural(impact.paymentsRecovered, "failed payment") + " recovered" : null,
+        impact.customersRetained > 0 ? plural(impact.customersRetained, "customer") + " kept" : null,
+    ].filter(Boolean) as string[];
+
+    // Pro when there's money to recover automatically or more at risk than Pro costs.
+    const recommended: PaidTier =
+        stake.failedPayments > 0 || recoverableMinor >= PLANS.pro.priceMinor ? "pro" : "starter";
+
+    const recommendation = useMemo(() => {
+        if (!hasData || recoverableMinor <= 0) {
+            return recommended === "pro"
+                ? "Pro adds automatic payment recovery and forecasting."
+                : "Starter covers the essentials while you grow.";
+        }
+        const plan = PLANS[recommended];
+        const multiple = recoverableMinor / plan.priceMinor;
+        const atStake =
+            multiple >= 1
+                ? `${money(recoverableMinor, currency)} a month is at stake, about ${multiple >= 10 ? Math.round(multiple) : multiple.toFixed(1)}× what ${plan.name} costs`
+                : `${money(recoverableMinor, currency)} a month is at stake`;
+        return stake.failedPayments > 0 && recommended === "pro"
+            ? `Pro is recommended: it retries your ${plural(stake.failedPayments, "failed payment")} automatically, and ${atStake}.`
+            : `${plan.name} is recommended: ${atStake}.`;
+    }, [hasData, recoverableMinor, recommended, stake.failedPayments, currency]);
+
+    const trialActivity = [
+        { label: "Accounts monitored", value: impact.accountsMonitored.toLocaleString("en-GB") },
+        { label: "Risks flagged", value: impact.highRiskAccounts.toLocaleString("en-GB") },
+        { label: "AI actions", value: impact.aiActionsGenerated.toLocaleString("en-GB") },
+        { label: "Payments recovered", value: impact.paymentsRecovered.toLocaleString("en-GB") },
+    ];
 
     useEffect(() => {
-        if (!status.trialExpired) return;
-
+        if (!visible) return;
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = "hidden";
-
         return () => {
             document.body.style.overflow = previousOverflow;
         };
-    }, [status.trialExpired]);
+    }, [visible]);
+
+    // Funnel: one view per tab session for the lock screen; every open for the reminder.
+    useEffect(() => {
+        if (!visible) return;
+        if (isReminder) trackConversionEvent(user, "reminder_viewed");
+        else if (firstTimeThisSession(`cobrai:report_viewed:${status.workspaceId}`)) {
+            trackConversionEvent(user, "report_viewed", { hasData });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visible, isReminder]);
+
+    useEffect(() => {
+        if (!visible || !isReminder || !onClose) return;
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [visible, isReminder, onClose]);
+
+    async function connectStripe() {
+        if (connecting) return;
+        setConnecting(true);
+        setCheckoutError("");
+        trackConversionEvent(user, "connect_stripe_clicked", { from: mode });
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch("/api/integrations/stripe/connect", {
+                headers: { Authorization: `Bearer ${token}` },
+                cache: "no-store",
+            });
+            const data = (await response.json().catch(() => null)) as { url?: string; error?: string } | null;
+            if (!response.ok || !data?.url) throw new Error(data?.error || "Couldn't start the Stripe connection.");
+            window.location.assign(data.url);
+        } catch (error) {
+            setCheckoutError(error instanceof Error ? error.message : "Couldn't start the Stripe connection.");
+            setConnecting(false);
+        }
+    }
 
     async function continueWithPlan(tier: PaidTier) {
         if (checkoutLoading) return;
-
         setCheckoutLoading(tier);
         setCheckoutError("");
+        trackConversionEvent(user, "plan_clicked", { tier, from: mode, recommended: tier === recommended });
 
         try {
             const token = await user.getIdToken();
-
             const response = await fetch("/api/stripe/checkout", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({
-                    workspaceId: status.workspaceId,
-                    tier,
-                }),
+                body: JSON.stringify({ workspaceId: status.workspaceId, tier }),
             });
-
-            const data = (await response.json().catch(() => null)) as
-                | { url?: string; error?: string }
-                | null;
-
+            const data = (await response.json().catch(() => null)) as { url?: string; error?: string } | null;
             if (!response.ok || !data?.url) {
                 throw new Error(data?.error || "Unable to open secure checkout.");
             }
-
             window.location.assign(data.url);
         } catch (error) {
-            setCheckoutError(
-                error instanceof Error
-                    ? error.message
-                    : "Unable to open secure checkout.",
-            );
+            setCheckoutError(error instanceof Error ? error.message : "Unable to open secure checkout.");
             setCheckoutLoading(null);
         }
     }
 
-    if (!status.trialExpired || status.hasActiveSubscription) {
+    if (!visible) {
         return null;
     }
 
-    const starterLoading = checkoutLoading === "starter";
-    const proLoading = checkoutLoading === "pro";
-    const checkoutBusy = checkoutLoading !== null;
+    const endedOn = formatDate(status.trialEndsAt);
+    const busy = checkoutLoading !== null;
 
     return (
         <div
             className={styles.overlay}
             role="dialog"
             aria-modal="true"
-            aria-labelledby="trial-upgrade-title"
-            aria-describedby="trial-upgrade-summary"
+            aria-labelledby="trial-report-title"
+            aria-describedby="trial-report-subtitle"
         >
-            <div className={styles.backdrop} />
-
-            <section className={styles.modal}>
-                <header className={styles.header}>
-                    <span className={styles.eyebrow}>
-                        <span className={styles.eyebrowSpark} aria-hidden="true">
-                            ✦
+            <div className={styles.page}>
+                <header className={styles.topBar}>
+                    <span className={styles.brand}>Cobrai</span>
+                    <span className={styles.topRight}>
+                        <span className={styles.statusPill}>
+                            {isReminder ? (
+                                <>
+                                    <Clock size={12} strokeWidth={2} aria-hidden="true" />
+                                    {status.daysRemaining > 0
+                                        ? `Trial ends in ${plural(status.daysRemaining, "day")}`
+                                        : "Trial ends today"}
+                                </>
+                            ) : (
+                                <>
+                                    <Lock size={12} strokeWidth={2} aria-hidden="true" />
+                                    {endedOn ? `Trial ended ${endedOn}` : "Trial ended"}
+                                </>
+                            )}
                         </span>
-                        AI Retention Report
+                        {isReminder && onClose ? (
+                            <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Close">
+                                <X size={16} strokeWidth={2} aria-hidden="true" />
+                            </button>
+                        ) : null}
                     </span>
-
-                    <h1 id="trial-upgrade-title" className={styles.title}>
-                        Your <span>AI Retention Report</span>
-                    </h1>
-
-                    <p id="trial-upgrade-summary" className={styles.subtitle}>
-                        14 days of retention intelligence across your customers,
-                        revenue, billing and product activity.
-                    </p>
                 </header>
 
-                <section className={styles.statsGrid} aria-label="Trial impact">
-                    {metrics.map((metric) => (
-                        <article className={styles.statCard} key={metric.label}>
-                            <span className={styles.statIcon}>
-                                <MetricIcon name={metric.icon} />
-                            </span>
+                <section className={styles.hero}>
+                    <span className={styles.eyebrow}>Retention report</span>
+                    <h1 id="trial-report-title" className={styles.title}>
+                        {hasData && recoverableMinor > 0
+                            ? <>{money(recoverableMinor, currency)} a month needs your attention</>
+                            : isReminder
+                            ? "Keep Cobrai running after your trial"
+                            : "Your free trial has ended"}
+                    </h1>
+                    <p id="trial-report-subtitle" className={styles.subtitle}>
+                        {hasData && stake.atRiskMinor > 0
+                            ? `If these ${plural(stake.atRiskAccounts, "account")} cancel, you lose ${money(stake.atRiskMinor * 12, currency)} a year. Cobrai has a next step ready for each one. Choose a plan to act on it. Your data and history are kept.`
+                            : hasData
+                            ? "Here's what Cobrai found in your business. Choose a plan to act on it. Your data and history are kept."
+                            : isReminder
+                            ? "Choose a plan now and nothing changes when your trial ends."
+                            : "Choose a plan to keep using Cobrai. Your workspace and settings are kept."}
+                    </p>
+                </section>
 
-                            <div className={styles.statContent}>
-                                <strong>{metric.value}</strong>
-                                <span className={styles.statLabel}>
-                                    {metric.label}
+                {hasData ? (
+                    <>
+                        <section className={styles.stakeStrip} aria-label="At stake right now">
+                            <div className={styles.stakeCell}>
+                                <span className={styles.stakeLabel}>Revenue at risk</span>
+                                <strong className={styles.stakeValue}>{money(stake.atRiskMinor, currency)}</strong>
+                                <span className={styles.stakeSub}>
+                                    a month · {plural(stake.atRiskAccounts, "account")}
                                 </span>
-                                <p>{metric.description}</p>
+                                {stake.atRiskMinor > 0 ? (
+                                    <span className={styles.stakeNote}>{money(stake.atRiskMinor * 12, currency)} a year if they leave</span>
+                                ) : null}
                             </div>
-                        </article>
-                    ))}
-                </section>
+                            <div className={styles.stakeCell}>
+                                <span className={styles.stakeLabel}>Failed payments to recover</span>
+                                <strong className={styles.stakeValue}>{money(stake.failedPaymentsMinor, currency)}</strong>
+                                <span className={styles.stakeSub}>{plural(stake.failedPayments, "unpaid invoice")}</span>
+                                {stake.failedPayments > 0 ? (
+                                    <span className={styles.stakeNote}>Pro retries these for you</span>
+                                ) : null}
+                            </div>
+                            <div className={styles.stakeCell}>
+                                <span className={styles.stakeLabel}>Recurring revenue tracked</span>
+                                <strong className={styles.stakeValue}>{money(stake.mrrTrackedMinor, currency)}</strong>
+                                <span className={styles.stakeSub}>a month, from your billing data</span>
+                                {stake.mrrTrackedMinor > 0 && recoverableMinor > 0 ? (
+                                    <span className={styles.stakeNote}>
+                                        {Math.round((recoverableMinor / stake.mrrTrackedMinor) * 100)}% of it needs attention
+                                    </span>
+                                ) : null}
+                            </div>
+                        </section>
 
-                <section className={styles.executiveCard}>
-                    <div className={styles.executiveIcon} aria-hidden="true">
-                        ✦
-                    </div>
+                        {stake.topAccounts.length ? (
+                            <section className={styles.card} aria-labelledby="trial-accounts-title">
+                                <div className={styles.cardHead}>
+                                    <h2 id="trial-accounts-title">Accounts that need action</h2>
+                                    <span className={styles.cardHint}>Largest first</span>
+                                </div>
+                                <ul className={styles.accountList}>
+                                    {stake.topAccounts.map((account) => (
+                                        <li key={`${account.name}-${account.reason}`} className={styles.accountRow}>
+                                            <span className={styles.accountIcon} aria-hidden="true">
+                                                <TriangleAlert size={14} strokeWidth={1.8} />
+                                            </span>
+                                            <span className={styles.accountMain}>
+                                                <strong>{account.name}</strong>
+                                                <span>{account.reason} · risk {account.riskScore}/100</span>
+                                                {account.nextStep ? (
+                                                    <span className={styles.nextStep}>
+                                                        Next step:
+                                                        <em aria-label="Unlock to see the next step">{account.nextStep}</em>
+                                                    </span>
+                                                ) : null}
+                                            </span>
+                                            <span className={styles.accountValue}>
+                                                {money(account.mrrMinor, currency)}
+                                                <small>/mo</small>
+                                            </span>
+                                            <span className={styles.accountLocked}>
+                                                <Lock size={12} strokeWidth={2} aria-hidden="true" />
+                                                Locked
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                {stake.atRiskAccounts > stake.topAccounts.length ? (
+                                    <p className={styles.cardFoot}>
+                                        +{plural(stake.atRiskAccounts - stake.topAccounts.length, "more account")} with a suggested next step.
+                                    </p>
+                                ) : null}
+                            </section>
+                        ) : null}
 
-                    <div className={styles.executiveCopy}>
-                        <span className={styles.sectionEyebrow}>
-                            Executive summary
+                        <section className={styles.splitRow}>
+                            <div className={styles.card}>
+                                <div className={styles.cardHead}>
+                                    <h2>What Cobrai did in your trial</h2>
+                                </div>
+                                {savedSoFar.length ? (
+                                    <p className={styles.savedLine}>
+                                        <Check size={14} strokeWidth={2} aria-hidden="true" />
+                                        {savedSoFar.join(" · ")}
+                                    </p>
+                                ) : null}
+                                <dl className={styles.activityGrid}>
+                                    {trialActivity.map((item) => (
+                                        <div key={item.label}>
+                                            <dt>{item.label}</dt>
+                                            <dd>{item.value}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </div>
+                            <div className={styles.card}>
+                                <div className={styles.cardHead}>
+                                    <h2>Summary</h2>
+                                </div>
+                                <p className={styles.summaryText}>{status.summary}</p>
+                            </div>
+                        </section>
+                    </>
+                ) : null}
+
+                {!hasData ? (
+                    <section className={styles.connectCard}>
+                        <span className={styles.connectIcon} aria-hidden="true">
+                            <PlugZap size={18} strokeWidth={1.8} />
                         </span>
-                        <h2>What Cobrai found during your trial</h2>
-                        <p>{status.summary}</p>
-                    </div>
-
-                    <div className={styles.summarySignal} aria-hidden="true">
-                        <span className={styles.summarySignalLabel}>
-                            Retention intelligence
-                        </span>
-                        <div className={styles.summaryBars}>
-                            <i />
-                            <i />
-                            <i />
-                            <i />
+                        <div className={styles.connectCopy}>
+                            <h2>See what&apos;s at stake in your business</h2>
+                            <p>
+                                Connect Stripe and Cobrai shows the revenue at risk, failed payments to recover and
+                                the accounts to act on first. It takes about a minute and is read-only.
+                            </p>
                         </div>
-                    </div>
-                </section>
+                        <button type="button" className={styles.secondaryButton} onClick={connectStripe} disabled={connecting}>
+                            {connecting ? "Opening Stripe…" : "Connect Stripe"}
+                        </button>
+                    </section>
+                ) : null}
 
-                <section className={styles.plansSection}>
-                    <div className={styles.planHeading}>
-                        <span className={styles.sectionEyebrow}>
-                            Continue with Cobrai
-                        </span>
-                        <h2>Keep protecting the revenue you worked to build.</h2>
-                        <p>
-                            Choose the level of retention intelligence your
-                            business needs.
-                        </p>
+                <section className={styles.plansSection} aria-labelledby="trial-plans-title">
+                    <div className={styles.plansHead}>
+                        <h2 id="trial-plans-title">Choose a plan</h2>
+                        <p className={styles.recommendation}>{recommendation}</p>
                     </div>
 
                     <div className={styles.planGrid}>
-                        <article className={styles.starterCard}>
-                            <div className={styles.planTop}>
-                                <div className={styles.planTitleRow}>
-                                    <div>
-                                        <span className={styles.planName}>
-                                            Starter
-                                        </span>
-                                        <p className={styles.planAudience}>
-                                            Essential retention intelligence
-                                        </p>
+                        {(["starter", "pro"] as PaidTier[]).map((tier) => {
+                            const plan = PLANS[tier];
+                            const isRecommended = tier === recommended;
+                            return (
+                                <article
+                                    key={tier}
+                                    className={`${styles.planCard} ${isRecommended ? styles.planRecommended : ""}`}
+                                >
+                                    <div className={styles.planTop}>
+                                        <span className={styles.planName}>{plan.name}</span>
+                                        {isRecommended ? <span className={styles.planBadge}>Recommended</span> : null}
                                     </div>
-                                </div>
-
-                                <div className={styles.priceRow}>
-                                    <strong>£99</strong>
-                                    <span>/ month</span>
-                                </div>
-
-                                <p className={styles.planDescription}>
-                                    Spot churn risk early, prioritise the right
-                                    accounts and act before revenue is lost.
-                                </p>
-                            </div>
-
-                            <div className={styles.planDivider} />
-
-                            <ul className={styles.features}>
-                                <li>
-                                    <CheckIcon />
-                                    AI-powered churn insights
-                                </li>
-                                <li>
-                                    <CheckIcon />
-                                    Accounts ranked by risk score and MRR
-                                </li>
-                                <li>
-                                    <CheckIcon />
-                                    Customer health scoring
-                                </li>
-                                <li>
-                                    <CheckIcon />
-                                    AI-generated retention emails
-                                </li>
-                                <li>
-                                    <CheckIcon />
-                                    MRR and churn analytics
-                                </li>
-                            </ul>
-
-                            <button
-                                type="button"
-                                className={styles.secondaryButton}
-                                onClick={() => continueWithPlan("starter")}
-                                disabled={checkoutBusy}
-                            >
-                                {starterLoading
-                                    ? "Opening secure checkout..."
-                                    : "Continue with Starter"}
-                            </button>
-                        </article>
-
-                        <article className={styles.proCard}>
-                            <div className={styles.recommendedBadge}>
-                                Recommended
-                            </div>
-
-                            <div className={styles.planTop}>
-                                <div className={styles.planTitleRow}>
-                                    <div>
-                                        <span className={styles.proName}>Pro</span>
-                                        <p className={styles.planAudience}>
-                                            Advanced revenue protection
-                                        </p>
+                                    <div className={styles.planPrice}>
+                                        <strong>{money(plan.priceMinor, "GBP")}</strong>
+                                        <span>/ month</span>
                                     </div>
-                                </div>
-
-                                <div className={styles.priceRow}>
-                                    <strong>£299</strong>
-                                    <span>/ month</span>
-                                </div>
-
-                                <p className={styles.planDescription}>
-                                    Forecast revenue risk, automate recovery and
-                                    scale retention with deeper AI intelligence.
-                                </p>
-                            </div>
-
-                            <div className={styles.planDivider} />
-
-                            <ul className={styles.features}>
-                                <li>
-                                    <CheckIcon filled />
-                                    Everything in Starter
-                                </li>
-                                <li>
-                                    <CheckIcon filled />
-                                    Unlimited AI insights
-                                </li>
-                                <li>
-                                    <CheckIcon filled />
-                                    Advanced MRR forecasting
-                                </li>
-                                <li>
-                                    <CheckIcon filled />
-                                    Churn prediction and retention signals
-                                </li>
-                                <li>
-                                    <CheckIcon filled />
-                                    Automated failed-payment recovery
-                                </li>
-                                <li>
-                                    <CheckIcon filled />
-                                    Advanced retention automations
-                                </li>
-                            </ul>
-
-                            <button
-                                type="button"
-                                className={styles.upgradeButton}
-                                onClick={() => continueWithPlan("pro")}
-                                disabled={checkoutBusy}
-                            >
-                                {proLoading
-                                    ? "Opening secure checkout..."
-                                    : "Continue with Pro"}
-                            </button>
-                        </article>
+                                    <p className={styles.planTagline}>{plan.tagline}</p>
+                                    {paybackLine(tier) ? (
+                                        <p className={styles.planPayback}>{paybackLine(tier)}</p>
+                                    ) : null}
+                                    <ul className={styles.planFeatures}>
+                                        {plan.features.map((feature) => (
+                                            <li key={feature}>
+                                                <Check size={14} strokeWidth={2} aria-hidden="true" />
+                                                {feature}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <button
+                                        type="button"
+                                        className={isRecommended ? styles.primaryButton : styles.secondaryButton}
+                                        onClick={() => continueWithPlan(tier)}
+                                        disabled={busy}
+                                    >
+                                        {checkoutLoading === tier ? "Opening secure checkout…" : `Continue with ${plan.name}`}
+                                        {checkoutLoading === tier ? null : <ArrowRight size={14} strokeWidth={2} aria-hidden="true" />}
+                                    </button>
+                                </article>
+                            );
+                        })}
                     </div>
+
+                    {checkoutError ? (
+                        <div className={styles.error} role="alert">
+                            {checkoutError}
+                        </div>
+                    ) : null}
                 </section>
 
-                {checkoutError ? (
-                    <div className={styles.error} role="alert">
-                        {checkoutError}
-                    </div>
-                ) : null}
-
-                <section className={styles.trustRow}>
-                    <div>
-                        <span className={styles.trustIcon} aria-hidden="true">
-                            <MetricIcon name="shield" />
-                        </span>
-                        <p>
-                            <strong>Secure Stripe billing</strong>
-                            Encrypted checkout and payment details.
-                        </p>
-                    </div>
-
-                    <div>
-                        <span className={styles.trustIcon} aria-hidden="true">
-                            ↻
-                        </span>
-                        <p>
-                            <strong>Cancel anytime</strong>
-                            No long-term lock-in contract.
-                        </p>
-                    </div>
-
-                    <div>
-                        <span className={styles.trustIcon} aria-hidden="true">
-                            <MetricIcon name="spark" />
-                        </span>
-                        <p>
-                            <strong>Instant activation</strong>
-                            Access continues immediately after checkout.
-                        </p>
-                    </div>
-                </section>
-
-                <p className={styles.footerNote}>
-                    Your trial data and retention history stay with your workspace.
-                </p>
-            </section>
+                <footer className={styles.trustRow}>
+                    <span><CreditCard size={14} strokeWidth={1.8} aria-hidden="true" /> Secure checkout by Stripe</span>
+                    <span><RotateCcw size={14} strokeWidth={1.8} aria-hidden="true" /> Cancel anytime</span>
+                    <span><ShieldCheck size={14} strokeWidth={1.8} aria-hidden="true" /> {isReminder ? "Nothing changes when you pay" : "Access returns the moment you pay"}</span>
+                    <a
+                        className={styles.talkLink}
+                        href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Question about Cobrai plans")}`}
+                        onClick={() => trackConversionEvent(user, "talk_to_us_clicked", { from: mode })}
+                    >
+                        <MessageCircle size={14} strokeWidth={1.8} aria-hidden="true" /> Not sure yet? Talk to us
+                    </a>
+                </footer>
+            </div>
         </div>
     );
 }
