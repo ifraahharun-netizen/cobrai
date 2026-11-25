@@ -188,7 +188,8 @@ export async function GET(req: Request) {
             ])
             : [[], [], [], []];
 
-        const toMajor = (value: number) => (value >= 10000 ? Math.round(value) / 100 : value);
+        // Customer.mrr and Invoice.amount are MINOR units; the panel shows pounds.
+        const toMajor = (value: number) => Math.round(value) / 100;
 
         for (const thread of threads) {
             const c = thread.customerId ? accounts.get(thread.customerId) : undefined;
@@ -199,7 +200,7 @@ export async function GET(req: Request) {
                     email: c.email,
                     plan: c.plan,
                     seats: c.seats,
-                    mrr: c.mrr,
+                    mrr: toMajor(Number(c.mrr || 0)),
                     status: c.status,
                     healthScore: c.healthScore,
                     riskScore: c.riskScore,

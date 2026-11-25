@@ -9,6 +9,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { PlanTier } from "@/lib/permissions";
 import type { ActionFirstRecommendation, Insight } from "@/lib/ai/types";
+import { getDemoStory } from "@/lib/demo/story";
 
 
 type RiskLevel = "critical" | "high" | "medium" | "low";
@@ -67,160 +68,47 @@ type DashboardSummaryResponse = {
 
 const PAGE_SIZE = 10;
 
-const DEMO_ROWS: RiskRow[] = [
-    {
-        id: "demo-cedarworks",
+// Demo rows and header come from the shared demo story, so Accounts matches
+// the Dashboard, Metrics and the account pages. MRR here is pounds.
+const DEMO_STORY = getDemoStory();
+
+function demoRiskLevel(score: number): RiskLevel {
+    if (score >= 85) return "critical";
+    if (score >= 70) return "high";
+    if (score >= 55) return "medium";
+    return "low";
+}
+
+const DEMO_ROWS: RiskRow[] = DEMO_STORY.accounts
+    .slice()
+    .sort((a, b) => b.risk - a.risk)
+    .map((account) => ({
+        id: account.id,
         customerId: null,
-        companyName: "CedarWorks",
-        email: "support@cedarworks.io",
-        riskScore: 91,
-        riskLevel: "critical",
-        reasonLabel: "Billing issue",
-        mrr: 219,
-        nextAction: "Confirm billing contact and resolve payment today.",
-        lastActiveAt: "2026-04-12T10:00:00.000Z",
-    },
-    {
-        id: "demo-kite-labs",
-        customerId: null,
-        companyName: "Kite Labs",
-        email: "finance@kitelabs.io",
-        riskScore: 87,
-        riskLevel: "critical",
-        reasonLabel: "No activity in 25 days",
-        mrr: 129,
-        nextAction: "Send a personal check-in and offer a quick walkthrough.",
-        lastActiveAt: "2026-04-04T09:00:00.000Z",
-    },
-    {
-        id: "demo-nova-pay",
-        customerId: null,
-        companyName: "NovaPay",
-        email: "ops@novapay.io",
-        riskScore: 76,
-        riskLevel: "high",
-        reasonLabel: "Usage dropped",
-        mrr: 84,
-        nextAction: "Send a value recap and suggest a success call.",
-        lastActiveAt: "2026-04-18T13:00:00.000Z",
-    },
-    {
-        id: "demo-brightdesk",
-        customerId: null,
-        companyName: "BrightDesk",
-        email: "hello@brightdesk.co",
-        riskScore: 69,
-        riskLevel: "medium",
-        reasonLabel: "Reduced product activity",
-        mrr: 72,
-        nextAction: "Highlight unused features and offer setup support.",
-        lastActiveAt: "2026-04-20T16:00:00.000Z",
-    },
-    {
-        id: "demo-orbit-crm",
-        customerId: null,
-        companyName: "Orbit CRM",
-        email: "team@orbitcrm.com",
-        riskScore: 63,
-        riskLevel: "medium",
-        reasonLabel: "Support issue unresolved",
-        mrr: 66,
-        nextAction: "Follow up on the open support request.",
-        lastActiveAt: "2026-04-21T11:00:00.000Z",
-    },
-    {
-        id: "demo-flowbyte",
-        customerId: null,
-        companyName: "Flowbyte",
-        email: "billing@flowbyte.io",
-        riskScore: 58,
-        riskLevel: "medium",
-        reasonLabel: "Payment method needs attention",
-        mrr: 51,
-        nextAction: "Ask customer to update payment details.",
-        lastActiveAt: "2026-04-22T15:00:00.000Z",
-    },
-    {
-        id: "demo-cloudora",
-        customerId: null,
-        companyName: "Cloudora",
-        email: "success@cloudora.ai",
-        riskScore: 48,
-        riskLevel: "low",
-        reasonLabel: "Slight decline in weekly usage",
-        mrr: 47,
-        nextAction: "Send product tips to increase engagement.",
-        lastActiveAt: "2026-04-25T10:00:00.000Z",
-    },
-    {
-        id: "demo-signalstack",
-        customerId: null,
-        companyName: "SignalStack",
-        email: "admin@signalstack.io",
-        riskScore: 44,
-        riskLevel: "low",
-        reasonLabel: "Limited team adoption",
-        mrr: 39,
-        nextAction: "Recommend inviting more users.",
-        lastActiveAt: "2026-04-26T12:00:00.000Z",
-    },
-    {
-        id: "demo-paypilot",
-        customerId: null,
-        companyName: "PayPilot",
-        email: "accounts@paypilot.co",
-        riskScore: 39,
-        riskLevel: "low",
-        reasonLabel: "Light engagement",
-        mrr: 32,
-        nextAction: "Send monthly value summary.",
-        lastActiveAt: "2026-04-27T09:00:00.000Z",
-    },
-    {
-        id: "demo-retainly",
-        customerId: null,
-        companyName: "Retainly",
-        email: "team@retainly.io",
-        riskScore: 35,
-        riskLevel: "low",
-        reasonLabel: "Normal usage",
-        mrr: 28,
-        nextAction: "Maintain normal check-in cadence.",
-        lastActiveAt: "2026-04-28T10:00:00.000Z",
-    },
-    {
-        id: "demo-launchgrid",
-        customerId: null,
-        companyName: "LaunchGrid",
-        email: "hello@launchgrid.co",
-        riskScore: 28,
-        riskLevel: "low",
-        reasonLabel: "Active usage",
-        mrr: 21,
-        nextAction: "Share advanced feature recommendations.",
-        lastActiveAt: "2026-04-28T14:00:00.000Z",
-    },
-    {
-        id: "demo-metriclane",
-        customerId: null,
-        companyName: "MetricLane",
-        email: "ops@metriclane.io",
-        riskScore: 22,
-        riskLevel: "low",
-        reasonLabel: "Strong engagement",
-        mrr: 19,
-        nextAction: "Offer expansion opportunity.",
-        lastActiveAt: "2026-04-29T08:00:00.000Z",
-    },
-];
+        companyName: account.name,
+        email: account.email ?? undefined,
+        riskScore: account.risk,
+        riskLevel: demoRiskLevel(account.risk),
+        reasonLabel: account.signal.reasonLabel,
+        mrr: account.mrrMajor,
+        nextAction: account.signal.nextAction,
+        lastActiveAt: account.lastActiveAt ?? undefined,
+    }));
 
 const DEMO_SUMMARY: Summary = {
-    mrrAtRisk: 348, // £, the two critical accounts (CedarWorks £219 + Kite Labs £129)
-    accountsAtRisk: 2,
-    totalCustomers: 12,
-    totalCustomersDelta: 0,
-    riskScore: 78,
-    mrrAtRiskDeltaPct: 0,
+    // Accounts scoring 60+ (the same rule as the live at-risk list).
+    mrrAtRisk: DEMO_STORY.mrrAtRisk.current,
+    accountsAtRisk: DEMO_STORY.atRisk.length,
+    totalCustomers: DEMO_STORY.subscribers.current,
+    totalCustomersDelta: Number(
+        (
+            ((DEMO_STORY.subscribers.current - DEMO_STORY.subscribers.previous) /
+                DEMO_STORY.subscribers.previous) *
+            100
+        ).toFixed(1)
+    ),
+    riskScore: DEMO_STORY.weightedRisk,
+    mrrAtRiskDeltaPct: DEMO_STORY.mrrAtRisk.deltaPct,
     churnProbabilityDeltaPct: 0,
 };
 

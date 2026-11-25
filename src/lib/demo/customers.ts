@@ -1,3 +1,5 @@
+import { DEMO_ACCOUNT_SIGNALS } from "./story";
+
 export type CobraiCustomerListItem = {
     id: string;
     name: string;
@@ -235,6 +237,29 @@ export function getDemoRecoveryQueue() {
             const isCritical = churnRisk >= 85;
             const isHighRisk = churnRisk >= 70;
             const isMediumRisk = churnRisk >= 55;
+            // Failed payments come from the shared demo story (CedarWorks, Kite Labs).
+            const failedPaymentMinor = DEMO_ACCOUNT_SIGNALS[customer.id]?.failedPaymentMinor ?? 0;
+
+            if (failedPaymentMinor > 0) {
+                return {
+                    id: customer.id,
+                    customerId: customer.id,
+                    accountRiskId: customer.id,
+                    type: "billing_recovery" as DemoRecoveryQueueType,
+                    priority: isCritical ? "Critical" : isHighRisk ? "High" : "Medium",
+                    name: customer.name,
+                    email: customer.email,
+                    reason: DEMO_ACCOUNT_SIGNALS[customer.id].reason,
+                    action: "Retry the failed subscription payment",
+                    opportunity: "Billing recovery",
+                    whyNow: DEMO_ACCOUNT_SIGNALS[customer.id].reason,
+                    suggestedAction:
+                        "Retry the failed subscription payment and send a billing recovery email if the retry is unsuccessful.",
+                    valueMinor: failedPaymentMinor,
+                    confidence: 92,
+                    lastEventAt: customer.lastActiveAt,
+                };
+            }
 
             const type: DemoRecoveryQueueType = isCritical
                 ? "immediate_attention"

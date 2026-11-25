@@ -53,6 +53,8 @@ export type InboxMessageView = {
     channel?: InboxChannel | null;
 };
 
+import { getDemoAccounts } from "./demo/story";
+
 /** Account details shown beside a conversation. MRR is in whole pounds, like the Accounts page. */
 export type InboxAccount = {
     id: string;
@@ -220,19 +222,19 @@ export function demoThreads(): InboxThread[] {
             bodyText: "Hi,\n\nThanks for reaching out. Honestly we've been using it less since our analyst left. Wednesday works. Can you show us the automated reports? If we can't get value without a dedicated analyst we may downgrade.\n\nSam",
         },
         {
-            id: "demo-2a", threadKey: threadKeyFor("ops@novapay.io", "Payment issue on your account"), customerId: "demo-novapay", customerName: "NovaPay",
+            id: "demo-2a", threadKey: threadKeyFor("ops@novapay.io", "Payment issue on your account"), customerId: "demo-nova-pay", customerName: "NovaPay",
             direction: "outbound", source: "retention", fromEmail: from, fromName: "Billing", toEmail: "ops@novapay.io",
             subject: "Payment issue on your account", createdAt: ago(52), status: "sent", read: true, openedAt: ago(50),
-            bodyText: "Hi there,\n\nYour last payment of £1,320 didn't go through. Could you update your card details using the link below so there's no interruption to your service?\n\nThanks,\nBilling",
+            bodyText: "Hi there,\n\nYour last payment of £84 didn't go through. Could you update your card details using the link below so there's no interruption to your service?\n\nThanks,\nBilling",
         },
         {
-            id: "demo-2b", channel: "outlook", threadKey: threadKeyFor("ops@novapay.io", "Payment issue on your account"), customerId: "demo-novapay", customerName: "NovaPay",
+            id: "demo-2b", channel: "outlook", threadKey: threadKeyFor("ops@novapay.io", "Payment issue on your account"), customerId: "demo-nova-pay", customerName: "NovaPay",
             direction: "inbound", source: "inbox", fromEmail: "ops@novapay.io", fromName: "Priya Shah", toEmail: from,
             subject: "Re: Payment issue on your account", createdAt: ago(20), status: "received", read: true,
             bodyText: "Card was replaced after a fraud alert. I've updated it now, can you retry the payment?\n\nPriya",
         },
         {
-            id: "demo-2c", threadKey: threadKeyFor("ops@novapay.io", "Payment issue on your account"), customerId: "demo-novapay", customerName: "NovaPay",
+            id: "demo-2c", threadKey: threadKeyFor("ops@novapay.io", "Payment issue on your account"), customerId: "demo-nova-pay", customerName: "NovaPay",
             direction: "outbound", source: "inbox", fromEmail: from, fromName: "Billing", toEmail: "ops@novapay.io",
             subject: "Re: Payment issue on your account", createdAt: ago(18), status: "sent", read: true,
             bodyText: "Thanks Priya, the retry went through. You're all set.\n\nBilling",
@@ -244,79 +246,106 @@ export function demoThreads(): InboxThread[] {
             bodyText: "Hi team,\n\nWe noticed fewer logins over the last two weeks. Here's a two-minute recap of three features that save the most time for teams your size...\n\nCustomer Success",
         },
         {
-            id: "demo-4a", threadKey: threadKeyFor("team@brightops.io", "Annual plan for BrightOps"), customerId: "demo-brightops", customerName: "BrightOps",
-            direction: "outbound", source: "retention", fromEmail: from, fromName: "Customer Success", toEmail: "team@brightops.io",
-            subject: "Annual plan for BrightOps", createdAt: ago(96), status: "sent", read: true, openedAt: ago(90), clickedAt: ago(89),
-            bodyText: "Hi BrightOps team,\n\nUsage is up 40% this month. Moving to an annual plan would save you two months' cost. Happy to send a quote.\n\nCustomer Success",
+            id: "demo-4a", threadKey: threadKeyFor("ops@metriclane.io", "Annual plan for MetricLane"), customerId: "demo-metriclane", customerName: "MetricLane",
+            direction: "outbound", source: "retention", fromEmail: from, fromName: "Customer Success", toEmail: "ops@metriclane.io",
+            subject: "Annual plan for MetricLane", createdAt: ago(96), status: "sent", read: true, openedAt: ago(90), clickedAt: ago(89),
+            bodyText: "Hi MetricLane team,\n\nUsage is up 40% this month. Moving to an annual plan would save you two months' cost. Happy to send a quote.\n\nCustomer Success",
         },
         {
-            id: "demo-4b", channel: "hubspot", threadKey: threadKeyFor("team@brightops.io", "Annual plan for BrightOps"), customerId: "demo-brightops", customerName: "BrightOps",
-            direction: "inbound", source: "inbox", fromEmail: "team@brightops.io", fromName: "Leo Martin", toEmail: from,
-            subject: "Re: Annual plan for BrightOps", createdAt: ago(6), status: "received", read: false,
-            bodyText: "Yes please, send over a quote for 25 seats. Does annual include priority support?\n\nLeo",
+            id: "demo-4b", channel: "hubspot", threadKey: threadKeyFor("ops@metriclane.io", "Annual plan for MetricLane"), customerId: "demo-metriclane", customerName: "MetricLane",
+            direction: "inbound", source: "inbox", fromEmail: "ops@metriclane.io", fromName: "Leo Martin", toEmail: from,
+            subject: "Re: Annual plan for MetricLane", createdAt: ago(6), status: "received", read: false,
+            bodyText: "Yes please, send over a quote for 5 seats. Does annual include priority support?\n\nLeo",
         },
         {
-            id: "demo-5a", threadKey: threadKeyFor("billing@peakops.io", "We couldn't process your payment"), customerId: null, customerName: "Peak Ops",
-            direction: "outbound", source: "retention", fromEmail: from, fromName: "Billing", toEmail: "billing@peakops.io",
+            id: "demo-5a", threadKey: threadKeyFor("success@cedarworks.io", "We couldn't process your payment"), customerId: "demo-cedarworks", customerName: "CedarWorks",
+            direction: "outbound", source: "retention", fromEmail: from, fromName: "Billing", toEmail: "success@cedarworks.io",
             subject: "We couldn't process your payment", createdAt: ago(120), status: "failed", read: true,
-            bodyText: "Hi,\n\nWe tried to charge £1,070 but the payment failed. Please update your payment method.\n\nBilling",
+            bodyText: "Hi,\n\nWe tried to charge £219 but the payment failed. Please update your payment method.\n\nBilling",
         },
         {
-            id: "demo-6a", channel: "intercom", threadKey: threadKeyFor("it@lumahealth.com", "SSO for our team?"), customerId: "demo-luma-health", customerName: "Luma Health",
-            direction: "inbound", source: "inbox", fromEmail: "it@lumahealth.com", fromName: "Dana Okafor", toEmail: from,
+            id: "demo-6a", channel: "intercom", threadKey: threadKeyFor("hello@launchgrid.co", "SSO for our team?"), customerId: "demo-launchgrid", customerName: "LaunchGrid",
+            direction: "inbound", source: "inbox", fromEmail: "hello@launchgrid.co", fromName: "Dana Okafor", toEmail: from,
             subject: "SSO for our team?", createdAt: ago(9), status: "received", read: false,
-            bodyText: "Hello,\n\nWe're adding 15 more people next quarter and our security team needs SSO (Okta) before we can roll it out. Is that on your Pro plan or do we need to upgrade?\n\nThanks,\nDana",
+            bodyText: "Hello,\n\nWe're adding a few more people next quarter and our security team needs SSO (Okta) before we can roll it out. Is that on the Starter plan or do we need to upgrade?\n\nThanks,\nDana",
         },
         {
-            id: "demo-7a", channel: "zendesk", threadKey: threadKeyFor("hello@orbitstack.dev", "Exporting our data"), customerId: null, customerName: "Orbit Stack",
-            direction: "inbound", source: "inbox", fromEmail: "hello@orbitstack.dev", fromName: "Marcus Lee", toEmail: from,
+            id: "demo-7a", channel: "zendesk", threadKey: threadKeyFor("team@orbitcrm.com", "Exporting our data"), customerId: "demo-orbit-crm", customerName: "Orbit CRM",
+            direction: "inbound", source: "inbox", fromEmail: "team@orbitcrm.com", fromName: "Marcus Lee", toEmail: from,
             subject: "Exporting our data", createdAt: ago(40), status: "received", read: true,
             bodyText: "Hi, how do we export all our reports as CSV? We're reviewing our tools this month.\n\nMarcus",
         },
     ];
 
-    const accounts: Record<string, InboxAccount> = {
-        "demo-luma-health": {
-            id: "demo-luma-health", name: "Luma Health", email: "it@lumahealth.com", plan: "Pro", seats: 40, mrr: 6600,
-            status: "Expansion", healthScore: 79, riskScore: 18, lastActiveAt: ago(2), customerSince: ago(24 * 290), website: "lumahealth.com",
-            riskReasons: [], previousRiskScore: 22, activeDays30d: 27, unpaid: { count: 0, amount: 0 },
-            recentActions: [{ title: "Expansion check-in", at: ago(24 * 12), status: "sent", opened: true, replied: false }],
-        },
+    // Side-panel accounts come from the shared demo story, so MRR, risk and
+    // unpaid amounts match Accounts and the Dashboard. MRR is pounds.
+    const extras: Record<string, Pick<InboxAccount, "previousRiskScore" | "activeDays30d" | "website" | "riskReasons" | "recentActions">> = {
         "demo-kite-labs": {
-            id: "demo-kite-labs", name: "Kite Labs", email: "finance@kitelabs.io", plan: "Growth", seats: 18, mrr: 12900,
-            status: "High risk", healthScore: 38, riskScore: 74, lastActiveAt: ago(26), customerSince: ago(24 * 410), website: "kitelabs.io",
-            riskReasons: ["Usage down 48% in 30 days", "Analyst (main user) left the team", "Renewal in 23 days"], previousRiskScore: 61, activeDays30d: 9, unpaid: { count: 0, amount: 0 },
+            website: "kitelabs.io", previousRiskScore: 75, activeDays30d: 3,
+            riskReasons: ["Renewal payment failed", "No activity in 25 days", "Analyst (main user) left the team"],
             recentActions: [
                 { title: "Renewal check-in", at: ago(30), status: "sent", opened: true, replied: true },
                 { title: "Reporting feature tips", at: ago(24 * 16), status: "sent", opened: false, replied: false },
             ],
         },
-        "demo-novapay": {
-            id: "demo-novapay", name: "NovaPay", email: "ops@novapay.io", plan: "Pro", seats: 32, mrr: 13200,
-            status: "Recovered", healthScore: 71, riskScore: 28, lastActiveAt: ago(3), customerSince: ago(24 * 620), website: "novapay.io",
-            riskReasons: ["Card declined after fraud alert"], previousRiskScore: 64, activeDays30d: 24, unpaid: { count: 0, amount: 0 },
+        "demo-nova-pay": {
+            website: "novapay.io", previousRiskScore: 70, activeDays30d: 11,
+            riskReasons: ["Weekly usage down 35% since last month"],
             recentActions: [{ title: "Payment recovery email", at: ago(52), status: "sent", opened: true, replied: true }],
         },
         "demo-cedarworks": {
-            id: "demo-cedarworks", name: "CedarWorks", email: "success@cedarworks.io", plan: "Pro", seats: 24, mrr: 21900,
-            status: "Critical risk", healthScore: 22, riskScore: 91, lastActiveAt: ago(24 * 9), customerSince: ago(24 * 365), website: "cedarworks.io",
-            riskReasons: ["No logins for 9 days", "Seats used fell from 24 to 7", "Support tickets up 3×"], previousRiskScore: 83, activeDays30d: 4, unpaid: { count: 1, amount: 2190 },
+            website: "cedarworks.io", previousRiskScore: 79, activeDays30d: 4,
+            riskReasons: ["Latest invoice failed", "Usage down 42% in 14 days", "Seats used fell from 24 to 7"],
             recentActions: [
+                { title: "Billing recovery email", at: ago(120), status: "failed", opened: false, replied: false },
                 { title: "What's new recap", at: ago(70), status: "sent", opened: true, replied: false },
-                { title: "Win-back offer", at: ago(24 * 21), status: "sent", opened: false, replied: false },
             ],
         },
-        "demo-brightops": {
-            id: "demo-brightops", name: "BrightOps", email: "team@brightops.io", plan: "Growth", seats: 25, mrr: 8400,
-            status: "Healthy", healthScore: 86, riskScore: 12, lastActiveAt: ago(1), customerSince: ago(24 * 180), website: "brightops.io",
-            riskReasons: [], previousRiskScore: 15, activeDays30d: 29, unpaid: { count: 0, amount: 0 },
+        "demo-orbit-crm": {
+            website: "orbitcrm.com", previousRiskScore: 56, activeDays30d: 14,
+            riskReasons: ["Support issue unresolved", "Asked how to export all their data"],
+            recentActions: [],
+        },
+        "demo-metriclane": {
+            website: "metriclane.io", previousRiskScore: 25, activeDays30d: 28,
+            riskReasons: [],
             recentActions: [{ title: "Annual plan offer", at: ago(96), status: "sent", opened: true, replied: true }],
         },
+        "demo-launchgrid": {
+            website: "launchgrid.co", previousRiskScore: 31, activeDays30d: 26,
+            riskReasons: [],
+            recentActions: [{ title: "Expansion check-in", at: ago(24 * 12), status: "sent", opened: true, replied: false }],
+        },
     };
+
+    const accounts: Record<string, InboxAccount> = Object.fromEntries(
+        getDemoAccounts()
+            .filter((a) => extras[a.id])
+            .map((a) => [
+                a.id,
+                {
+                    id: a.id,
+                    name: a.name,
+                    email: a.email,
+                    plan: a.plan,
+                    seats: Number(a.seats || 0),
+                    mrr: a.mrrMajor,
+                    status: a.status ?? "Active",
+                    healthScore: Number(a.healthScore || 0),
+                    riskScore: a.risk,
+                    lastActiveAt: a.lastActiveAt,
+                    customerSince: a.createdAt,
+                    unpaid: a.signal.failedPaymentMinor
+                        ? { count: 1, amount: a.signal.failedPaymentMinor / 100 }
+                        : { count: 0, amount: 0 },
+                    ...extras[a.id],
+                },
+            ])
+    );
 
     return buildThreads(raw).map((thread) => ({
         ...thread,
         account: thread.customerId ? accounts[thread.customerId] ?? null : null,
-        starred: thread.customerId === "demo-kite-labs" || thread.customerId === "demo-brightops",
+        starred: thread.customerId === "demo-kite-labs" || thread.customerId === "demo-metriclane",
     }));
 }

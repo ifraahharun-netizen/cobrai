@@ -60,11 +60,12 @@ function demoCustomers(): BehaviourCustomerInput[] {
     const growing = (dashboard.opportunities ?? []).map((account) => ({
         id: account.id,
         name: account.company,
-        plan: null,
-        seats: null,
-        mrr: account.upside,
-        churnRisk: 15,
-        healthScore: 85,
+        plan: detail.get(account.id)?.plan ?? null,
+        seats: detail.get(account.id)?.seats ?? null,
+        // Customer.mrr is pence; this list is pounds.
+        mrr: Number(detail.get(account.id)?.mrr ?? 0) / 100,
+        churnRisk: Number(detail.get(account.id)?.riskScore ?? 15),
+        healthScore: Number(detail.get(account.id)?.healthScore ?? 85),
         daysInactive: 0,
         failedPayments: 0,
         failedPaymentAmount: 0,
