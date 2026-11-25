@@ -1531,8 +1531,9 @@ export default function CustomerDetailPage() {
                         <div className={ui.grid}>
                             <section aria-labelledby="claude-read">
                                 <div className={ui.sectionHead}>
+                                    {/* Built from the account's signals and timeline, not written by Claude. */}
                                     <h2 id="claude-read" className={ui.sectionTitle}>
-                                        Claude&apos;s read
+                                        Cobrai&apos;s read
                                     </h2>
                                 </div>
                                 <div className={ui.box}>

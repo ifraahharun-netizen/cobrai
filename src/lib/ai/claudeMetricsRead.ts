@@ -60,6 +60,8 @@ export const MetricsSnapshotSchema = z.object({
             returning: z.array(z.number().finite()).max(60),
             new: z.array(z.number().finite()).max(60),
             churned: z.array(z.number().finite()).max(60),
+            /** Total subscribers at the end of each month: the "Subscribers" figure on the page. */
+            total: z.array(z.number().finite()).max(60).optional(),
         })
         .optional(),
     /** Revenue that can still be won back, by the action it needs, with the accounts behind it. */
@@ -178,7 +180,7 @@ Return:
   - sentiment: good, bad or neutral for the business.
   Return an empty list when the series are empty or too short to call anything out.
 
-Series labels tell you the period: daily labels mean daily values, month labels mean monthly values. activeUsersSeries is either daily active users or monthly total subscribers; describe it accordingly. subscriberMovement gives, for each month, returning, new and churned subscribers.
+Series labels tell you the period: daily labels mean daily values, month labels mean monthly values. activeUsersSeries is either daily active users or monthly total subscribers; describe it accordingly. subscriberMovement gives, for each month, returning, new and churned subscribers, and total: the number of subscribers at the end of that month. The last value of subscriberMovement.total is the current subscriber count shown on the page as "Subscribers"; when present, use it for subscriber counts.
 
 Only use the numbers and names given. Never invent account names, causes, customers or events the data does not show; say "likely" when you infer. Treat null as unknown, not zero. Missing sections mean no data. Money is in the currency given, in major units (348 means 348.00). Percentages are percent values (2.6 means 2.6%).`;
 
