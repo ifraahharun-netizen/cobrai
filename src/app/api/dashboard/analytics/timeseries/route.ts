@@ -3,7 +3,17 @@ import { prisma } from "@/lib/prisma";
 import { verifyFirebaseIdToken } from "@/lib/firebaseAdmin";
 
 import { buildDemoSeries } from "@/lib/demo/analytics";
-import { Currency } from "lucide-react";
+import { computeMonthlyMetrics, type MonthMetrics } from "@/lib/stripe-connect/metrics";
+
+/*
+ * Units: Customer.mrr and MrrSnapshot.mrrMinor are MINOR units (pence).
+ * Event.value and AccountRisk.mrr are MAJOR units. Every *Minor field in the
+ * response is minor units of `currency`.
+ *
+ * With MRR snapshots (connected Stripe), every figure comes from per-customer
+ * monthly snapshots via computeMonthlyMetrics, so MRR, churn, movement and
+ * NRR/GRR reconcile exactly.
+ */
 export const runtime = "nodejs";
 
 export const dynamic = "force-dynamic";
@@ -69,6 +79,11 @@ function monthKey(date: Date) {
     return `${date.getFullYear()}-${String(
         date.getMonth() + 1
     ).padStart(2, "0")}`;
+}
+
+function shiftMonthKey(key: string, delta: number) {
+    const [y, m] = key.split("-").map(Number);
+    return monthKey(new Date(y, m - 1 + delta, 1));
 }
 
 function startOfMonth(date: Date) {
@@ -330,6 +345,7 @@ export async function GET(req: Request) {
                                 tier: true,
                                 demoMode: true,
                                 trialEndsAt: true,
+                                currency: true,
                             },
                         },
                     },
@@ -356,7 +372,9 @@ export async function GET(req: Request) {
                 user.workspace.trialEndsAt
             ).getTime() > Date.now();
 
-        const workspaceCurrency = "GBP";
+        const workspaceCurrency = (
+            user.workspace?.currency || "GBP"
+        ).toUpperCase();
 
         if (
             user.workspace?.demoMode
@@ -405,10 +423,6 @@ export async function GET(req: Request) {
             prisma.customer.findMany({
                 where: {
                     workspaceId,
-
-                    createdAt: {
-                        lte: lastMonthEnd,
-                    },
                 },
 
                 select: {
@@ -416,6 +430,9 @@ export async function GET(req: Request) {
                     name: true,
                     email: true,
                     createdAt: true,
+                    customerSince: true,
+                    stripeCustomerId: true,
+                    currency: true,
                     mrr: true,
                     status: true,
                     canceledAt: true,
@@ -509,6 +526,7 @@ export async function GET(req: Request) {
                     id: true,
                     amount: true,
                     paidAt: true,
+                    failedAt: true,
 
                     customer: {
                         select: {
@@ -527,20 +545,24 @@ export async function GET(req: Request) {
                 take: 100,
             }),
 
+            // Snapshots from 12 months before the range, so the first
+            // month has a starting point and reactivations are recognised.
             prisma.mrrSnapshot.findMany({
                 where: {
                     workspaceId,
 
                     month: {
-                        in: keys,
+                        gte: shiftMonthKey(firstKey, -12),
+                        lte: lastKey,
                     },
-
-                    active: true,
                 },
 
                 select: {
+                    stripeCustomerId: true,
                     month: true,
                     mrrMinor: true,
+                    trialMrrMinor: true,
+                    currency: true,
                 },
             }),
         ]);
@@ -579,708 +601,257 @@ export async function GET(req: Request) {
             });
         }
 
-        const snapshotSumByMonth =
-            new Map<
-                string,
-                number
-            >();
-
-        for (const row of snapshotRows) {
-            snapshotSumByMonth.set(
-                row.month,
-                (
-                    snapshotSumByMonth.get(
-                        row.month
-                    ) || 0
-                ) +
-                Number(
-                    row.mrrMinor || 0
-                )
+        // Only sum one currency: the workspace's.
+        const currencySnapshotRows =
+            snapshotRows.filter(
+                (r) =>
+                    !r.currency ||
+                    r.currency.toUpperCase() ===
+                    workspaceCurrency
             );
+
+        const otherCurrencyMrrMinor: Record<string, number> = {};
+        for (const r of snapshotRows) {
+            if (
+                r.month === lastKey &&
+                r.currency &&
+                r.currency.toUpperCase() !== workspaceCurrency
+            ) {
+                const c = r.currency.toUpperCase();
+                otherCurrencyMrrMinor[c] =
+                    (otherCurrencyMrrMinor[c] || 0) + Number(r.mrrMinor || 0);
+            }
         }
 
-        const mrr = keys.map(
-            (key) => {
-                const snapshotValue =
-                    snapshotSumByMonth.get(
-                        key
-                    );
-
-                if (
-                    typeof snapshotValue ===
-                    "number"
-                ) {
-                    return {
-                        month: key,
-                        valueMinor:
-                            snapshotValue,
-                    };
-                }
-
-                const [year, month] =
-                    key
-                        .split("-")
-                        .map(Number);
-
-                const monthEnd =
-                    endOfMonth(
-                        new Date(
-                            year,
-                            month - 1,
-                            1
-                        )
-                    );
-
-                const liveCalculatedMrr =
-                    customers
-                        .filter((c) => {
-                            const created =
-                                c.createdAt <=
-                                monthEnd;
-
-                            const active =
-                                !c.canceledAt ||
-                                c.canceledAt >
-                                monthEnd;
-
-                            return (
-                                created &&
-                                active
-                            );
-                        })
-                        .reduce(
-                            (
-                                sum,
-                                c
-                            ) =>
-                                sum +
-                                Math.round(
-                                    Number(
-                                        c.mrr || 0
-                                    ) * 100
-                                ),
-                            0
-                        );
-
-                return {
-                    month: key,
-                    valueMinor:
-                        liveCalculatedMrr,
-                };
-            }
-        );
+        const customerSince = (c: (typeof customers)[number]) =>
+            c.customerSince ?? c.createdAt;
 
         const monthBounds =
             keys.map((key) => {
-                const [
-                    year,
-                    month,
-                ] = key
-                    .split("-")
-                    .map(Number);
-
-                const start =
-                    startOfMonth(
-                        new Date(
-                            year,
-                            month - 1,
-                            1
-                        )
-                    );
-
-                const end =
-                    endOfMonth(start);
-
-                return {
-                    key,
-                    start,
-                    end,
-                };
+                const [year, month] = key.split("-").map(Number);
+                const start = startOfMonth(new Date(year, month - 1, 1));
+                const end = endOfMonth(start);
+                return { key, start, end };
             });
 
-        const churn =
-            monthBounds.map(
-                (bound, idx) => {
-                    if (idx === 0) {
-                        return {
-                            month:
-                                bound.key,
-                            valuePct:
-                                null,
-                        };
-                    }
-
-                    const prev =
-                        monthBounds[
-                        idx - 1
-                        ];
-
-                    const prevActiveBase =
-                        customers.filter(
-                            (c) => {
-                                const createdOk =
-                                    c.createdAt <=
-                                    prev.end;
-
-                                const activeAtPrevEnd =
-                                    !c.canceledAt ||
-                                    c.canceledAt >
-                                    prev.end;
-
-                                return (
-                                    createdOk &&
-                                    activeAtPrevEnd
-                                );
-                            }
-                        );
-
-                    const churnedThisMonth =
-                        prevActiveBase.filter(
-                            (c) => {
-                                return (
-                                    !!c.canceledAt &&
-                                    c.canceledAt >
-                                    prev.end &&
-                                    c.canceledAt <=
-                                    bound.end
-                                );
-                            }
-                        );
-
-                    const valuePct =
-                        prevActiveBase.length >
-                            0
-                            ? Math.round(
-                                (churnedThisMonth.length /
-                                    prevActiveBase.length) *
-                                1000
-                            ) / 10
-                            : null;
-
-                    return {
-                        month:
-                            bound.key,
-                        valuePct,
-                    };
-                }
-            );
-
         const mau =
-            monthBounds.map(
-                (bound) => {
-                    const activeUsers =
-                        customers.filter(
-                            (c) => {
-                                if (
-                                    !c.lastActiveAt
-                                ) {
-                                    return false;
-                                }
+            monthBounds.map((bound) => ({
+                month: bound.key,
+                activeUsers: customers.filter(
+                    (c) =>
+                        !!c.lastActiveAt &&
+                        c.lastActiveAt >= bound.start &&
+                        c.lastActiveAt <= bound.end
+                ).length,
+            }));
 
-                                return (
-                                    c.lastActiveAt >=
-                                    bound.start &&
-                                    c.lastActiveAt <=
-                                    bound.end
-                                );
-                            }
-                        ).length;
+        let monthMetrics: MonthMetrics[];
 
-                    return {
-                        month:
-                            bound.key,
-                        activeUsers,
-                    };
-                }
+        if (currencySnapshotRows.length > 0) {
+            monthMetrics = computeMonthlyMetrics(
+                currencySnapshotRows,
+                keys
             );
+        } else {
+            // No snapshots (no Stripe connection, e.g. HubSpot only):
+            // approximate from Customer rows. Customer.mrr is minor units.
+            const sumMrr = (rows: typeof customers) =>
+                rows.reduce((t, c) => t + Number(c.mrr || 0), 0);
+            const activeAt = (end: Date) =>
+                customers.filter(
+                    (c) =>
+                        customerSince(c) <= end &&
+                        (!c.canceledAt || c.canceledAt > end) &&
+                        Number(c.mrr || 0) > 0
+                );
 
-        const activityByMonth: ActivityByMonthRow[] =
-            monthBounds.map(
-                (bound) => {
-                    const totalSubscribers =
-                        customers.filter(
-                            (c) => {
-                                const createdOk =
-                                    c.createdAt <=
-                                    bound.end;
+            monthMetrics = monthBounds.map((bound, idx) => {
+                const active = activeAt(bound.end);
+                const prevEnd = idx > 0 ? monthBounds[idx - 1].end : null;
+                const prev = prevEnd ? activeAt(prevEnd) : null;
+                const churned =
+                    prev && prevEnd
+                        ? prev.filter(
+                            (c) =>
+                                !!c.canceledAt &&
+                                c.canceledAt > prevEnd &&
+                                c.canceledAt <= bound.end
+                        )
+                        : [];
+                const fresh = customers.filter(
+                    (c) =>
+                        customerSince(c) >= bound.start &&
+                        customerSince(c) <= bound.end &&
+                        Number(c.mrr || 0) > 0
+                );
+                return {
+                    month: bound.key,
+                    mrrMinor: sumMrr(active),
+                    trialMrrMinor: 0,
+                    payingCustomers: active.length,
+                    trialingCustomers: 0,
+                    startMrrMinor: prev ? sumMrr(prev) : null,
+                    newMinor: prev ? sumMrr(fresh) : 0,
+                    reactivationMinor: 0,
+                    expansionMinor: 0,
+                    contractionMinor: 0,
+                    churnedMinor: prev ? sumMrr(churned) : 0,
+                    newCustomers: prev ? fresh.length : 0,
+                    reactivatedCustomers: 0,
+                    churnedCustomers: churned.length,
+                    upgrades: 0,
+                    downgrades: 0,
+                    newTrials: 0,
+                    churnPct:
+                        prev && prev.length > 0
+                            ? Math.round((churned.length / prev.length) * 1000) / 10
+                            : null,
+                    nrrPct: null,
+                    grrPct: null,
+                    moves: [],
+                };
+            });
+        }
 
-                                const active =
-                                    !c.canceledAt ||
-                                    c.canceledAt >
-                                    bound.end;
+        const mrr = monthMetrics.map((m) => ({
+            month: m.month,
+            valueMinor: m.mrrMinor,
+        }));
 
-                                return (
-                                    createdOk &&
-                                    active
-                                );
-                            }
-                        ).length;
+        const churn = monthMetrics.map((m) => ({
+            month: m.month,
+            valuePct: m.churnPct,
+        }));
 
-                    const newCustomersThisMonth =
-                        customers.filter(
-                            (c) => {
-                                return (
-                                    c.createdAt >=
-                                    bound.start &&
-                                    c.createdAt <=
-                                    bound.end
-                                );
-                            }
-                        );
+        const activityByMonth = monthMetrics.map((m) => ({
+            month: m.month,
+            churned: m.churnedCustomers,
+            retained: Math.max(
+                0,
+                m.payingCustomers - m.newCustomers - m.reactivatedCustomers
+            ),
+            newSubscribers: m.newCustomers + m.reactivatedCustomers,
+            trials: m.newTrials,
+            totalSubscribers: m.payingCustomers,
+            upgrades: m.upgrades,
+            downgrades: m.downgrades,
+            trialingSubscribers: m.trialingCustomers,
 
-                    const newTrials =
-                        newCustomersThisMonth.filter(
-                            (c) => {
-                                const status =
-                                    String(
-                                        c.status ||
-                                        ""
-                                    ).toLowerCase();
+            // Exact MRR movement (minor units), from per-customer snapshots.
+            startMrrMinor: m.startMrrMinor,
+            endMrrMinor: m.mrrMinor,
+            trialMrrMinor: m.trialMrrMinor,
+            newMrrMinor: m.newMinor + m.reactivationMinor,
+            reactivationMrrMinor: m.reactivationMinor,
+            expansionMrrMinor: m.expansionMinor,
+            contractionMrrMinor: m.contractionMinor,
+            churnedMrrMinor: m.churnedMinor,
+            nrrPct: m.nrrPct,
+            grrPct: m.grrPct,
+        }));
 
-                                return status.includes(
-                                    "trial"
-                                );
-                            }
-                        ).length;
+        const currentMetrics = monthMetrics[monthMetrics.length - 1];
 
-                    const newSubscriptions =
-                        newCustomersThisMonth.length -
-                        newTrials;
+        const currentMrr = currentMetrics?.mrrMinor ?? 0;
 
-                    const unsubscribes =
-                        customers.filter(
-                            (c) => {
-                                return (
-                                    !!c.canceledAt &&
-                                    c.canceledAt >=
-                                    bound.start &&
-                                    c.canceledAt <=
-                                    bound.end
-                                );
-                            }
-                        ).length;
-
-                    return {
-                        month: bound.key,
-                        churned: unsubscribes,
-
-                        retained: totalSubscribers - unsubscribes,
-
-                        newSubscribers: newSubscriptions,
-
-                        trials: newTrials,
-                        totalSubscribers,
-                    };
-                }
-            );
-
-        const currentMrr =
-            mrr[mrr.length - 1]
-                ?.valueMinor ?? 0;
-
-        const prevMrr =
-            mrr.length > 1
-                ? mrr[
-                    mrr.length - 2
-                ]?.valueMinor ??
-                null
-                : null;
+        const prevMrr = currentMetrics?.startMrrMinor ?? null;
 
         const deltaMinor =
-            typeof prevMrr ===
-                "number"
-                ? currentMrr -
-                prevMrr
-                : null;
+            typeof prevMrr === "number" ? currentMrr - prevMrr : null;
 
         const deltaPct =
-            typeof prevMrr ===
-                "number" &&
-                prevMrr > 0
-                ? Math.round(
-                    ((currentMrr -
-                        prevMrr) /
-                        prevMrr) *
-                    1000
-                ) / 10
+            typeof prevMrr === "number" && prevMrr > 0
+                ? Math.round(((currentMrr - prevMrr) / prevMrr) * 1000) / 10
                 : null;
 
-        const currentChurn =
-            churn[
-                churn.length - 1
-            ]?.valuePct ?? null;
+        const currentChurn = churn[churn.length - 1]?.valuePct ?? null;
 
         const prevChurn =
-            churn.length > 1
-                ? churn[
-                    churn.length - 2
-                ]?.valuePct ??
-                null
-                : null;
+            churn.length > 1 ? churn[churn.length - 2]?.valuePct ?? null : null;
 
         const deltaPp =
-            typeof currentChurn ===
-                "number" &&
-                typeof prevChurn ===
-                "number"
-                ? Math.round(
-                    (currentChurn -
-                        prevChurn) *
-                    10
-                ) / 10
+            typeof currentChurn === "number" && typeof prevChurn === "number"
+                ? Math.round((currentChurn - prevChurn) * 10) / 10
                 : null;
 
-        const driverAccountsMap =
-            new Map<
-                string,
-                DriverAccountRow
-            >();
+        // This month's per-customer MRR moves.
+        const customerByStripeId = new Map(
+            customers
+                .filter((c) => c.stripeCustomerId)
+                .map((c) => [c.stripeCustomerId as string, c])
+        );
 
-        for (const event of events) {
-            const customer =
-                event.customer;
+        const moveLabel: Record<string, string> = {
+            new: "New subscription started",
+            reactivation: "Reactivated subscription",
+            expansion: "Plan upgrade",
+            contraction: "Plan downgrade",
+            churned: "Cancelled",
+        };
 
-            if (!customer) {
-                continue;
-            }
+        const lastEventFor = (id: string) => {
+            const e = events.find((ev) => ev.customerId === id);
+            return e?.occurredAt ? e.occurredAt.toISOString() : null;
+        };
 
-            const type = String(
-                event.type || ""
-            ).toLowerCase();
+        const namedMoves = (currentMetrics?.moves ?? []).map((move) => {
+            const c = customerByStripeId.get(move.stripeCustomerId);
+            return {
+                move,
+                id: c?.id ?? move.stripeCustomerId,
+                name: c?.name || "Unnamed account",
+                email: c?.email ?? null,
+                lastEventAt: c ? lastEventFor(c.id) : null,
+            };
+        });
 
-            const amountMinor =
-                typeof event.value ===
-                    "number" &&
-                    Number.isFinite(
-                        event.value
-                    )
-                    ? Math.round(
-                        event.value *
-                        100
-                    )
-                    : Math.round(
-                        Number(
-                            customer.mrr ||
-                            0
-                        ) * 100
-                    );
-
-            if (amountMinor <= 0) {
-                continue;
-            }
-
-            let label:
-                | string
-                | null = null;
-
-            if (
-                type.includes(
-                    "new_subscription"
-                ) ||
-                type.includes(
-                    "subscription_created"
-                ) ||
-                type ===
-                "new_subscription"
-            ) {
-                label =
-                    "New subscription started";
-            } else if (
-                type.includes(
-                    "upgrade"
-                ) ||
-                type.includes(
-                    "seat_increase"
-                ) ||
-                type.includes(
-                    "expansion"
-                ) ||
-                type ===
-                "plan_upgraded"
-            ) {
-                label =
-                    "Plan upgrade";
-            }
-
-            if (!label) {
-                continue;
-            }
-
-            const existing =
-                driverAccountsMap.get(
-                    customer.id
-                );
-
-            const existingValue =
-                existing?.valueMinor ||
-                0;
-
-            const eventTime =
-                event.occurredAt
-                    ? event.occurredAt.toISOString()
-                    : null;
-
-            const lastEventAt =
-                existing
-                    ?.lastEventAt &&
-                    eventTime
-                    ? new Date(
-                        existing.lastEventAt
-                    ) >
-                        new Date(
-                            eventTime
-                        )
-                        ? existing.lastEventAt
-                        : eventTime
-                    : existing
-                        ?.lastEventAt ||
-                    eventTime;
-
-            driverAccountsMap.set(
-                customer.id,
-                {
-                    id: customer.id,
-
-                    accountName:
-                        customer.name ||
-                        "Unnamed account",
-
-                    email:
-                        customer.email ||
-                        null,
-
-                    label,
-
-                    valueMinor:
-                        existingValue +
-                        amountMinor,
-
-                    tone: "positive",
-
-                    lastEventAt,
-                }
-            );
-        }
-
-        for (const invoice of invoices) {
-            const customer =
-                invoice.customer;
-
-            if (!customer) {
-                continue;
-            }
-
-            const recoveredMinor =
-                Math.round(
-                    Number(
-                        invoice.amount ||
-                        0
-                    )
-                );
-
-            if (
-                recoveredMinor <= 0
-            ) {
-                continue;
-            }
-
-            const existing =
-                driverAccountsMap.get(
-                    customer.id
-                );
-
-            const existingValue =
-                existing?.valueMinor ||
-                0;
-
-            const paidTime =
-                invoice.paidAt
-                    ? invoice.paidAt.toISOString()
-                    : null;
-
-            const lastEventAt =
-                existing
-                    ?.lastEventAt &&
-                    paidTime
-                    ? new Date(
-                        existing.lastEventAt
-                    ) >
-                        new Date(
-                            paidTime
-                        )
-                        ? existing.lastEventAt
-                        : paidTime
-                    : existing
-                        ?.lastEventAt ||
-                    paidTime;
-
-            driverAccountsMap.set(
-                customer.id,
-                {
-                    id: customer.id,
-
-                    accountName:
-                        customer.name ||
-                        "Unnamed account",
-
-                    email:
-                        customer.email ||
-                        null,
-
-                    label:
-                        existing?.label ||
-                        "Recovered successful payment",
-
-                    valueMinor:
-                        existingValue +
-                        recoveredMinor,
-
-                    tone: "positive",
-
-                    lastEventAt,
-                }
-            );
-        }
-
-        const driverAccounts =
-            Array.from(
-                driverAccountsMap.values()
-            )
-                .sort(
-                    (a, b) =>
-                        b.valueMinor -
-                        a.valueMinor
-                )
-                .slice(0, 12);
+        const driverAccounts: DriverAccountRow[] = namedMoves
+            .filter((m) => m.move.deltaMinor > 0)
+            .slice(0, 12)
+            .map((m) => ({
+                id: m.id,
+                accountName: m.name,
+                email: m.email,
+                label: moveLabel[m.move.kind],
+                valueMinor: m.move.deltaMinor,
+                tone: "positive" as const,
+                lastEventAt: m.lastEventAt,
+            }));
 
         const newMinor =
-            driverAccounts
-                .filter((row) =>
-                    row.label
-                        .toLowerCase()
-                        .includes(
-                            "new subscription"
-                        )
-                )
-                .reduce(
-                    (sum, row) =>
-                        sum +
-                        row.valueMinor,
-                    0
-                );
+            (currentMetrics?.newMinor ?? 0) +
+            (currentMetrics?.reactivationMinor ?? 0);
+        const expansionMinor = currentMetrics?.expansionMinor ?? 0;
+        const contractionMinor = currentMetrics?.contractionMinor ?? 0;
+        const churnedMinor = currentMetrics?.churnedMinor ?? 0;
 
-        const expansionMinor =
-            driverAccounts
-                .filter((row) =>
-                    row.label
-                        .toLowerCase()
-                        .includes(
-                            "upgrade"
-                        )
-                )
-                .reduce(
-                    (sum, row) =>
-                        sum +
-                        row.valueMinor,
-                    0
-                );
-
-        const recoveredMinor =
-            driverAccounts
-                .filter((row) =>
-                    row.label
-                        .toLowerCase()
-                        .includes(
-                            "payment"
-                        )
-                )
-                .reduce(
-                    (sum, row) =>
-                        sum +
-                        row.valueMinor,
-                    0
-                );
-
-        const churnedAccounts: ChurnedAccountRow[] =
-            riskRows
-                .filter(
-                    (r) =>
-                        r.riskScore >=
-                        70
-                )
-                .slice(0, 8)
-                .map((r) => ({
-                    id:
-                        r.customerId ||
-                        r.id,
-
-                    name:
-                        r.companyName,
-
-                    email:
-                        r.customer
-                            ?.email ||
-                        null,
-
-                    mrrMinor:
-                        Math.round(
-                            Number(
-                                r.mrr || 0
-                            ) * 100
-                        ),
-
-                    lastEventAt:
-                        r.updatedAt
-                            ? r.updatedAt.toISOString()
-                            : null,
-                }));
-
-        const churnedMinor =
-            churnedAccounts.reduce(
-                (sum, row) =>
-                    sum +
-                    row.mrrMinor,
+        // Payments collected this month after a failed attempt are cash, not
+        // MRR movement, so they're reported apart from the drivers.
+        const recoveredMinor = invoices
+            .filter((invoice) => !!invoice.failedAt)
+            .reduce(
+                (sum, invoice) => sum + Math.round(Number(invoice.amount || 0)),
                 0
             );
 
-        const topMovers: TopMoverRow[] =
-            [
-                ...driverAccounts.map(
-                    (row) => ({
-                        id: row.id,
-                        name: row.accountName,
-                        email:
-                            row.email,
-                        deltaMinor:
-                            row.valueMinor,
-                        label:
-                            row.label,
-                    })
-                ),
+        const churnedAccounts: ChurnedAccountRow[] = namedMoves
+            .filter((m) => m.move.kind === "churned")
+            .slice(0, 8)
+            .map((m) => ({
+                id: m.id,
+                name: m.name,
+                email: m.email,
+                mrrMinor: m.move.fromMinor,
+                lastEventAt: m.lastEventAt,
+            }));
 
-                ...churnedAccounts.map(
-                    (row) => ({
-                        id: row.id,
-                        name: row.name,
-                        email:
-                            row.email,
-                        deltaMinor:
-                            -row.mrrMinor,
-                        label:
-                            "High churn risk",
-                    })
-                ),
-            ]
-                .sort(
-                    (a, b) =>
-                        Math.abs(
-                            b.deltaMinor
-                        ) -
-                        Math.abs(
-                            a.deltaMinor
-                        )
-                )
-                .slice(0, 12);
+        const topMovers: TopMoverRow[] = namedMoves.slice(0, 12).map((m) => ({
+            id: m.id,
+            name: m.name,
+            email: m.email,
+            deltaMinor: m.move.deltaMinor,
+            label: moveLabel[m.move.kind],
+        }));
 
         const expansionRows: ExpansionRow[] =
             [];
@@ -1334,7 +905,7 @@ export async function GET(req: Request) {
                 Math.round(
                     Number(
                         c.mrr || 0
-                    ) * 100
+                    )
                 );
 
             if (mrrMinor <= 0) {
@@ -1346,12 +917,15 @@ export async function GET(req: Request) {
                     c.lastActiveAt
                 );
 
+            // churnRisk is 0..1.
             const riskScore =
                 Number(
                     c.churnRisk || 0
-                );
+                ) * 100;
 
+            // No activity data = unknown, which doesn't rule a customer out.
             const isActive =
+                !c.lastActiveAt ||
                 inactiveDays <= 14;
 
             const notHighRisk =
@@ -1361,10 +935,11 @@ export async function GET(req: Request) {
                 !c.canceledAt;
 
             const notPastDue =
-                String(
-                    c.status || ""
-                ).toLowerCase() !==
-                "past_due";
+                !["past_due", "unpaid", "canceled", "trialing"].includes(
+                    String(
+                        c.status || ""
+                    ).toLowerCase()
+                );
 
             if (
                 !isActive ||
@@ -1515,16 +1090,28 @@ export async function GET(req: Request) {
                     drivers: {
                         newMinor,
 
-                        expansionMinor:
-                            expansionMinor +
-                            recoveredMinor,
+                        expansionMinor,
 
-                        contractionMinor: 0,
+                        contractionMinor,
 
                         churnedMinor,
 
                         driverAccounts,
                     },
+
+                    trialMrrMinor:
+                        currentMetrics?.trialMrrMinor ?? 0,
+
+                    recoveredPaymentsMinor:
+                        recoveredMinor,
+
+                    nrrPct:
+                        currentMetrics?.nrrPct ?? null,
+
+                    grrPct:
+                        currentMetrics?.grrPct ?? null,
+
+                    otherCurrencyMrrMinor,
 
                     topMovers,
                 },

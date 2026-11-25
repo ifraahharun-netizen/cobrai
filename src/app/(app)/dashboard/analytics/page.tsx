@@ -28,6 +28,8 @@ import { getEmailRecommendation } from "@/lib/emailRecommendations";
 import {
     Users,
     ChevronDown,
+    Hourglass,
+    ShieldCheck,
     ArrowRight,
     PoundSterling,
     TriangleAlert,
@@ -65,6 +67,7 @@ import type { MetricsSnapshot } from "@/lib/ai/claudeMetricsRead";
 import type { AskAccount } from "@/lib/ai/claudeMetricsAsk";
 import type { ChartNote } from "@/lib/ai/claudeMetricsRead";
 import KpiTile from "./KpiTile";
+import ClaudeMark from "./ClaudeMark";
 import MetricsNav, { type NavItem } from "./MetricsNav";
 import InfoTip from "./InfoTip";
 import RevenueMovementCard from "./RevenueMovementCard";
@@ -93,11 +96,10 @@ type ChartRecord = { [key: string]: unknown };
 
 const DASH_BLUE = "#3b6fe0";
 const DASH_BLUE_LIGHT = "#c9d9fb";
-const CHURN_VIOLET = "#d0574f"; // churn line: red
-const MRR_GREEN = "#2f9461"; // MRR line: green
+const CHURN_VIOLET = "#3b6fe0"; // churn line: Cobrai blue, as on the main Dashboard
+const MRR_GREEN = "#3b6fe0"; // MRR line: Cobrai blue, as on the main Dashboard
 const CHART_INK = "#18181b";
-const GRID_DOT = "#e4e4e7";
-const AXIS_TEXT = "#a1a1aa";
+const AXIS_TEXT = "#9ca3af";
 
 function asList(value: unknown): ChartRecord[] {
     if (Array.isArray(value)) return value as ChartRecord[];
@@ -118,7 +120,6 @@ function alpha(hex: string, a: number) {
     return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
 }
 
-const DOTTED = { show: true, lineStyle: { color: GRID_DOT, type: [1, 5] as number[], width: 1 } };
 
 function toDashboardChart(
     option: EChartsOption,
@@ -142,8 +143,8 @@ function toDashboardChart(
             margin: 12,
             hideOverlap: true,
         },
-        // Dot-matrix grid on line charts (vertical dots + horizontal dots).
-        splitLine: isBar ? { show: false } : DOTTED,
+        // Dashboard style: no vertical grid lines.
+        splitLine: { show: false },
     }));
 
     const yAxis = asList(source.yAxis).map((axis) => ({
@@ -159,9 +160,8 @@ function toDashboardChart(
             margin: 10,
             ...(opts.yFormat ? { formatter: opts.yFormat } : {}),
         },
-        splitLine: isBar
-            ? { show: true, lineStyle: { color: "#f0f0f2", type: "solid", width: 1 } }
-            : DOTTED,
+        // Dashboard style: faint solid horizontal grid lines.
+        splitLine: { show: true, lineStyle: { color: "#eef1f5", type: "solid", width: 1 } },
     }));
 
     const barCount = seriesList.filter((s) => s.type === "bar").length;
@@ -178,7 +178,7 @@ function toDashboardChart(
                 showSymbol: false,
                 symbol: "circle",
                 symbolSize: 11,
-                lineStyle: { ...lineStyle, width: dashed ? 1.4 : 2, color: colour },
+                lineStyle: { ...lineStyle, width: dashed ? 1.4 : 1.8, color: colour },
                 itemStyle: { color: colour },
                 // Ring on the hovered point.
                 emphasis: {
@@ -188,22 +188,8 @@ function toDashboardChart(
                     itemStyle: { color: "#ffffff", borderColor: colour, borderWidth: 2.5 },
                     lineStyle: { width: dashed ? 1.4 : 1.8 },
                 },
-                areaStyle: dashed
-                    ? undefined
-                    : {
-                        opacity: 1,
-                        color: {
-                            type: "linear",
-                            x: 0,
-                            y: 0,
-                            x2: 0,
-                            y2: 1,
-                            colorStops: [
-                                { offset: 0, color: alpha(colour, 0.16) },
-                                { offset: 1, color: alpha(colour, 0) },
-                            ],
-                        },
-                    },
+                // Dashboard style: a plain line, no shaded area underneath.
+                areaStyle: undefined,
             };
         }
 
@@ -1968,17 +1954,6 @@ function getQueueDomain(row: RecoveryQueueItem) {
 }
 
 /** Subscriber chart colours. */
-/* Subscribers chart: solid blue returning, light blue new, coral churned. */
-const SUBS_RETURNING = "#3b6fe0";
-const SUBS_NEW = "#a9c1f5";
-const SUBS_CHURNED = "#e0705f";
-
-/** Distinct colours for the recoverable revenue groups, in rank order (biggest first). */
-const RISK_SHADES = ["#3b6fe0", "#2f9e8f", "#e3a33b", "#e0705f", "#8b6fd6"];
-function riskShade(index: number) {
-    return RISK_SHADES[Math.min(index, RISK_SHADES.length - 1)];
-}
-
 function getQueueTone(type?: RecoveryQueueItem["type"]) {
     if (type === "upsell_opportunity" || type === "expansion_momentum") return "green";
     if (type === "reactivation") return "amber";
@@ -3218,17 +3193,17 @@ export default function AnalyticsPage() {
         hasRecoveryRows
             ? recoveryQueue!
             : {
-                currentMrrMinor: demoKpis.mrrProtected,
+                // Demo: the 30-day view shows actual MRR (the same £ as the KPI card),
+                // and the goal is MRR plus everything still recoverable in the queue.
+                currentMrrMinor: demoKpis.totalMrr,
 
-                forecastMrrMinor: Math.max(
-                    demoKpis.mrrProtected,
-                    Math.round(demoKpis.mrrProtected * 2)
-                ),
+                forecastMrrMinor:
+                    demoKpis.totalMrr +
+                    demoRecoveryRows.reduce((sum, row) => sum + Number(row.valueMinor || 0), 0),
 
-                revenueGapMinor: Math.max(
-                    0,
-                    Math.round(demoKpis.mrrProtected * 2) -
-                    demoKpis.mrrProtected
+                revenueGapMinor: demoRecoveryRows.reduce(
+                    (sum, row) => sum + Number(row.valueMinor || 0),
+                    0
                 ),
 
                 potentialRecoveryMinor: demoRecoveryRows.reduce(
@@ -4469,162 +4444,6 @@ export default function AnalyticsPage() {
         };
     }, [subscriberChartRows]);
 
-    const activeUsersBarOption = useMemo<EChartsOption>(() => {
-        const source = subscriberChartRows.map((row) => {
-            const retained = Math.max(0, Number(row.retained || 0));
-            const acquired = Math.max(
-                0,
-                Number(row.newSubscribers ?? row.trials ?? 0)
-            );
-            const total = Math.max(
-                0,
-                Number(row.totalSubscribers || retained + acquired)
-            );
-            const churned = Math.max(0, Number(row.churned || 0));
-            const monthDate = new Date(`${row.month}-01T00:00:00`);
-            const tooltipMonth = Number.isNaN(monthDate.getTime())
-                ? row.month
-                : new Intl.DateTimeFormat(getBrowserLocale(), {
-                    month: "short",
-                    year: "numeric",
-                }).format(monthDate);
-
-            return {
-                month: formatMonthLong(row.month).slice(0, 3),
-                tooltipMonth,
-                retained,
-                acquired,
-                churned,
-                total,
-            };
-        });
-
-        const lastIndex = source.length - 1;
-        const tipRow = (colour: string, label: string, value: string) =>
-            `<div style="display:flex;align-items:center;justify-content:space-between;gap:28px;margin-top:6px">` +
-            `<span style="display:inline-flex;align-items:center;gap:8px;color:rgba(255,255,255,.7)">` +
-            `<i style="width:8px;height:8px;border-radius:2px;background:${colour}"></i>${label}</span>` +
-            `<b style="font-weight:500;color:#fff;font-variant-numeric:tabular-nums">${value}</b></div>`;
-
-        return {
-            backgroundColor: "transparent",
-            animationDuration: 650,
-            animationEasing: "cubicOut",
-            tooltip: {
-                trigger: "axis",
-                axisPointer: { type: "shadow", shadowStyle: { color: "rgba(59,111,224,0.05)" } },
-                // Dark tooltip, same as the other charts on this page.
-                backgroundColor: CHART_INK,
-                borderWidth: 0,
-                padding: [10, 12],
-                extraCssText: "border-radius:8px;box-shadow:0 8px 24px rgba(24,24,27,.18);",
-                textStyle: { color: "#ffffff", fontSize: 11.5, fontWeight: 400 },
-                formatter: (params: unknown) => {
-                    const items = Array.isArray(params) ? params : [params];
-                    const row = source[Number((items[0] as { dataIndex?: number })?.dataIndex ?? 0)];
-                    if (!row) return "";
-                    return (
-                        `<div style="min-width:180px">` +
-                        `<div style="font-weight:500;color:#fff;margin-bottom:2px">${row.tooltipMonth}</div>` +
-                        tipRow(SUBS_RETURNING, "Returning", String(Math.round(row.retained))) +
-                        tipRow(SUBS_NEW, "New", String(Math.round(row.acquired))) +
-                        tipRow(SUBS_CHURNED, "Churned", String(Math.round(row.churned))) +
-                        `<div style="height:1px;background:rgba(255,255,255,.14);margin:8px 0 2px"></div>` +
-                        `<div style="display:flex;justify-content:space-between;gap:28px;margin-top:6px">` +
-                        `<span style="color:rgba(255,255,255,.85)">Total subscribers</span>` +
-                        `<b style="font-weight:500;color:#fff;font-variant-numeric:tabular-nums">${Math.round(row.total)}</b></div>` +
-                        `</div>`
-                    );
-                },
-            },
-            grid: { top: 18, right: 0, bottom: 0, left: 0, containLabel: true },
-            // No visible axes: bars only. Month and values show in the hover card.
-            xAxis: {
-                type: "category",
-                data: source.map((point) => point.month),
-                axisLine: { show: false },
-                axisTick: { show: false },
-                axisLabel: { show: false },
-            },
-            yAxis: {
-                type: "value",
-                min: 0,
-                axisLine: { show: false },
-                axisTick: { show: false },
-                axisLabel: { show: false },
-                splitLine: { show: false },
-            },
-            series: [
-                // Stacked blocks like the reference: solid returning at the base,
-                // light new in the middle, coral churned on top.
-                {
-                    name: "Returning",
-                    type: "bar",
-                    stack: "subs",
-                    data: source.map((point) => point.retained),
-                    barWidth: "62%",
-                    barMaxWidth: 34,
-                    itemStyle: {
-                        color: SUBS_RETURNING,
-                        borderRadius: 5,
-                        // White border reads as a small gap between the stacked blocks.
-                        borderColor: "#ffffff",
-                        borderWidth: 1.5,
-                    },
-                    emphasis: { disabled: true },
-                    animationDelay: (index: number) => index * 35 + 0,
-                },
-                {
-                    name: "New",
-                    type: "bar",
-                    stack: "subs",
-                    data: source.map((point) => point.acquired),
-                    barWidth: "62%",
-                    barMaxWidth: 34,
-                    itemStyle: {
-                        color: SUBS_NEW,
-                        borderRadius: 5,
-                        // White border reads as a small gap between the stacked blocks.
-                        borderColor: "#ffffff",
-                        borderWidth: 1.5,
-                    },
-                    emphasis: { disabled: true },
-                    animationDelay: (index: number) => index * 35 + 40,
-                },
-                {
-                    name: "Churned",
-                    type: "bar",
-                    stack: "subs",
-                    data: source.map((point, index) => ({
-                        value: point.churned,
-                        label:
-                            index === lastIndex
-                                ? {
-                                    show: true,
-                                    position: "top",
-                                    distance: 6,
-                                    formatter: () => String(Math.round(source[index].total)),
-                                    color: "#18181b",
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                }
-                                : { show: false },
-                    })),
-                    barWidth: "62%",
-                    barMaxWidth: 34,
-                    barMinHeight: 10,
-                    itemStyle: {
-                        color: SUBS_CHURNED,
-                        borderRadius: 5,
-                        borderColor: "#ffffff",
-                        borderWidth: 1.5,
-                    },
-                    emphasis: { disabled: true },
-                    animationDelay: (index: number) => index * 35 + 80,
-                },
-            ],
-        };
-    }, [subscriberChartRows]);
 
     // Same chart style as the dashboard.
     // Compact money on the MRR axis (£2.4k), percent on the churn axis.
@@ -4645,8 +4464,50 @@ export default function AnalyticsPage() {
         () => toDashboardChart(churnTrendMiniOption, { yFormat: (v) => `${v}%` }),
         [churnTrendMiniOption]
     );
-    // Styled in place (its own colours and labels), so it skips the shared line-chart restyle.
-    const dashActiveUsersBarOption = activeUsersBarOption;
+    // Subscribers: total subscribers as a thin line, like the MRR and churn charts.
+    const subscribersLineOption = useMemo<EChartsOption>(() => {
+        const rows = subscriberChartRows.map((row) => {
+            const monthDate = new Date(`${row.month}-01T00:00:00`);
+            return {
+                month: formatMonthLong(row.month).slice(0, 3),
+                tooltipMonth: Number.isNaN(monthDate.getTime())
+                    ? row.month
+                    : new Intl.DateTimeFormat(getBrowserLocale(), { month: "short", year: "numeric" }).format(monthDate),
+                total: Math.round(Number(row.totalSubscribers || 0)),
+                returning: Math.round(Number(row.retained || 0)),
+                fresh: Math.round(Number(row.newSubscribers ?? row.trials ?? 0)),
+                churned: Math.round(Number(row.churned || 0)),
+            };
+        });
+        const line = (label: string, value: number) =>
+            `<div style="display:flex;justify-content:space-between;gap:24px;margin-top:5px"><span style="color:rgba(255,255,255,.7)">${label}</span><b style="font-weight:500;color:#fff">${value}</b></div>`;
+        return toDashboardChart(
+            {
+                tooltip: {
+                    trigger: "axis",
+                    formatter: (params: unknown) => {
+                        const items = Array.isArray(params) ? params : [params];
+                        const row = rows[Number((items[0] as { dataIndex?: number })?.dataIndex ?? 0)];
+                        if (!row) return "";
+                        return (
+                            `<div style="min-width:170px"><div style="font-weight:500;color:#fff;margin-bottom:2px">${row.tooltipMonth}</div>` +
+                            line("Subscribers", row.total) +
+                            `<div style="height:1px;background:rgba(255,255,255,.14);margin:7px 0 2px"></div>` +
+                            line("Returning", row.returning) +
+                            line("New", row.fresh) +
+                            line("Cancelled", row.churned) +
+                            `</div>`
+                        );
+                    },
+                },
+                xAxis: { type: "category", boundaryGap: false, data: rows.map((row) => row.month) },
+                yAxis: { type: "value", scale: true, splitNumber: 4 },
+                series: [{ name: "Subscribers", type: "line", data: rows.map((row) => row.total), lineStyle: { color: DASH_BLUE } }],
+            },
+            { lineColour: DASH_BLUE }
+        );
+    }, [subscriberChartRows]);
+
     const dashMrrMiniForecastOption = useMemo(() => toDashboardChart(mrrMiniForecastOption, { lineColour: MRR_GREEN }), [mrrMiniForecastOption]);
     const dashChurnImpactOption = useMemo(() => toDashboardChart(churnImpactOption, { lineColour: CHURN_VIOLET }), [churnImpactOption]);
 
@@ -5005,42 +4866,6 @@ export default function AnalyticsPage() {
         [claudeSnapshot, subscriberChartRows, riskGroups, queueRows, projectedMrr, projectedChurn, forecastChurnedUsers]
     );
 
-    // Donut of recoverable revenue by action, darkest slice for the biggest group.
-    const recoverableDonutOption = useMemo<EChartsOption>(() => {
-        const money = (minor: number) => formatCurrencyFromMinor(minor, workspaceCurrency);
-        return {
-            animationDuration: 500,
-            tooltip: {
-                trigger: "item",
-                backgroundColor: "#18181b",
-                borderWidth: 0,
-                padding: [7, 10],
-                textStyle: { color: "#ffffff", fontSize: 11.5 },
-                extraCssText: "border-radius:8px;box-shadow:0 8px 24px rgba(24,24,27,.18);",
-                formatter: (params: unknown) => {
-                    const p = params as { name: string; value: number; percent: number };
-                    return `${p.name}<br/><b>${money(p.value)}</b> · ${Math.round(p.percent)}%`;
-                },
-            },
-            series: [
-                {
-                    type: "pie",
-                    radius: ["68%", "92%"],
-                    center: ["50%", "50%"],
-                    padAngle: 2,
-                    itemStyle: { borderRadius: 4 },
-                    label: { show: false },
-                    labelLine: { show: false },
-                    emphasis: { scale: true, scaleSize: 4 },
-                    data: riskGroups.list.map((group, index) => ({
-                        name: group.label,
-                        value: group.valueMinor,
-                        itemStyle: { color: riskShade(index) },
-                    })),
-                },
-            ],
-        };
-    }, [riskGroups, workspaceCurrency]);
 
     // Opens the Ask Claude page, sending the question straight away if there is one.
     function openAsk(question?: string) {
@@ -5141,7 +4966,7 @@ export default function AnalyticsPage() {
             badge: hasAiRevenueAccess && openCount ? openCount : null,
             group: "Act",
         },
-        { id: "ask", label: "Ask Claude", icon: <Sparkles size={16} strokeWidth={1.7} />, badge: "⌘K", group: "Act" },
+        { id: "ask", label: "Ask Claude", icon: <ClaudeMark size={15} />, badge: "⌘K", group: "Act" },
     ];
 
     function selectView(next: string) {
@@ -5189,6 +5014,8 @@ export default function AnalyticsPage() {
     } else {
         content = (
             <>
+                {/* Ask Claude is a full-page chat with its own top bar, so it skips the page header. */}
+                {view !== "ask" ? (
                 <div className={styles.header}>
                     <div>
                         <h1 className={`${styles.title} ${metricStyles.pageTitle}`}>{VIEW_META[view].title}</h1>
@@ -5202,8 +5029,6 @@ export default function AnalyticsPage() {
                         >
                             {isDemoMode ? "Demo data" : "Live data"}
                         </span>
-                        {view !== "ask" ? (
-                        <>
                         <div className={metricStyles.exportWrap}>
                             <button
                                 type="button"
@@ -5230,14 +5055,13 @@ export default function AnalyticsPage() {
                             ) : null}
                         </div>
                         <button type="button" className={metricStyles.buttonPrimary} onClick={() => openAsk()} title="Ask Claude (⌘K)">
-                            <Sparkles size={14} strokeWidth={1.8} aria-hidden="true" />
+                            <ClaudeMark size={14} />
                             Ask Claude
                             <kbd className={metricStyles.kbd}>⌘K</kbd>
                         </button>
-                        </>
-                        ) : null}
                     </div>
                 </div>
+                ) : null}
                 {actionToast ? (
                     <div className={styles.actionToast}>
                         <span>{actionToast}</span>
@@ -5258,7 +5082,7 @@ export default function AnalyticsPage() {
                     open={view === "ask"}
                     onClose={() => selectView("overview")}
                     request={askRequest}
-                    snapshot={claudeSnapshot}
+                    snapshot={claudeReadSnapshot}
                     accounts={askAccounts}
                 />
 
@@ -5267,7 +5091,8 @@ export default function AnalyticsPage() {
                 {/* KPI strip: click a tile to jump to its chart */}
                 <div id="metrics-summary" className={metricStyles.kpiTiles}>
                     <KpiTile
-                        label="Monthly recurring revenue"
+                        label="Recurring revenue"
+                        icon={<PoundSterling size={14} strokeWidth={1.8} aria-hidden="true" />}
                         info="Total revenue from all active subscriptions this month. It's the clearest single measure of how the business is growing."
                         value={formatCurrencyFromMinor(demoKpis.totalMrr, workspaceCurrency)}
                         change={kpiCompare.mrr.change}
@@ -5278,7 +5103,8 @@ export default function AnalyticsPage() {
                     />
                     <KpiTile
                         label="Revenue at risk"
-                        info="Monthly revenue from customers showing signs they may cancel or not pay, such as failed payments or falling usage. Act on these first."
+                        icon={<TriangleAlert size={14} strokeWidth={1.8} aria-hidden="true" />}
+                        info="Monthly revenue you could lose: customers showing signs they may cancel or not pay, such as failed payments or falling usage. Losses only. Recoverable revenue on the Accounts tab is a different measure, as it also counts upgrade opportunities."
                         value={formatCurrencyFromMinor(demoKpis.mrrAtRisk, workspaceCurrency)}
                         change={atRiskChange}
                         changeLabel="vs previous month"
@@ -5287,7 +5113,8 @@ export default function AnalyticsPage() {
                         onAction={() => selectView("accounts")}
                     />
                     <KpiTile
-                        label="Monthly churn rate"
+                        label="Churn rate"
+                        icon={<TrendingDown size={14} strokeWidth={1.8} aria-hidden="true" />}
                         info="The share of subscribers who cancelled this month. Lower is better: every customer you keep adds to next month's revenue."
                         value={formatPct(demoKpis.churnPct)}
                         change={kpiCompare.churn.change}
@@ -5297,7 +5124,8 @@ export default function AnalyticsPage() {
                         onAction={() => jumpTo("metrics-churn")}
                     />
                     <KpiTile
-                        label="Active subscribers"
+                        label="Subscribers"
+                        icon={<Users size={14} strokeWidth={1.8} aria-hidden="true" />}
                         info="Customers with a paid subscription right now. Growth here with steady churn means your customer base is compounding."
                         value={String(subscriberTotal)}
                         change={kpiCompare.subs.change}
@@ -5609,18 +5437,18 @@ export default function AnalyticsPage() {
                             <p>Who is staying, who is new, and the revenue you can still win back.</p>
                         </div>
 
-                        <div id="metrics-subscribers" className={`${styles.activeUsersCard} ${metricStyles.gridCard} ${flash("metrics-subscribers")}`}>
-                            <div className={styles.activeUsersHeader}>
+                        {/* Subscribers: same layout as the MRR and churn cards */}
+                        <div id="metrics-subscribers" className={`${styles.revenueOverviewCard} ${metricStyles.gridCard} ${flash("metrics-subscribers")}`}>
+                            <div className={styles.revenueOverviewHeader}>
                                 <div>
-                                    <div className={styles.chartTitle}>
+                                    <h3>
                                         Subscribers
                                         <InfoTip
                                             label="Subscribers"
-                                            text="Active subscribers each month, split into returning customers and new sign-ups. Use it to see whether growth comes from keeping customers or only from winning new ones."
+                                            text="Active subscribers each month. The list below splits this month into returning customers, new sign-ups and cancellations, so you can see whether growth comes from keeping customers or only from winning new ones."
                                         />
-                                    </div>
+                                    </h3>
                                 </div>
-
                                 <ExplainButton
                                     onClick={() =>
                                         openAsk(
@@ -5630,16 +5458,11 @@ export default function AnalyticsPage() {
                                 />
                             </div>
 
-                            <div className={`${styles.revenueOverviewValueRow} ${metricStyles.cardHeadline}`}>
+                            <div className={styles.revenueOverviewValueRow}>
+                                <strong>{Math.round(subscriberChartSummary.currentTotal).toLocaleString()}</strong>
                                 {subscriberChartSummary.deltaPct !== null ? (
                                     <span className={metricStyles.headDelta}>
-                                        <b
-                                            className={
-                                                subscriberChartSummary.deltaPct >= 0
-                                                    ? metricStyles.deltaGood
-                                                    : metricStyles.deltaBad
-                                            }
-                                        >
+                                        <b className={subscriberChartSummary.deltaPct >= 0 ? metricStyles.deltaGood : metricStyles.deltaBad}>
                                             {subscriberChartSummary.currentTotal - subscriberChartSummary.previousTotal >= 0 ? "+" : "−"}
                                             {Math.abs(Math.round(subscriberChartSummary.currentTotal - subscriberChartSummary.previousTotal))} (
                                             {Math.abs(subscriberChartSummary.deltaPct).toFixed(1)}%)
@@ -5649,6 +5472,10 @@ export default function AnalyticsPage() {
                                 ) : null}
                             </div>
 
+                            <div className={styles.revenueOverviewChart}>
+                                <EChart option={subscribersLineOption} />
+                            </div>
+
                             {(() => {
                                 const latest = subscriberChartRows[subscriberChartRows.length - 1];
                                 const returning = Math.round(Number(latest?.retained || 0));
@@ -5656,44 +5483,60 @@ export default function AnalyticsPage() {
                                 const churned = Math.round(Number(latest?.churned || 0));
                                 const net = fresh - churned;
                                 return (
-                                    <ul className={metricStyles.subsLegend} aria-label="This month">
-                                        <li><i style={{ background: SUBS_RETURNING }} aria-hidden="true" />Returning <b>{returning}</b></li>
-                                        <li><i style={{ background: SUBS_NEW }} aria-hidden="true" />New <b>{fresh}</b></li>
-                                        <li><i style={{ background: SUBS_CHURNED }} aria-hidden="true" />Churned <b>{churned}</b></li>
-                                        <li className={metricStyles.subsNet}>
-                                            Net{" "}
-                                            <b className={net >= 0 ? metricStyles.deltaGood : metricStyles.deltaBad}>
+                                    <div className={metricStyles.statsGrid}>
+                                        <div>
+                                            <span>Returning subscribers</span>
+                                            <strong>{returning}</strong>
+                                            <small className={styles.statComparison}>
+                                                {renderDelta(retainedUsersDeltaPct)}
+                                                <span>vs previous month</span>
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <span>New subscribers</span>
+                                            <strong>{fresh}</strong>
+                                            <small className={styles.statComparison}>
+                                                {renderDelta(acquiredUsersDeltaPct)}
+                                                <span>vs previous month</span>
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <span>Cancelled</span>
+                                            <strong>{churned}</strong>
+                                            <small className={styles.statComparison}>
+                                                <span>vs previous month</span>
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <span>Net change</span>
+                                            <strong className={net >= 0 ? metricStyles.deltaGood : metricStyles.deltaBad}>
                                                 {net >= 0 ? "+" : "−"}{Math.abs(net)}
-                                            </b>{" "}
-                                            this month
-                                        </li>
-                                    </ul>
+                                            </strong>
+                                            <small className={styles.statComparison}>
+                                                <span>vs previous month</span>
+                                            </small>
+                                        </div>
+                                    </div>
                                 );
                             })()}
-
-                            <div className={`${styles.activeUsersChart} ${metricStyles.subscribersChart}`}>
-                                <EChart option={dashActiveUsersBarOption} />
-                            </div>
-
                         </div>
 
-                        {/* Recoverable revenue: donut by action needed, with a ranked legend */}
+                        {/* Recoverable revenue: total, then each action as a ranked row with a blue share bar */}
                         {hasAiRevenueAccess ? (
                             <section
                                 id="metrics-risk"
-                                className={`${metricStyles.recoverCard} ${metricStyles.gridCard} ${flash("metrics-risk")}`}
+                                className={`${styles.revenueOverviewCard} ${metricStyles.gridCard} ${metricStyles.recoverCard} ${flash("metrics-risk")}`}
                                 aria-labelledby="recoverable-title"
                             >
-                                <div className={metricStyles.recoverHead}>
+                                <div className={styles.revenueOverviewHeader}>
                                     <div>
                                         <h3 id="recoverable-title">
                                             Recoverable revenue
                                             <InfoTip
                                                 label="Recoverable revenue"
-                                                text="Revenue you can still save or grow, grouped by what it takes: fixing failed payments, re-engaging quiet accounts, or offering upgrades. Start with the biggest slice."
+                                                text="Revenue you can still save or grow, grouped by what it takes: fixing failed payments, re-engaging quiet accounts, or offering upgrades. It includes upgrade opportunities, so it is a different figure from Revenue at risk, which counts possible losses only. Start with the biggest group."
                                             />
                                         </h3>
-                                        <p>By the action each account needs</p>
                                     </div>
                                     <ExplainButton
                                         label="What should I do first?"
@@ -5705,44 +5548,65 @@ export default function AnalyticsPage() {
                                     />
                                 </div>
 
-                                {riskGroups.total > 0 ? (
-                                    <div className={metricStyles.recoverBody}>
-                                        <div className={metricStyles.recoverDonut}>
-                                            <EChart option={recoverableDonutOption} />
-                                            <div className={metricStyles.recoverCentre} aria-hidden="true">
-                                                <strong>{formatCurrencyFromMinor(riskGroups.total, workspaceCurrency)}</strong>
-                                                <span>
-                                                    {queueRows.length} {queueRows.length === 1 ? "account" : "accounts"}
-                                                </span>
-                                            </div>
-                                        </div>
+                                <div className={styles.revenueOverviewValueRow}>
+                                    <strong>{formatCurrencyFromMinor(riskGroups.total, workspaceCurrency)}</strong>
+                                    <span className={metricStyles.headDelta}>
+                                        <span>
+                                            to save or grow across {queueRows.length} {queueRows.length === 1 ? "account" : "accounts"} · includes upgrades
+                                        </span>
+                                    </span>
+                                </div>
 
-                                        <ol className={metricStyles.recoverLegend}>
-                                            {riskGroups.list.map((group, index) => {
-                                                const share = (group.valueMinor / riskGroups.total) * 100;
-                                                return (
-                                                    <li key={group.label}>
-                                                        <i style={{ background: riskShade(index) }} aria-hidden="true" />
-                                                        <span className={metricStyles.recoverName}>
+                                {riskGroups.total > 0 ? (
+                                    <ol className={metricStyles.recoverBars}>
+                                        {riskGroups.list.map((group) => {
+                                            const share = (group.valueMinor / riskGroups.total) * 100;
+                                            return (
+                                                <li key={group.label}>
+                                                    <div className={metricStyles.recoverBarTop}>
+                                                        <span className={metricStyles.recoverBarName}>
                                                             {group.label}
                                                             <small>
                                                                 {group.accounts} {group.accounts === 1 ? "account" : "accounts"}
                                                             </small>
                                                         </span>
-                                                        <span className={metricStyles.recoverValue}>
+                                                        <span className={metricStyles.recoverBarValue}>
                                                             {formatCurrencyFromMinor(group.valueMinor, workspaceCurrency)}
                                                             <small>{Math.round(share)}%</small>
                                                         </span>
-                                                    </li>
-                                                );
-                                            })}
-                                        </ol>
-                                    </div>
+                                                    </div>
+                                                    <span className={metricStyles.recoverBarTrack} aria-hidden="true">
+                                                        <b style={{ width: `${Math.max(2, share)}%` }} />
+                                                    </span>
+                                                </li>
+                                            );
+                                        })}
+                                    </ol>
                                 ) : (
                                     <p className={metricStyles.recoverEmpty}>
                                         Nothing to recover right now. Accounts that need action will show here.
                                     </p>
                                 )}
+
+                                {queueRows.length ? (
+                                    <div className={metricStyles.recoverTop}>
+                                        <p className={metricStyles.recoverTopLabel}>Biggest accounts</p>
+                                        <ul>
+                                            {[...queueRows]
+                                                .sort((a, b) => Number(b.valueMinor || 0) - Number(a.valueMinor || 0))
+                                                .slice(0, 3)
+                                                .map((row) => (
+                                                    <li key={row.id}>
+                                                        <span className={metricStyles.recoverTopName}>
+                                                            {row.name}
+                                                            <small>{row.opportunity || formatQueueType(row.type)}</small>
+                                                        </span>
+                                                        <strong>{formatCurrencyFromMinor(Number(row.valueMinor || 0), workspaceCurrency)}</strong>
+                                                    </li>
+                                                ))}
+                                        </ul>
+                                    </div>
+                                ) : null}
 
                                 <button
                                     type="button"
@@ -5763,7 +5627,8 @@ export default function AnalyticsPage() {
                     <div className={`${metricStyles.kpiTiles} ${metricStyles.fullRow}`}>
                         <KpiTile
                             label="Net revenue retention"
-                            info="Revenue kept from existing customers over the period, including upgrades. Above 100% means existing customers grow faster than you lose them."
+                            icon={<Repeat size={14} strokeWidth={1.8} aria-hidden="true" />}
+                            info="Starting revenue plus upgrades, minus downgrades and cancellations, as a share of starting revenue. Uses the same figures as the Revenue movement chart below. Above 100% means existing customers grow faster than you lose them."
                             value={retentionKpis.nrr !== null ? `${retentionKpis.nrr.toFixed(1)}%` : "—"}
                             change={null}
                             changeLabel={`${periodLabel.toLowerCase()} · estimated`}
@@ -5771,7 +5636,8 @@ export default function AnalyticsPage() {
                         />
                         <KpiTile
                             label="Gross revenue retention"
-                            info="Revenue kept from existing customers before upgrades, so only losses count. It shows how well you hold on to what you already have."
+                            icon={<ShieldCheck size={14} strokeWidth={1.8} aria-hidden="true" />}
+                            info="Starting revenue minus downgrades and cancellations, as a share of starting revenue. Only losses count, so it shows how well you hold on to what you already have. Uses the same figures as the Revenue movement chart below."
                             value={retentionKpis.grr !== null ? `${retentionKpis.grr.toFixed(1)}%` : "—"}
                             change={null}
                             changeLabel={`${periodLabel.toLowerCase()} · estimated`}
@@ -5779,6 +5645,7 @@ export default function AnalyticsPage() {
                         />
                         <KpiTile
                             label="Avg monthly churn"
+                            icon={<TrendingDown size={14} strokeWidth={1.8} aria-hidden="true" />}
                             info="The average share of subscribers who cancelled each month over the period."
                             value={retentionKpis.avgChurn !== null ? `${retentionKpis.avgChurn.toFixed(1)}%` : "—"}
                             change={null}
@@ -5792,6 +5659,7 @@ export default function AnalyticsPage() {
                         />
                         <KpiTile
                             label="Avg customer lifetime"
+                            icon={<Hourglass size={14} strokeWidth={1.8} aria-hidden="true" />}
                             info="Roughly how long a customer stays, worked out as 1 ÷ average monthly churn. Lower churn means customers stay longer."
                             value={retentionKpis.lifetimeMonths !== null ? `${Math.round(retentionKpis.lifetimeMonths)} months` : "—"}
                             change={null}

@@ -11,10 +11,7 @@ function getBearerToken(req: Request) {
     return m?.[1] || null;
 }
 
-function isCanceledStatus(status: string | null | undefined) {
-    const s = (status || "").toLowerCase();
-    return s === "canceled" || s === "cancelled" || s === "churned";
-}
+const WINDOW_DAYS = 30;
 
 export async function GET(req: Request) {
     try {
@@ -43,22 +40,62 @@ export async function GET(req: Request) {
 
         const workspaceId = user.workspaceId;
 
-        const customers = await prisma.customer.findMany({
-            where: { workspaceId },
-            select: {
-                mrr: true,
-                riskScore: true,
-                status: true,
-            },
-        });
+        /*
+         * "Revenue saved" = revenue actually recovered in the last 30 days
+         * (MINOR units of the workspace currency):
+         *   - invoices that failed and were later paid (amount collected)
+         *   - cancellations that were scheduled and then withdrawn (that
+         *     subscription's MRR, recorded by the Connect webhook)
+         * It used to be the MRR of every customer with riskScore < 65.
+         */
+        const since = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
-        const mrrProtected = customers
-            .filter((c) => !isCanceledStatus(c.status) && Number(c.riskScore || 0) < 65)
-            .reduce((sum, c) => sum + Number(c.mrr || 0), 0);
+        const workspace = await prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            select: { currency: true },
+        });
+        const currency = (workspace?.currency || "GBP").toUpperCase();
+
+        const [recoveredInvoices, reversals] = await Promise.all([
+            prisma.invoice.aggregate({
+                where: {
+                    workspaceId,
+                    status: "paid",
+                    failedAt: { not: null },
+                    paidAt: { gte: since },
+                    isDemo: false,
+                    OR: [{ currency: null }, { currency }],
+                },
+                _sum: { amount: true },
+                _count: { _all: true },
+            }),
+            prisma.event.aggregate({
+                where: {
+                    workspaceId,
+                    type: "cancellation_reversed",
+                    occurredAt: { gte: since },
+                    isDemo: false,
+                },
+                _sum: { value: true },
+                _count: { _all: true },
+            }),
+        ]);
+
+        const recoveredInvoicesMinor = Number(recoveredInvoices._sum.amount || 0);
+        // Event.value is MAJOR units.
+        const reversedCancellationsMinor = Math.round(Number(reversals._sum.value || 0) * 100);
 
         return NextResponse.json({
             ok: true,
-            mrrProtected,
+            mrrProtected: recoveredInvoicesMinor + reversedCancellationsMinor,
+            currency,
+            windowDays: WINDOW_DAYS,
+            breakdown: {
+                recoveredInvoicesMinor,
+                recoveredInvoices: recoveredInvoices._count._all,
+                reversedCancellationsMinor,
+                reversedCancellations: reversals._count._all,
+            },
         });
     } catch (e: any) {
         console.error("dashboard/metrics/mrr-protected GET failed:", e);

@@ -755,3 +755,31 @@
     background: #101828;
     color: #ffffff;
 }
+
+/* Phone: shrink the pill to the label and button so it covers less of the page. */
+@media (max-width: 720px) {
+    .floatingOnboardingCard {
+        right: 12px;
+        bottom: 12px;
+    }
+
+    .floatingOnboardingCard .inlineIconGroup {
+        display: none;
+    }
+
+    .floatingOnboardingCard strong {
+        font-size: 12.5px;
+        padding-left: 6px;
+    }
+}
+
+@media (max-width: 720px) {
+    /* The whole pill is the button, so the separate "Set up" chip can go. */
+    .floatingOnboardingCard b {
+        display: none;
+    }
+
+    .floatingOnboardingCard {
+        padding: 9px 14px 9px 8px;
+    }
+}

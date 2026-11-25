@@ -167,8 +167,12 @@ export async function syncHubSpotWorkspace(args: {
             null;
 
         const annualRevenue = toNumberOrZero(props.annualrevenue);
-        const estimatedMrr =
+        // Customer.mrr is MINOR units, AccountRisk.mrr is MAJOR. HubSpot's
+        // annualrevenue is major units and only an estimate, used for
+        // customers with no Stripe billing.
+        const estimatedMrrMajor =
             annualRevenue > 0 ? Math.round(annualRevenue / 12) : 0;
+        const estimatedMrr = estimatedMrrMajor * 100;
 
         const derived = deriveRiskFromLastActivity(lastActiveAt);
 
@@ -180,6 +184,7 @@ export async function syncHubSpotWorkspace(args: {
             select: {
                 id: true,
                 hubspotCompanyId: true,
+                stripeCustomerId: true,
             },
         });
 
@@ -214,11 +219,25 @@ export async function syncHubSpotWorkspace(args: {
                 select: {
                     id: true,
                     hubspotCompanyId: true,
+                    stripeCustomerId: true,
                 },
             });
         }
 
-        if (customer) {
+        if (customer?.stripeCustomerId) {
+            // Billed through Stripe: MRR, status and risk come from the Stripe
+            // sync. Only link the CRM record and copy CRM fields.
+            await prisma.customer.update({
+                where: { id: customer.id },
+                data: {
+                    website: domain,
+                    plan: props.lifecyclestage || null,
+                    hubspotCompanyId,
+                },
+            });
+
+            updated += 1;
+        } else if (customer) {
             await prisma.customer.update({
                 where: { id: customer.id },
                 data: {
@@ -254,7 +273,7 @@ export async function syncHubSpotWorkspace(args: {
                     riskScore: derived.riskScore,
                     reasonKey: derived.reasonKey,
                     reasonLabel: derived.reasonLabel,
-                    mrr: estimatedMrr,
+                    mrr: estimatedMrrMajor,
                 };
 
                 if (existingRisk) {
@@ -285,6 +304,7 @@ export async function syncHubSpotWorkspace(args: {
                     healthScore: derived.healthScore,
                     lastActiveAt,
                     createdAt,
+                    customerSince: createdAt,
                     hubspotCompanyId,
                     status: derived.status,
                 },
@@ -302,7 +322,7 @@ export async function syncHubSpotWorkspace(args: {
                         riskScore: derived.riskScore,
                         reasonKey: derived.reasonKey,
                         reasonLabel: derived.reasonLabel,
-                        mrr: estimatedMrr,
+                        mrr: estimatedMrrMajor,
                     },
                 });
 

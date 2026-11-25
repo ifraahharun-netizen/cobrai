@@ -25,6 +25,12 @@ export type ActivityRow = {
     totalSubscribers?: number | null;
     churned?: number | null;
     upgrades?: number | null;
+    // Exact movement from the API (minor units), when it has per-customer data.
+    startMrrMinor?: number | null;
+    newMrrMinor?: number | null;
+    expansionMrrMinor?: number | null;
+    contractionMrrMinor?: number | null;
+    churnedMrrMinor?: number | null;
 };
 
 export function monthName(monthKey: string, withYear = true) {
@@ -80,6 +86,19 @@ export function buildMrrMovement(mrr: Point[], churn: Point[], activity: Activit
         const churnPct = churnBy.get(key) ?? 0;
         const row = activityBy.get(key);
 
+        if (row && typeof row.startMrrMinor === "number" && typeof row.newMrrMinor === "number") {
+            months.push({
+                month: key,
+                startMrr: row.startMrrMinor / 100,
+                endMrr: end,
+                newMrr: row.newMrrMinor / 100,
+                expansion: Number(row.expansionMrrMinor || 0) / 100,
+                contraction: Number(row.contractionMrrMinor || 0) / 100,
+                churned: Number(row.churnedMrrMinor || 0) / 100,
+            });
+            continue;
+        }
+
         const churned = (start * churnPct) / 100;
         const subscribers = Number(row?.totalSubscribers || 0);
         const arpa = subscribers > 0 ? end / subscribers : 0;
@@ -113,15 +132,12 @@ export function computeRetention(movement: MovementMonth[]) {
     const churned = sum("churned");
     const newMrr = sum("newMrr");
 
-    // Compound each month's retention of the revenue that existed at its start,
-    // so revenue from customers who joined mid-period doesn't distort it.
-    let nrr = 1;
-    let grr = 1;
-    for (const m of movement) {
-        if (!m.startMrr) continue;
-        nrr *= (m.startMrr + m.expansion - m.contraction - m.churned) / m.startMrr;
-        grr *= Math.max(0, m.startMrr - m.contraction - m.churned) / m.startMrr;
-    }
+    // Worked out from the same period totals the Revenue movement chart shows,
+    // so the headline percentages always reconcile with that chart:
+    //   GRR = (start − downgrades − cancellations) ÷ start
+    //   NRR = (start + upgrades − downgrades − cancellations) ÷ start
+    const grr = Math.max(0, start - contraction - churned) / start;
+    const nrr = Math.max(0, start + expansion - contraction - churned) / start;
 
     return {
         nrr: nrr * 100,
